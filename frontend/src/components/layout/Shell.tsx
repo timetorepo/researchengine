@@ -1,6 +1,6 @@
 import React from 'react'
 import { useLocation } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Sidebar } from '@/components/sidebar/Sidebar'
@@ -17,20 +17,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const isOS = theme === 're-os'
 
-  // 150ms cross-fade + 8px slide between routes
+  // Route enter transition only — no exit animation and no mode="wait".
+  // An exit-gated AnimatePresence can strand the incoming page if the exit
+  // ever fails to complete (rapid navs, heavy frames), which manifests as a
+  // blank/frozen screen that only a refresh fixes. A keyed fade-in cannot jam.
   const content = (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="h-full min-h-0"
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={location.pathname}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className="h-full min-h-0"
+    >
+      {children}
+    </motion.div>
   )
 
   if (isOS) {

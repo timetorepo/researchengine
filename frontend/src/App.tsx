@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
@@ -57,7 +57,22 @@ export default function App() {
 
 function RoutedApp() {
   const starfield = useUI((s) => s.starfield)
+  const location = useLocation()
   useGlobalShortcuts()
+
+  // Transient overlays must never survive navigation: any leftover full-screen
+  // scrim would silently swallow every click until a refresh. Close them all
+  // on every route change (location.key also covers same-path navigations).
+  useEffect(() => {
+    useUI.setState({
+      paletteOpen: false,
+      shortcutsOpen: false,
+      skillBuilderOpen: null,
+      skillRun: null,
+      islandExpanded: false,
+      sidebarOpenMobile: false,
+    })
+  }, [location.key])
 
   return (
     <>
