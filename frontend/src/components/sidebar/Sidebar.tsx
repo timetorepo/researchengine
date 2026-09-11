@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -34,6 +34,25 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   const [query, setQuery] = useState('')
 
   const anyIntegration = Object.values(integrations).some((i) => i.connected)
+
+  // Close the mobile drawer whenever the route changes (covers every nav action),
+  // and when the viewport grows past the drawer breakpoint. Without this the
+  // drawer + its scrim stay mounted over the new page, blanking the screen and
+  // swallowing clicks.
+  useEffect(() => {
+    if (useUI.getState().sidebarOpenMobile) useUI.setState({ sidebarOpenMobile: false })
+    // location.key changes on every navigation, even to the same route
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const onResize = () => { if (mq.matches && useUI.getState().sidebarOpenMobile) useUI.setState({ sidebarOpenMobile: false }) }
+    mq.addEventListener('change', onResize)
+    return () => mq.removeEventListener('change', onResize)
+  }, [])
+
+  const closeMobile = () => { if (useUI.getState().sidebarOpenMobile) useUI.setState({ sidebarOpenMobile: false }) }
 
   const filtered = useMemo(() => {
     let list = chats
@@ -78,12 +97,12 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
       {collapsed ? (
         <div className="flex flex-col items-center gap-1 mt-2">
           <IconBtn label="Expand" onClick={() => ui.toggleSidebar()}><PanelLeftOpen size={18} strokeWidth={1.5} /></IconBtn>
-          <IconBtn label="New chat" onClick={() => { const id = useStore.getState().newChat(); navigate(`/chat/${id}`) }}><Plus size={18} strokeWidth={1.5} /></IconBtn>
+          <IconBtn label="New chat" onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}><Plus size={18} strokeWidth={1.5} /></IconBtn>
           <div className="w-6 my-1" style={{ borderTop: '1px solid var(--surface-border)' }} />
           {NAV.map((n) => {
             const active = n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to)
             return (
-              <IconBtn key={n.to} label={n.label} active={active} onClick={() => navigate(n.to)}>
+              <IconBtn key={n.to} label={n.label} active={active} onClick={() => { closeMobile(); navigate(n.to) }}>
                 <n.icon size={18} strokeWidth={1.5} />
               </IconBtn>
             )
@@ -94,7 +113,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
           {/* New chat */}
           <div className="px-3 mt-1">
             <button
-              onClick={() => { const id = useStore.getState().newChat(spaceFilter ?? undefined); navigate(`/chat/${id}`) }}
+              onClick={() => { const id = useStore.getState().newChat(spaceFilter ?? undefined); closeMobile(); navigate(`/chat/${id}`) }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-[14px] text-[13px] font-medium transition-colors"
               style={{ background: 'var(--primary)', color: '#fff' }}
             >
@@ -123,6 +142,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
                 key={n.to}
                 to={n.to}
                 end={n.end}
+                onClick={closeMobile}
                 className="flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] transition-colors"
                 style={({ isActive }) => ({
                   color: isActive ? 'var(--text)' : 'var(--text-2)',

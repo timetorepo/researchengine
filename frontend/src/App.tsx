@@ -24,6 +24,7 @@ import { StarField } from '@/components/easter/StarField'
 import { DiagnosticsOverlay } from '@/components/easter/DiagnosticsOverlay'
 import { FocusPill } from '@/components/shared/FocusPill'
 import { Onboarding } from '@/components/onboarding/Onboarding'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 
 export default function App() {
@@ -60,6 +61,7 @@ function RoutedApp() {
 
   return (
     <>
+      <ErrorBoundary>
       <Shell>
         <Routes>
           <Route path="/" element={<HomeScreen />} />
@@ -75,6 +77,7 @@ function RoutedApp() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Shell>
+      </ErrorBoundary>
       <Toasts />
       <CommandPalette />
       <ShortcutsOverlay />

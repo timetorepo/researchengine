@@ -51,7 +51,7 @@ export function HomeScreen() {
 
   return (
     <div className="h-full overflow-y-auto relative">
-      <AuroraBackground className="absolute inset-0" />
+      <AuroraBackground className="absolute inset-0 pointer-events-none" />
       <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
         {/* Greeting */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">

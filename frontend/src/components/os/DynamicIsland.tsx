@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, Search, Users, Square, Wind, X } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
@@ -7,14 +7,30 @@ import { stopStream } from '@/lib/chat/runChat'
 import { fmt } from '@/lib/utils'
 import { ModelLogo } from '@/components/shared/ModelLogo'
 
-// Spec spring: damping 25 / stiffness 300. Higher stiffness keeps the island snappy.
+// Spec spring: damping 25 / stiffness 300 for the playful expansion.
+// Collapse uses a tighter, overdamped spring so it snaps shut without overshoot.
 const spring = { type: 'spring', damping: 25, stiffness: 300 } as const
+const springClosed = { type: 'spring', damping: 32, stiffness: 420 } as const
 
 export function DynamicIsland() {
   const island = useUI((s) => s.island)
   const expanded = useUI((s) => s.islandExpanded)
   const model = useStore((s) => s.settings.defaultModel)
   const pressTimer = useRef<any>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Collapse when clicking anywhere outside the island, so an expanded panel
+  // never lingers over the UI and never intercepts unrelated clicks.
+  useEffect(() => {
+    if (!expanded) return
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        useUI.setState({ islandExpanded: false })
+      }
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [expanded])
 
   const reduced = useStore((s) => s.settings.reduceMotion) ||
     (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -39,12 +55,18 @@ export function DynamicIsland() {
     `Running skill "${(island as any).name}".`
 
   // Cross-fade config when motion is reduced, spring morph otherwise.
+  // Exits are fast and opacity-only so nothing gets dragged while the pill shrinks.
   const contentAnim = reduced
     ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.12 } }
-    : { initial: { opacity: 0, scale: 0.92, y: 4 }, animate: { opacity: 1, scale: 1, y: 0 }, exit: { opacity: 0, scale: 0.95, y: -4 }, transition: spring }
+    : {
+        initial: { opacity: 0, scale: 0.94 },
+        animate: { opacity: 1, scale: 1 },
+        exit: { opacity: 0, scale: 0.96, transition: { duration: 0.13, ease: 'easeIn' } },
+        transition: expanded ? spring : springClosed,
+      }
 
   return (
-    <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-50">
+    <div ref={rootRef} className="absolute top-2.5 left-1/2 -translate-x-1/2 z-50">
       {/* Single layout-morphing container: framer animates transform, not width,
           so the pill stretches/settles on the GPU without layout thrash. */}
       <motion.div
@@ -53,13 +75,13 @@ export function DynamicIsland() {
         onPointerUp={onPointerUp}
         onClick={() => useUI.setState({ islandExpanded: !expanded })}
         className="glass cursor-pointer select-none flex flex-col overflow-hidden"
+        animate={{ borderRadius: expanded ? 26 : 999 }}
         style={{
-          borderRadius: expanded ? 26 : 999,
           border: '1px solid var(--surface-border)',
           boxShadow: '0 10px 36px -10px rgba(0,0,0,0.6)',
           willChange: reduced ? undefined : 'transform',
         }}
-        transition={spring}
+        transition={{ borderRadius: { duration: 0.22, ease: 'easeOut' }, layout: expanded ? spring : springClosed }}
         aria-label="Status island"
       >
         {/* Compact face — keyed by state so swaps cross-fade cleanly */}
@@ -143,7 +165,13 @@ export function DynamicIsland() {
               key="body"
               {...(reduced
                 ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.12 } }
-                : { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 6 }, transition: spring })}
+                : {
+                    initial: { opacity: 0, y: 8 },
+                    animate: { opacity: 1, y: 0, transition: spring },
+                    // Exit: quick clean fade — no movement, so nothing gets
+                    // dragged or clipped while the pill springs shut.
+                    exit: { opacity: 0, transition: { duration: 0.12, ease: 'easeIn' } },
+                  })}
               className="px-4 pb-4 pt-1 w-[320px]"
             >
               <div className="flex items-center gap-3 pb-3 mb-3" style={{ borderTop: '1px solid var(--surface-border)' }}>
