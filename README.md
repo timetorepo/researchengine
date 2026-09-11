@@ -1,5 +1,7 @@
 # Research Engine
 
+**Pre-release: `v0.10.0-beta.1`**
+
 A self-hosted, privacy-first research platform with Perplexity-level answer quality.
 All user data stays local; only outbound API calls to **user-configured** providers ever leave the device.
 Built for researchers, scientists, students, and privacy-conscious power users.
@@ -25,6 +27,13 @@ Uncomment the `searxng` service in `docker-compose.yml` for the full self-hosted
 ```bash
 cd frontend && npm install && npm run dev    # → http://localhost:5173
 cd backend  && npm install && npm run dev    # → http://localhost:8787 (optional)
+```
+
+Run the functional smoke test (31 checks across the chat pipeline, AIFlowEngine,
+crypto vault, quiz generation, and store):
+
+```bash
+cd frontend && npm run smoke
 ```
 
 The frontend is fully functional without the backend — a clearly-labeled **local demo model**

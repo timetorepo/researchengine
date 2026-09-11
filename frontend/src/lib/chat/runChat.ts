@@ -59,7 +59,10 @@ export async function runChat(opts: RunOptions): Promise<void> {
   activeStreams.set(chatId, controller)
   useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
 
-  const history = opts.overrideHistory ?? chat.messages
+  // Live history INCLUDING the user message just added, minus the empty
+  // assistant placeholder that is about to be streamed into.
+  const liveChat = useStore.getState().chats.find((c) => c.id === chatId)!
+  const history = opts.overrideHistory ?? liveChat.messages.slice(0, -1)
   const flowEnabled = settings.flowEnabled
   const pruned = pruneContext(history, settings.flowMode, flowEnabled)
 
