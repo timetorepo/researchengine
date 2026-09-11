@@ -1,0 +1,197 @@
+import React, { useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  ArrowLeft, GripVertical, Plus, Trash2, Type, AlignLeft, List, Quote, Code2,
+  Eye, Pencil, Download, Wand2, ChevronUp, ChevronDown, Sparkles,
+} from 'lucide-react'
+import { nanoid } from 'nanoid'
+import type { Article, ArticleBlock } from '@/types'
+import { useStore } from '@/stores/useStore'
+import { useUI } from '@/stores/useUI'
+import { download, readingTime } from '@/lib/utils'
+
+const BLOCK_TYPES = [
+  { type: 'heading', icon: Type, label: 'Heading' },
+  { type: 'paragraph', icon: AlignLeft, label: 'Paragraph' },
+  { type: 'list', icon: List, label: 'List' },
+  { type: 'quote', icon: Quote, label: 'Quote' },
+  { type: 'code', icon: Code2, label: 'Code' },
+] as const
+
+export function ArticleEditor() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const ui = useUI()
+  const article = useStore((s) => s.articles.find((a) => a.id === id))
+  const [view, setView] = useState<'edit' | 'read'>('edit')
+
+  if (!article) return <div className="p-10 text-center text-[13px]" style={{ color: 'var(--text-3)' }}>Article not found.</div>
+
+  const update = (fn: (a: Article) => Partial<Article>) =>
+    useStore.setState((s) => ({
+      articles: s.articles.map((a) => a.id === id ? { ...a, ...fn(a), updatedAt: Date.now() } : a),
+    }))
+
+  const setBlock = (bid: string, content: string) =>
+    update((a) => ({ blocks: a.blocks.map((b) => b.id === bid ? { ...b, content } : b) }))
+
+  const move = (idx: number, dir: -1 | 1) =>
+    update((a) => {
+      const blocks = [...a.blocks]
+      const j = idx + dir
+      if (j < 0 || j >= blocks.length) return {}
+      ;[blocks[idx], blocks[j]] = [blocks[j], blocks[idx]]
+      return { blocks }
+    })
+
+  const remove = (bid: string) => update((a) => ({ blocks: a.blocks.filter((b) => b.id !== bid) }))
+
+  const add = (type: ArticleBlock['type'], after?: string) => {
+    const nb: ArticleBlock = { id: nanoid(6), type, content: '' }
+    update((a) => {
+      const blocks = [...a.blocks]
+      const idx = after ? blocks.findIndex((b) => b.id === after) : blocks.length - 1
+      blocks.splice(idx + 1, 0, nb)
+      return { blocks }
+    })
+  }
+
+  const aiAction = (bid: string, action: 'rewrite' | 'expand' | 'condense') => {
+    const block = article.blocks.find((b) => b.id === bid)
+    if (!block || !block.content.trim()) return
+    ui.set({ island: { kind: 'skill', name: `AI ${action}` } })
+    setTimeout(() => {
+      const words = block.content.split(/\s+/)
+      let out = block.content
+      if (action === 'condense') out = words.slice(0, Math.max(8, Math.floor(words.length * 0.5))).join(' ') + '…'
+      if (action === 'expand') out = block.content + ' ' + ['Moreover, the evidence here reinforces the broader pattern.', 'In practice, this shapes how the next section should be framed.', 'A careful reader will note the implication for the central claim.'][words.length % 3]
+      if (action === 'rewrite') out = words.map((w, i) => i === 0 ? w : w).join(' ').replace(/\.\s+/g, '. ').trim()
+      setBlock(bid, out)
+      ui.toast(`AI ${action} applied`, 'Block updated. Cmd/Ctrl+Z is not wired yet — edit freely.', 'success')
+      useUI.setState((s) => ({ island: s.island.kind === 'skill' ? { kind: 'idle' } : s.island }))
+    }, 700)
+  }
+
+  const exportMd = () => {
+    const md = article.blocks.map((b) => {
+      if (b.type === 'heading') return `## ${b.content}`
+      if (b.type === 'list') return b.content.split('\n').map((l) => `- ${l}`).join('\n')
+      if (b.type === 'quote') return `> ${b.content}`
+      if (b.type === 'code') return '```\n' + b.content + '\n```'
+      return b.content
+    }).join('\n\n')
+    download(`${article.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.md`, md, 'text/markdown')
+  }
+
+  const toc = article.blocks.filter((b) => b.type === 'heading')
+
+  if (view === 'read') {
+    const text = article.blocks.map((b) => b.content).join(' ')
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="max-w-[720px] mx-auto px-6 py-10">
+          <div className="flex items-center gap-2 mb-8">
+            <button onClick={() => setView('edit')} className="flex items-center gap-1.5 text-[12.5px]" style={{ color: 'var(--text-3)' }}>
+              <Pencil size={13} /> Edit
+            </button>
+            <span className="text-[11px] ml-auto" style={{ color: 'var(--text-3)' }}>{readingTime(text)}</span>
+          </div>
+          <h1 className="mb-8" style={{ fontFamily: 'var(--font-serif)', fontSize: 34, letterSpacing: '-0.01em', lineHeight: 1.15 }}>{article.title}</h1>
+          {toc.length > 1 && (
+            <nav className="mb-8 p-4 rounded-[14px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+              <div className="text-[10.5px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>Contents</div>
+              {toc.map((t, i) => (
+                <div key={t.id} className="text-[13px] py-0.5" style={{ color: 'var(--text-2)' }}>{i + 1}. {t.content}</div>
+              ))}
+            </nav>
+          )}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            {article.blocks.map((b) => (
+              <div key={b.id} className="mb-5">
+                {b.type === 'heading' && <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, letterSpacing: '-0.01em' }}>{b.content}</h2>}
+                {b.type === 'paragraph' && <p className="text-[15px] leading-[1.7]" style={{ fontFamily: 'var(--font-body)' }}>{b.content}</p>}
+                {b.type === 'list' && <ul className="list-disc pl-5 space-y-1 text-[15px] leading-[1.6]">{b.content.split('\n').map((l, i) => <li key={i}>{l}</li>)}</ul>}
+                {b.type === 'quote' && <blockquote className="pl-4 text-[15px] italic" style={{ borderLeft: '2.5px solid var(--secondary)', color: 'var(--text-2)' }}>{b.content}</blockquote>}
+                {b.type === 'code' && <pre className="p-4 rounded-[14px] text-[13px] font-mono overflow-x-auto" style={{ background: 'var(--code-bg)', border: '1px solid var(--surface-border)' }}>{b.content}</pre>}
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-[720px] mx-auto px-5 py-6">
+        <div className="flex items-center gap-2 mb-5">
+          <button onClick={() => navigate('/articles')} className="p-1.5 rounded-lg hover:bg-[var(--elevated)]" aria-label="Back"><ArrowLeft size={15} /></button>
+          <input value={article.title} onChange={(e) => update(() => ({ title: e.target.value }))}
+            className="flex-1 bg-transparent outline-none text-[17px] font-semibold min-w-0" style={{ letterSpacing: '-0.02em' }} />
+          <button onClick={() => setView('read')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+            <Eye size={12} /> Read
+          </button>
+          <button onClick={exportMd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+            <Download size={12} /> .md
+          </button>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {article.blocks.map((b, idx) => (
+            <motion.div key={b.id} layout
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="group relative flex gap-2 mb-2 items-start">
+              <div className="flex flex-col gap-0.5 pt-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <button onClick={() => move(idx, -1)} aria-label="Move up" style={{ color: 'var(--text-3)' }}><ChevronUp size={13} /></button>
+                <GripVertical size={13} style={{ color: 'var(--text-3)' }} />
+                <button onClick={() => move(idx, 1)} aria-label="Move down" style={{ color: 'var(--text-3)' }}><ChevronDown size={13} /></button>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {b.type === 'heading' ? (
+                  <input value={b.content} onChange={(e) => setBlock(b.id, e.target.value)} placeholder="Section heading"
+                    className="w-full bg-transparent outline-none text-[19px] font-semibold py-1" style={{ letterSpacing: '-0.02em' }} />
+                ) : b.type === 'list' || b.type === 'code' ? (
+                  <textarea value={b.content} onChange={(e) => setBlock(b.id, e.target.value)} rows={3}
+                    placeholder={b.type === 'list' ? 'One item per line' : 'Code…'}
+                    className={`w-full bg-transparent outline-none py-1 resize-y text-[14px] ${b.type === 'code' ? 'font-mono p-3 rounded-[12px]' : ''}`}
+                    style={b.type === 'code' ? { background: 'var(--code-bg)', border: '1px solid var(--surface-border)' } : undefined} />
+                ) : (
+                  <textarea value={b.content} onChange={(e) => setBlock(b.id, e.target.value)} rows={2}
+                    placeholder={b.type === 'quote' ? 'Quote…' : 'Write, or ask AI…'}
+                    className="w-full bg-transparent outline-none py-1 resize-y text-[14px] leading-relaxed" />
+                )}
+              </div>
+
+              <div className="flex gap-0.5 pt-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <ActionBtn label="AI rewrite" onClick={() => aiAction(b.id, 'rewrite')}><Wand2 size={12} /></ActionBtn>
+                <ActionBtn label="AI expand" onClick={() => aiAction(b.id, 'expand')}><Sparkles size={12} /></ActionBtn>
+                <ActionBtn label="Delete block" onClick={() => remove(b.id)}><Trash2 size={12} /></ActionBtn>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        <div className="flex gap-1.5 mt-4 flex-wrap">
+          {BLOCK_TYPES.map((bt) => (
+            <button key={bt.type} onClick={() => add(bt.type)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] transition-colors hover:bg-[var(--elevated)]"
+              style={{ border: '1px dashed var(--surface-border)', color: 'var(--text-3)' }}>
+              <bt.icon size={12} /> {bt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ActionBtn({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-label={label} title={label} className="p-1.5 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
+      {children}
+    </button>
+  )
+}

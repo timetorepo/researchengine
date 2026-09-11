@@ -1,0 +1,203 @@
+// The send pipeline: classify → prune → shape prompt → call provider (or
+// local demo) → stream → record Flow transparency stats.
+import { nanoid } from 'nanoid'
+import { useStore } from '@/stores/useStore'
+import { classifyQuery, shapeSystemPrompt, lengthHint } from '@/lib/flow/classifier'
+import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
+import { cacheGet, cacheSet } from '@/lib/flow/cache'
+import { streamToCallback, ProviderError } from '@/lib/providers/stream'
+import { providerById } from '@/lib/providers/registry'
+import { streamDemo, demoSources, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
+import { resolveKey } from '@/lib/crypto/vault'
+import { getVaultPassphrase } from '@/lib/crypto/session'
+import { useUI } from '@/stores/useUI'
+import type { ChatMessage, Source } from '@/types'
+
+export interface RunOptions {
+  chatId: string
+  prompt: string
+  mode?: { math?: boolean; quality?: boolean; search?: boolean }
+  modelOverride?: string
+  overrideHistory?: ChatMessage[]
+}
+
+const activeStreams = new Map<string, AbortController>()
+export const stopStream = (chatId: string) => activeStreams.get(chatId)?.abort()
+export const isStreamingChat = (chatId: string) => activeStreams.has(chatId)
+
+// UI live-stream state (which message is currently receiving tokens)
+export const streamState = { chatId: null as string | null, msgId: null as string | null }
+
+export async function runChat(opts: RunOptions): Promise<void> {
+  const store = useStore.getState()
+  const { chatId, prompt } = opts
+  const chat = store.chats.find((c) => c.id === chatId)
+  if (!chat) return
+
+  const settings = store.settings
+  const mode = opts.mode ?? {}
+  if (mode.quality) mode.search = true // quality mode auto-enables search
+
+  const userMsg: ChatMessage = {
+    id: nanoid(8), role: 'user', content: prompt, createdAt: Date.now(), mode,
+  }
+  store.addMessage(chatId, userMsg)
+
+  const asstId = nanoid(8)
+  const [providerId, model] = (opts.modelOverride ?? settings.defaultModel).split(':')
+  const providerMeta = providerById(providerId)
+
+  const asstMsg: ChatMessage = {
+    id: asstId, role: 'assistant', content: '', createdAt: Date.now(),
+    model, provider: providerMeta?.name ?? providerId, mode,
+  }
+  store.addMessage(chatId, asstMsg)
+
+  streamState.chatId = chatId
+  streamState.msgId = asstId
+  const controller = new AbortController()
+  activeStreams.set(chatId, controller)
+  useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
+
+  const history = opts.overrideHistory ?? chat.messages
+  const flowEnabled = settings.flowEnabled
+  const pruned = pruneContext(history, settings.flowMode, flowEnabled)
+
+  const cls = classifyQuery(prompt)
+  const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality })
+  const customSys = settings.customSystemPrompts[mode.math ? 'math' : 'default']
+  const system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
+
+  // ---- web search sources ----
+  let sources: Source[] | undefined
+  if (mode.search) {
+    useUI.setState({ island: { kind: 'search', sources: 0 } })
+    await new Promise((r) => setTimeout(r, 500))
+    sources = demoSources(prompt, 5)
+    useUI.setState({ island: { kind: 'search', sources: sources.length } })
+    store.logConnection('search://' + settings.searchBackend, `web search: ${prompt.slice(0, 40)}`, 4096, 'local')
+    for (const s of sources) {
+      if (!store.citations.find((c) => c.url === s.url)) {
+        useStore.setState((st: any) => ({
+          citations: [...st.citations, { id: nanoid(8), title: s.title, url: s.url, domain: s.domain, savedAt: Date.now(), collection: 'Web search' }],
+        }))
+      }
+    }
+    await new Promise((r) => setTimeout(r, 350))
+    useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
+  }
+
+  // ---- resolve credentials ----
+  const pconf = settings.providers[providerId]
+  let apiKey = ''
+  if (pconf?.apiKey) apiKey = await resolveKey(pconf.apiKey, getVaultPassphrase())
+
+  const useReal = !!providerMeta && (!providerMeta.needsKey || apiKey.length > 0)
+  const t0 = performance.now()
+  let completionText = ''
+  let promptTokens = 0
+  let completionTokens = 0
+  let usedDemo = false
+  let lastIslandUpdate = 0
+  const bumpIsland = () => {
+    const now = performance.now()
+    if (now - lastIslandUpdate > 250) {
+      lastIslandUpdate = now
+      useUI.setState({ island: { kind: 'streaming', tokens: Math.round(completionText.length / 4) } })
+    }
+  }
+
+  // Flow cache hit?
+  const cached = flowEnabled ? cacheGet(prompt + JSON.stringify(mode)) : null
+
+  try {
+    if (cached) {
+      completionText = cached
+      streamFullText(chatId, asstId, cached)
+    } else if (useReal) {
+      store.logConnection(providerMeta!.baseUrl, `${providerMeta!.name} · ${model}`, estimateTokens(prompt) * 4)
+      const res = await streamToCallback({
+        providerId, model, apiKey,
+        baseUrl: pconf?.baseUrl || undefined,
+        system,
+        messages: pruned.messages,
+        temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
+        maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
+        signal: controller.signal,
+      }, (chunk) => {
+        completionText += chunk
+        useStore.getState().appendToken(chatId, asstId, chunk)
+        bumpIsland()
+      })
+      promptTokens = res.promptEstimate
+      completionTokens = res.completionTokens
+    } else {
+      usedDemo = true
+      store.logConnection('local://demo', 'on-device demo model', estimateTokens(prompt) * 4, 'local')
+      await streamDemo(prompt, { math: mode.math, quality: mode.quality, search: mode.search }, (chunk) => {
+        completionText += chunk
+        useStore.getState().appendToken(chatId, asstId, chunk)
+        bumpIsland()
+      }, controller.signal)
+      promptTokens = pruned.prunedTokens
+      completionTokens = estimateTokens(completionText)
+    }
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true })
+      return
+    }
+    const msg = e instanceof ProviderError ? `${e.provider}: ${e.message}` : String(e?.message ?? e)
+    useStore.getState().updateMessage(chatId, asstId, { error: msg })
+    cleanup(chatId)
+    return
+  }
+
+  if (flowEnabled && !cached) cacheSet(prompt + JSON.stringify(mode), completionText)
+  finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned })
+}
+
+function finish(
+  chatId: string, msgId: string, text: string,
+  ctx: { sources?: Source[]; usedDemo: boolean; promptTokens: number; completionTokens: number; pruned: any; aborted?: boolean },
+) {
+  const store = useStore.getState()
+  const settings = store.settings
+
+  const savedTokens = Math.max(0, ctx.pruned.originalTokens - ctx.pruned.prunedTokens)
+  const savedPct = ctx.pruned.originalTokens > 0
+    ? Math.round((1 - ctx.pruned.prunedTokens / Math.max(1, ctx.pruned.originalTokens)) * 100)
+    : 0
+  if (settings.flowEnabled && savedTokens > 0) store.addTokensSaved(savedTokens)
+
+  const followUps = DEMO_FOLLOW_UPS
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+
+  store.updateMessage(chatId, msgId, {
+    content: text || (ctx.aborted ? store.chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === msgId)?.content ?? '' : text),
+    sources: ctx.sources,
+    followUps,
+    flow: {
+      originalTokens: ctx.pruned.originalTokens,
+      prunedTokens: ctx.pruned.prunedTokens,
+      promptTokens: ctx.promptTokens,
+      completionTokens: ctx.completionTokens,
+      savedPct: settings.flowEnabled ? savedPct : 0,
+      costSaved: +(savedTokens * 0.000003).toFixed(5),
+    },
+  })
+  cleanup(chatId)
+}
+
+function cleanup(chatId: string) {
+  activeStreams.delete(chatId)
+  streamState.chatId = null
+  streamState.msgId = null
+  useUI.setState((s) => ({ island: s.island.kind === 'streaming' || s.island.kind === 'search' ? { kind: 'idle' } : s.island }))
+}
+
+/** Instantly render full text (cache hit). */
+function streamFullText(chatId: string, msgId: string, text: string) {
+  useStore.getState().updateMessage(chatId, msgId, { content: text })
+}

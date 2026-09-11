@@ -1,0 +1,177 @@
+// Browser-side streaming adapters. Keys are used in-memory only, never logged.
+import { providerById } from './registry'
+
+export interface StreamRequest {
+  providerId: string
+  model: string
+  apiKey: string
+  baseUrl?: string
+  system: string
+  messages: { role: 'user' | 'assistant'; content: string }[]
+  temperature?: number
+  maxTokens?: number
+  signal?: AbortSignal
+  onFirstByte?: () => void
+}
+
+export class ProviderError extends Error {
+  constructor(public provider: string, message: string) {
+    super(message)
+    this.name = 'ProviderError'
+  }
+}
+
+async function readSSE(res: Response, onData: (json: any) => boolean, onEvent?: (evt: string, json: any) => boolean) {
+  const reader = res.body!.getReader()
+  const td = new TextDecoder()
+  let buf = ''
+  let evtName = 'message'
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += td.decode(value, { stream: true })
+    const lines = buf.split('\n')
+    buf = lines.pop() ?? ''
+    for (const raw of lines) {
+      const line = raw.trim()
+      if (line.startsWith('event:')) { evtName = line.slice(6).trim(); continue }
+      if (!line.startsWith('data:')) continue
+      const data = line.slice(5).trim()
+      if (data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        if (onEvent && onEvent(evtName, json)) return
+        else if (!onEvent && onData(json)) return
+      } catch { /* partial line */ }
+    }
+  }
+}
+
+async function extractError(res: Response): Promise<string> {
+  try {
+    const body = await res.json()
+    return body?.error?.message || body?.message || `${res.status} ${res.statusText}`
+  } catch {
+    return `${res.status} ${res.statusText}`
+  }
+}
+
+/** Stream a chat completion, calling onChunk per token batch. */
+export async function streamToCallback(
+  req: StreamRequest,
+  onChunk: (text: string) => void,
+): Promise<{ promptEstimate: number; completionTokens: number }> {
+  const meta = providerById(req.providerId)
+  if (!meta) throw new ProviderError(req.providerId, 'Unknown provider')
+  const base = (req.baseUrl || meta.baseUrl).replace(/\/$/, '')
+  let completionChars = 0
+
+  if (meta.kind === 'anthropic') {
+    const res = await fetch(`${base}/messages`, {
+      method: 'POST', signal: req.signal,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': req.apiKey, 'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: req.model, stream: true, system: req.system,
+        max_tokens: req.maxTokens ?? 1024,
+        messages: req.messages,
+      }),
+    })
+    if (!res.ok) throw new ProviderError('Anthropic', await extractError(res))
+    req.onFirstByte?.()
+    await readSSE(res, () => false, (_evt, json) => {
+      if (json.type === 'content_block_delta' && json.delta?.text) {
+        completionChars += json.delta.text.length
+        onChunk(json.delta.text)
+      }
+      return json.type === 'message_stop'
+    })
+  } else if (meta.id === 'ollama') {
+    const res = await fetch(`${base}/api/chat`, {
+      method: 'POST', signal: req.signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: req.model, stream: true,
+        messages: [{ role: 'system', content: req.system }, ...req.messages],
+        options: { temperature: req.temperature ?? 0.7, num_predict: req.maxTokens ?? 1024 },
+      }),
+    })
+    if (!res.ok) throw new ProviderError('Ollama', await extractError(res))
+    req.onFirstByte?.()
+    const reader = res.body!.getReader()
+    const td = new TextDecoder()
+    let buf = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += td.decode(value, { stream: true })
+      const lines = buf.split('\n'); buf = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const json = JSON.parse(line)
+          const t = json.message?.content
+          if (t) { completionChars += t.length; onChunk(t) }
+        } catch { /* skip partial */ }
+      }
+    }
+  } else {
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (req.apiKey) headers.authorization = `Bearer ${req.apiKey}`
+    const res = await fetch(`${base}/chat/completions`, {
+      method: 'POST', signal: req.signal, headers,
+      body: JSON.stringify({
+        model: req.model, stream: true,
+        messages: [{ role: 'system', content: req.system }, ...req.messages],
+        temperature: req.temperature ?? 0.7,
+        max_tokens: req.maxTokens ?? 1024,
+      }),
+    })
+    if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
+    req.onFirstByte?.()
+    await readSSE(res, (json) => {
+      const delta = json.choices?.[0]?.delta?.content
+      if (delta) { completionChars += delta.length; onChunk(delta) }
+      return false
+    })
+  }
+
+  const sysTokens = Math.round(req.system.length / 4)
+  const msgTokens = Math.round(req.messages.reduce((a, m) => a + m.content.length, 0) / 4)
+  return { promptEstimate: sysTokens + msgTokens, completionTokens: Math.max(1, Math.round(completionChars / 4)) }
+}
+
+/** Test a provider connection; returns latency in ms or throws the real error. */
+export async function testConnection(providerId: string, apiKey: string, baseUrl?: string): Promise<number> {
+  const meta = providerById(providerId)
+  if (!meta) throw new Error('Unknown provider')
+  const base = (baseUrl || meta.baseUrl).replace(/\/$/, '')
+  const t0 = performance.now()
+
+  if (meta.id === 'ollama') {
+    const res = await fetch(`${base}/api/tags`)
+    if (!res.ok) throw new Error(`Ollama responded ${res.status}`)
+    return Math.round(performance.now() - t0)
+  }
+  if (meta.kind === 'anthropic') {
+    const res = await fetch(`${base}/models`, { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } })
+    if (!res.ok) throw new Error(await extractError(res))
+    return Math.round(performance.now() - t0)
+  }
+  const headers: Record<string, string> = {}
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`
+  const res = await fetch(`${base}/models`, { headers })
+  if (!res.ok) throw new Error(await extractError(res))
+  return Math.round(performance.now() - t0)
+}
+
+/** Auto-detect Ollama models. */
+export async function ollamaTags(baseUrl: string): Promise<string[]> {
+  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`)
+  if (!res.ok) throw new Error(`Ollama responded ${res.status}`)
+  const json = await res.json()
+  return (json.models ?? []).map((m: any) => m.name)
+}
