@@ -42,10 +42,17 @@ export function BackgroundLayer() {
 
         {bg.kind === 'veil' && (
           <>
-            <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${bg.opacity})` }} />
+            {/* Designed dark base so the veil is visible over ANY theme,
+                not just an invisible black-on-black overlay. */}
             <div className="absolute inset-0" style={{
-              background: 'radial-gradient(120% 90% at 50% 0%, transparent 40%, rgba(0,0,0,0.35) 100%)',
+              background: `
+                radial-gradient(130% 90% at 50% -10%, color-mix(in srgb, var(--primary) 9%, transparent) 0%, transparent 48%),
+                radial-gradient(130% 90% at 50% 115%, color-mix(in srgb, var(--secondary) 10%, transparent) 0%, transparent 48%),
+                linear-gradient(180deg, #101015 0%, #060608 55%, #020203 100%)
+              `,
             }} />
+            {/* Intensity layer — the slider deepens the veil, never hides content. */}
+            <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${Math.min(0.6, bg.opacity * 0.75)})` }} />
           </>
         )}
       </motion.div>

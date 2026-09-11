@@ -28,8 +28,9 @@ export const PROVIDERS: ProviderMeta[] = [
     defaultModels: [], needsKey: false, hint: 'Auto-detects local models via /api/tags',
   },
   {
-    id: 'nim', name: 'NVIDIA NIM', kind: 'openai', baseUrl: 'http://localhost:8000/v1',
-    defaultModels: [], needsKey: false, hint: 'Self-hosted inference microservices',
+    id: 'nim', name: 'NVIDIA NIM', kind: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1',
+    defaultModels: ['meta/llama-3.1-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'mistralai/mixtral-8x22b-instruct-v0.1'],
+    needsKey: true, hint: 'OpenAI-compatible — use your NVIDIA API key',
   },
   {
     id: 'together', name: 'Together', kind: 'openai', baseUrl: 'https://api.together.xyz/v1',

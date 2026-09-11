@@ -57,16 +57,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
           ) : (
             <div className="flex-1 flex min-h-0 relative">
               <OSDock />
+              {/* OS mode: the Dock is the navigation — no sidebar. */}
               <motion.main
                 layout
                 className="flex-1 min-w-0 m-3 ml-20 surface-elevated overflow-hidden flex flex-col"
                 style={{ borderRadius: 18, boxShadow: '0 24px 80px -24px rgba(0,0,0,0.6)', background: 'var(--glass)', backdropFilter: 'blur(20px)' }}
               >
                 <TopBar />
-                <div className="flex-1 min-h-0 flex">
-                  <Sidebar floating />
-                  <div className="flex-1 min-w-0 min-h-0 relative">{content}</div>
-                </div>
+                <div className="flex-1 min-h-0 relative">{content}</div>
               </motion.main>
             </div>
           )}

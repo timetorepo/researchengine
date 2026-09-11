@@ -1,10 +1,14 @@
 import React from 'react'
 import { useUI } from '@/stores/useUI'
+import { useStore } from '@/stores/useStore'
 import { AppLogo } from '@/components/shared/AppLogo'
+import { PrivacyShield } from '@/components/sidebar/Sidebar'
 
 export function TitleBar() {
   const ui = useUI()
   const minimized = ui.osMinimized
+  const integrations = useStore((s) => s.integrations)
+  const anyIntegration = Object.values(integrations).some((i) => i.connected)
 
   const minimize = () => ui.set({ osMinimized: !minimized })
   const maximize = () => {
@@ -26,7 +30,11 @@ export function TitleBar() {
       <div className="absolute left-1/2 -translate-x-1/2">
         <AppLogo size={20} withName={false} />
       </div>
-      <div className="ml-auto text-[11px]" style={{ color: 'var(--text-3)' }}>ResearchEngineOS</div>
+      {/* Privacy surface stays reachable even though the OS sidebar is hidden */}
+      <div className="ml-auto flex items-center gap-1">
+        <PrivacyShield compact amber={anyIntegration} />
+        <span className="text-[11px] pl-1" style={{ color: 'var(--text-3)' }}>ResearchEngineOS</span>
+      </div>
     </div>
   )
 }
