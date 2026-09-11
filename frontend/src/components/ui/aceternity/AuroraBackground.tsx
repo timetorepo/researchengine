@@ -21,7 +21,7 @@ export function AuroraBackground({ children, className = '' }: { children?: Reac
           animationDuration: '140s', animationDelay: '-40s',
         }} />
       </div>
-      {children && <div className="relative z-10">{children}</div>}
+      {children && <div className="relative z-10 h-full">{children}</div>}
     </div>
   )
 }

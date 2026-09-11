@@ -280,19 +280,21 @@ export function Onboarding() {
           ))}
         </div>
 
-        <div className="flex-1 min-h-0 flex items-center justify-center px-6 overflow-y-auto">
-          <AnimatePresence mode="wait" custom={dir}>
-            <motion.div
-              key={step}
-              custom={dir}
-              variants={variants}
-              initial="enter" animate="center" exit="exit"
-              transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-              className="w-full py-8"
-            >
-              {stepBody[step]}
-            </motion.div>
-          </AnimatePresence>
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 overscroll-contain">
+          <div className="min-h-full flex items-center justify-center">
+            <AnimatePresence mode="wait" custom={dir}>
+              <motion.div
+                key={step}
+                custom={dir}
+                variants={variants}
+                initial="enter" animate="center" exit="exit"
+                transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+                className="w-full py-8"
+              >
+                {stepBody[step]}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* footer nav */}
