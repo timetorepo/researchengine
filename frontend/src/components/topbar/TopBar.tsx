@@ -6,6 +6,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
+import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { fmt } from '@/lib/utils'
 
 export function TopBar() {
@@ -49,7 +50,9 @@ export function TopBar() {
         >
           <ProviderLogo id={curProvider} size={14} />
           <span className="max-w-[180px] truncate">{curModel || 'Choose model'}</span>
-          <ChevronDown size={13} style={{ color: 'var(--text-3)' }} />
+          <motion.span animate={{ rotate: pickerOpen ? 180 : 0 }} transition={{ duration: 0.18 }} className="inline-flex">
+            <ChevronDown size={13} style={{ color: 'var(--text-3)' }} />
+          </motion.span>
         </button>
 
         <AnimatePresence>
@@ -112,7 +115,7 @@ export function TopBar() {
         title="AIFlowEngine session token savings"
       >
         <Wind size={12.5} strokeWidth={1.5} style={{ color: 'var(--primary)' }} />
-        Saved <b style={{ color: 'var(--text)' }}>{fmt(saved)}</b> tokens this session
+        Saved <span style={{ color: 'var(--text)' }}><AnimatedCounter value={saved} className="font-semibold" /></span> tokens this session
       </div>
     </header>
   )

@@ -23,6 +23,7 @@ import { SkillRunModal } from '@/components/skills/SkillRunModal'
 import { StarField } from '@/components/easter/StarField'
 import { DiagnosticsOverlay } from '@/components/easter/DiagnosticsOverlay'
 import { FocusPill } from '@/components/shared/FocusPill'
+import { Onboarding } from '@/components/onboarding/Onboarding'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 
 export default function App() {
@@ -36,6 +37,15 @@ export default function App() {
   }, [settings.theme, settings.fontScale, settings.compact, settings.reduceMotion])
 
   if (notFound) return <NotFound404 />
+
+  if (!settings.onboarded) {
+    return (
+      <>
+        <Onboarding />
+        <Toasts />
+      </>
+    )
+  }
 
   return (
     <HashRouter>

@@ -1,6 +1,8 @@
 import React from 'react'
-import { Github, ShieldCheck, ExternalLink } from 'lucide-react'
+import { Github, ShieldCheck, ExternalLink, Sparkles } from 'lucide-react'
 import { AppLogo } from '@/components/shared/AppLogo'
+import { useStore } from '@/stores/useStore'
+import { Button } from '@/components/ui/heroui/Button'
 
 export function AboutTab() {
   return (
@@ -26,12 +28,16 @@ export function AboutTab() {
         <p>Featuring the AIFlowEngine optimization layer, SkillBuilder, Agent Flood orchestration, Read &amp; Quiz, articles, citation management, and a fully themeable interface including ResearchEngineOS.</p>
       </div>
 
-      <div className="flex gap-2 mt-5">
+      <div className="flex gap-2 mt-5 flex-wrap">
         <a href="https://github.com" target="_blank" rel="noreferrer"
           className="flex items-center gap-2 px-3.5 py-2 rounded-[12px] text-[13px]"
           style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
           <Github size={14} /> GitHub <ExternalLink size={11} />
         </a>
+        <Button variant="flat" size="md" startContent={<Sparkles size={14} />}
+          onClick={() => useStore.setState((s) => ({ settings: { ...s.settings, onboarded: false } }))}>
+          Run setup again
+        </Button>
       </div>
 
       <div className="mt-6 pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>

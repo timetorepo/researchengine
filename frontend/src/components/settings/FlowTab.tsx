@@ -2,6 +2,7 @@ import React from 'react'
 import { Wind } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { cacheSize, cacheClear } from '@/lib/flow/cache'
+import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { fmt } from '@/lib/utils'
 import { ToggleRow } from './AppearanceTab'
 
@@ -29,12 +30,12 @@ export function FlowTab() {
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="surface p-4">
           <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-3)' }}>This session</div>
-          <div className="text-2xl font-semibold" style={{ color: 'var(--primary)', letterSpacing: '-0.02em' }}>{fmt(savedSession)}</div>
+          <div className="text-2xl font-semibold" style={{ color: 'var(--primary)', letterSpacing: '-0.02em' }}><AnimatedCounter value={savedSession} duration={800} /></div>
           <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>tokens saved</div>
         </div>
         <div className="surface p-4">
           <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-3)' }}>Lifetime</div>
-          <div className="text-2xl font-semibold" style={{ color: 'var(--secondary)', letterSpacing: '-0.02em' }}>{fmt(savedLifetime)}</div>
+          <div className="text-2xl font-semibold" style={{ color: 'var(--secondary)', letterSpacing: '-0.02em' }}><AnimatedCounter value={savedLifetime} duration={800} /></div>
           <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>tokens saved</div>
         </div>
       </div>

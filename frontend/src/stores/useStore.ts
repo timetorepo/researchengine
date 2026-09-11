@@ -61,6 +61,8 @@ const defaultSettings: Settings = {
   osWidgets: true,
   osWallpaper: 'aurora',
   soundEffects: false,
+  background: { kind: 'default' },
+  onboarded: false,
 }
 
 const initialSpaces: Space[] = [

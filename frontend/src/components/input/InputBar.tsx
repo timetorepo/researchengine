@@ -97,8 +97,12 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     <div className={clsx('shrink-0 px-3 pb-3 pt-1', big && 'pb-6')}>
       <div className={clsx('mx-auto', big ? 'max-w-[720px]' : 'max-w-[760px]')}>
         <div
-          className="surface-elevated transition-shadow"
-          style={{ borderRadius: big ? 22 : 18, boxShadow: big ? '0 16px 48px -20px rgba(0,0,0,0.5)' : undefined }}
+          className="input-shell"
+          style={{
+            borderRadius: big ? 22 : 18,
+            background: 'var(--elevated)',
+            boxShadow: big ? '0 16px 48px -20px rgba(0,0,0,0.5)' : undefined,
+          }}
         >
           <div className="relative">
             <textarea
@@ -108,7 +112,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={big ? 'What would you like to research today?' : 'Ask, or type / for skills, @ for sources…'}
-              className="w-full bg-transparent outline-none resize-none px-4 pt-3.5 pb-1 text-[14px] leading-relaxed"
+              className="chat-input w-full bg-transparent outline-none resize-none px-4 pt-3.5 pb-1 text-[14px] leading-relaxed"
               style={{ minHeight: big ? 56 : 44 }}
               aria-label="Message input"
             />

@@ -36,6 +36,8 @@ answers until you add your own API keys.
 
 | Feature | What it does |
 |---|---|
+| **Onboarding** | First-launch guided setup: theme → background → AIFlowEngine mode → optional provider key (with encrypted vault + connection test). Re-runnable from Settings → About. |
+| **Custom backgrounds** | Solid color, image, blurred image, or dark veil — rendered behind all chrome, stored locally (images are downscaled on-device). |
 | **BYOK Providers** | OpenAI, Anthropic, Groq, Ollama (auto-detected via `/api/tags`), NVIDIA NIM, and any OpenAI-compatible endpoint (Together, Mistral, LM Studio, LocalAI, text-generation-webui). Keys are AES-GCM encrypted with a PBKDF2-derived key from your passphrase. Test-connection shows real latency or the real provider error. |
 | **AIFlowEngine** | Prompt-optimization layer: on-device query classification, context pruning into capsules, dynamic prompt shaping, response-length calibration, skill injection, and a semantic cache. Cuts token usage 40–70%. Modes: Efficient / Balanced / Fidelity. Every response has a transparency panel: original vs. pruned context, tokens sent/received, estimated cost saved. |
 | **SkillBuilder** | Turn any prompt into a reusable, parameterized skill. Auto-parameterize, typed input schema, output format, model binding, category. Callable anywhere via `/`, chainable, export/import as JSON. Seven built-in starter skills. |
@@ -65,6 +67,16 @@ translucent titlebar, glass dock, and a morphing Dynamic Island (idle model, liv
 with waveform, search scanner, agent dots, focus ring, skill spinner; long-press expands into a status panel).
 
 Every theme ships a full token set, adjusted gradients, and a matching code theme.
+
+## Component system
+
+Bundled under `src/components/ui/`:
+
+- **`heroui/`** — HeroUI-style primitives: `Button` (variants/colors/sizes/loading), `Input`, `Switch`.
+- **`aceternity/`** — `SpotlightCard` (cursor-tracked radial light), `TextGenerateEffect` (word-by-word blur reveal), `AuroraBackground`, `MovingBorder` (sweeping conic border).
+- **`reactbits/`** — `AnimatedCounter` (eased count-up), `Magnetic` (cursor-lean spring).
+
+Used across Home, Onboarding, Settings, TopBar, and the Agent Flood deploy action.
 
 ## Keyboard
 

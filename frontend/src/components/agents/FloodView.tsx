@@ -9,6 +9,7 @@ import { useUI } from '@/stores/useUI'
 import { AGENT_ROLES, AGENT_INSTRUCTIONS } from '@/lib/agents/squads'
 import { estimateTokens } from '@/lib/flow/pruner'
 import { runChat } from '@/lib/chat/runChat'
+import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
 import { fmt } from '@/lib/utils'
 
 interface PadMessage { id: string; agent: string; color: string; text: string; t: number }
@@ -232,10 +233,17 @@ export function FloodView() {
                 <Square size={13} /> Halt
               </button>
             ) : (
-              <button onClick={deploy} disabled={!objective.trim() || agents.length === 0}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-medium disabled:opacity-40 grad-flood text-white transition-transform hover:scale-105">
-                <Rocket size={14} /> Deploy {agents.length} agents
-              </button>
+              <MovingBorder
+                onClick={deploy}
+                disabled={!objective.trim() || agents.length === 0}
+                radius={999}
+                borderColor="conic-gradient(from 0deg, var(--primary), var(--secondary), transparent 45%, transparent 55%, var(--primary))"
+                className="h-11"
+              >
+                <span className="flex items-center gap-2 px-5 h-full text-[13px] font-medium text-white grad-flood" style={{ borderRadius: 999 }}>
+                  <Rocket size={14} /> Deploy {agents.length} agents
+                </span>
+              </MovingBorder>
             )}
           </div>
         </div>

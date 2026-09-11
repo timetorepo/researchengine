@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { NavLink, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus,
@@ -26,6 +26,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   const mobileOpen = useUI((s) => s.sidebarOpenMobile)
   const ui = useUI()
   const navigate = useNavigate()
+  const location = useLocation()
   const chats = useStore((s) => s.chats)
   const spaces = useStore((s) => s.spaces)
   const integrations = useStore((s) => s.integrations)
@@ -50,7 +51,13 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 
   const body = (
     <div className={clsx('h-full flex flex-col', floating && 'h-full rounded-2xl overflow-hidden')}
-      style={{ width, background: floating ? 'var(--surface)' : undefined, borderRight: floating ? 'none' : '1px solid var(--surface-border)', transition: 'width 240ms var(--spring)' }}>
+      style={{
+        width,
+        background: floating ? 'var(--glass)' : undefined,
+        backdropFilter: floating ? 'blur(20px) saturate(1.3)' : undefined,
+        borderRight: floating ? 'none' : '1px solid var(--surface-border)',
+        transition: 'width 240ms var(--spring)',
+      }}>
 
       {/* Header */}
       <div className={clsx('flex items-center px-3 pt-3 pb-2 gap-2', collapsed && 'justify-center')}>
@@ -72,11 +79,15 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
         <div className="flex flex-col items-center gap-1 mt-2">
           <IconBtn label="Expand" onClick={() => ui.toggleSidebar()}><PanelLeftOpen size={18} strokeWidth={1.5} /></IconBtn>
           <IconBtn label="New chat" onClick={() => { const id = useStore.getState().newChat(); navigate(`/chat/${id}`) }}><Plus size={18} strokeWidth={1.5} /></IconBtn>
-          {NAV.map((n) => (
-            <IconBtn key={n.to} label={n.label} onClick={() => navigate(n.to)}>
-              <n.icon size={18} strokeWidth={1.5} />
-            </IconBtn>
-          ))}
+          <div className="w-6 my-1" style={{ borderTop: '1px solid var(--surface-border)' }} />
+          {NAV.map((n) => {
+            const active = n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to)
+            return (
+              <IconBtn key={n.to} label={n.label} active={active} onClick={() => navigate(n.to)}>
+                <n.icon size={18} strokeWidth={1.5} />
+              </IconBtn>
+            )
+          })}
         </div>
       ) : (
         <>
@@ -194,10 +205,12 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   )
 }
 
-function IconBtn({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
+function IconBtn({ children, label, onClick, active = false }: { children: React.ReactNode; label: string; onClick: () => void; active?: boolean }) {
   return (
-    <button onClick={onClick} aria-label={label} title={label}
-      className="p-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}>
+    <button onClick={onClick} aria-label={label} title={label} aria-current={active ? 'page' : undefined}
+      className="relative p-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]"
+      style={{ color: active ? 'var(--primary)' : 'var(--text-2)', background: active ? 'var(--elevated)' : 'transparent' }}>
+      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full" style={{ background: 'var(--primary)' }} />}
       {children}
     </button>
   )
@@ -234,8 +247,9 @@ function ChatItem({ id, title, when }: { id: string; title: string; when: number
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -30 }}
-      className="group relative flex items-center rounded-[10px] mb-0.5"
-      style={{ height: 44, background: active ? 'var(--elevated)' : 'transparent' }}
+      className="group chat-row flex items-center rounded-[10px] mb-0.5"
+      data-active={active}
+      style={{ height: 44 }}
     >
       <button
         onClick={() => { useStore.getState().setActiveChat(id); navigate(`/chat/${id}`) }}

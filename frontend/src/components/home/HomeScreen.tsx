@@ -4,7 +4,12 @@ import { motion } from 'framer-motion'
 import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { InputBar } from '@/components/input/InputBar'
-import { greeting, timeAgo, hashHue, fmt } from '@/lib/utils'
+import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
+import { TextGenerateEffect } from '@/components/ui/aceternity/TextGenerateEffect'
+import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
+import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
+import { Magnetic } from '@/components/ui/reactbits/Magnetic'
+import { greeting, timeAgo, fmt } from '@/lib/utils'
 import { runChat } from '@/lib/chat/runChat'
 
 const SUGGESTIONS = [
@@ -25,6 +30,7 @@ export function HomeScreen() {
   const spaces = useStore((s) => s.spaces)
   const saved = useStore((s) => s.tokensSavedLifetime)
   const [chips, setChips] = useState<string[]>(() => pick(SUGGESTIONS))
+  const [mathMode, setMathMode] = useState(false)
 
   useEffect(() => {
     const iv = setInterval(() => setChips(pick(SUGGESTIONS)), 8000)
@@ -34,58 +40,65 @@ export function HomeScreen() {
   const recentChats = useMemo(() => [...chats].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3), [chats])
   const hasHistory = chats.length > 0 || articles.length > 0
 
-  const sendFromHome = (prompt: string, opts?: { search?: boolean }) => {
+  const sendFromHome = (prompt: string, opts?: { search?: boolean; quality?: boolean }) => {
     const id = useStore.getState().newChat()
     navigate(`/chat/${id}`)
-    setTimeout(() => runChat({ chatId: id, prompt, mode: { search: opts?.search || undefined } }), 80)
+    setTimeout(() => runChat({
+      chatId: id, prompt,
+      mode: { math: mathMode || undefined, search: opts?.search || undefined, quality: opts?.quality || undefined },
+    }), 80)
   }
 
   return (
     <div className="h-full overflow-y-auto relative">
-      <div className="aurora" />
+      <AuroraBackground className="absolute inset-0" />
       <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
         {/* Greeting */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">
           <h1 className="text-[clamp(26px,4vw,36px)] font-semibold" style={{ letterSpacing: '-0.02em' }}>
             {greeting()}.
           </h1>
-          <p className="text-[15px] mt-1.5" style={{ color: 'var(--text-2)' }}>
-            What would you like to research today?
-          </p>
+          <TextGenerateEffect
+            text="What would you like to research today?"
+            className="text-[15px] mt-1.5"
+            duration={0.7}
+            delay={0.15}
+          />
         </motion.div>
 
         {/* Input */}
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.3 }}>
-          <InputBar big autoFocus={false} chatId="home" emptyHistory onSend={sendFromHome} streaming={false} onStop={() => {}} mathMode={false} setMathMode={() => {}} />
+          <InputBar big autoFocus={false} chatId="home" emptyHistory onSend={sendFromHome}
+            streaming={false} onStop={() => {}} mathMode={mathMode} setMathMode={setMathMode} />
         </motion.div>
 
         {/* Rotating suggestion chips */}
         <div className="flex flex-wrap justify-center gap-2 -mt-2 mb-10 min-h-[34px]">
           {chips.map((c, i) => (
-            <motion.button
-              key={c}
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              transition={{ delay: i * 0.04 }}
-              onClick={() => sendFromHome(c)}
-              className="px-3.5 py-1.5 rounded-full text-[12px] transition-all hover:scale-[1.03] hover:border-[var(--primary)]"
-              style={{ border: '1px solid var(--surface-border)', color: 'var(--text-2)', background: 'var(--surface)' }}
-            >
-              {c}
-            </motion.button>
+            <Magnetic key={c} strength={0.2}>
+              <motion.button
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                transition={{ delay: i * 0.04 }}
+                onClick={() => sendFromHome(c)}
+                className="px-3.5 py-1.5 rounded-full text-[12px] transition-colors hover:border-[var(--primary)]"
+                style={{ border: '1px solid var(--surface-border)', color: 'var(--text-2)', background: 'var(--surface)' }}
+              >
+                {c}
+              </motion.button>
+            </Magnetic>
           ))}
         </div>
 
         {/* Bento grid */}
         {hasHistory ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Recent chats */}
             <BentoCard
               className="sm:col-span-2 grad-research"
               title="Recent research" icon={MessageSquare}
-              onClick={() => recentChats[0] && (useStore.getState().setActiveChat(recentChats[0].id), navigate(`/chat/${recentChats[0].id}`))}
+              onClick={() => { if (recentChats[0]) { useStore.getState().setActiveChat(recentChats[0].id); navigate(`/chat/${recentChats[0].id}`) } }}
             >
               <div className="space-y-2 mt-3">
-                {recentChats.length === 0 && <Empty />}
+                {recentChats.length === 0 && <div className="text-[12px] text-white/60">No chats yet.</div>}
                 {recentChats.map((c) => (
                   <button key={c.id} onClick={(e) => { e.stopPropagation(); useStore.getState().setActiveChat(c.id); navigate(`/chat/${c.id}`) }}
                     className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-[12px] transition-colors hover:bg-white/10"
@@ -100,15 +113,15 @@ export function HomeScreen() {
               </div>
             </BentoCard>
 
-            {/* Token savings */}
             <BentoCard className="grad-article" title="AIFlowEngine" icon={Sparkles}>
               <div className="mt-3">
-                <div className="text-3xl font-semibold text-white" style={{ letterSpacing: '-0.02em' }}>{fmt(saved)}</div>
+                <div className="text-3xl font-semibold text-white" style={{ letterSpacing: '-0.02em' }}>
+                  <AnimatedCounter value={saved} duration={900} />
+                </div>
                 <div className="text-[11.5px] text-white/70 mt-1">tokens saved across all sessions</div>
               </div>
             </BentoCard>
 
-            {/* Articles */}
             <BentoCard className="grad-quiz" title="Articles" icon={BookOpen} onClick={() => navigate('/articles')}>
               <div className="text-[12px] text-white/80 mt-3">
                 {articles.length === 0 ? 'Nothing published yet.' : `${articles.length} article${articles.length > 1 ? 's' : ''} in your library.`}
@@ -118,7 +131,6 @@ export function HomeScreen() {
               </div>
             </BentoCard>
 
-            {/* Spaces */}
             <BentoCard className="sm:col-span-2" title="Spaces" icon={Compass} plain>
               <div className="flex flex-wrap gap-2 mt-3">
                 {spaces.map((sp) => (
@@ -142,10 +154,6 @@ export function HomeScreen() {
 
 function pick(arr: string[]): string[] {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, 4)
-}
-
-function Empty() {
-  return <div className="text-[12px] text-white/60">No chats yet.</div>
 }
 
 function BentoCard({ title, icon: Icon, children, className = '', onClick, plain = false }: {
@@ -178,16 +186,19 @@ function GettingStarted() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {items.map((it, i) => (
-        <motion.button
-          key={it.title}
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.06 }}
-          onClick={it.go}
-          className={`text-left p-5 rounded-[18px] ${it.grad} card-hover`}
-        >
-          <it.icon size={20} strokeWidth={1.5} className="text-white mb-3" />
-          <div className="text-[15px] font-semibold text-white" style={{ letterSpacing: '-0.01em' }}>{it.title}</div>
-          <div className="text-[12.5px] text-white/70 mt-1 leading-relaxed">{it.desc}</div>
-        </motion.button>
+        <motion.div key={it.title} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.06 }}>
+          <SpotlightCard
+            className={`rounded-[18px] ${it.grad} card-hover`}
+            spotlightColor="rgba(255,255,255,0.14)"
+            onClick={it.go}
+          >
+            <div className="p-5">
+              <it.icon size={20} strokeWidth={1.5} className="text-white mb-3" />
+              <div className="text-[15px] font-semibold text-white" style={{ letterSpacing: '-0.01em' }}>{it.title}</div>
+              <div className="text-[12.5px] text-white/70 mt-1 leading-relaxed">{it.desc}</div>
+            </div>
+          </SpotlightCard>
+        </motion.div>
       ))}
     </div>
   )

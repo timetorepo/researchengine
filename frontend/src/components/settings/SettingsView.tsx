@@ -51,14 +51,19 @@ export function SettingsView() {
           <button
             key={t.id}
             onClick={() => ui.set({ settingsTab: t.id })}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-[13px] text-left transition-colors"
-            style={{
-              background: tab === t.id ? 'var(--elevated)' : 'transparent',
-              color: tab === t.id ? 'var(--text)' : 'var(--text-2)',
-            }}
+            className="relative flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-[13px] text-left transition-colors"
+            style={{ color: tab === t.id ? 'var(--text)' : 'var(--text-2)' }}
           >
-            <t.icon size={15} strokeWidth={1.5} style={{ color: tab === t.id ? 'var(--primary)' : 'var(--text-3)' }} />
-            {t.label}
+            {tab === t.id && (
+              <motion.span
+                layoutId="settings-tab-pill"
+                className="absolute inset-0 rounded-[10px]"
+                style={{ background: 'var(--elevated)' }}
+                transition={{ type: 'spring', damping: 28, stiffness: 400 }}
+              />
+            )}
+            <t.icon size={15} strokeWidth={1.5} className="relative" style={{ color: tab === t.id ? 'var(--primary)' : 'var(--text-3)' }} />
+            <span className="relative">{t.label}</span>
           </button>
         ))}
       </aside>

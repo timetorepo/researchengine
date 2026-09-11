@@ -182,6 +182,13 @@ export interface IntegrationState {
 }
 
 export type FlowMode = 'efficient' | 'balanced' | 'fidelity'
+
+export type BackgroundConfig =
+  | { kind: 'default' }
+  | { kind: 'solid'; color: string }
+  | { kind: 'image'; dataUrl: string }
+  | { kind: 'blur'; dataUrl: string }
+  | { kind: 'veil'; opacity: number }
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'
   | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os'
@@ -205,4 +212,6 @@ export interface Settings {
   osWidgets: boolean
   osWallpaper: string
   soundEffects: boolean
+  background: BackgroundConfig
+  onboarded: boolean
 }
