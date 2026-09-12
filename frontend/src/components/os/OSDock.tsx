@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Home, MessageSquare, GraduationCap, BookOpen, Library, Users, Settings, Swords } from 'lucide-react'
+import { Home, MessageSquare, GraduationCap, BookOpen, Library, Users, Settings, Swords, Workflow as WorkflowIcon } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { clsx } from 'clsx'
@@ -12,6 +12,7 @@ const ITEMS = [
   { to: '/articles', icon: BookOpen, label: 'Articles' },
   { to: '/library', icon: Library, label: 'Library' },
   { to: '/compare', icon: Swords, label: 'Compare' },
+  { to: '/workflows', icon: WorkflowIcon, label: 'Workflows' },
   { to: '/flood', icon: Users, label: 'Agent Flood' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]

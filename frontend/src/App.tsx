@@ -18,6 +18,8 @@ const ArticlesView = React.lazy(() => import('@/components/articles/ArticlesView
 const ArticleEditor = React.lazy(() => import('@/components/articles/ArticleEditor').then((m) => ({ default: m.ArticleEditor })))
 const LibraryView = React.lazy(() => import('@/components/library/LibraryView').then((m) => ({ default: m.LibraryView })))
 const CompareView = React.lazy(() => import('@/components/compare/CompareView').then((m) => ({ default: m.CompareView })))
+const WorkflowsList = React.lazy(() => import('@/components/workflows/WorkflowsList').then((m) => ({ default: m.WorkflowsList })))
+const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 import { Toasts } from '@/components/shared/Toasts'
 import { CommandPalette } from '@/components/shared/CommandPalette'
@@ -120,6 +122,8 @@ function RoutedApp() {
           <Route path="/articles/:id" element={<ArticleEditor />} />
           <Route path="/library" element={<LibraryView />} />
           <Route path="/compare" element={<CompareView />} />
+          <Route path="/workflows" element={<WorkflowsList />} />
+          <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/secrets" element={<SecretsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

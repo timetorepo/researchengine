@@ -303,6 +303,20 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .re-orb, .re-orb::before { animation: none; }
 }
+
+/* Workflow editor node states */
+@keyframes wf-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent), 0 8px 28px -8px color-mix(in srgb, var(--primary) 40%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--primary) 34%, transparent), 0 10px 34px -6px color-mix(in srgb, var(--primary) 55%, transparent); }
+}
+@keyframes wf-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-wf-node] { animation: none !important; }
+}
 .grad-article { background: var(--grad-article); }
 .grad-flood { background: var(--grad-flood); }
 

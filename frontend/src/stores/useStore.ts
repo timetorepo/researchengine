@@ -5,6 +5,7 @@ import type {
   Chat, ChatMessage, Skill, Article, Space, Settings, ConnectionLogEntry,
   KnowledgeCard, Citation, DocumentRecord, QuizRecord, Squad, IntegrationState, Source, FlowStats,
 } from '@/types'
+import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
 import { builtinSquads } from '@/lib/agents/squads'
 
@@ -21,6 +22,8 @@ interface StoreState {
   documents: DocumentRecord[]
   quizzes: QuizRecord[]
   squads: Squad[]
+  workflows: Workflow[]
+  workflowRuns: WorkflowRunRecord[]
   integrations: Record<string, IntegrationState>
   connectionLog: ConnectionLogEntry[]
   settings: Settings
@@ -40,6 +43,12 @@ interface StoreState {
   logConnection: (endpoint: string, purpose: string, bytes: number, status?: 'ok' | 'error' | 'local') => void
   addTokensSaved: (n: number) => void
   resetAll: () => void
+
+  // workflows
+  addWorkflow: (wf: Workflow) => void
+  updateWorkflow: (id: string, patch: Partial<Workflow>) => void
+  deleteWorkflow: (id: string) => void
+  addWorkflowRun: (rec: WorkflowRunRecord) => void
 }
 
 const defaultSettings: Settings = {
@@ -93,6 +102,8 @@ export const useStore = create<StoreState>()(
       documents: [],
       quizzes: [],
       squads: builtinSquads,
+      workflows: [],
+      workflowRuns: [],
       integrations: {},
       connectionLog: [],
       settings: defaultSettings,
@@ -161,9 +172,20 @@ export const useStore = create<StoreState>()(
         tokensSavedLifetime: s.tokensSavedLifetime + n,
       })),
 
+      // ---- workflows ----
+      addWorkflow: (wf) => set((s) => ({ workflows: [wf, ...s.workflows] })),
+      updateWorkflow: (id, patch) => set((s) => ({
+        workflows: s.workflows.map((w) => (w.id === id ? { ...w, ...patch, updatedAt: Date.now() } : w)),
+      })),
+      deleteWorkflow: (id) => set((s) => ({
+        workflows: s.workflows.filter((w) => w.id !== id),
+        workflowRuns: s.workflowRuns.filter((r) => r.workflowId !== id),
+      })),
+      addWorkflowRun: (rec) => set((s) => ({ workflowRuns: [rec, ...s.workflowRuns].slice(0, 100) })),
+
       resetAll: () => set({
         chats: [], activeChatId: null, articles: [], citations: [], knowledge: [],
-        documents: [], quizzes: [], connectionLog: [],
+        documents: [], quizzes: [], connectionLog: [], workflows: [], workflowRuns: [],
         tokensSavedSession: 0, tokensSavedLifetime: 0, totalRequests: 0,
         skills: builtinSkills, squads: builtinSquads, spaces: initialSpaces, integrations: {},
       }),
@@ -174,6 +196,7 @@ export const useStore = create<StoreState>()(
         chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces,
         citations: s.citations, knowledge: s.knowledge, documents: s.documents,
         quizzes: s.quizzes, squads: s.squads, integrations: s.integrations,
+        workflows: s.workflows,
         settings: s.settings, tokensSavedLifetime: s.tokensSavedLifetime,
         totalRequests: s.totalRequests,
       }),

@@ -19,6 +19,7 @@ async function main() {
   const { ollamaRoutes } = await import('./routes/ollama')
   const { integrationRoutes } = await import('./routes/integrations')
   const { resourceRoutes } = await import('./routes/resources')
+  const { fsRoutes } = await import('./routes/fs')
 
   const app = new Hono()
 
@@ -28,6 +29,7 @@ async function main() {
 
   app.route('/api', healthRoutes)
   app.route('/api', resourceRoutes(rt))
+  app.route('/api', fsRoutes(rt))
   app.route('/api/search', searchRoutes)
   app.route('/api/chat', chatRoutes)
   app.route('/api/documents', documentRoutes)

@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Search, MessageSquare, Wand2, Settings, BookOpen, GraduationCap, Users, Home, Moon,
-  FileText, Folder, Plug, PenLine, History, Hammer,
+  FileText, Folder, Plug, PenLine, History, Hammer, Workflow as WorkflowIcon,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { fuzzy } from '@/lib/utils'
 
-type Kind = 'Command' | 'Chat' | 'Article' | 'Document' | 'Quiz' | 'Space' | 'Skill' | 'Integration' | 'Recent'
+type Kind = 'Command' | 'Chat' | 'Article' | 'Document' | 'Quiz' | 'Space' | 'Skill' | 'Integration' | 'Workflow' | 'Recent'
 
 interface Item {
   id: string
@@ -43,7 +43,7 @@ function Highlight({ label, q }: { label: string; q: string }) {
   )
 }
 
-const GROUP_ORDER: Kind[] = ['Recent', 'Command', 'Chat', 'Article', 'Document', 'Quiz', 'Space', 'Skill', 'Integration']
+const GROUP_ORDER: Kind[] = ['Recent', 'Command', 'Chat', 'Article', 'Document', 'Quiz', 'Space', 'Skill', 'Integration', 'Workflow']
 
 export function CommandPalette() {
   const open = useUI((s) => s.paletteOpen)
@@ -59,6 +59,7 @@ export function CommandPalette() {
   const quizzes = useStore((s) => s.quizzes)
   const spaces = useStore((s) => s.spaces)
   const integrations = useStore((s) => s.integrations)
+  const workflows = useStore((s) => s.workflows)
 
   useEffect(() => { if (open) { setQ(''); setIdx(0); setTimeout(() => inputRef.current?.focus(), 30) } }, [open])
 
@@ -68,6 +69,7 @@ export function CommandPalette() {
       { id: 'cmd-new', label: 'New chat', icon: MessageSquare, kind: 'Command', run: () => { const id = useStore.getState().newChat(); navigate(`/chat/${id}`) }, score: 0 },
       { id: 'cmd-settings', label: 'Open Settings', sub: 'Cmd/Ctrl+,', icon: Settings, kind: 'Command', run: () => { ui.set({ settingsSheet: true }) }, score: 0 },
       { id: 'cmd-flood', label: 'Open Agent Flood', icon: Users, kind: 'Command', run: () => navigate('/flood'), score: 0 },
+      { id: 'cmd-workflows', label: 'Open Workflows', icon: WorkflowIcon, kind: 'Command', run: () => navigate('/workflows'), score: 0 },
       { id: 'cmd-quiz', label: 'Read & Quiz', icon: GraduationCap, kind: 'Command', run: () => navigate('/quiz'), score: 0 },
       { id: 'cmd-articles', label: 'Articles', icon: BookOpen, kind: 'Command', run: () => navigate('/articles'), score: 0 },
       { id: 'cmd-replicate', label: 'New Tech — Replication', icon: Hammer, kind: 'Command', run: () => { const id = useStore.getState().newChat(); navigate(`/chat/${id}`) }, score: 0 },
@@ -97,9 +99,13 @@ export function CommandPalette() {
       id: `int-${k}`, label: `Integration — ${k}`, sub: v.connected ? 'Connected' : 'Not connected', icon: Plug, kind: 'Integration',
       run: () => { ui.set({ settingsOpen: true, settingsTab: 'integrations' }); navigate('/settings') }, score: 0,
     }))
+    const workflowItems: Item[] = workflows.map((w) => ({
+      id: `wf-${w.id}`, label: w.name, sub: `${w.nodes.length} nodes`, icon: WorkflowIcon, kind: 'Workflow',
+      run: () => navigate(`/workflows/${w.id}`), score: 0,
+    }))
 
-    return [...commands, ...chatItems, ...articleItems, ...docItems, ...quizItems, ...spaceItems, ...skillItems, ...intItems]
-  }, [chats, skills, articles, documents, quizzes, spaces, integrations, navigate])
+    return [...commands, ...chatItems, ...articleItems, ...docItems, ...quizItems, ...spaceItems, ...skillItems, ...intItems, ...workflowItems]
+  }, [chats, skills, articles, documents, quizzes, spaces, integrations, workflows, navigate])
 
   const items = useMemo(() => {
     const query = q.trim().toLowerCase()
