@@ -36,12 +36,14 @@ export interface ShapeConfig {
   punctuationPauses: boolean
 }
 
-/** Per-mode micro-timing (ms). */
+/** Per-mode micro-timing (ms). Standard/subtle flow continuously — the reveal
+ *  itself (blur → focus, handled at render) carries the polish, so token
+ *  cadence stays smooth instead of stepping word-by-word. */
 const TIMING: Record<ShapingMode, { word: [number, number]; punct: [number, number]; newline: number }> = {
   off: { word: [0, 0], punct: [0, 0], newline: 0 },
-  subtle: { word: [15, 40], punct: [50, 90], newline: 110 },
-  standard: { word: [30, 80], punct: [100, 160], newline: 200 },
-  cinematic: { word: [60, 120], punct: [160, 240], newline: 300 },
+  subtle: { word: [0, 6], punct: [25, 55], newline: 80 },
+  standard: { word: [4, 14], punct: [40, 90], newline: 120 },
+  cinematic: { word: [40, 90], punct: [140, 220], newline: 280 },
 }
 
 // rAF with a timer fallback so the engine survives headless harnesses (smoke tests).

@@ -57,8 +57,8 @@ export function SettingsSheet() {
                 <X size={15} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <div className="max-w-[640px] mx-auto px-5 py-6">
+            <div className="flex-1 overflow-y-auto min-h-0 pane-scroll">
+              <div className="max-w-[640px] mx-auto px-5 pt-6 pb-24">
                 {renderTab(tab)}
               </div>
             </div>

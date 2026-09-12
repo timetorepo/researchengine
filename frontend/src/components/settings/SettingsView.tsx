@@ -16,8 +16,8 @@ export function SettingsView() {
 
   return (
     <motion.div className="h-full flex overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
-      {/* Tab rail */}
-      <aside className="w-[200px] shrink-0 hidden sm:flex flex-col p-3 gap-0.5 overflow-y-auto" style={{ borderRight: '1px solid var(--surface-border)' }}>
+      {/* Tab rail — independent scroll container */}
+      <aside className="w-[200px] shrink-0 hidden md:flex flex-col p-3 gap-0.5 overflow-y-auto min-h-0 pane-scroll" style={{ borderRight: '1px solid var(--surface-border)' }}>
         <button onClick={close} className="flex items-center gap-2 px-3 py-2 mb-2 text-[12.5px] rounded-[10px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
           <ArrowLeft size={14} /> Back
         </button>
@@ -42,9 +42,9 @@ export function SettingsView() {
         ))}
       </aside>
 
-      {/* Mobile tab bar */}
+      {/* Content pane — independent scroll container (mobile collapses to pill tabs) */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="sm:hidden flex gap-1 overflow-x-auto no-scrollbar p-2" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+        <div className="md:hidden flex gap-1 overflow-x-auto no-scrollbar p-2" style={{ borderBottom: '1px solid var(--surface-border)' }}>
           {TABS.map((t) => (
             <button key={t.id} onClick={() => ui.set({ settingsTab: t.id })}
               className="px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap"
@@ -53,8 +53,8 @@ export function SettingsView() {
             </button>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="max-w-[680px] mx-auto px-5 py-6">
+        <div className="flex-1 overflow-y-auto min-h-0 pane-scroll">
+          <div className="max-w-[680px] mx-auto px-5 pt-6 pb-24">
             {renderTab(tab)}
           </div>
         </div>

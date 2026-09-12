@@ -7,10 +7,10 @@ import { stopStream } from '@/lib/chat/runChat'
 import { fmt } from '@/lib/utils'
 import { ModelLogo } from '@/components/shared/ModelLogo'
 
-// Spec spring: damping 25 / stiffness 300 for the playful expansion.
-// Collapse uses a tighter, overdamped spring so it snaps shut without overshoot.
-const spring = { type: 'spring', damping: 25, stiffness: 300 } as const
-const springClosed = { type: 'spring', damping: 32, stiffness: 420 } as const
+// One spring for both directions (expand and collapse) — mismatched springs were
+// the old collapse jank. Border-radius rides the same spring so corner
+// rounding and size never drift apart mid-animation.
+const islandSpring = { type: 'spring', stiffness: 380, damping: 32, mass: 0.8 } as const
 
 export function DynamicIsland() {
   const island = useUI((s) => s.island)
@@ -18,6 +18,7 @@ export function DynamicIsland() {
   const model = useStore((s) => s.settings.defaultModel)
   const pressTimer = useRef<any>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const [animating, setAnimating] = React.useState(false)
 
   // Collapse when clicking anywhere outside the island, so an expanded panel
   // never lingers over the UI and never intercepts unrelated clicks.
@@ -55,14 +56,15 @@ export function DynamicIsland() {
     `Running skill "${(island as any).name}".`
 
   // Cross-fade config when motion is reduced, spring morph otherwise.
-  // Exits are fast and opacity-only so nothing gets dragged while the pill shrinks.
+  // Exits are short and opacity-dominant; mode="wait" on the parent keeps the
+  // outgoing face and incoming face from ever overlapping mid-resize.
   const contentAnim = reduced
     ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.12 } }
     : {
         initial: { opacity: 0, scale: 0.94 },
         animate: { opacity: 1, scale: 1 },
-        exit: { opacity: 0, scale: 0.96, transition: { duration: 0.13, ease: 'easeIn' } },
-        transition: expanded ? spring : springClosed,
+        exit: { opacity: 0, scale: 0.97, transition: { duration: 0.12, ease: 'easeIn' } },
+        transition: islandSpring,
       }
 
   return (
@@ -74,21 +76,29 @@ export function DynamicIsland() {
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onClick={() => useUI.setState({ islandExpanded: !expanded })}
+        onAnimationStart={() => setAnimating(true)}
+        onAnimationComplete={() => setAnimating(false)}
         className="glass cursor-pointer select-none flex flex-col overflow-hidden"
         animate={{ borderRadius: expanded ? 26 : 999 }}
         style={{
           border: '1px solid var(--surface-border)',
           boxShadow: '0 10px 36px -10px rgba(0,0,0,0.6)',
-          willChange: reduced ? undefined : 'transform',
+          // Promote to its own layer only while animating; translateZ keeps it
+          // GPU-composited without the permanent memory cost of will-change.
+          willChange: reduced || !animating ? undefined : 'transform',
+          transform: reduced ? undefined : 'translateZ(0)',
         }}
-        transition={{ borderRadius: { duration: 0.22, ease: 'easeOut' }, layout: expanded ? spring : springClosed }}
+        transition={{ borderRadius: islandSpring, layout: islandSpring }}
         aria-label="Status island"
       >
-        {/* Compact face — keyed by state so swaps cross-fade cleanly */}
-        <AnimatePresence mode="popLayout" initial={false}>
+        {/* Compact face — keyed by state; mode="wait" guarantees the outgoing
+            face fully exits before the incoming one mounts, so the container
+            measures one stable content size per direction change. */}
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={expanded ? 'x' : island.kind}
             {...contentAnim}
+            layout={reduced ? false : 'position'}
             className="flex items-center gap-2.5 px-4 h-10"
           >
             {expanded ? (
@@ -167,7 +177,7 @@ export function DynamicIsland() {
                 ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.12 } }
                 : {
                     initial: { opacity: 0, y: 8 },
-                    animate: { opacity: 1, y: 0, transition: spring },
+                    animate: { opacity: 1, y: 0, transition: islandSpring },
                     // Exit: quick clean fade — no movement, so nothing gets
                     // dragged or clipped while the pill springs shut.
                     exit: { opacity: 0, transition: { duration: 0.12, ease: 'easeIn' } },

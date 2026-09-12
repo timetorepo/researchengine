@@ -16,8 +16,8 @@ const MODES = [
 
 const SHAPING = [
   { id: 'off', name: 'Off', desc: 'Raw stream, no shaping. Fastest, can feel bursty.' },
-  { id: 'subtle', name: 'Subtle', desc: 'Light smoothing with short inter-word gaps.' },
-  { id: 'standard', name: 'Standard', desc: 'Composed word-by-word cadence with punctuation pauses.' },
+  { id: 'subtle', name: 'Subtle', desc: 'Nearly raw flow, softened at punctuation.' },
+  { id: 'standard', name: 'Standard', desc: 'Continuous flow with soft punctuation pauses. Each block settles into focus from a gentle blur.' },
   { id: 'cinematic', name: 'Cinematic', desc: 'Deliberate pacing with dramatic pauses. Slower, calmer.' },
 ] as const
 
