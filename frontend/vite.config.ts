@@ -14,6 +14,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: true,
+    proxy: {
+      // Local backend (Hono) — same-origin /api in dev; nginx does this in Docker.
+      '/api': { target: 'http://localhost:8787', changeOrigin: true },
+    },
   },
   preview: {
     host: '0.0.0.0',

@@ -11,7 +11,7 @@ export function AboutTab() {
         <AppLogo size={40} withName={false} />
         <div>
           <h2 className="text-xl font-semibold" style={{ letterSpacing: '-0.02em' }}>Research Engine</h2>
-          <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>Version 0.10.0-beta.1 · self-hosted · privacy-first</p>
+          <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>Version 0.11.0-beta.1 · the working version · self-hosted · privacy-first</p>
         </div>
       </div>
 
@@ -27,7 +27,7 @@ export function AboutTab() {
         <p>A self-hosted research platform with Perplexity-level answer quality — built for researchers, scientists, students, and privacy-conscious power users.</p>
         <p>Featuring the AIFlowEngine optimization layer, SkillBuilder, Agent Flood orchestration, Read &amp; Quiz, articles, citation management, and a fully themeable interface including ResearchEngineOS.</p>
       </div>      <div className="flex gap-2 mt-5 flex-wrap">
-        <a href="https://github.com" target="_blank" rel="noreferrer"
+        <a href="https://github.com/timetorepo/researchengine" target="_blank" rel="noreferrer"
           className="flex items-center gap-2 px-3.5 py-2 rounded-[12px] text-[13px]"
           style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
           <Github size={14} /> GitHub <ExternalLink size={11} />
@@ -40,6 +40,7 @@ export function AboutTab() {
 
       <div className="mt-6 pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>
+        <p>0.11.0-beta.1 — The working version: Agent Flood now runs real parallel agents on your configured models with real synthesis and live token/budget accounting; web search runs real engines (SearXNG / Brave / Serper / Tavily / keyless DuckDuckGo via the backend, Wikipedia in-browser) and grounds answers in numbered citations; navigation hardening (no more stuck screens or dead clicks); error boundary instead of blank pages.</p>
         <p>0.10.0-beta.1 — Onboarding flow, custom backgrounds (solid / image / blur / veil), UI component libraries, adaptive context pruning.</p>
         <p>0.9.0 — Agent Flood scratchpad, ResearchEngineOS Dynamic Island, citation export formats.</p>
         <p className="mt-3">Open-source licenses: React, Vite, Tailwind CSS, Framer Motion, Zustand, Lucide, KaTeX, react-markdown.</p>

@@ -132,6 +132,33 @@ async function main() {
   check('quiz generated', quiz.length === 6)
   check('answers present', quiz.every((q) => q.answer.length > 0 && q.explanation.length > 0))
 
+  console.log('\n[9] Real execution: generateText, parallel agents, live search fallback')
+  const { generateText } = await import('../src/lib/chat/generate')
+  const gen = await generateText({ system: 'You are a test agent.', prompt: 'Explain gravity briefly.' })
+  check('generateText produces output', gen.text.length > 100)
+  check('generateText accounts tokens', gen.promptTokens > 0 && gen.completionTokens > 0)
+
+  // parallel agent pool — three agents at once, like a Flood squad
+  const t0 = Date.now()
+  const agents = await Promise.all([
+    generateText({ system: 'You are a Researcher.', prompt: 'Findings on solid-state batteries.' }),
+    generateText({ system: 'You are a Critic.', prompt: 'Critique solid-state battery claims.' }),
+    generateText({ system: 'You are a Verifier.', prompt: 'Verify solid-state battery claims.' }),
+  ])
+  check('3 agents ran in parallel', agents.every((a) => a.text.length > 100), `(${Date.now() - t0}ms)`)
+
+  const { webSearch } = await import('../src/lib/search/web')
+  const outcome = await webSearch('transformer attention mechanism')
+  check('search returns sources', outcome.sources.length > 0)
+  check('search degrades gracefully offline', outcome.live === false && outcome.backend === 'offline')
+
+  // search-mode chat: sources attached to the message via the live pipeline
+  const chat3 = useStore.getState().newChat()
+  await runChat({ chatId: chat3, prompt: 'what is retrieval augmented generation', mode: { search: true } })
+  await sleep(200)
+  const searchedMsg = useStore.getState().chats.find((c) => c.id === chat3)!.messages.at(-1)!
+  check('search-mode answer carries sources', (searchedMsg.sources?.length ?? 0) > 0)
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed\n`)
   process.exit(failed === 0 ? 0 : 1)
 }

@@ -8,12 +8,12 @@ import { useStore, AGENT_COLORS } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { AGENT_ROLES, AGENT_INSTRUCTIONS } from '@/lib/agents/squads'
 import { estimateTokens } from '@/lib/flow/pruner'
-import { runChat } from '@/lib/chat/runChat'
+import { generateText } from '@/lib/chat/generate'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
 import { fmt } from '@/lib/utils'
 
 interface PadMessage { id: string; agent: string; color: string; text: string; t: number }
-interface AgentStatus { spec: AgentSpec; state: 'idle' | 'working' | 'done'; tokens: number; startedAt: number; output: string }
+interface AgentStatus { spec: AgentSpec; state: 'idle' | 'working' | 'done' | 'halted' | 'error'; tokens: number; startedAt: number; output: string }
 
 export function FloodView() {
   const squads = useStore((s) => s.squads)
@@ -57,50 +57,108 @@ export function FloodView() {
     const st: AgentStatus[] = agents.map((spec) => ({ spec, state: 'idle', tokens: 0, startedAt: 0, output: '' }))
     setStatuses(st)
     ui.set({ island: { kind: 'flood', active: 0, total: agents.length } })
-    addPad('Supervisor', '#A1A1AA', `Objective received. Deploying ${agents.length} agents. Budget: ${fmt(budget)} tokens.`)
+    addPad('Supervisor', '#A1A1AA', `Objective received. Deploying ${agents.length} agents in parallel. Budget: ${fmt(budget)} tokens.`)
 
+    const controller = new AbortController()
     let usedTokens = 0
     let done = 0
+    let anyDemo = false
     const outputs: { name: string; role: string; color: string; text: string }[] = []
+    const patchStatus = (id: string, patch: Partial<AgentStatus>) =>
+      setStatuses((prev) => prev.map((x) => x.spec.id === id ? { ...x, ...patch } : x))
 
-    for (let i = 0; i < agents.length; i++) {
-      if (stopRef.current) break
-      const ag = agents[i]
+    const runAgent = async (ag: AgentSpec) => {
+      if (stopRef.current || controller.signal.aborted || usedTokens >= budget) return
       const startedAt = Date.now()
-      setStatuses((prev) => prev.map((x) => x.spec.id === ag.id ? { ...x, state: 'working', startedAt } : x))
+      patchStatus(ag.id, { state: 'working', startedAt })
       ui.set({ island: { kind: 'flood', active: done, total: agents.length } })
-      addPad(ag.name, ag.color, `${AGENT_INSTRUCTIONS[ag.role] ?? 'Working…'} Starting on the objective.`)
+      addPad(ag.name, ag.color, `${AGENT_INSTRUCTIONS[ag.role] ?? 'Working…'} Starting now.`)
 
-      // simulated work with visible progress
-      const workMs = 1800 + Math.random() * 2200
-      const genTokens = 180 + Math.floor(Math.random() * 420)
-      const steps = 6
-      for (let sIdx = 1; sIdx <= steps; sIdx++) {
-        if (stopRef.current) break
-        await sleep(workMs / steps)
-        usedTokens += Math.round(genTokens / steps)
-        setStatuses((prev) => prev.map((x) => x.spec.id === ag.id ? { ...x, tokens: Math.round((genTokens * sIdx) / steps) } : x))
+      let lastTick = 0
+      let acc = ''
+      const system = [
+        `You are ${ag.name}, the squad's ${ag.role}.`,
+        AGENT_INSTRUCTIONS[ag.role] ?? 'Contribute toward the objective.',
+        'Stay strictly in role. Be concrete, specific and evidence-driven.',
+        'Use Markdown. Keep your contribution under 350 words.',
+      ].join(' ')
+
+      try {
+        const res = await generateText({
+          system,
+          prompt: `Objective: ${objective}`,
+          temperature: ag.temperature,
+          maxTokens: 700,
+          modelOverride: ag.modelBinding && ag.modelBinding !== 'inherit' ? ag.modelBinding : undefined,
+          signal: controller.signal,
+          onChunk: (t) => {
+            acc += t
+            const now = performance.now()
+            if (now - lastTick > 250) {
+              lastTick = now
+              patchStatus(ag.id, { tokens: estimateTokens(acc) })
+            }
+          },
+        })
+        const cost = res.promptTokens + res.completionTokens
+        usedTokens += cost
+        if (res.usedDemo) anyDemo = true
+        outputs.push({ name: ag.name, role: ag.role, color: ag.color, text: res.text })
+        done++
+        patchStatus(ag.id, { state: 'done', tokens: cost, output: res.text })
+        ui.set({ island: { kind: 'flood', active: done, total: agents.length } })
+        addPad(ag.name, ag.color, `${res.text.slice(0, 160).replace(/\s+/g, ' ').trim()}…`)
         if (usedTokens >= budget) {
-          addPad('Supervisor', '#F87171', `Budget cap hit at ${fmt(usedTokens)} tokens. Halting deployment.`)
-          stopRef.current = true
-          break
+          addPad('Supervisor', '#F87171', `Budget cap hit at ${fmt(usedTokens)} tokens. Halting remaining agents.`)
+          controller.abort()
+        }
+      } catch (e: any) {
+        if (e?.name === 'AbortError' || stopRef.current) {
+          patchStatus(ag.id, { state: 'halted' })
+          addPad(ag.name, ag.color, 'Halted.')
+        } else {
+          patchStatus(ag.id, { state: 'error' })
+          addPad(ag.name, ag.color, `Error: ${String(e?.message ?? e).slice(0, 120)}`)
         }
       }
-
-      const output = `[${ag.role} · ${ag.name}] ${objective.slice(0, 60)} — ${GENERIC_OUTPUTS[ag.role] ?? 'contributions recorded.'}`
-      outputs.push({ name: ag.name, role: ag.role, color: ag.color, text: output })
-      addPad(ag.name, ag.color, SUMMARY_LINES[ag.role] ?? 'Work complete.')
-      done++
-      setStatuses((prev) => prev.map((x) => x.spec.id === ag.id ? { ...x, state: 'done', output } : x))
-      ui.set({ island: { kind: 'flood', active: done, total: agents.length } })
     }
 
-    if (!stopRef.current && outputs.length) {
-      addPad('Supervisor', '#A78BFA', 'All agents reported. Synthesizing final answer…')
-      await sleep(900)
-      const synth = buildSynthesis(objective, outputs)
+    // Parallel pool — up to 3 agents working at the same time.
+    const queue = [...agents]
+    await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const ag = queue.shift()!
+        await runAgent(ag)
+      }
+    }))
+
+    if (outputs.length > 0 && !stopRef.current) {
+      addPad('Supervisor', '#A78BFA', `${outputs.length}/${agents.length} agents reported. Synthesizing final answer…`)
+
+      let synth = ''
+      const contributions = outputs.map((o) => `### ${o.name} (${o.role})\n${o.text}`).join('\n\n')
+      const hasKey = !anyDemo
+      if (hasKey) {
+        // Real synthesis pass: the model merges the actual contributions.
+        try {
+          const res = await generateText({
+            system: 'You are a rigorous synthesis engine. Merge the agent contributions into one coherent, well-structured deliverable. Resolve conflicts explicitly, keep attribution where it matters, and state a clear bottom line. Markdown.',
+            prompt: `Objective: ${objective}\n\nAgent contributions:\n\n${contributions}`,
+            maxTokens: 1200,
+            signal: controller.signal,
+          })
+          usedTokens += res.promptTokens + res.completionTokens
+          synth = res.text
+        } catch {
+          synth = assembleSynthesis(objective, outputs)
+        }
+      } else {
+        // On-device engine: assemble a real synthesis from the actual outputs.
+        synth = assembleSynthesis(objective, outputs)
+      }
+
       setSynthesis(synth)
-      addPad('Supervisor', '#34D399', `Synthesis complete. ${fmt(usedTokens)} tokens used across ${done} agents.`)
+      addPad('Supervisor', '#34D399', `Synthesis complete. ${fmt(usedTokens)} tokens used across ${outputs.length} agents${hasKey ? '' : ' (on-device engine — add a provider key for live models)'}.`)
 
       // Save synthesis as a chat
       const chatId = useStore.getState().newChat()
@@ -108,11 +166,13 @@ export function FloodView() {
       store.addMessage(chatId, { id: nanoid(8), role: 'user', content: `[Agent Flood objective] ${objective}`, createdAt: Date.now() })
       store.addMessage(chatId, {
         id: nanoid(8), role: 'assistant', content: synth, createdAt: Date.now(),
-        model: 'flood', provider: 'Agent Flood',
+        model: hasKey ? 'flood' : 'flood (on-device)', provider: 'Agent Flood',
         agentAttribution: outputs.map((o) => ({ name: o.name, color: o.color })),
       })
-      ui.toast('Flood complete', `${done}/${agents.length} agents finished · ${fmt(usedTokens)} tokens. Result saved as a chat.`, 'success')
+      ui.toast('Flood complete', `${outputs.length}/${agents.length} agents finished · ${fmt(usedTokens)} tokens. Result saved as a chat.`, 'success')
       setTimeout(() => navigate(`/chat/${chatId}`), 1200)
+    } else if (outputs.length === 0) {
+      addPad('Supervisor', '#F87171', 'No agent completed. Nothing to synthesize.')
     }
 
     setRunning(false)
@@ -194,7 +254,12 @@ export function FloodView() {
                     </div>
                     {st && (
                       <div className="mt-2 flex items-center gap-2 text-[10.5px]" style={{ color: 'var(--text-3)' }}>
-                        <span className="capitalize" style={{ color: st.state === 'done' ? 'var(--success)' : st.state === 'working' ? ag.color : undefined }}>
+                        <span className="capitalize" style={{
+                          color: st.state === 'done' ? 'var(--success)'
+                            : st.state === 'working' ? ag.color
+                            : st.state === 'error' ? 'var(--danger)'
+                            : st.state === 'halted' ? 'var(--warning)' : undefined,
+                        }}>
                           {st.state === 'working' ? 'working…' : st.state}
                         </span>
                         <span>· {st.tokens} tok</span>
@@ -280,47 +345,25 @@ export function FloodView() {
   )
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-const GENERIC_OUTPUTS: Record<string, string> = {
-  Researcher: 'compiled findings with source notes.',
-  Builder: 'produced a concrete draft artifact.',
-  Critic: 'filed targeted critiques and risks.',
-  Synthesizer: 'merged contributions into one narrative.',
-  Verifier: 'validated claims and flagged uncertainties.',
-  Explainer: 'wrote a clear walkthrough.',
-  Quizzer: 'generated assessment questions.',
-  'Note-taker': 'distilled structured notes.',
-  Custom: 'contributed findings.',
-}
-
-const SUMMARY_LINES: Record<string, string> = {
-  Researcher: 'Findings compiled — strongest evidence first, gaps noted.',
-  Builder: 'Draft delivered. Ready for critique.',
-  Critic: 'Review complete — two material issues flagged.',
-  Synthesizer: 'Contributions merged; conflicts resolved.',
-  Verifier: 'Verification done. One claim downgraded to uncertain.',
-  Explainer: 'Explanation written at target level.',
-  Quizzer: 'Questions ready with answer keys.',
-  'Note-taker': 'Notes structured and saved.',
-  Custom: 'Task complete.',
-}
-
-function buildSynthesis(objective: string, outputs: { name: string; role: string; color: string; text: string }[]): string {
-  const attrib = outputs.map((o) => `- **${o.name}** (${o.role}): ${GENERIC_OUTPUTS[o.role] ?? 'contributed.'}`).join('\n')
+/** Structured synthesis assembled from the agents' actual outputs.
+ *  Used by the on-device engine path (with a key, the model writes it). */
+function assembleSynthesis(objective: string, outputs: { name: string; role: string; color: string; text: string }[]): string {
+  const attrib = outputs.map((o) => `- **${o.name}** (${o.role})`).join('\n')
+  const sections = outputs.map((o) => [`### ${o.name} — ${o.role}`, '', o.text.trim()].join('\n')).join('\n\n---\n\n')
   return [
     `## Flood synthesis`,
     ``,
     `**Objective.** ${objective}`,
     ``,
-    `### Contributions`,
+    `**Squad.**`,
     attrib,
     ``,
-    `### Synthesized result`,
-    `The squad converged on a defensible core answer. The researchers established the evidence base; the verifier downgraded one weak claim; the critic's two flagged issues were folded into the final framing.`,
+    `### Contributions`,
     ``,
-    `**Bottom line:** treat the primary finding as well-supported, act conservatively on the contested edge cases, and revisit once the flagged replications land.`,
+    sections,
     ``,
-    `> Run again with Search mode or a stronger model binding for live-sourced depth.`,
+    `---`,
+    ``,
+    `> *Assembled from ${outputs.length} agent outputs by the on-device engine. Add a provider key in Settings and the squad runs on live models, with a model-written synthesis.*`,
   ].join('\n')
 }

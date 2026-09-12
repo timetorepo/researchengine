@@ -7,7 +7,8 @@ import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError } from '@/lib/providers/stream'
 import { providerById } from '@/lib/providers/registry'
-import { streamDemo, demoSources, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
+import { streamDemo, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
+import { webSearch } from '@/lib/search/web'
 import { resolveKey } from '@/lib/crypto/vault'
 import { getVaultPassphrase } from '@/lib/crypto/session'
 import { useUI } from '@/stores/useUI'
@@ -69,16 +70,16 @@ export async function runChat(opts: RunOptions): Promise<void> {
   const cls = classifyQuery(prompt)
   const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality })
   const customSys = settings.customSystemPrompts[mode.math ? 'math' : 'default']
-  const system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
+  let system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
 
-  // ---- web search sources ----
+  // ---- real web search sources ----
   let sources: Source[] | undefined
   if (mode.search) {
     useUI.setState({ island: { kind: 'search', sources: 0 } })
-    await new Promise((r) => setTimeout(r, 500))
-    sources = demoSources(prompt, 5)
+    const outcome = await webSearch(prompt)
+    sources = outcome.sources
     useUI.setState({ island: { kind: 'search', sources: sources.length } })
-    store.logConnection('search://' + settings.searchBackend, `web search: ${prompt.slice(0, 40)}`, 4096, 'local')
+    store.logConnection(`search://${outcome.backend}`, `web search: ${prompt.slice(0, 40)}`, 2048, outcome.live ? 'ok' : 'local')
     for (const s of sources) {
       if (!store.citations.find((c) => c.url === s.url)) {
         useStore.setState((st: any) => ({
@@ -86,7 +87,11 @@ export async function runChat(opts: RunOptions): Promise<void> {
         }))
       }
     }
-    await new Promise((r) => setTimeout(r, 350))
+    // Ground the model in the retrieved results with numbered citations.
+    const grounded = sources.map((s, i) =>
+      `[${i + 1}] ${s.title} (${s.domain})\n    ${s.url}${s.snippet ? `\n    ${s.snippet}` : ''}`).join('\n')
+    system += `\n\nWeb search results retrieved for this query. Ground your answer in them and cite inline with [n]:\n${grounded}\n\nCite the most relevant results with [n] markers. Ignore results that are not useful.${outcome.live ? '' : '\n(Note: search backend unreachable — the results above are offline placeholders.)'}`
+    await new Promise((r) => setTimeout(r, 250))
     useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
   }
 

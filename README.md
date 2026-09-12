@@ -1,6 +1,8 @@
 # Research Engine
 
-**Pre-release: `v0.10.0-beta.1`**
+**Pre-release: `v0.11.0-beta.1` — the working version**
+
+> Agent Flood runs real parallel agents on your models. Web search runs real engines and grounds answers in numbered citations. Compare runs every model live. Quiz, articles, citations and skills are fully functional. Without any key, a clearly-labeled on-device engine keeps every feature usable.
 
 A self-hosted, privacy-first research platform with Perplexity-level answer quality.
 All user data stays local; only outbound API calls to **user-configured** providers ever leave the device.
@@ -26,11 +28,12 @@ Uncomment the `searxng` service in `docker-compose.yml` for the full self-hosted
 
 ```bash
 cd frontend && npm install && npm run dev    # → http://localhost:5173
-cd backend  && npm install && npm run dev    # → http://localhost:8787 (optional)
+cd backend  && npm install && npm run dev    # → http://localhost:8787 (Vite proxies /api to it for live web search)
 ```
 
-Run the functional smoke test (31 checks across the chat pipeline, AIFlowEngine,
-crypto vault, quiz generation, and store):
+Run the functional smoke test (37 checks across the chat pipeline, AIFlowEngine,
+crypto vault, quiz generation, real generation primitives, parallel agent
+execution, live-search fallback, and store):
 
 ```bash
 cd frontend && npm run smoke
@@ -50,8 +53,8 @@ answers until you add your own API keys.
 | **BYOK Providers** | OpenAI, Anthropic, Groq, Ollama (auto-detected via `/api/tags`), NVIDIA NIM, and any OpenAI-compatible endpoint (Together, Mistral, LM Studio, LocalAI, text-generation-webui). Keys are AES-GCM encrypted with a PBKDF2-derived key from your passphrase. Test-connection shows real latency or the real provider error. |
 | **AIFlowEngine** | Prompt-optimization layer: on-device query classification, context pruning into capsules, dynamic prompt shaping, response-length calibration, skill injection, and a semantic cache. Cuts token usage 40–70%. Modes: Efficient / Balanced / Fidelity. Every response has a transparency panel: original vs. pruned context, tokens sent/received, estimated cost saved. |
 | **SkillBuilder** | Turn any prompt into a reusable, parameterized skill. Auto-parameterize, typed input schema, output format, model binding, category. Callable anywhere via `/`, chainable, export/import as JSON. Seven built-in starter skills. |
-| **Agent Flood** | Deploy parallel specialized agents (Researcher, Builder, Critic, Synthesizer, Verifier, …) on one objective. Preset squads (Deep Research, Software Design, Study Team) plus a custom builder. Live status cards, color-coded threaded scratchpad, budget caps, attributed synthesis. |
-| **Web Search** | SearXNG default (self-hosted), with Brave / Serper / Tavily / DuckDuckGo adapters. Numbered citation badges, gradient source strip, bidirectional hover highlight. |
+| **Agent Flood** | Deploy parallel specialized agents (Researcher, Builder, Critic, Synthesizer, Verifier, …) on one objective — each agent is a real model run (3 concurrent) with live token counters, budget-cap aborts, color-coded threaded scratchpad, and a real synthesis pass that merges the actual contributions. Preset squads (Deep Research, Software Design, Study Team) plus a custom builder. |
+| **Web Search** | Real engines: SearXNG (self-hosted default), Brave / Serper / Tavily / keyless DuckDuckGo via the backend with automatic fallback, plus in-browser Wikipedia when the backend is offline. Answers are grounded in the retrieved results with numbered `[n]` citations. |
 | **Read & Quiz** | Drop PDF / DOCX / TXT / Markdown. Extracted locally (PDF.js worker, Mammoth). Quizzes with 4 question types, difficulty, per-question timers, topic-level accuracy, Review-Mistakes flow. |
 | **Articles** | Convert any chat into a block-based article. AI rewrite/expand/condense per block. Reader with serif typography, auto TOC, reading time. Export Markdown. |
 | **Compare Mode** | One prompt → up to 3 models side by side, synchronized scrolling, pick a winner or merge. |

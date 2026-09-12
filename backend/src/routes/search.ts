@@ -4,27 +4,38 @@ import { searchSearxng, searchBrave, searchSerper, searchTavily, searchDdg, sear
 export const searchRoutes = new Hono()
 
 // GET /api/search?q=...&backend=searxng
+// Real search with graceful fallback: configured engine → keyless DuckDuckGo
+// → clearly-labeled demo results. The response reports which engine answered.
 searchRoutes.get('/', async (c) => {
   const q = c.req.query('q')
   if (!q) return c.json({ error: 'Missing ?q=' }, 400)
-  const backend = c.req.query('backend') ?? process.env.SEARCH_BACKEND ?? 'searxng'
+  const requested = c.req.query('backend') ?? process.env.SEARCH_BACKEND ?? 'searxng'
 
-  try {
+  const run = async (backend: string) => {
     switch (backend) {
-      case 'searxng':
-        return c.json({ results: await searchSearxng(process.env.SEARXNG_URL ?? 'http://localhost:8080', q) })
-      case 'brave':
-        return c.json({ results: await searchBrave(q) })
-      case 'serper':
-        return c.json({ results: await searchSerper(q) })
-      case 'tavily':
-        return c.json({ results: await searchTavily(q) })
-      case 'ddg':
-        return c.json({ results: await searchDdg(q) })
-      default:
-        return c.json({ results: searchDemo(q) })
+      case 'searxng': return searchSearxng(process.env.SEARXNG_URL ?? 'http://localhost:8080', q)
+      case 'brave': return searchBrave(q)
+      case 'serper': return searchSerper(q)
+      case 'tavily': return searchTavily(q)
+      case 'ddg': return searchDdg(q)
+      default: return searchDemo(q)
     }
-  } catch (e: any) {
-    return c.json({ error: e.message }, 502)
   }
+
+  // 1) the requested engine
+  try {
+    const results = await run(requested)
+    if (results.length) return c.json({ backend: requested, results })
+  } catch { /* fall through to keyless ddg */ }
+
+  // 2) keyless DuckDuckGo fallback (unless that was the requested engine)
+  if (requested !== 'ddg') {
+    try {
+      const results = await searchDdg(q)
+      if (results.length) return c.json({ backend: 'ddg', results })
+    } catch { /* fall through to demo */ }
+  }
+
+  // 3) clearly-labeled offline demo results
+  return c.json({ backend: 'demo', results: searchDemo(q) })
 })
