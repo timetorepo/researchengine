@@ -1,16 +1,9 @@
-// SQLite via better-sqlite3 + Drizzle. Falls back to an in-memory store so
-// the backend still runs where native modules can't compile (e.g. minimal containers).
+// SQLite persistence with graceful degradation:
+//   1. better-sqlite3 (native, fastest) when it is installed
+//   2. node:sqlite — built into Node 22.5+ / 20.19+, zero native modules,
+//      which keeps portable builds persistent on Windows/macOS/Linux alike
+//   3. in-memory store, so the backend still runs everywhere else
 import * as schema from './schema'
-
-let sqlite: any = null
-try {
-  const Database = (await import('better-sqlite3')).default
-  sqlite = new Database(process.env.DB_PATH ?? './research-engine.db')
-  sqlite.pragma('journal_mode = WAL')
-  sqlite.exec(MIGRATION)
-} catch (e) {
-  console.warn('[re] better-sqlite3 unavailable — using in-memory fallback. (' + (e as Error).message + ')')
-}
 
 const MIGRATION = `
 CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, title TEXT, space_id TEXT, created_at INTEGER, updated_at INTEGER);
@@ -19,6 +12,28 @@ CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, name TEXT, kind TEXT,
 CREATE TABLE IF NOT EXISTS skills (id TEXT PRIMARY KEY, name TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS citations (id TEXT PRIMARY KEY, title TEXT, url TEXT, collection TEXT, saved_at INTEGER);
 `
+
+let sqlite: any = null
+let engine = 'memory'
+const dbPath = process.env.DB_PATH ?? './research-engine.db'
+
+try {
+  const Database = (await import('better-sqlite3')).default
+  sqlite = new Database(dbPath)
+  sqlite.pragma('journal_mode = WAL')
+  sqlite.exec(MIGRATION)
+  engine = 'sqlite (better-sqlite3)'
+} catch {
+  try {
+    const { DatabaseSync } = await import('node:sqlite')
+    sqlite = new DatabaseSync(dbPath)
+    sqlite.exec('PRAGMA journal_mode = WAL')
+    sqlite.exec(MIGRATION)
+    engine = 'sqlite (node:sqlite)'
+  } catch (e2) {
+    console.warn('[re] no SQLite driver available — using in-memory fallback (data will not survive a restart). (' + (e2 as Error).message + ')')
+  }
+}
 
 const mem = {
   chats: new Map<string, any>(),
@@ -42,5 +57,5 @@ export const db = {
 }
 
 export function dbStats() {
-  return sqlite ? { engine: 'sqlite', file: process.env.DB_PATH ?? './research-engine.db' } : { engine: 'memory' }
+  return sqlite ? { engine, file: process.env.DB_PATH ?? './research-engine.db' } : { engine: 'memory' }
 }

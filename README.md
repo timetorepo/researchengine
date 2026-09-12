@@ -68,7 +68,7 @@ Seven first-class installation paths, ordered lightest to heaviest. Pick the fir
 |---|---|---|---|
 | **A. PWA** | lightest | Any Chromium browser; Safari/Firefox with limits | Trying it in a minute |
 | **B. Desktop app (Tauri)** | light | macOS / Windows / Linux | Daily-driver laptop experience |
-| **C. Native binary** | light | Any Linux/macOS box, Windows via NSSM | Servers without containers |
+| **C. Native binary** | light | Windows / Linux / macOS with Node 20+ | Servers & desktops without containers |
 | **D. From source** | medium | Anywhere Node 20+ runs | Contributors and tinkerers |
 | **E. Docker, single container** | heavier | Any Docker host | Container-first setups |
 | **F. Docker Compose** | heavier | Any Docker host | Multi-service stacks (SearXNG, etc.) |
@@ -128,26 +128,41 @@ shasum -a 256 ResearchEngine_0.14.0-beta.1_aarch64.dmg   # compare with the SHA2
 
 **Best for.** A VPS, a home lab box, or any machine where you want one folder and one process.
 
-**Requirements.** Linux or macOS (x64/arm64). Windows works through the NSSM service template below.
+**Requirements.** Windows 10/11 (x64), Linux (x64/arm64), or macOS. Node.js
+20+ on the host; Node 22.5+ is recommended because the server then persists
+data using Node's built-in SQLite — no native modules to compile on any
+platform.
 
-**Install.** A prebuilt Linux x64 archive ships inside the repository under
-`downloads/`, so the source download is ready to run. Unpack it on the target
-machine and verify the checksum:
+**Install.** Prebuilt archives for **Windows x64** and **Linux x64** ship
+inside the repository under `downloads/`, so the source download is ready to
+run. Verify the checksum, then unpack for your platform:
 
 ```bash
 cd downloads
 sha256sum -c SHA256SUMS
+```
+
+Windows — extract `research-engine-0.14.0-beta.1-win-x64.zip`, then in that
+folder:
+
+```bat
+research-engine.cmd serve --port 3847
+```
+
+Linux — unpack and run:
+
+```bash
 tar xzf research-engine-0.14.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ```
 
-To produce a folder for another platform (macOS, arm64, Windows via NSSM), or
-a Bun-compiled launcher, build it from source on any machine with Node 20+
-(or Bun):
+To produce a folder for another platform (macOS, arm64), or a Bun-compiled
+launcher, build it from source on any machine with Node 20+ (or Bun):
 
 ```bash
-node scripts/package-binary.mjs                 # -> release/research-engine-<os>-<arch>/
-node scripts/package-binary.mjs --bun           # same, launched via bun when present
+node scripts/package-binary.mjs                          # -> release/research-engine-<os>-<arch>/
+node scripts/package-binary.mjs --target win-x64         # cross-package a Windows folder
+node scripts/package-binary.mjs --bun                    # single-file launcher via bun when present
 ```
 
 Optionally add the launcher to your PATH:
@@ -211,7 +226,7 @@ launchctl load ~/Library/LaunchAgents/com.researchengine.plist
 On Windows, register the launcher as a service with NSSM:
 
 ```bat
-nssm install ResearchEngine C:\opt\research-engine\research-engine.exe serve --port 3847
+nssm install ResearchEngine C:\opt\research-engine-win-x64\research-engine.cmd serve --port 3847
 nssm start ResearchEngine
 ```
 

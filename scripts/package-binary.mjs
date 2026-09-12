@@ -18,7 +18,13 @@ const args = process.argv.slice(2)
 const outDir = resolve(root, args[args.indexOf('--out') + 1] ?? 'release')
 const rebuild = args.includes('--rebuild')
 const useBun = args.includes('--bun')
-const platform = `${process.platform}-${process.arch}`
+// --target lets us cross-package a platform-independent portable folder.
+// Everything shipped (server bundle, prod deps, built frontend) is pure JS —
+// only the launcher differs per OS — so a Windows folder builds fine on Linux.
+//   --target win-x64 | linux-x64 | darwin-arm64 ...   (default: this machine)
+const targetArg = args.includes('--target') ? args[args.indexOf('--target') + 1] : null
+const platform = targetArg ?? `${process.platform}-${process.arch}`
+const isWin = platform.startsWith('win')
 
 const sh = (cmd, cwd = root) => { console.log(`$ ${cmd}`); execSync(cmd, { cwd, stdio: 'inherit' }) }
 
@@ -82,26 +88,27 @@ for (const name of wanted) {
 console.log(`  shipped ${wanted.size} server dependencies: ${[...wanted].join(', ')}`)
 
 // Launcher that finds node on PATH
-const launcher = process.platform === 'win32'
+const launcher = isWin
   ? '@echo off\r\nnode "%~dp0server\\index.js" serve --frontend-dist "%~dp0frontend-dist" %*\r\n'
   : '#!/usr/bin/env sh\nDIR="$(cd "$(dirname "$0")" && pwd)"\nexec node "$DIR/server/index.js" serve --frontend-dist "$DIR/frontend-dist" "$@"\n'
-writeFileSync(join(dir, process.platform === 'win32' ? 'research-engine.cmd' : 'research-engine'), launcher)
-chmodSync(join(dir, process.platform === 'win32' ? 'research-engine.cmd' : 'research-engine'), 0o755)
+const launcherName = isWin ? 'research-engine.cmd' : 'research-engine'
+writeFileSync(join(dir, launcherName), launcher)
+if (!isWin) chmodSync(join(dir, launcherName), 0o755)
 
 writeFileSync(join(dir, 'README.txt'),
   `Research Engine — portable build (${platform})
 
-Requires Node.js 20+ on this machine (https://nodejs.org). For a fully
-self-contained executable, rebuild with Bun: node scripts/package-binary.mjs --bun
+Requires Node.js on this machine (https://nodejs.org — LTS recommended;
+Node 22.5+ gives built-in persistent storage, older Node runs session-only).
 
 Run:
-  ./research-engine serve --port 3847
+${isWin ? '  research-engine.cmd serve --port 3847' : '  ./research-engine serve --port 3847'}
 
 Then open http://127.0.0.1:3847
 
-Data directory: ~/.research-engine (override with RESEARCH_ENGINE_DATA_DIR)
-Profiles: ./research-engine serve --profile eco|balanced|performance
+Data directory: ${isWin ? '%USERPROFILE%\\.research-engine' : '~/.research-engine'} (override with RESEARCH_ENGINE_DATA_DIR)
+Profiles: ${isWin ? 'research-engine.cmd' : './research-engine'} serve --profile eco|balanced|performance
 `)
 
 console.log(`\nPackaged portable build: ${dir}`)
-console.log(`Try it:  ${join(dir, 'research-engine')} serve --port 3847`)
+console.log(`Try it:  ${join(dir, launcherName)} serve --port 3847`)
