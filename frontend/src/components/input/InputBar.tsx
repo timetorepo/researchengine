@@ -183,7 +183,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               <button
                 onClick={() => doSend({})}
                 disabled={!text.trim()}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-105 disabled:opacity-35 disabled:hover:scale-100"
+                className="press-tap w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-105 disabled:opacity-35 disabled:hover:scale-100"
                 style={{ background: 'var(--primary)', color: '#fff' }}
                 aria-label="Send"
               >

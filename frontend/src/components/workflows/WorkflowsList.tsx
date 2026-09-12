@@ -76,7 +76,7 @@ export function WorkflowsList() {
         </p>
 
         <div className="flex gap-2 mb-7">
-          <button onClick={createBlank} className="flex items-center gap-1.5 px-4 py-2 rounded-[11px] text-[13px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
+          <button onClick={createBlank} className="press-tap flex items-center gap-1.5 px-4 py-2 rounded-[11px] text-[13px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
             <Plus size={14} /> New workflow
           </button>
           <button onClick={importFile} className="flex items-center gap-1.5 px-4 py-2 rounded-[11px] text-[13px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>

@@ -82,6 +82,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
       <div className="max-w-[760px] mx-auto px-4">
         {/* Model attribution */}
         <div className="flex items-center gap-1.5 mb-2 text-[11px]" style={{ color: 'var(--text-3)' }}>
+          {streaming && msg.content !== '' && <motion.span layoutId="re-flow-orb" className="inline-flex"><span className="re-orb re-orb-sm" aria-hidden="true" /></motion.span>}
           <ProviderLogo id={msg.provider?.toLowerCase() ?? ''} size={12} />
           <span className="font-mono">{msg.model}</span>
           {msg.agentAttribution && msg.agentAttribution.length > 0 && (

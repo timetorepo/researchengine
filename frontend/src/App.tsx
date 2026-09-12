@@ -1,5 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { MotionConfig } from 'framer-motion'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
@@ -81,10 +82,15 @@ export default function App() {
     )
   }
 
+  const reduced = settings.reduceMotion ||
+    (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+
   return (
-    <HashRouter>
-      <RoutedApp />
-    </HashRouter>
+    <MotionConfig reducedMotion={reduced ? 'always' : 'user'} transition={{ type: 'spring', damping: 26, stiffness: 320 }}>
+      <HashRouter>
+        <RoutedApp />
+      </HashRouter>
+    </MotionConfig>
   )
 }
 

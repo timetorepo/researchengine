@@ -35,7 +35,7 @@ export function SettingsSheet() {
             className="fixed right-0 top-0 bottom-0 z-[65] w-full sm:w-[640px] flex flex-col"
             style={{ background: 'var(--bg)', borderLeft: '1px solid var(--surface-border)', boxShadow: '-24px 0 80px -24px rgba(0,0,0,0.5)' }}
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
           >
             <div className="h-12 shrink-0 flex items-center gap-1 px-3 overflow-x-auto no-scrollbar" style={{ borderBottom: '1px solid var(--surface-border)' }}>
               {TABS.map((t) => (

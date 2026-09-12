@@ -285,6 +285,8 @@ body {
   overflow: hidden;
   animation: re-orb-breathe 1.4s ease-in-out infinite;
 }
+.re-orb.re-orb-sm { width: 14px; height: 14px; }
+.re-orb.re-orb-sm::after { inset: 2px; }
 .re-orb::before {
   content: '';
   position: absolute;
@@ -302,6 +304,13 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .re-orb, .re-orb::before { animation: none; }
+}
+
+/* 16ms press acknowledgement — primary actions compress slightly on tap */
+.press-tap { transition: transform 0.016s ease; }
+.press-tap:active { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .press-tap:active { transform: none; }
 }
 
 /* Workflow editor node states */

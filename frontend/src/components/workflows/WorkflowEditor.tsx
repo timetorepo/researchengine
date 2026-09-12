@@ -344,11 +344,11 @@ export function WorkflowEditor() {
             </>
           ) : (
             <>
-              <button onClick={() => startRun('run')} className="flex items-center gap-1.5 px-3.5 py-2 rounded-[11px] text-[12.5px] font-semibold"
+              <button onClick={() => startRun('run')} className="press-tap flex items-center gap-1.5 px-3.5 py-2 rounded-[11px] text-[12.5px] font-semibold"
                 style={{ background: 'var(--primary)', color: '#fff' }}>
                 <Play size={13} /> Run
               </button>
-              <button onClick={() => startRun('step')} className="flex items-center gap-1.5 px-3 py-2 rounded-[11px] text-[12.5px]"
+              <button onClick={() => startRun('step')} className="press-tap flex items-center gap-1.5 px-3 py-2 rounded-[11px] text-[12.5px]"
                 style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }} title="Run one node at a time">
                 <StepForward size={13} /> Step
               </button>
