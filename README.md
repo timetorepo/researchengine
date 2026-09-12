@@ -130,19 +130,24 @@ shasum -a 256 ResearchEngine_0.14.0-beta.1_aarch64.dmg   # compare with the SHA2
 
 **Requirements.** Linux or macOS (x64/arm64). Windows works through the NSSM service template below.
 
-**Install.** On any machine with Node 20+ (or Bun), produce the folder:
+**Install.** A prebuilt Linux x64 archive ships inside the repository under
+`downloads/`, so the source download is ready to run. Unpack it on the target
+machine and verify the checksum:
+
+```bash
+cd downloads
+sha256sum -c SHA256SUMS
+tar xzf research-engine-0.14.0-beta.1-linux-x64.tar.gz
+chmod +x research-engine-linux-x64/research-engine
+```
+
+To produce a folder for another platform (macOS, arm64, Windows via NSSM), or
+a Bun-compiled launcher, build it from source on any machine with Node 20+
+(or Bun):
 
 ```bash
 node scripts/package-binary.mjs                 # -> release/research-engine-<os>-<arch>/
 node scripts/package-binary.mjs --bun           # same, launched via bun when present
-tar czf research-engine-portable.tar.gz -C release research-engine-linux-x64
-```
-
-Copy the archive to the target machine and unpack it:
-
-```bash
-tar xzf research-engine-portable.tar.gz
-chmod +x research-engine-linux-x64/research-engine
 ```
 
 Optionally add the launcher to your PATH:
