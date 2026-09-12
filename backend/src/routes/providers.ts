@@ -26,7 +26,10 @@ async function discover(kind: string, base: string, key: string, timeout: number
       return { models: (json.models ?? []).map((m: any) => String(m.name)), ms: Date.now() - t0 }
     }
     const headers: Record<string, string> = {
-      'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      // NVIDIA NIM UA-dialect: its gateways 403 generic user-agents.
+      'user-agent': base.includes('api.nvidia.com') || kind === 'nim'
+        ? 'NVIDIA-NIM-Client/1.0'
+        : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
       accept: 'application/json',
     }
     if (kind === 'anthropic') {
@@ -40,7 +43,7 @@ async function discover(kind: string, base: string, key: string, timeout: number
       let msg = `Provider responded ${res.status}`
       try {
         const j: any = await res.json()
-        msg = j?.error?.message ?? j?.message ?? msg
+        msg = j?.error?.message ?? j?.detail ?? j?.message ?? msg
       } catch { /* non-JSON error body */ }
       return { error: msg, ms: Date.now() - t0 }
     }

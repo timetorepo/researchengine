@@ -26,10 +26,13 @@ chatRoutes.post('/', async (c) => {
   let url: string
   let headers: Record<string, string>
   let payload: any
-  // Browser-like headers: some provider gateways (Akamai/Cloudflare in front
-  // of NVIDIA NIM etc.) reject Node's default user-agent with 403 on POSTs.
+  // NVIDIA NIM rejects chat/completions from generic user-agents (OpenAI SDK,
+  // browsers, node) with 403 "Authorization failed" while accepting its own
+  // client UA — see HKUDS/Vibe-Trading#528. Speak the right dialect per host.
+  const isNvidia = base.includes('api.nvidia.com') || kind === 'nim'
   const browserish = {
-    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'user-agent': isNvidia ? 'NVIDIA-NIM-Client/1.0'
+      : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
     accept: 'text/event-stream',
   }
   if (kind === 'anthropic') {
@@ -43,7 +46,12 @@ chatRoutes.post('/', async (c) => {
     payload = { model, stream: true, system, max_tokens: maxTokens, temperature, messages }
   } else {
     url = `${base}/chat/completions`
-    headers = { ...browserish, 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) }
+    headers = {
+      ...browserish,
+      'content-type': 'application/json',
+      ...(key ? { authorization: `Bearer ${key}` } : {}),
+      ...(isNvidia && key ? { 'x-nvidia-api-key': key } : {}),
+    }
     payload = {
       model, stream: true, max_tokens: maxTokens, temperature,
       messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
@@ -60,7 +68,13 @@ chatRoutes.post('/', async (c) => {
   if (!upstream.ok || !upstream.body) {
     const errText = await upstream.text().catch(() => '')
     let msg = `${upstream.status}`
-    try { msg = JSON.parse(errText)?.error?.message ?? msg } catch { /* keep status */ }
+    try {
+      const j = JSON.parse(errText)
+      msg = j?.error?.message ?? j?.detail ?? j?.message ?? msg
+    } catch { /* keep status */ }
+    if (upstream.status === 403 && isNvidia) {
+      msg += ' — NVIDIA rejected this key for chat. Fixes that usually work: regenerate the key at build.nvidia.com/settings/api-keys, accept the model\'s terms on its catalog page, or pick a different model.'
+    }
     return c.json({ error: msg }, upstream.status as any)
   }
 

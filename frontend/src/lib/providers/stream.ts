@@ -50,7 +50,8 @@ async function readSSE(res: Response, onData: (json: any) => boolean, onEvent?: 
 async function extractError(res: Response): Promise<string> {
   try {
     const body = await res.json()
-    return body?.error?.message || body?.message || `${res.status} ${res.statusText}`
+    const e = body?.error
+    return (typeof e === 'string' ? e : e?.message) || body?.detail || body?.message || `${res.status} ${res.statusText}`
   } catch {
     return `${res.status} ${res.statusText}`
   }
