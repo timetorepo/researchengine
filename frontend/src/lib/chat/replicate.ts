@@ -9,6 +9,7 @@ import { useUI } from '@/stores/useUI'
 import { generateText } from '@/lib/chat/generate'
 import { getMaster } from '@/lib/prompts/masters'
 import { webSearch } from '@/lib/search/web'
+import { perfCaps } from '@/lib/system/performance'
 
 const BASE: Omit<ReplicateStage, 'status' | 'content'>[] = [
   { id: 'sources', title: 'Source discovery', icon: 'search' },
@@ -79,7 +80,7 @@ export async function runReplicate(opts: {
 
     try {
       if (st.title === 'Source discovery') {
-        const outcome = await webSearch(prompt, 7)
+        const outcome = await webSearch(prompt, Math.max(5, perfCaps().searchResults))
         const lines = outcome.sources.map((s, k) => `${k + 1}. **${s.title}** — ${s.domain}\n   ${s.url}`)
         const content = outcome.live
           ? `Retrieved via **${outcome.backend}**:\n\n${lines.join('\n')}`

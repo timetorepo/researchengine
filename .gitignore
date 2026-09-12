@@ -1,6 +1,8 @@
 node_modules/
 dist/
 build/
+release/
+desktop/src-tauri/target/
 *.db
 *.db-wal
 *.db-shm

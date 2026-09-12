@@ -32,6 +32,8 @@ export function Onboarding() {
   const [passphrase, setPassphrase] = useState('')
   const [testState, setTestState] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle')
   const [testMsg, setTestMsg] = useState('')
+  const lowRam = typeof navigator !== 'undefined' && (navigator as any).deviceMemory !== undefined && (navigator as any).deviceMemory <= 8
+  const [eco, setEco] = useState(lowRam)
 
   useEffect(() => { applyTheme(theme, {}) }, [theme])
 
@@ -49,7 +51,7 @@ export function Onboarding() {
   }
 
   const finish = async () => {
-    const patch: any = { theme }
+    const patch: any = { theme, performanceProfile: eco ? 'eco' : 'balanced' }
     if (apiKey.trim()) {
       let stored = apiKey.trim()
       if (passphrase.length >= 4) {
@@ -72,7 +74,7 @@ export function Onboarding() {
     // the router mounts after this component unmounts and picks it up.
     localStorage.setItem('re.quiz.autodemo', '1')
     window.location.hash = '#/quiz'
-    useStore.setState((s) => ({ settings: { ...s.settings, theme, onboarded: true } }))
+    useStore.setState((s) => ({ settings: { ...s.settings, theme, performanceProfile: eco ? 'eco' : 'balanced', onboarded: true } }))
     applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
   }
 
@@ -228,7 +230,19 @@ export function Onboarding() {
       <div className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
         <Sparkles size={12} /> Try typing <code className="px-1.5 py-0.5 rounded font-mono" style={{ background: 'var(--elevated)' }}>-404</code> sometime.
       </div>
-      <div className="mt-7">
+      <button onClick={() => setEco(!eco)}
+        className="mt-5 mx-auto flex items-center gap-2.5 px-4 py-2.5 rounded-[14px] text-left max-w-[380px]"
+        style={{ border: `1.5px solid ${eco ? 'var(--success)' : 'var(--surface-border)'}`, background: 'var(--surface)' }}>
+        <span className="relative w-9 h-5 rounded-full transition-colors shrink-0"
+          style={{ background: eco ? 'var(--success)' : 'var(--elevated)' }}>
+          <span className="absolute top-[2px] w-3.5 h-3.5 rounded-full bg-white transition-all" style={{ left: eco ? 18 : 2 }} />
+        </span>
+        <span>
+          <span className="block text-[12.5px] font-medium">Eco mode{lowRam ? ' (recommended here)' : ''}</span>
+          <span className="block text-[10.5px]" style={{ color: 'var(--text-3)' }}>1 stream at a time, lighter background work{lowRam ? ' — this machine reports 8 GB RAM or less' : ''}</span>
+        </span>
+      </button>
+      <div className="mt-6">
         <Button size="lg" fullWidth onClick={finish} startContent={<Rocket size={16} />}>
           Enter Research Engine
         </Button>

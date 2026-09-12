@@ -1,6 +1,6 @@
 # Research Engine
 
-**Pre-release: `v0.12.0-beta.1` — the refinement**
+**Pre-release: `v0.13.0-beta.1` — lightweight runtimes**
 
 > Everything from v0.11 still works — plus: versioned Master Prompts you can inspect and override; a New Tech (Replication) mode that executes a visible, staged research plan; a rebuilt Read & Quiz studio with a 720px study reader, AI rewrite and premium quizzes (6 question types, confetti, streaks, timer ring); AI-fetched article images from Wikimedia Commons; a Perplexity-inspired theme; ZIP export and merge-import; and a global command palette.
 
@@ -14,29 +14,113 @@ Built for researchers, scientists, students, and privacy-conscious power users.
 
 ## Quick start
 
-### Docker (one command)
+> **Research Engine does not require Docker.** Docker is optional and usually
+> the heaviest way to run it. Most people should use the single-process server,
+> the native binary, or the desktop app.
+
+### Recommended run modes (light → heavy)
+
+| Mode | What it is | Best for |
+|---|---|---|
+| **Single-process server** | One Node process serves API + built frontend + SQLite | Daily driver on any machine |
+| **Native / portable binary** | Packaged launcher + bundle, no Docker | Simple installs, servers without containers |
+| **Desktop app (Tauri)** | OS webview shell + local backend | Best "feels native" laptop experience |
+| **Node/Bun direct** | `npm run dev` / `npm start` from source | Contributors |
+| **PWA** | Install from the browser; BYOK providers + local storage | Ultra-light, no install |
+| **Docker (optional)** | Single slim image, or the legacy compose stack | Servers / NAS / isolation fans |
+
+### 1. Single-process server (default)
 
 ```bash
-docker compose up --build
-# → app on http://localhost:8080
+npm install                       # root workspaces: frontend + backend
+npm run build                     # builds frontend (Vite) and backend (esbuild)
+npm start                         # → http://127.0.0.1:3847
 ```
 
-Two containers: **frontend** (Nginx static SPA) and **backend** (Node + Hono + SQLite).
-Uncomment the `searxng` service in `docker-compose.yml` for the full self-hosted search stack.
-
-### Development
+One process serves the API, SSE streams and the built frontend. If port 3847
+is busy the next free port is picked and remembered. Options:
 
 ```bash
-cd frontend && npm install && npm run dev    # → http://localhost:5173
-cd backend  && npm install && npm run dev    # → http://localhost:8787 (Vite proxies /api to it for live web search)
+node backend/bin/research-engine.mjs serve --port 3847 --profile eco --data-dir ~/.research-engine
 ```
 
-Run the functional smoke test (37 checks across the chat pipeline, AIFlowEngine,
-crypto vault, quiz generation, real generation primitives, parallel agent
-execution, live-search fallback, and store):
+### 2. Portable / native binary
 
 ```bash
-cd frontend && npm run smoke
+npm run package:binary            # → release/research-engine-<os>-<arch>/
+npm run package:binary -- --bun   # single self-contained executable (needs Bun)
+```
+
+### 3. Desktop app (Tauri 2)
+
+```bash
+cd desktop && npm install && npm run tauri:dev     # develop
+npm run tauri:build                                # .app / .exe / .AppImage
+```
+
+See `desktop/README.md` — tiny RAM overhead vs Electron, uses the OS webview.
+
+### 4. Development loop
+
+```bash
+npm run dev     # Vite HMR on :5173 + backend API on :8787 (Vite proxies /api)
+```
+
+### 5. PWA
+
+The build ships a web manifest and an app-shell service worker (static assets
+only — API traffic is never cached), so any deployment can be installed from
+the browser: *Add to Dock / Add to Home Screen*. Works fully client-side with
+BYOK cloud providers; the local backend adds live search and document pipelines.
+
+### 6. Docker (optional)
+
+```bash
+docker compose -f compose.slim.yml up --build     # one slim image, :3847, 512M cap
+docker compose up --build                         # legacy two-container stack, :8080
+```
+
+---
+
+### Data directory (same layout everywhere)
+
+```
+~/.research-engine/        override with RESEARCH_ENGINE_DATA_DIR
+  db.sqlite                SQLite (in-memory fallback where native modules can't build)
+  media/  notebooks/  cache/
+  config.json              remembered port + profile
+  keys.enc                 reserved for encrypted key material
+```
+
+### Startup profiles
+
+| Profile | Effect |
+|---|---|
+| `eco` | 1 flood worker · 1 concurrent stream · top-5 search · no background work |
+| `balanced` (default) | 2 workers · 2 streams · top-7 search · background indexing |
+| `performance` | 4 workers · 4 streams · top-9 search · larger caches |
+
+```bash
+npm run start:eco                              # or --profile performance
+```
+
+In-app: **Settings → Performance** — profile picker, a high-memory-mode toggle
+(off by default), and a live resource panel (process RAM, SQLite size, data-dir
+and cache size, uptime) sampled from the single-process server.
+
+### First run
+
+1. Start any mode above
+2. Onboarding: Welcome → Privacy → Provider (skippable) → Try the demo → You're set
+3. On machines reporting ≤ 8 GB RAM, Eco mode is offered on by default
+4. Privacy shield stays green — nothing leaves the device except calls you aim
+
+Run the functional smoke test (52 checks: chat pipeline, AIFlowEngine, crypto
+vault, master prompts, replication planner, all six quiz types, demo document,
+image fetching, parallel agents, live-search fallback, store):
+
+```bash
+npm run smoke --workspace frontend
 ```
 
 The frontend is fully functional without the backend — a clearly-labeled **local demo model**
@@ -102,25 +186,33 @@ Used across Home, Onboarding, Settings, TopBar, and the Agent Flood deploy actio
 
 ```
 research-engine/
-  docker-compose.yml
-  frontend/           React 18 + TS (strict) + Vite/SWC + Tailwind 4 + Framer Motion + Zustand
+  docker-compose.yml      legacy two-container stack (optional)
+  compose.slim.yml        single slim image + resource limits (optional)
+  Dockerfile.single       one image: API + built frontend + SQLite
+  desktop/                Tauri 2 shell (OS webview, no Electron)
+  scripts/                dev runner + native packaging
+  frontend/               React 18 + TS (strict) + Vite/SWC + Tailwind 4 + Framer Motion + Zustand
     src/
-      components/     chat, sidebar, input, quiz, article, agents, skills, settings, os, easter, compare, shared
-      hooks/          global shortcuts, list virtualization
-      stores/         zustand (persisted data + ephemeral UI)
+      components/         chat, sidebar, input, quiz, article, agents, skills, settings, os, easter, compare, reader, shared
+      hooks/              global shortcuts, list virtualization
+      stores/             zustand (persisted data + ephemeral UI)
       lib/
-        providers/    openai-compatible / anthropic / ollama streaming adapters + demo engine
-        search/       backend selection
-        flow/         AIFlowEngine — classifier, pruner, cache
-        crypto/       AES-GCM vault (Web Crypto, PBKDF2)
-        quiz/         heuristic question generation
-        documents/    PDF.js / Mammoth extraction
-      themes/         token sets applied via CSS custom properties
-  backend/            Hono on Node
+        prompts/          versioned Master Prompts (the normative system texts)
+        providers/        openai-compatible / anthropic / ollama streaming adapters + demo engine
+        search/           backend selection ladder (backend → Wikipedia → offline)
+        flow/             AIFlowEngine — classifier, pruner, cache
+        system/           performance profiles + live resource sampling
+        crypto/           AES-GCM vault (Web Crypto, PBKDF2)
+        quiz/             heuristic question generation (6 types) + confetti
+        documents/        PDF.js / Mammoth extraction + bundled DNA demo
+    public/               PWA manifest + app-shell service worker
+  backend/                Hono on Node — single-process server
+    bin/research-engine.mjs   CLI launcher (serve --port --profile --data-dir)
     src/
-      routes/         health, search, chat (SSE passthrough), documents, ollama, integrations
-      services/       search adapters, flow helpers, agent orchestrator
-      db/             Drizzle schema over better-sqlite3 (in-memory fallback)
+      runtime.ts          data dir, config.json, profiles, port auto-pick
+      static.ts           built-frontend serving with SPA fallback
+      routes/             health, resources/config, search, chat (SSE), documents, ollama, integrations
+      db/                 Drizzle schema over better-sqlite3 (in-memory fallback)
 ```
 
 ### Privacy guarantees
@@ -128,7 +220,7 @@ research-engine/
 - API keys never reach the backend except when you route a request through it — and then only in memory, never logged.
 - The backend logger records method + path only. Never bodies, never keys.
 - Every outbound request appears in the Connection Log, exportable as CSV.
-- All state lives in the browser (or your SQLite volume in Docker). Export / import / wipe from Settings → Data.
+- All state lives in the browser (or in `~/.research-engine` when the single-process server runs). Export / import / wipe from Settings → Data.
 
 ## Performance
 

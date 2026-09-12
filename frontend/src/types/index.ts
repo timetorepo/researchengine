@@ -242,4 +242,6 @@ export interface Settings {
   profileName: string
   quizAutoAdvance: boolean
   readerImages: boolean
+  performanceProfile: 'eco' | 'balanced' | 'performance'
+  highMemoryMode: boolean
 }

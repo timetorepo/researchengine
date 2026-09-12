@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info,
+  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge,
 } from 'lucide-react'
 import { ProvidersTab } from './ProvidersTab'
 import { IntegrationsTab } from './IntegrationsTab'
@@ -13,6 +13,7 @@ import { AgentsTab } from './AgentsTab'
 import { DataTab } from './DataTab'
 import { ShortcutsTab } from './ShortcutsTab'
 import { AboutTab } from './AboutTab'
+import { PerformanceTab } from './PerformanceTab'
 
 export const TABS = [
   { id: 'providers', label: 'Providers', icon: KeyRound },
@@ -21,6 +22,7 @@ export const TABS = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'models', label: 'Models', icon: Cpu },
   { id: 'flow', label: 'AIFlowEngine', icon: Wind },
+  { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'skills', label: 'Skills', icon: Wand2 },
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'data', label: 'Data', icon: Database },
@@ -36,6 +38,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'appearance': return <AppearanceTab />
     case 'models': return <ModelsTab />
     case 'flow': return <FlowTab />
+    case 'performance': return <PerformanceTab />
     case 'skills': return <SkillsTab />
     case 'agents': return <AgentsTab />
     case 'data': return <DataTab />

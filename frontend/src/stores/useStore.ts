@@ -68,6 +68,8 @@ const defaultSettings: Settings = {
   profileName: 'Researcher',
   quizAutoAdvance: false,
   readerImages: true,
+  performanceProfile: 'balanced',
+  highMemoryMode: false,
 }
 
 const initialSpaces: Space[] = [

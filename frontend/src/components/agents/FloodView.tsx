@@ -11,6 +11,7 @@ import { estimateTokens } from '@/lib/flow/pruner'
 import { generateText } from '@/lib/chat/generate'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
 import { fmt } from '@/lib/utils'
+import { perfCaps } from '@/lib/system/performance'
 
 interface PadMessage { id: string; agent: string; color: string; text: string; t: number }
 interface AgentStatus { spec: AgentSpec; state: 'idle' | 'working' | 'done' | 'halted' | 'error'; tokens: number; startedAt: number; output: string }
@@ -123,9 +124,10 @@ export function FloodView() {
       }
     }
 
-    // Parallel pool — up to 3 agents working at the same time.
+    // Parallel pool — capped by the performance profile (Settings → Performance).
     const queue = [...agents]
-    await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
+    const workers = Math.min(perfCaps().floodWorkers, queue.length)
+    await Promise.all(Array.from({ length: workers }, async () => {
       while (queue.length > 0) {
         const ag = queue.shift()!
         await runAgent(ag)

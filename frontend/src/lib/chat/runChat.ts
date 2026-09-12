@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { classifyQuery, shapeSystemPrompt, lengthHint } from '@/lib/flow/classifier'
 import { runReplicate } from './replicate'
+import { perfCaps } from '@/lib/system/performance'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError } from '@/lib/providers/stream'
@@ -88,7 +89,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
   let sources: Source[] | undefined
   if (mode.search) {
     useUI.setState({ island: { kind: 'search', sources: 0 } })
-    const outcome = await webSearch(prompt)
+    const outcome = await webSearch(prompt, perfCaps().searchResults)
     sources = outcome.sources
     useUI.setState({ island: { kind: 'search', sources: sources.length } })
     store.logConnection(`search://${outcome.backend}`, `web search: ${prompt.slice(0, 40)}`, 2048, outcome.live ? 'ok' : 'local')
