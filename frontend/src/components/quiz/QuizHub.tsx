@@ -65,6 +65,12 @@ export function QuizHub() {
       localStorage.removeItem('re.quiz.autodemo')
       startDemo(false)
     }
+    // File dropped on another surface (home screen) — pick it up once.
+    const pending = useUI.getState().pendingQuizFile
+    if (pending) {
+      useUI.setState({ pendingQuizFile: null })
+      handleFiles([pending])
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

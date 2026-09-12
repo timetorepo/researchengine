@@ -66,30 +66,8 @@ export async function streamToCallback(
   const base = (req.baseUrl || meta.baseUrl).replace(/\/$/, '')
   let completionChars = 0
 
-  if (meta.kind === 'anthropic') {
-    const res = await fetch(`${base}/messages`, {
-      method: 'POST', signal: req.signal,
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': req.apiKey, 'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: req.model, stream: true, system: req.system,
-        max_tokens: req.maxTokens ?? 1024,
-        messages: req.messages,
-      }),
-    })
-    if (!res.ok) throw new ProviderError('Anthropic', await extractError(res))
-    req.onFirstByte?.()
-    await readSSE(res, () => false, (_evt, json) => {
-      if (json.type === 'content_block_delta' && json.delta?.text) {
-        completionChars += json.delta.text.length
-        onChunk(json.delta.text)
-      }
-      return json.type === 'message_stop'
-    })
-  } else if (meta.id === 'ollama') {
+  if (meta.id === 'ollama') {
+    // localhost — no CORS concerns, call directly
     const res = await fetch(`${base}/api/chat`, {
       method: 'POST', signal: req.signal,
       headers: { 'content-type': 'application/json' },
@@ -119,24 +97,35 @@ export async function streamToCallback(
       }
     }
   } else {
-    const headers: Record<string, string> = { 'content-type': 'application/json' }
-    if (req.apiKey) headers.authorization = `Bearer ${req.apiKey}`
-    const res = await fetch(`${base}/chat/completions`, {
-      method: 'POST', signal: req.signal, headers,
+    // Everything else streams through the same-origin backend proxy —
+    // the upstream SSE bytes come back untouched, so the parsers below are
+    // identical to the direct path, but CORS can never block a provider.
+    const res = await fetch('/api/chat', {
+      method: 'POST', signal: req.signal,
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: req.model, stream: true,
-        messages: [{ role: 'system', content: req.system }, ...req.messages],
-        temperature: req.temperature ?? 0.7,
-        max_tokens: req.maxTokens ?? 1024,
+        kind: meta.kind, base, key: req.apiKey, model: req.model,
+        system: req.system, messages: req.messages,
+        maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
       }),
     })
     if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
     req.onFirstByte?.()
-    await readSSE(res, (json) => {
-      const delta = json.choices?.[0]?.delta?.content
-      if (delta) { completionChars += delta.length; onChunk(delta) }
-      return false
-    })
+    if (meta.kind === 'anthropic') {
+      await readSSE(res, () => false, (_evt, json) => {
+        if (json.type === 'content_block_delta' && json.delta?.text) {
+          completionChars += json.delta.text.length
+          onChunk(json.delta.text)
+        }
+        return json.type === 'message_stop'
+      })
+    } else {
+      await readSSE(res, (json) => {
+        const delta = json.choices?.[0]?.delta?.content
+        if (delta) { completionChars += delta.length; onChunk(delta) }
+        return false
+      })
+    }
   }
 
   const sysTokens = Math.round(req.system.length / 4)

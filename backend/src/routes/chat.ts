@@ -3,45 +3,72 @@ import { streamSSE } from 'hono/streaming'
 
 export const chatRoutes = new Hono()
 
-// Optional server-side proxy. BYOK by default the browser calls providers
-// directly; this route exists for deployments that want a single egress point.
-// Keys are used in-memory only and are never logged or stored.
+/**
+ * Same-origin streaming proxy. Browsers block CORS for several providers
+ * (NVIDIA NIM, Anthropic, ...), so real chat streaming goes through this
+ * route: the upstream SSE bytes are passed straight through, untouched.
+ * Keys arrive per-request, are used in-memory only, never logged or stored.
+ */
 chatRoutes.post('/', async (c) => {
   const body = await c.req.json()
-  const { provider = 'openai', model, apiKey, baseUrl, system = '', messages = [], maxTokens = 1024, temperature = 0.7 } = body
+  const kind: string = body.kind ?? 'openai'
+  const model: string | undefined = body.model
+  const key: string = body.key ?? body.apiKey ?? ''
+  const base = String(body.base ?? body.baseUrl ?? '').replace(/\/+$/, '')
+  const system: string = body.system ?? ''
+  const messages: any[] = body.messages ?? []
+  const maxTokens: number = body.maxTokens ?? 1024
+  const temperature: number = body.temperature ?? 0.7
+
   if (!model) return c.json({ error: 'model is required' }, 400)
+  if (!base) return c.json({ error: 'base is required' }, 400)
 
-  const bases: Record<string, string> = {
-    openai: 'https://api.openai.com/v1',
-    groq: 'https://api.groq.com/openai/v1',
-    together: 'https://api.together.xyz/v1',
-    mistral: 'https://api.mistral.ai/v1',
-  }
-  const base = (baseUrl || bases[provider] || '').replace(/\/$/, '')
-  if (!base) return c.json({ error: `No base URL for provider ${provider}` }, 400)
-
-  const upstream = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
-    body: JSON.stringify({
+  let url: string
+  let headers: Record<string, string>
+  let payload: any
+  if (kind === 'anthropic') {
+    url = `${base}/messages`
+    headers = {
+      'content-type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+    }
+    payload = { model, stream: true, system, max_tokens: maxTokens, temperature, messages }
+  } else {
+    url = `${base}/chat/completions`
+    headers = { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) }
+    payload = {
       model, stream: true, max_tokens: maxTokens, temperature,
-      messages: [{ role: 'system', content: system }, ...messages],
-    }),
+      messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
+    }
+  }
+
+  const upstream = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+    signal: c.req.raw.signal, // client abort kills the upstream call
   })
 
   if (!upstream.ok || !upstream.body) {
     const errText = await upstream.text().catch(() => '')
-    return c.json({ error: `${upstream.status}: ${errText.slice(0, 400)}` }, upstream.status as any)
+    let msg = `${upstream.status}`
+    try { msg = JSON.parse(errText)?.error?.message ?? msg } catch { /* keep status */ }
+    return c.json({ error: msg }, upstream.status as any)
   }
 
   // Pass the SSE stream straight through.
+  c.header('Content-Type', 'text/event-stream')
+  c.header('Cache-Control', 'no-cache')
   return streamSSE(c, async (stream) => {
     const reader = upstream.body!.getReader()
     const td = new TextDecoder()
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      await stream.write(td.decode(value, { stream: true }))
-    }
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        await stream.write(td.decode(value, { stream: true }))
+      }
+    } catch { /* client went away — upstream already aborted via signal */ }
   })
 })

@@ -217,14 +217,26 @@ export function FloodView() {
             ))}
           </div>
 
-          {/* Agent grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
-            <AnimatePresence>
-              {agents.map((ag) => {
+          {/* Agent grid — keyed per squad so switching runs ONE coordinated
+              transition (old grid fades, new grid staggers in) instead of
+              every card exit/entering at once, which read as choppy. */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={squad.id}
+              initial={{ opacity: 0, scale: 0.985 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.985, transition: { duration: 0.12, ease: 'easeIn' } }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4"
+            >
+              <AnimatePresence initial={false}>
+              {agents.map((ag, i) => {
                 const st = statuses.find((x) => x.spec.id === ag.id)
                 return (
-                  <motion.div key={ag.id} layout
-                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                  <motion.div key={ag.id}
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.1 } }}
+                    transition={{ delay: i * 0.035, type: 'spring', damping: 26, stiffness: 320 }}
                     className="relative p-3.5 rounded-[14px] overflow-hidden"
                     style={{ background: 'var(--surface)', border: `1px solid ${ag.color}44` }}>
                     {st?.state === 'done' && (
@@ -271,17 +283,21 @@ export function FloodView() {
                   </motion.div>
                 )
               })}
-            </AnimatePresence>
+              </AnimatePresence>
 
-            <button onClick={() => setAgents((prev) => [...prev, {
-              id: nanoid(6), name: `Agent ${prev.length + 1}`, role: 'Researcher',
-              color: AGENT_COLORS[prev.length % AGENT_COLORS.length], modelBinding: 'inherit', temperature: 0.6, skills: [],
-            }])}
-              className="flex items-center justify-center gap-1.5 p-3.5 rounded-[14px] text-[12.5px] transition-colors hover:bg-[var(--elevated)]"
-              style={{ border: '1px dashed var(--surface-border)', color: 'var(--text-3)' }}>
-              <Plus size={14} /> Add agent
-            </button>
-          </div>
+              <motion.button
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: agents.length * 0.035, duration: 0.2 }}
+                onClick={() => setAgents((prev) => [...prev, {
+                  id: nanoid(6), name: `Agent ${prev.length + 1}`, role: 'Researcher',
+                  color: AGENT_COLORS[prev.length % AGENT_COLORS.length], modelBinding: 'inherit', temperature: 0.6, skills: [],
+                }])}
+                className="flex items-center justify-center gap-1.5 p-3.5 rounded-[14px] text-[12.5px] transition-colors hover:bg-[var(--elevated)]"
+                style={{ border: '1px dashed var(--surface-border)', color: 'var(--text-3)' }}>
+                <Plus size={14} /> Add agent
+              </motion.button>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Cost estimate + deploy */}
           <div className="surface p-4 flex flex-wrap items-center gap-4">

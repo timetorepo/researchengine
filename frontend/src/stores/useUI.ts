@@ -38,6 +38,8 @@ interface UIState {
   focus: { running: boolean; endsAt: number | null; remaining: number; total: number; mode: 'work' | 'break' }
   shieldClicks: number
   osMinimized: boolean
+  /** File handed from another surface (home drag & drop) to Read & Quiz. */
+  pendingQuizFile: File | null
 
   set: (patch: Partial<UIState>) => void
   toggleSidebar: () => void
@@ -69,6 +71,7 @@ export const useUI = create<UIState>((set, get) => ({
   focus: { running: false, endsAt: null, remaining: 25 * 60, total: 25 * 60, mode: 'work' },
   shieldClicks: 0,
   osMinimized: false,
+  pendingQuizFile: null,
 
   set: (patch) => set(patch),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),

@@ -233,6 +233,8 @@ export function AppearanceTab() {
           checked={settings.osWidgets} onChange={(v) => update({ osWidgets: v })} />
         <Switch label="Dynamic Island" description="Float the status island over every theme, not only ResearchEngineOS."
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
+        <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
+          checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
       </div>
     </div>
   )

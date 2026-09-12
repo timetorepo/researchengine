@@ -50,6 +50,34 @@
   --font-scale: 1;
 }
 
+/* Theme-matched gradients — same mesh construction, but every stop is mixed
+   from the active theme's own primary/secondary/bg, so cards always belong
+   to the palette. Enabled via Settings > Appearance. */
+:root[data-grad="theme"] {
+  --grad-research:
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--bg)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 66%, var(--bg)) 0%, transparent 58%),
+    radial-gradient(95% 105% at 42% 62%, color-mix(in srgb, var(--primary) 32%, var(--secondary)) 0%, transparent 64%),
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 26%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--secondary) 22%, var(--bg)) 100%);
+  --grad-math:
+    radial-gradient(120% 150% at 90% -10%, color-mix(in srgb, var(--warning) 70%, var(--bg)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -10% 110%, color-mix(in srgb, var(--primary) 55%, var(--bg)) 0%, transparent 60%),
+    linear-gradient(160deg, color-mix(in srgb, var(--warning) 24%, var(--bg)) 0%, var(--bg) 60%, color-mix(in srgb, var(--primary) 20%, var(--bg)) 100%);
+  --grad-quiz:
+    radial-gradient(125% 150% at 85% -12%, color-mix(in srgb, var(--success) 72%, var(--bg)) 0%, transparent 56%),
+    radial-gradient(115% 135% at -12% 105%, color-mix(in srgb, var(--primary) 60%, var(--bg)) 0%, transparent 58%),
+    radial-gradient(90% 100% at 55% 70%, color-mix(in srgb, var(--success) 30%, var(--secondary)) 0%, transparent 62%),
+    linear-gradient(155deg, color-mix(in srgb, var(--success) 26%, var(--bg)) 0%, var(--bg) 60%, color-mix(in srgb, var(--primary) 22%, var(--bg)) 100%);
+  --grad-article:
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--secondary) 74%, var(--bg)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--primary) 62%, var(--bg)) 0%, transparent 58%),
+    linear-gradient(160deg, color-mix(in srgb, var(--secondary) 26%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--primary) 22%, var(--bg)) 100%);
+  --grad-flood:
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--bg)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 70%, var(--bg)) 0%, transparent 58%),
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 28%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--secondary) 24%, var(--bg)) 100%);
+}
+
 /* ---------- Default Dark (signature) ---------- */
 :root[data-theme="dark"] {
   color-scheme: dark;

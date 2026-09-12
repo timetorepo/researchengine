@@ -67,6 +67,7 @@ const defaultSettings: Settings = {
   providers: {},
   providerModels: {},
   dynamicIsland: false,
+  themeGradients: false,
   passphraseSet: false,
   floodBudget: 200000,
   osWidgets: true,

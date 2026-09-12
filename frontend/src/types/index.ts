@@ -241,6 +241,8 @@ export interface Settings {
   providerModels: Record<string, string[]>
   passphraseSet: boolean
   dynamicIsland: boolean
+  /** Derive card gradients from the active theme instead of fixed hues. */
+  themeGradients: boolean
   floodBudget: number
   osWidgets: boolean
   osWallpaper: string

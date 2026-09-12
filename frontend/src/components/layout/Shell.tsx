@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useStore } from '@/stores/useStore'
@@ -17,6 +17,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const isOS = theme === 're-os'
   const dynamicIsland = useStore((s) => s.settings.dynamicIsland)
+  const themeGradients = useStore((s) => s.settings.themeGradients)
+
+  // Gradient style lives on <html> so every gradient surface follows.
+  useEffect(() => {
+    document.documentElement.dataset.grad = themeGradients ? 'theme' : 'vibrant'
+  }, [themeGradients])
 
   // Route enter transition only — no exit animation and no mode="wait".
   // An exit-gated AnimatePresence can strand the incoming page if the exit

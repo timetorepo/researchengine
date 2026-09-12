@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
+import { useUI } from '@/stores/useUI'
 import { InputBar } from '@/components/input/InputBar'
 import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
 import { TextGenerateEffect } from '@/components/ui/aceternity/TextGenerateEffect'
@@ -49,9 +50,44 @@ export function HomeScreen() {
     }), 80)
   }
 
+  // Drag & drop a document anywhere on the home screen -> Read & Quiz.
+  const [dragOver, setDragOver] = useState(false)
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files?.[0]
+    if (f) {
+      useUI.setState({ pendingQuizFile: f })
+      navigate('/quiz')
+    }
+  }
+
   return (
-    <div className="h-full overflow-y-auto relative">
+    <div
+      className="h-full overflow-y-auto relative"
+      onDragEnter={(e) => { if (hasFiles(e)) { e.preventDefault(); setDragOver(true) } }}
+      onDragOver={(e) => { if (hasFiles(e)) e.preventDefault() }}
+      onDragLeave={(e) => { if (hasFiles(e) && e.currentTarget === e.target) setDragOver(false) }}
+      onDrop={onDrop}
+    >
       <AuroraBackground className="absolute inset-0 pointer-events-none" />
+      <AnimatePresence>
+        {dragOver && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none"
+            style={{ background: 'color-mix(in srgb, var(--bg) 70%, transparent)', backdropFilter: 'blur(6px)' }}
+          >
+            <div className="flex flex-col items-center gap-3 px-10 py-8 rounded-[22px]"
+              style={{ border: '2px dashed var(--primary)', background: 'color-mix(in srgb, var(--primary) 8%, var(--surface))' }}>
+              <UploadCloud size={30} strokeWidth={1.5} style={{ color: 'var(--primary)' }} />
+              <div className="text-[15px] font-semibold" style={{ letterSpacing: '-0.01em' }}>Drop to read & quiz</div>
+              <div className="text-[12px]" style={{ color: 'var(--text-3)' }}>PDF, DOCX, TXT or Markdown — processed on-device</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
         {/* Greeting */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">
