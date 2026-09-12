@@ -171,6 +171,17 @@ export const useStore = create<StoreState>()(
         settings: s.settings, tokensSavedLifetime: s.tokensSavedLifetime,
         totalRequests: s.totalRequests,
       }),
+      // Deep-merge persisted state over fresh defaults so settings fields added
+      // in newer versions (themeFavorites, masterPromptOverrides, …) are never
+      // wiped out by an older persisted settings object.
+      merge: (persistedState, currentState) => {
+        const p = (persistedState ?? {}) as Partial<StoreState> & { settings?: Partial<StoreState['settings']> }
+        return {
+          ...currentState,
+          ...p,
+          settings: { ...currentState.settings, ...(p.settings ?? {}) },
+        }
+      },
     },
   ),
 )

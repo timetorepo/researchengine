@@ -408,7 +408,7 @@ function SettingsLauncher({ collapsed }: { collapsed: boolean }) {
 /** Theme quick-toggle — click cycles favorited themes; long-press opens the picker. */
 function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
   const theme = useStore((s) => s.settings.theme)
-  const favorites = useStore((s) => s.settings.themeFavorites)
+  const favorites = useStore((s) => s.settings.themeFavorites) ?? ['dark', 'light', 'catppuccin-mocha']
   const [pickerOpen, setPickerOpen] = useState(false)
   const pressTimer = useRef<any>(null)
   const longPressed = useRef(false)
@@ -470,10 +470,10 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
 
 /** User profile pill — avatar, name, presence dot. Popover with profile options. */
 function ProfilePill({ collapsed }: { collapsed: boolean }) {
-  const name = useStore((s) => s.settings.profileName)
+  const name = useStore((s) => s.settings.profileName) ?? 'Researcher'
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(name)
-  const initials = name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'R'
+  const initials = (name || 'Researcher').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'R'
 
   return (
     <div className="relative">

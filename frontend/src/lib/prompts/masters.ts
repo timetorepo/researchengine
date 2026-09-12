@@ -61,8 +61,8 @@ export const STYLE_RULES = `Voice rules: no filler phrases ("Great question", "C
  * Resolve a master prompt: user override wins, else the shipped default.
  * Returns { text, overridden }.
  */
-export function getMaster(key: MasterKey, overrides: Record<string, string>): { text: string; overridden: boolean } {
-  const o = overrides[key]?.trim()
+export function getMaster(key: MasterKey, overrides: Record<string, string> | undefined): { text: string; overridden: boolean } {
+  const o = (overrides ?? {})[key]?.trim()
   if (o) return { text: o, overridden: true }
   return { text: MASTERS.find((m) => m.key === key)!.text, overridden: false }
 }
