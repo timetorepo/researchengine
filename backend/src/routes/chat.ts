@@ -26,9 +26,16 @@ chatRoutes.post('/', async (c) => {
   let url: string
   let headers: Record<string, string>
   let payload: any
+  // Browser-like headers: some provider gateways (Akamai/Cloudflare in front
+  // of NVIDIA NIM etc.) reject Node's default user-agent with 403 on POSTs.
+  const browserish = {
+    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    accept: 'text/event-stream',
+  }
   if (kind === 'anthropic') {
     url = `${base}/messages`
     headers = {
+      ...browserish,
       'content-type': 'application/json',
       'x-api-key': key,
       'anthropic-version': '2023-06-01',
@@ -36,7 +43,7 @@ chatRoutes.post('/', async (c) => {
     payload = { model, stream: true, system, max_tokens: maxTokens, temperature, messages }
   } else {
     url = `${base}/chat/completions`
-    headers = { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) }
+    headers = { ...browserish, 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) }
     payload = {
       model, stream: true, max_tokens: maxTokens, temperature,
       messages: system ? [{ role: 'system', content: system }, ...messages] : messages,

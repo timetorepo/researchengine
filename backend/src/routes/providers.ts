@@ -25,7 +25,10 @@ async function discover(kind: string, base: string, key: string, timeout: number
       const json: any = await res.json()
       return { models: (json.models ?? []).map((m: any) => String(m.name)), ms: Date.now() - t0 }
     }
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = {
+      'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      accept: 'application/json',
+    }
     if (kind === 'anthropic') {
       headers['x-api-key'] = key
       headers['anthropic-version'] = '2023-06-01'

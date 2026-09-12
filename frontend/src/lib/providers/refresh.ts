@@ -1,5 +1,6 @@
 import { PROVIDERS } from './registry'
 import { fetchProviderModels } from './stream'
+import { usableKey } from './keys'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 
@@ -30,7 +31,8 @@ export async function refreshAllModels(): Promise<{ ok: number; failed: number }
     candidates.map(async (p) => {
       const conf = useStore.getState().settings.providers[p.id]
       try {
-        const models = await fetchProviderModels(p.id, conf?.apiKey ?? '', conf?.baseUrl)
+        const key = await usableKey(conf?.apiKey)
+        const models = await fetchProviderModels(p.id, key, conf?.baseUrl)
         ok++
         useStore.setState((st) => ({
           settings: { ...st.settings, providerModels: { ...st.settings.providerModels, [p.id]: models } },
@@ -57,7 +59,8 @@ export async function refreshAllModels(): Promise<{ ok: number; failed: number }
 export async function refreshProviderModels(providerId: string): Promise<string[]> {
   const s = useStore.getState().settings
   const conf = s.providers[providerId]
-  const models = await fetchProviderModels(providerId, conf?.apiKey ?? '', conf?.baseUrl)
+  const key = await usableKey(conf?.apiKey)
+  const models = await fetchProviderModels(providerId, key, conf?.baseUrl)
   useStore.setState((st) => ({
     settings: { ...st.settings, providerModels: { ...st.settings.providerModels, [providerId]: models } },
   }))

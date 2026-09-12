@@ -4,8 +4,7 @@
 import { streamToCallback, ProviderError } from '@/lib/providers/stream'
 import { providerById } from '@/lib/providers/registry'
 import { demoAnswer } from '@/lib/providers/demo'
-import { resolveKey } from '@/lib/crypto/vault'
-import { getVaultPassphrase } from '@/lib/crypto/session'
+import { usableKey } from '@/lib/providers/keys'
 import { estimateTokens } from '@/lib/flow/pruner'
 import { useStore } from '@/stores/useStore'
 
@@ -36,7 +35,7 @@ export async function generateText(req: GenerateRequest): Promise<GenerateResult
 
   const pconf = settings.providers[providerId]
   let apiKey = ''
-  if (pconf?.apiKey) apiKey = await resolveKey(pconf.apiKey, getVaultPassphrase())
+  if (pconf?.apiKey) apiKey = await usableKey(pconf.apiKey)
 
   const useReal = !!meta && (!meta.needsKey || apiKey.length > 0)
   const messages = [...(req.history ?? []), { role: 'user' as const, content: req.prompt }]

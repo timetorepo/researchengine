@@ -12,8 +12,7 @@ import { streamToCallback, ProviderError } from '@/lib/providers/stream'
 import { providerById } from '@/lib/providers/registry'
 import { streamDemo, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
 import { webSearch } from '@/lib/search/web'
-import { resolveKey } from '@/lib/crypto/vault'
-import { getVaultPassphrase } from '@/lib/crypto/session'
+import { usableKey } from '@/lib/providers/keys'
 import { useUI } from '@/stores/useUI'
 import type { ChatMessage, Source } from '@/types'
 
@@ -127,9 +126,21 @@ export async function runChat(opts: RunOptions): Promise<void> {
   }
 
   // ---- resolve credentials ----
+  // Encrypted keys are decrypted via the in-memory vault passphrase. If the
+  // vault is locked we must NOT silently fall back to the demo model (that
+  // reads as a bogus provider error like "403 Forbidden" later) — open the
+  // unlock prompt and stop with a clear message.
   const pconf = settings.providers[providerId]
   let apiKey = ''
-  if (pconf?.apiKey) apiKey = await resolveKey(pconf.apiKey, getVaultPassphrase())
+  if (pconf?.apiKey) {
+    try {
+      apiKey = await usableKey(pconf.apiKey)
+    } catch (e: any) {
+      useStore.getState().updateMessage(chatId, asstId, { error: e?.message ?? 'Could not unlock the API key.' })
+      cleanup(chatId)
+      return
+    }
+  }
 
   const useReal = !!providerMeta && (!providerMeta.needsKey || apiKey.length > 0)
   const t0 = performance.now()

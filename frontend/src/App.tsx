@@ -33,6 +33,7 @@ import { FocusPill } from '@/components/shared/FocusPill'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { SettingsSheet } from '@/components/settings/SettingsSheet'
+import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 
 /** Preload every lazy route chunk during idle time — first paint stays lean,
@@ -138,6 +139,7 @@ function RoutedApp() {
       </ErrorBoundary>
       <Toasts />
       <SettingsSheet />
+      <VaultUnlock />
       <CommandPalette />
       <ShortcutsOverlay />
       <SkillBuilderPanel />

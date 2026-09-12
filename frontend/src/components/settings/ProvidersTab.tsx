@@ -4,6 +4,7 @@ import { PROVIDERS } from '@/lib/providers/registry'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { testConnection, ollamaTags } from '@/lib/providers/stream'
 import { refreshProviderModels } from '@/lib/providers/refresh'
+import { usableKey } from '@/lib/providers/keys'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { encryptWithPassphrase } from '@/lib/crypto/vault'
@@ -61,7 +62,7 @@ export function ProvidersTab() {
     const conf = get(id)
     const d = drafts[id] ?? {}
     try {
-      const key = d.key || (conf.apiKey && !conf.apiKey.startsWith('enc:') ? conf.apiKey : '')
+      const key = d.key || (await usableKey(conf.apiKey))
       const url = d.url || conf.baseUrl || m.baseUrl
       if (m.id === 'ollama') {
         const models = await ollamaTags(url)

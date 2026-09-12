@@ -40,6 +40,8 @@ interface UIState {
   osMinimized: boolean
   /** File handed from another surface (home drag & drop) to Read & Quiz. */
   pendingQuizFile: File | null
+  /** Global prompt to unlock the encrypted-key vault passphrase. */
+  vaultPrompt: boolean
 
   set: (patch: Partial<UIState>) => void
   toggleSidebar: () => void
@@ -72,6 +74,7 @@ export const useUI = create<UIState>((set, get) => ({
   shieldClicks: 0,
   osMinimized: false,
   pendingQuizFile: null,
+  vaultPrompt: false,
 
   set: (patch) => set(patch),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
