@@ -2,7 +2,7 @@ import React, { useRef } from 'react'
 import { Check, Upload, RotateCcw } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
-import { THEMES } from '@/lib/themes/meta'
+import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
@@ -51,6 +51,7 @@ export function AppearanceTab() {
                   {t.name} {active && <Check size={12} style={{ color: 'var(--primary)' }} />}
                 </div>
                 <div className="text-[10.5px] mt-0.5 capitalize" style={{ color: 'var(--text-3)' }}>{t.kind} · {t.codeTheme}</div>
+                {THEME_CAPTIONS[t.id] && <div className="text-[10px] mt-0.5 italic" style={{ color: 'var(--text-3)' }}>{THEME_CAPTIONS[t.id]}</div>}
               </div>
             </SpotlightCard>
           )

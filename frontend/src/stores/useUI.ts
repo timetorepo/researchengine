@@ -14,6 +14,7 @@ interface UIState {
   sidebarCollapsed: boolean
   sidebarOpenMobile: boolean
   settingsOpen: boolean
+  settingsSheet: boolean
   settingsTab: string
   paletteOpen: boolean
   shortcutsOpen: boolean
@@ -43,6 +44,7 @@ export const useUI = create<UIState>((set, get) => ({
   sidebarCollapsed: typeof window !== 'undefined' && window.innerWidth < 1200,
   sidebarOpenMobile: false,
   settingsOpen: false,
+  settingsSheet: false,
   settingsTab: 'providers',
   paletteOpen: false,
   shortcutsOpen: false,

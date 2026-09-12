@@ -8,6 +8,7 @@ import type { ChatMessage } from '@/types'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Markdown } from './Markdown'
+import { ReplicateTimeline } from './ReplicateTimeline'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { SourceStrip } from './SourceStrip'
 import { nanoid } from 'nanoid'
@@ -101,14 +102,23 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
             <div>
               <div className="font-medium mb-0.5">The provider returned an error</div>
               <div style={{ color: 'var(--text-2)' }}>{msg.error}</div>
-              <button
-                onClick={() => ui.set({ settingsOpen: true, settingsTab: 'providers' })}
-                className="mt-2 px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--danger)', color: '#fff' }}
-              >Fix in Settings</button>
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => onRegenerate(msg)}
+                  className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
+                  Retry
+                </button>
+                <button
+                  onClick={() => ui.set({ settingsSheet: true, settingsTab: 'providers' })}
+                  className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--danger)', color: '#fff' }}
+                >Fix in Settings</button>
+              </div>
             </div>
           </div>
         ) : (
-          <Markdown content={msg.content} streaming={streaming} />
+          <>
+            {msg.stages && msg.stages.length > 0 && <ReplicateTimeline chatId={chatId} msg={msg} />}
+            <Markdown content={msg.content} streaming={streaming} />
+          </>
         )}
 
         {/* Citation chips — bidirectional highlight with source strip */}
@@ -188,8 +198,22 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           </motion.div>
         )}
 
+        {/* Continue from here — shown when a stream was stopped early */}
+        {!streaming && msg.stopped && !msg.error && (
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('re:send-prompt', { detail: 'Continue exactly where you stopped. Do not repeat what you already wrote.' }))}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-all hover:scale-[1.02]"
+              style={{ background: 'var(--primary)', color: '#fff' }}
+            >
+              Continue from here <ArrowRight size={11} />
+            </button>
+            <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>stream stopped early</span>
+          </div>
+        )}
+
         {/* Follow-ups */}
-        {!streaming && msg.followUps && msg.followUps.length > 0 && !msg.error && (
+        {!streaming && msg.followUps && msg.followUps.length > 0 && !msg.error && !msg.stopped && (
           <div className="flex flex-wrap gap-2 mt-3">
             {msg.followUps.map((sug) => (
               <button

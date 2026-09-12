@@ -63,6 +63,11 @@ const defaultSettings: Settings = {
   soundEffects: false,
   background: { kind: 'default' },
   onboarded: false,
+  masterPromptOverrides: {},
+  themeFavorites: ['dark', 'light', 'catppuccin-mocha'],
+  profileName: 'Researcher',
+  quizAutoAdvance: false,
+  readerImages: true,
 }
 
 const initialSpaces: Space[] = [

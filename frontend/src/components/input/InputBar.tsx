@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle } from 'lucide-react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { SkillPicker } from './SkillPicker'
@@ -9,7 +9,7 @@ import { IntegrationPicker } from './IntegrationPicker'
 import { clsx } from 'clsx'
 
 interface Props {
-  onSend: (prompt: string, opts?: { search?: boolean; quality?: boolean }) => void
+  onSend: (prompt: string, opts?: { search?: boolean; quality?: boolean; replicate?: boolean }) => void
   mathMode: boolean
   setMathMode: (v: boolean) => void
   streaming: boolean
@@ -24,6 +24,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [text, setText] = useState('')
   const [search, setSearch] = useState(false)
   const [quality, setQuality] = useState(false)
+  const [replicate, setReplicate] = useState(false)
   const [picker, setPicker] = useState<'skill' | 'source' | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
   const [sent, setSent] = useState(false)
@@ -53,7 +54,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      doSend(e.metaKey || e.ctrlKey ? { search: true, quality } : { quality })
+      doSend(e.metaKey || e.ctrlKey ? { search: true, quality, replicate } : { quality, replicate })
     }
   }
 
@@ -64,7 +65,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     else setPicker(null)
   }
 
-  const doSend = (opts: { search?: boolean; quality?: boolean } = {}) => {
+  const doSend = (opts: { search?: boolean; quality?: boolean; replicate?: boolean } = {}) => {
     const raw = text.trim()
     if (!raw || streaming) return
 
@@ -81,7 +82,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     if (picker === 'skill') { setPicker(null) }
     setSent(true)
     setTimeout(() => setSent(false), 400)
-    onSend(raw, { search: search || quality || opts.search, quality: quality || opts.quality })
+    onSend(raw, { search: search || quality || opts.search, quality: quality || opts.quality, replicate: replicate || opts.replicate })
     setText('')
     setSearch(false)
   }
@@ -91,6 +92,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     { id: 'search', label: 'Search', icon: Globe, active: search, toggle: () => setSearch(!search), title: 'Web search with citations (Cmd/Ctrl+Enter)' },
     { id: 'quality', label: 'Quality', icon: Sparkles, active: quality, toggle: () => { setQuality(!quality); if (!quality) setSearch(true) }, title: 'Longer, thoroughly cited, structured answers' },
     { id: 'math', label: 'Math', icon: Sigma, active: mathMode, toggle: () => setMathMode(!mathMode), title: 'Step-by-step LaTeX (Cmd/Ctrl+M)' },
+    { id: 'replicate', label: 'Replicate', icon: Hammer, active: replicate, toggle: () => setReplicate(!replicate), title: 'New Tech — staged replication research plan' },
   ]
 
   return (

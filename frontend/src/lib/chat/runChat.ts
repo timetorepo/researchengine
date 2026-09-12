@@ -3,6 +3,7 @@
 import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { classifyQuery, shapeSystemPrompt, lengthHint } from '@/lib/flow/classifier'
+import { runReplicate } from './replicate'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError } from '@/lib/providers/stream'
@@ -17,7 +18,7 @@ import type { ChatMessage, Source } from '@/types'
 export interface RunOptions {
   chatId: string
   prompt: string
-  mode?: { math?: boolean; quality?: boolean; search?: boolean }
+  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
   modelOverride?: string
   overrideHistory?: ChatMessage[]
 }
@@ -60,6 +61,17 @@ export async function runChat(opts: RunOptions): Promise<void> {
   activeStreams.set(chatId, controller)
   useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
 
+  // ---- New Tech (Replication) mode: staged plan executed visibly ----
+  if (mode.replicate) {
+    try {
+      await runReplicate({ chatId, msgId: asstId, prompt, signal: controller.signal })
+    } finally {
+      activeStreams.delete(chatId)
+      useUI.setState({ island: { kind: 'idle' } })
+    }
+    return
+  }
+
   // Live history INCLUDING the user message just added, minus the empty
   // assistant placeholder that is about to be streamed into.
   const liveChat = useStore.getState().chats.find((c) => c.id === chatId)!
@@ -68,7 +80,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
   const pruned = pruneContext(history, settings.flowMode, flowEnabled)
 
   const cls = classifyQuery(prompt)
-  const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality })
+  const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality, flow: settings.flowEnabled }, settings.masterPromptOverrides)
   const customSys = settings.customSystemPrompts[mode.math ? 'math' : 'default']
   let system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
 
@@ -115,6 +127,20 @@ export async function runChat(opts: RunOptions): Promise<void> {
     }
   }
 
+  // ---- ~40ms chunk batching: fewer store updates, same perceived speed ----
+  let pending = ''
+  let flushTimer: ReturnType<typeof setTimeout> | null = null
+  const flushNow = () => {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+    if (pending) { const p = pending; pending = ''; useStore.getState().appendToken(chatId, asstId, p) }
+  }
+  const pushChunk = (chunk: string) => {
+    completionText += chunk
+    pending += chunk
+    bumpIsland()
+    if (!flushTimer) flushTimer = setTimeout(flushNow, 40)
+  }
+
   // Flow cache hit?
   const cached = flowEnabled ? cacheGet(prompt + JSON.stringify(mode)) : null
 
@@ -132,25 +158,19 @@ export async function runChat(opts: RunOptions): Promise<void> {
         temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
         maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
         signal: controller.signal,
-      }, (chunk) => {
-        completionText += chunk
-        useStore.getState().appendToken(chatId, asstId, chunk)
-        bumpIsland()
-      })
+      }, pushChunk)
       promptTokens = res.promptEstimate
       completionTokens = res.completionTokens
     } else {
       usedDemo = true
       store.logConnection('local://demo', 'on-device demo model', estimateTokens(prompt) * 4, 'local')
-      await streamDemo(prompt, { math: mode.math, quality: mode.quality, search: mode.search }, (chunk) => {
-        completionText += chunk
-        useStore.getState().appendToken(chatId, asstId, chunk)
-        bumpIsland()
-      }, controller.signal)
+      await streamDemo(prompt, { math: mode.math, quality: mode.quality, search: mode.search }, pushChunk, controller.signal)
       promptTokens = pruned.prunedTokens
       completionTokens = estimateTokens(completionText)
     }
+    flushNow()
   } catch (e: any) {
+    flushNow()
     if (e.name === 'AbortError') {
       finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true })
       return
@@ -186,6 +206,7 @@ function finish(
     content: text || (ctx.aborted ? store.chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === msgId)?.content ?? '' : text),
     sources: ctx.sources,
     followUps,
+    stopped: ctx.aborted ? true : undefined,
     flow: {
       originalTokens: ctx.pruned.originalTokens,
       prunedTokens: ctx.pruned.prunedTokens,

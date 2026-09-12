@@ -1,35 +1,9 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import {
-  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, ArrowLeft,
-} from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
-import { ProvidersTab } from './ProvidersTab'
-import { IntegrationsTab } from './IntegrationsTab'
-import { SearchTab } from './SearchTab'
-import { AppearanceTab } from './AppearanceTab'
-import { ModelsTab } from './ModelsTab'
-import { FlowTab } from './FlowTab'
-import { SkillsTab } from './SkillsTab'
-import { AgentsTab } from './AgentsTab'
-import { DataTab } from './DataTab'
-import { ShortcutsTab } from './ShortcutsTab'
-import { AboutTab } from './AboutTab'
-
-const TABS = [
-  { id: 'providers', label: 'Providers', icon: KeyRound },
-  { id: 'integrations', label: 'Integrations', icon: Plug },
-  { id: 'search', label: 'Search', icon: Search },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'models', label: 'Models', icon: Cpu },
-  { id: 'flow', label: 'AIFlowEngine', icon: Wind },
-  { id: 'skills', label: 'Skills', icon: Wand2 },
-  { id: 'agents', label: 'Agents', icon: Users },
-  { id: 'data', label: 'Data', icon: Database },
-  { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
-  { id: 'about', label: 'About', icon: Info },
-]
+import { TABS, renderTab } from './settingsTabs'
 
 export function SettingsView() {
   const ui = useUI()
@@ -81,17 +55,7 @@ export function SettingsView() {
         </div>
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="max-w-[680px] mx-auto px-5 py-6">
-            {tab === 'providers' && <ProvidersTab />}
-            {tab === 'integrations' && <IntegrationsTab />}
-            {tab === 'search' && <SearchTab />}
-            {tab === 'appearance' && <AppearanceTab />}
-            {tab === 'models' && <ModelsTab />}
-            {tab === 'flow' && <FlowTab />}
-            {tab === 'skills' && <SkillsTab />}
-            {tab === 'agents' && <AgentsTab />}
-            {tab === 'data' && <DataTab />}
-            {tab === 'shortcuts' && <ShortcutsTab />}
-            {tab === 'about' && <AboutTab />}
+            {renderTab(tab)}
           </div>
         </div>
       </div>

@@ -25,6 +25,7 @@ import { DiagnosticsOverlay } from '@/components/easter/DiagnosticsOverlay'
 import { FocusPill } from '@/components/shared/FocusPill'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { SettingsSheet } from '@/components/settings/SettingsSheet'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 
 export default function App() {
@@ -94,6 +95,7 @@ function RoutedApp() {
       </Shell>
       </ErrorBoundary>
       <Toasts />
+      <SettingsSheet />
       <CommandPalette />
       <ShortcutsOverlay />
       <SkillBuilderPanel />

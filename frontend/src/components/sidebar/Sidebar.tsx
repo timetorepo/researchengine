@@ -1,15 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus,
   Trash2, Search, ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, X, Pencil, Check, Swords,
+  Sun, Moon, RotateCcw, Pin, PinOff, Download, FolderInput,
 } from 'lucide-react'
+import { download, timeAgo } from '@/lib/utils'
+import { THEMES } from '@/lib/themes/meta'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import type { ThemeId } from '@/types'
 import { AppLogo } from '@/components/shared/AppLogo'
 import { useVirtualList } from '@/hooks/useVirtualList'
-import { timeAgo } from '@/lib/utils'
 import { clsx } from 'clsx'
 
 const NAV = [
@@ -64,7 +67,8 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
     return [...list].sort((a, b) => b.updatedAt - a.updatedAt)
   }, [chats, spaceFilter, query])
 
-  const virt = useVirtualList(filtered.length, 44)
+  const unpinned = useMemo(() => filtered.filter((c) => !c.pinned), [filtered])
+  const virt = useVirtualList(unpinned.length, 44)
 
   const width = collapsed ? 60 : 264
 
@@ -178,22 +182,38 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
                   <br />Your conversations stay on this device.
                 </div>
               ) : (
-                <div style={virt.containerStyle}>
-                  <div style={{ transform: `translateY(${virt.offset}px)` }}>
-                    {filtered.slice(virt.slice.start, virt.slice.end).map((c) => (
-                      <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} />
-                    ))}
+                <>
+                  {/* Pinned section */}
+                  {filtered.some((c) => c.pinned) && (
+                    <div className="mb-1">
+                      <div className="px-2.5 pb-1 pt-1.5 text-[9.5px] font-semibold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
+                        <Pin size={9} /> Pinned
+                      </div>
+                      {filtered.filter((c) => c.pinned).map((c) => (
+                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} pinned />
+                      ))}
+                    </div>
+                  )}
+                  <div style={virt.containerStyle}>
+                    <div style={{ transform: `translateY(${virt.offset}px)` }}>
+                      {unpinned.slice(virt.slice.start, virt.slice.end).map((c) => (
+                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>
         </>
       )}
 
-      {/* Privacy shield footer */}
-      <div className={clsx('p-3', collapsed && 'flex justify-center')} style={{ borderTop: '1px solid var(--surface-border)' }}>
+      {/* Footer — bottom-to-top: profile pill, privacy shield, settings, theme toggle */}
+      <div className={clsx('px-2 py-2 space-y-0.5', collapsed && 'flex flex-col items-center')} style={{ borderTop: '1px solid var(--surface-border)' }}>
+        <ThemeQuickToggle collapsed={collapsed} />
+        <SettingsLauncher collapsed={collapsed} />
         <PrivacyShield compact={collapsed} amber={anyIntegration} />
+        <ProfilePill collapsed={collapsed} />
       </div>
     </div>
   )
@@ -253,13 +273,27 @@ function SpaceChip({ active, label, color, onClick }: { active: boolean; label: 
   )
 }
 
-function ChatItem({ id, title, when }: { id: string; title: string; when: number }) {
+function ChatItem({ id, title, when, pinned }: { id: string; title: string; when: number; pinned?: boolean }) {
   const { id: activeId } = useParams()
   const navigate = useNavigate()
   const [menu, setMenu] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState(title)
   const active = activeId === id
+  const spaces = useStore((s) => s.spaces)
+
+  const setPinned = (v: boolean) => useStore.setState((s) => ({
+    chats: s.chats.map((c) => c.id === id ? { ...c, pinned: v } : c),
+  }))
+  const moveToSpace = (spaceId?: string) => useStore.setState((s) => ({
+    chats: s.chats.map((c) => c.id === id ? { ...c, spaceId } : c),
+  }))
+  const exportChat = () => {
+    const chat = useStore.getState().chats.find((c) => c.id === id)
+    if (!chat) return
+    download(`${chat.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 40) || 'chat'}.json`,
+      JSON.stringify(chat, null, 2), 'application/json')
+  }
 
   return (
     <motion.div
@@ -267,17 +301,20 @@ function ChatItem({ id, title, when }: { id: string; title: string; when: number
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -30 }}
-      className="group chat-row flex items-center rounded-[10px] mb-0.5"
+      className="group chat-row flex items-center rounded-[10px] mb-0.5 relative"
       data-active={active}
       style={{ height: 44 }}
+      onContextMenu={(e) => { e.preventDefault(); setMenu(true) }}
     >
       <button
         onClick={() => { useStore.getState().setActiveChat(id); navigate(`/chat/${id}`) }}
+        onDoubleClick={() => { setDraft(title); setRenaming(true) }}
+        title={title}
         className="flex-1 min-w-0 text-left px-2.5 py-2"
       >
         {renaming ? (
           <input
-            autoFocus value={draft}
+            autoFocus value={draft} maxLength={40}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') { useStore.getState().renameChat(id, draft || title); setRenaming(false) }
@@ -289,19 +326,210 @@ function ChatItem({ id, title, when }: { id: string; title: string; when: number
           />
         ) : (
           <>
-            <div className="text-[13px] truncate" style={{ color: active ? 'var(--text)' : 'var(--text-2)' }}>{title}</div>
+            <div className="text-[13px] truncate flex items-center gap-1" style={{ color: active ? 'var(--text)' : 'var(--text-2)' }}>
+              {pinned && <Pin size={10} className="shrink-0" style={{ color: 'var(--warning)' }} />}
+              {title}
+            </div>
             <div className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{timeAgo(when)}</div>
           </>
         )}
       </button>
 
       <div className="hidden group-hover:flex items-center gap-0.5 pr-2">
-        <button aria-label="Rename" className="p-1 rounded hover:bg-[var(--surface)]" style={{ color: 'var(--text-3)' }}
-          onClick={() => { setDraft(title); setRenaming(true) }}><Pencil size={12.5} strokeWidth={1.5} /></button>
-        <button aria-label="Delete chat" className="p-1 rounded hover:bg-[var(--surface)] hover:text-[var(--danger)]" style={{ color: 'var(--text-3)' }}
-          onClick={() => useStore.getState().deleteChat(id)}><Trash2 size={12.5} strokeWidth={1.5} /></button>
+        <button aria-label="More options" title="Rename / Pin / Export / Move / Delete" className="p-1 rounded hover:bg-[var(--surface)]" style={{ color: 'var(--text-3)' }}
+          onClick={() => setMenu(true)}>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" />
+          </svg>
+        </button>
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <>
+            <div className="fixed inset-0 z-[60]" onClick={() => setMenu(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.12 }}
+              className="absolute right-2 top-10 z-[61] min-w-[160px] surface-elevated p-1 rounded-[12px]"
+              style={{ boxShadow: '0 12px 40px -12px rgba(0,0,0,0.5)', border: '1px solid var(--surface-border)' }}
+            >
+              <CtxItem icon={<Pencil size={13} />} label="Rename" onClick={() => { setMenu(false); setDraft(title); setRenaming(true) }} />
+              <CtxItem icon={pinned ? <PinOff size={13} /> : <Pin size={13} />} label={pinned ? 'Unpin' : 'Pin'} onClick={() => { setPinned(!pinned); setMenu(false) }} />
+              <CtxItem icon={<Download size={13} />} label="Export as JSON" onClick={() => { exportChat(); setMenu(false) }} />
+              <div className="px-2 pt-1.5 pb-0.5 text-[9.5px] uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
+                <FolderInput size={9} /> Move to space
+              </div>
+              {spaces.map((sp) => (
+                <CtxItem key={sp.id} icon={<span className="w-2 h-2 rounded-full inline-block" style={{ background: sp.color }} />}
+                  label={sp.name} onClick={() => { moveToSpace(sp.id); setMenu(false) }} />
+              ))}
+              <CtxItem icon={<Trash2 size={13} />} label="Delete" danger onClick={() => { useStore.getState().deleteChat(id); setMenu(false) }} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
+  )
+}
+
+function CtxItem({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button onClick={onClick}
+      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[8px] text-[12.5px] text-left transition-colors hover:bg-[var(--surface)]"
+      style={{ color: danger ? 'var(--danger)' : 'var(--text-2)' }}>
+      {icon} {label}
+    </button>
+  )
+}
+
+/** Settings button — always visible, always in the same spot. Opens the
+ *  slide-in Settings overlay (preserves current page context). */
+function SettingsLauncher({ collapsed }: { collapsed: boolean }) {
+  return (
+    <button
+      onClick={() => useUI.setState({ settingsSheet: true })}
+      className={clsx(
+        'pressable flex items-center gap-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]',
+        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]',
+        collapsed ? 'p-2' : 'w-full px-2.5 py-2',
+      )}
+      aria-label="Settings" title="Settings (Cmd/Ctrl+,)"
+      style={{ color: 'var(--text-2)' }}
+    >
+      <Settings size={18} strokeWidth={1.5} />
+      {!collapsed && <span className="text-[12.5px] font-medium">Settings</span>}
+      {!collapsed && <kbd className="ml-auto text-[9px] px-1 py-0.5 rounded" style={{ background: 'var(--surface)', color: 'var(--text-3)' }}>⌘,</kbd>}
+    </button>
+  )
+}
+
+/** Theme quick-toggle — click cycles favorited themes; long-press opens the picker. */
+function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
+  const theme = useStore((s) => s.settings.theme)
+  const favorites = useStore((s) => s.settings.themeFavorites)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const pressTimer = useRef<any>(null)
+  const longPressed = useRef(false)
+  const isDark = THEMES.find((t) => t.id === theme)?.kind !== 'light'
+  const favs: ThemeId[] = favorites.length ? favorites : ['dark', 'light']
+
+  const cycle = () => {
+    const idx = favs.indexOf(theme)
+    const next = favs[(idx + 1) % favs.length] ?? 'dark'
+    useStore.setState((s) => ({ settings: { ...s.settings, theme: next } }))
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onPointerDown={() => { longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; setPickerOpen(true) }, 500) }}
+        onPointerUp={() => clearTimeout(pressTimer.current)}
+        onPointerLeave={() => clearTimeout(pressTimer.current)}
+        onClick={() => { if (!longPressed.current) cycle() }}
+        className={clsx(
+          'pressable flex items-center gap-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]',
+          collapsed ? 'p-2' : 'w-full px-2.5 py-2',
+        )}
+        aria-label="Cycle theme" title="Click: cycle themes · hold: theme picker"
+        style={{ color: 'var(--text-2)' }}
+      >
+        {isDark ? <Moon size={18} strokeWidth={1.5} /> : <Sun size={18} strokeWidth={1.5} />}
+        {!collapsed && (
+          <span className="text-[12.5px] flex-1 text-left truncate">{THEMES.find((t) => t.id === theme)?.name ?? theme}</span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {pickerOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setPickerOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
+              transition={{ duration: 0.14 }}
+              className="absolute bottom-full left-0 mb-2 z-50 w-[248px] surface-elevated p-2 grid grid-cols-2 gap-1.5 max-h-[320px] overflow-y-auto"
+              style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.5)' }}
+            >
+              {THEMES.map((t) => (
+                <button key={t.id}
+                  onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, theme: t.id } })); setPickerOpen(false) }}
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-[8px] text-[11px] text-left transition-colors hover:bg-[var(--elevated)]"
+                  style={{ color: t.id === theme ? 'var(--primary)' : 'var(--text-2)', border: t.id === theme ? '1px solid var(--primary)' : '1px solid transparent' }}>
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: t.swatches[2] }} />
+                  <span className="truncate">{t.name}</span>
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/** User profile pill — avatar, name, presence dot. Popover with profile options. */
+function ProfilePill({ collapsed }: { collapsed: boolean }) {
+  const name = useStore((s) => s.settings.profileName)
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(name)
+  const initials = name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'R'
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => { setDraft(name); setOpen((o) => !o) }}
+        className={clsx('pressable flex items-center gap-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]', collapsed ? 'p-1.5' : 'w-full px-2 py-1.5')}
+        aria-label="Profile"
+      >
+        <span className="relative shrink-0">
+          <span className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold"
+            style={{ background: 'color-mix(in srgb, var(--primary) 22%, transparent)', color: 'var(--primary)' }}>
+            {initials}
+          </span>
+          <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full" style={{ background: 'var(--success)', border: '2px solid var(--bg)' }} />
+        </span>
+        {!collapsed && (
+          <span className="text-left min-w-0">
+            <span className="block text-[12px] font-medium truncate" style={{ color: 'var(--text)' }}>{name}</span>
+            <span className="block text-[9.5px]" style={{ color: 'var(--text-3)' }}>Local · private</span>
+          </span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, scale: 0.97 }}
+              transition={{ duration: 0.14 }}
+              className="absolute bottom-full left-0 mb-2 z-50 w-[240px] surface-elevated p-3"
+              style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.5)' }}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-3)' }}>Display name</div>
+              <div className="flex gap-1.5 mb-3">
+                <input value={draft} onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { useStore.setState((s) => ({ settings: { ...s.settings, profileName: draft.trim() || 'Researcher' } })); setOpen(false) } }}
+                  className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[8px] text-[12px] bg-transparent outline-none"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
+                <button
+                  onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, profileName: draft.trim() || 'Researcher' } })); setOpen(false) }}
+                  className="px-2.5 rounded-[8px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
+                  <Check size={13} />
+                </button>
+              </div>
+              <button
+                onClick={() => { setOpen(false); useStore.setState((s) => ({ settings: { ...s.settings, onboarded: false } })) }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[8px] text-[12px] hover:bg-[var(--elevated)]"
+                style={{ color: 'var(--text-2)' }}>
+                <RotateCcw size={13} /> Run setup again
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 

@@ -20,7 +20,13 @@ export const THEMES: ThemeMeta[] = [
   { id: 'solarized-light', name: 'Solarized Light', kind: 'light', swatches: ['#fdf6e3', '#eee8d5', '#268bd2', '#6c71c4'], codeTheme: 'solarized-light' },
   { id: 'high-contrast', name: 'High Contrast', kind: 'dark', swatches: ['#000000', '#0d0d0d', '#82aaff', '#c4a7ff'], codeTheme: 'hc-dark' },
   { id: 're-os', name: 'ResearchEngineOS', kind: 'dark', swatches: ['#08080c', '#16161c', '#6C8EEF', '#A78BFA'], codeTheme: 'dark-plus' },
+  { id: 'perplexity', name: 'Perplexity', kind: 'dark', swatches: ['#1F1F1F', '#2A2A2A', '#20B8CD', '#7BD8E6'], codeTheme: 'dark-plus' },
 ]
+
+/** Small caption shown under a theme in the picker. */
+export const THEME_CAPTIONS: Partial<Record<ThemeId, string>> = {
+  perplexity: 'Inspired by a familiar research tool.',
+}
 
 export function applyTheme(id: ThemeId, opts?: { fontScale?: number; compact?: boolean; reduceMotion?: boolean }) {
   document.documentElement.dataset.theme = id

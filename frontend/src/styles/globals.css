@@ -20,7 +20,7 @@
 
   --grad-research: linear-gradient(135deg, #28407c 0%, #2b3350 100%);
   --grad-math: linear-gradient(135deg, #7a5a1e 0%, #4a4436 100%);
-  --grad-quiz: linear-gradient(135deg, #14655f 0%, #1f5643 100%);
+  --grad-quiz: linear-gradient(135deg, #0d9488 0%, #16a34a 100%);
   --grad-article: linear-gradient(135deg, #5b3f9e 0%, #3b3a8f 100%);
   --grad-flood: linear-gradient(135deg, #6C8EEF 0%, #A78BFA 100%);
 
@@ -73,7 +73,7 @@
   --aurora-b: rgba(139, 92, 246, 0.05);
   --grad-research: linear-gradient(135deg, #dbe4ff 0%, #e7ebf7 100%);
   --grad-math: linear-gradient(135deg, #fdeecd 0%, #f3ede0 100%);
-  --grad-quiz: linear-gradient(135deg, #c9f2ee 0%, #d5f0e0 100%);
+  --grad-quiz: linear-gradient(135deg, #0f766e 0%, #15803d 100%);
   --grad-article: linear-gradient(135deg, #e8e0ff 0%, #dedffd 100%);
 }
 
@@ -186,6 +186,36 @@
   --glass: rgba(24, 24, 30, 0.55);
   --aurora-a: rgba(108, 142, 239, 0.12);
   --aurora-b: rgba(167, 139, 250, 0.1);
+}
+
+/* ---------- Perplexity (aesthetic reference) ---------- */
+:root[data-theme="perplexity"] {
+  color-scheme: dark;
+  --bg: #1F1F1F;
+  --surface: #2A2A2A;
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --elevated: #333333;
+  --primary: #20B8CD;
+  --primary-hover: #38CFE4;
+  --secondary: #7BD8E6;
+  --success: #34D399;
+  --warning: #FBBF24;
+  --danger: #F87171;
+  --text: #FCFCFC;
+  --text-2: #B4B4B4;
+  --text-3: #6B6B6B;
+  --code-bg: #191919;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --glass: rgba(42, 42, 42, 0.75);
+  --grad-research: linear-gradient(135deg, #20B8CD 0%, #22D3EE 100%);
+  --aurora-a: rgba(32, 184, 205, 0.08);
+  --aurora-b: rgba(123, 216, 230, 0.05);
+}
+/* Perplexity is more geometric — tighten radii slightly. */
+:root[data-theme="perplexity"] {
+  --radius-chip: 6px;
+  --radius-card: 10px;
+  --radius-modal: 16px;
 }
 
 /* ============================================================ BASE */

@@ -1,15 +1,17 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, GripVertical, Plus, Trash2, Type, AlignLeft, List, Quote, Code2,
-  Eye, Pencil, Download, Wand2, ChevronUp, ChevronDown, Sparkles,
+  Eye, Pencil, Download, Wand2, ChevronUp, ChevronDown, Sparkles, Image as ImageIcon,
+  RefreshCw, AlignCenter, AlignRight, Upload, Info,
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { Article, ArticleBlock } from '@/types'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { download, readingTime } from '@/lib/utils'
+import { findCommonsImage, fileToDataUrl } from '@/lib/articles/images'
 
 const BLOCK_TYPES = [
   { type: 'heading', icon: Type, label: 'Heading' },
@@ -17,6 +19,7 @@ const BLOCK_TYPES = [
   { type: 'list', icon: List, label: 'List' },
   { type: 'quote', icon: Quote, label: 'Quote' },
   { type: 'code', icon: Code2, label: 'Code' },
+  { type: 'image', icon: ImageIcon, label: 'Image' },
 ] as const
 
 export function ArticleEditor() {
@@ -48,13 +51,49 @@ export function ArticleEditor() {
   const remove = (bid: string) => update((a) => ({ blocks: a.blocks.filter((b) => b.id !== bid) }))
 
   const add = (type: ArticleBlock['type'], after?: string) => {
-    const nb: ArticleBlock = { id: nanoid(6), type, content: '' }
+    const nb: ArticleBlock = { id: nanoid(6), type, content: '', align: 'center' }
     update((a) => {
       const blocks = [...a.blocks]
       const idx = after ? blocks.findIndex((b) => b.id === after) : blocks.length - 1
       blocks.splice(idx + 1, 0, nb)
       return { blocks }
     })
+    // AI-fetch an image for new image blocks based on surrounding context
+    if (type === 'image') fetchImageFor(nb.id)
+  }
+
+  const patchBlock = (bid: string, patch: Partial<ArticleBlock>) =>
+    update((a) => ({ blocks: a.blocks.map((b) => b.id === bid ? { ...b, ...patch } : b) }))
+
+  const fetchImageFor = async (bid: string, queryOverride?: string) => {
+    const a = useStore.getState().articles.find((x) => x.id === id)
+    const bi = a?.blocks.findIndex((b) => b.id === bid) ?? -1
+    // context query: nearest preceding heading, else first paragraph text
+    let query = queryOverride
+    if (!query && a && bi >= 0) {
+      for (let i = bi - 1; i >= 0; i--) {
+        const b = a.blocks[i]
+        if (b.type === 'heading' && b.content.trim()) { query = b.content.trim().slice(0, 60); break }
+        if (b.type === 'paragraph' && b.content.trim()) { query = b.content.trim().slice(0, 60); break }
+      }
+    }
+    if (!query) query = a?.title || 'research'
+    patchBlock(bid, { imageUrl: undefined, caption: `Searching for “${query}”…` })
+    const img = await findCommonsImage(query)
+    if (img) {
+      patchBlock(bid, { imageUrl: img.url, caption: img.title, attribution: img.attribution, alt: img.title, content: img.reason })
+      ui.toast('Image added', `${img.title} · ${img.attribution}`, 'success')
+    } else {
+      patchBlock(bid, { imageUrl: '', caption: '' })
+      ui.toast('No image found', 'Drag & drop a local image onto the block, or try again.', 'warning')
+    }
+  }
+
+  const onDropImage = async (bid: string, file: File) => {
+    if (!file.type.startsWith('image/')) { ui.toast('Not an image', 'Drop a PNG, JPG, WEBP or GIF file.', 'warning'); return }
+    const dataUrl = await fileToDataUrl(file)
+    patchBlock(bid, { imageUrl: dataUrl, caption: file.name, attribution: 'Local upload', alt: file.name })
+    ui.toast('Image replaced', 'Using your local file — stored inside this article.', 'success')
   }
 
   const aiAction = (bid: string, action: 'rewrite' | 'expand' | 'condense') => {
@@ -79,6 +118,7 @@ export function ArticleEditor() {
       if (b.type === 'list') return b.content.split('\n').map((l) => `- ${l}`).join('\n')
       if (b.type === 'quote') return `> ${b.content}`
       if (b.type === 'code') return '```\n' + b.content + '\n```'
+      if (b.type === 'image' && b.imageUrl) return `![${b.alt ?? b.caption ?? ''}](${b.imageUrl})\n\n*${b.caption ?? ''}${b.attribution ? ` — ${b.attribution}` : ''}*`
       return b.content
     }).join('\n\n')
     download(`${article.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.md`, md, 'text/markdown')
@@ -114,6 +154,16 @@ export function ArticleEditor() {
                 {b.type === 'list' && <ul className="list-disc pl-5 space-y-1 text-[15px] leading-[1.6]">{b.content.split('\n').map((l, i) => <li key={i}>{l}</li>)}</ul>}
                 {b.type === 'quote' && <blockquote className="pl-4 text-[15px] italic" style={{ borderLeft: '2.5px solid var(--secondary)', color: 'var(--text-2)' }}>{b.content}</blockquote>}
                 {b.type === 'code' && <pre className="p-4 rounded-[14px] text-[13px] font-mono overflow-x-auto" style={{ background: 'var(--code-bg)', border: '1px solid var(--surface-border)' }}>{b.content}</pre>}
+                {b.type === 'image' && b.imageUrl && (
+                  <figure style={{ textAlign: (b.align ?? 'center') as any }}>
+                    <img src={b.imageUrl} alt={b.alt ?? b.caption ?? ''} loading="lazy" className="rounded-[12px] max-h-[420px] object-cover inline-block" />
+                    {(b.caption || b.attribution) && (
+                      <figcaption className="text-[11.5px] mt-1.5" style={{ color: 'var(--text-3)' }}>
+                        {b.caption}{b.attribution ? <span> · {b.attribution}</span> : null}
+                      </figcaption>
+                    )}
+                  </figure>
+                )}
               </div>
             ))}
           </motion.div>
@@ -150,7 +200,10 @@ export function ArticleEditor() {
               </div>
 
               <div className="flex-1 min-w-0">
-                {b.type === 'heading' ? (
+                {b.type === 'image' ? (
+                  <ImageBlockEditor block={b} onPatch={(p) => patchBlock(b.id, p)}
+                    onReplace={(q) => fetchImageFor(b.id, q || undefined)} onDrop={(f) => onDropImage(b.id, f)} />
+                ) : b.type === 'heading' ? (
                   <input value={b.content} onChange={(e) => setBlock(b.id, e.target.value)} placeholder="Section heading"
                     className="w-full bg-transparent outline-none text-[19px] font-semibold py-1" style={{ letterSpacing: '-0.02em' }} />
                 ) : b.type === 'list' || b.type === 'code' ? (
@@ -193,5 +246,89 @@ function ActionBtn({ children, label, onClick }: { children: React.ReactNode; la
     <button onClick={onClick} aria-label={label} title={label} className="p-1.5 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
       {children}
     </button>
+  )
+}
+
+/* ---------- Image block editor ---------- */
+function ImageBlockEditor({ block, onPatch, onReplace, onDrop }: {
+  block: ArticleBlock
+  onPatch: (p: Partial<ArticleBlock>) => void
+  onReplace: (query?: string) => void
+  onDrop: (f: File) => void
+}) {
+  const ui = useUI()
+  const [loaded, setLoaded] = useState(false)
+  const [showWhy, setShowWhy] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [editingCaption, setEditingCaption] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const loading = block.caption?.startsWith('Searching') && !block.imageUrl
+  const alignIcon = block.align === 'left' ? AlignLeft : block.align === 'right' ? AlignRight : AlignCenter
+
+  return (
+    <div
+      className="relative group/img rounded-[14px] overflow-hidden"
+      style={{ border: `1px dashed ${dragOver ? 'var(--primary)' : 'var(--surface-border)'}`, background: dragOver ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'transparent' }}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) onDrop(f) }}
+    >
+      {loading ? (
+        // skeleton preserving a 16:9 aspect ratio
+        <div className="w-full" style={{ aspectRatio: '16/9', background: 'var(--elevated)' }}>
+          <div className="w-full h-full animate-pulse flex items-center justify-center gap-2 text-[12px]" style={{ color: 'var(--text-3)' }}>
+            <RefreshCw size={13} className="animate-spin" /> Fetching image…
+          </div>
+        </div>
+      ) : block.imageUrl ? (
+        <>
+          {!loaded && <div className="absolute inset-0 animate-pulse" style={{ background: 'var(--elevated)', aspectRatio: '16/9' }} />}
+          <img src={block.imageUrl} alt={block.alt ?? ''} loading="lazy" onLoad={() => setLoaded(true)}
+            className="w-full object-cover" style={{ maxHeight: 380, opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }} />
+          {/* hover toolbar */}
+          <div className="absolute top-2 right-2 flex gap-0.5 p-0.5 rounded-[10px] opacity-0 group-hover/img:opacity-100 transition-opacity"
+            style={{ background: 'color-mix(in srgb, var(--bg) 75%, transparent)', backdropFilter: 'blur(8px)', border: '1px solid var(--surface-border)' }}>
+            <button title="Why this image?" onMouseEnter={() => setShowWhy(true)} onMouseLeave={() => setShowWhy(false)}
+              className="p-1.5 rounded-[7px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}><Info size={12} /></button>
+            <button title="Replace with AI image" onClick={() => onReplace()} className="p-1.5 rounded-[7px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}><RefreshCw size={12} /></button>
+            <button title="Cycle alignment" onClick={() => onPatch({ align: block.align === 'center' ? 'left' : block.align === 'left' ? 'right' : 'center' })}
+              className="p-1.5 rounded-[7px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}>{React.createElement(alignIcon, { size: 12 })}</button>
+            <button title="Upload a local image" onClick={() => fileRef.current?.click()} className="p-1.5 rounded-[7px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}><Upload size={12} /></button>
+          </div>
+          {showWhy && block.content && (
+            <div className="absolute bottom-2 left-2 right-2 p-2.5 rounded-[10px] text-[11.5px]"
+              style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', backdropFilter: 'blur(8px)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+              {block.content}
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onDrop(f) }} />
+        </>
+      ) : (
+        <button onClick={() => fileRef.current?.click()} className="w-full flex flex-col items-center justify-center gap-1.5 py-8" style={{ color: 'var(--text-3)' }}>
+          <Upload size={18} strokeWidth={1.5} />
+          <span className="text-[12px]">Drop an image here or click to upload</span>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onDrop(f) }} />
+        </button>
+      )}
+
+      {/* caption + attribution */}
+      {block.imageUrl && (
+        <div className="px-2.5 py-2">
+          {editingCaption ? (
+            <input autoFocus value={block.caption ?? ''}
+              onChange={(e) => onPatch({ caption: e.target.value })}
+              onBlur={() => setEditingCaption(false)}
+              onKeyDown={(e) => e.key === 'Enter' && setEditingCaption(false)}
+              placeholder="Caption…" className="w-full bg-transparent outline-none text-[12px]" style={{ color: 'var(--text-2)' }} />
+          ) : (
+            <button onClick={() => setEditingCaption(true)} className="text-[12px] text-left w-full" style={{ color: 'var(--text-3)' }}>
+              {block.caption || <span className="italic">Add caption…</span>}
+              {block.attribution && <span className="block text-[10.5px] mt-0.5 opacity-80">{block.attribution}</span>}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

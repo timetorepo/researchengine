@@ -4,7 +4,7 @@ import { sentences } from '@/lib/documents/extract'
 
 export interface QuizConfig {
   count: number
-  types: ('mc' | 'tf' | 'short' | 'fill')[]
+  types: ('mc' | 'tf' | 'short' | 'fill' | 'ordering' | 'matching')[]
   difficulty: 'easy' | 'medium' | 'hard'
   focus?: string
 }
@@ -78,8 +78,43 @@ export function generateQuiz(text: string, cfg: QuizConfig): QuizQuestion[] {
         explanation: `Reference answer: "${sent.slice(0, 160)}"`,
         section,
       })
-    } else {
-      // multiple choice on the key term
+    } else if (type === 'ordering' && sents.length >= 3) {
+      // Take 3 consecutive sentences as the canonical order, shuffle for display
+      const start = Math.max(0, Math.min(idx, sents.length - 3))
+      const seq = sents.slice(start, start + 3).map((s) => s.slice(0, 60))
+      const shuffled = [...seq].sort(() => Math.random() - 0.5)
+      questions.push({
+        id: nanoid(8), type: 'ordering',
+        prompt: 'Arrange these statements in the order they appear in the source:',
+        options: shuffled,
+        correctOrder: seq,
+        answer: seq.join(' | '),
+        explanation: `Original order from the document: ${seq.map((s, i) => `${i + 1}) ${s}`).join(' ')}`,
+        section,
+      })
+    } else if (type === 'matching' && terms.length >= 2) {
+      // Pair 2-3 key terms with their defining sentences
+      const n = Math.min(3, sents.length)
+      const pairs: { left: string; right: string }[] = []
+      const seen = new Set<string>()
+      for (let i = 0; i < sents.length && pairs.length < n; i++) {
+        const t = keyTerm(sents[i])
+        if (t && !seen.has(t)) { seen.add(t); pairs.push({ left: t, right: sents[i].slice(0, 50) }) }
+      }
+      if (pairs.length >= 2) {
+        questions.push({
+          id: nanoid(8), type: 'matching',
+          prompt: 'Match each term with the statement that describes it:',
+          pairs,
+          answer: pairs.map((p) => `${p.left}→${p.right}`).join(' | '),
+          explanation: 'Each term is paired with the sentence where it appears in the source.',
+          section,
+        })
+      }
+      // if pairs too few, nothing is pushed; the fallback MC below fills the slot.
+    }
+    if (questions.length < q + 1) {
+      // fallback: multiple choice on the key term
       const correct = term ?? sent.split(' ')[0]
       const opts = [correct, ...distractors(correct, terms.length ? terms : sents.map((s) => s.split(' ')[0]))]
         .sort(() => Math.random() - 0.5)

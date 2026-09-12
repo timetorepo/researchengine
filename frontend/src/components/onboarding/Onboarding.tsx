@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  ArrowRight, ArrowLeft, Check, Wind, Palette, KeyRound, Image, Rocket, Loader2, ShieldCheck, Sparkles,
+  ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -16,39 +16,27 @@ import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { testConnection } from '@/lib/providers/stream'
 import { encryptWithPassphrase } from '@/lib/crypto/vault'
 import { setVaultPassphrase } from '@/lib/crypto/session'
-import { fileToBackgroundUrl } from '@/lib/backgrounds'
-import type { FlowMode, ThemeId } from '@/types'
+import type { ThemeId } from '@/types'
 import { clsx } from 'clsx'
 
-const FLOW_MODES: { id: FlowMode; name: string; desc: string; pct: string }[] = [
-  { id: 'efficient', name: 'Efficient', desc: 'Maximum token savings. Aggressive pruning.', pct: '~70% saved' },
-  { id: 'balanced', name: 'Balanced', desc: 'The default. Capsules for old turns.', pct: '~50% saved' },
-  { id: 'fidelity', name: 'Fidelity', desc: 'Full context on every call.', pct: '0% pruned' },
-]
+const STEPS = ['Welcome', 'Privacy', 'Provider', 'Try the demo', "You're set"]
 
 export function Onboarding() {
   const settings = useStore((s) => s.settings)
   const ui = useUI()
   const [step, setStep] = useState(0)
-  const [dir, setDir] = useState(1)
 
-  // step state
   const [theme, setTheme] = useState<ThemeId>(settings.theme)
-  const [flowMode, setFlowMode] = useState<FlowMode>('balanced')
   const [provider, setProvider] = useState<string>('openai')
   const [apiKey, setApiKey] = useState('')
   const [passphrase, setPassphrase] = useState('')
   const [testState, setTestState] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle')
   const [testMsg, setTestMsg] = useState('')
-  const [bgChoice, setBgChoice] = useState<'default' | 'solid' | 'image' | 'blur' | 'veil'>('default')
-  const [bgDataUrl, setBgDataUrl] = useState('')
 
-  useEffect(() => {
-    applyTheme(theme, {})
-  }, [theme])
+  useEffect(() => { applyTheme(theme, {}) }, [theme])
 
-  const next = () => { setDir(1); setStep((s) => s + 1) }
-  const back = () => { setDir(-1); setStep((s) => Math.max(0, s - 1)) }
+  const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
+  const back = () => setStep((s) => Math.max(0, s - 1))
 
   const runTest = async () => {
     setTestState('busy'); setTestMsg('')
@@ -61,16 +49,7 @@ export function Onboarding() {
   }
 
   const finish = async () => {
-    const patch: any = { flowEnabled: true, flowMode, theme }
-
-    // background choice
-    if (bgChoice === 'solid') patch.background = { kind: 'solid', color: '#101828' }
-    else if ((bgChoice === 'image' || bgChoice === 'blur') && bgDataUrl) {
-      patch.background = { kind: bgChoice, dataUrl: bgDataUrl }
-    } else if (bgChoice === 'veil') patch.background = { kind: 'veil', opacity: 0.4 }
-    else patch.background = { kind: 'default' }
-
-    // provider key
+    const patch: any = { theme }
     if (apiKey.trim()) {
       let stored = apiKey.trim()
       if (passphrase.length >= 4) {
@@ -81,20 +60,29 @@ export function Onboarding() {
       patch.providers = { ...settings.providers, [provider]: { apiKey: stored, baseUrl: '', enabled: true } }
       patch.defaultModel = `${provider}:${PROVIDERS.find((p) => p.id === provider)?.defaultModels[0] ?? 'default'}`
     }
-
     patch.onboarded = true
     useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
     applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
     ui.toast('Welcome to Research Engine', apiKey ? 'Your key is encrypted and stored locally.' : 'Running on the local demo model — add a key anytime.', 'success')
   }
 
-  const variants = {
-    enter: (d: number) => ({ opacity: 0, x: d * 60 }),
-    center: { opacity: 1, x: 0 },
-    exit: (d: number) => ({ opacity: 0, x: d * -60 }),
+  const tryDemo = () => {
+    // persist theme now, mark onboarded, then hand off to the reader demo.
+    // NOTE: Onboarding renders OUTSIDE the HashRouter — set the hash directly;
+    // the router mounts after this component unmounts and picks it up.
+    localStorage.setItem('re.quiz.autodemo', '1')
+    window.location.hash = '#/quiz'
+    useStore.setState((s) => ({ settings: { ...s.settings, theme, onboarded: true } }))
+    applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
   }
 
-  const stepBody = [
+  const fade = {
+    initial: { opacity: 0, scale: 0.99 },
+    animate: { opacity: 1, scale: 1 },
+    exit: { opacity: 0, scale: 1.01 },
+  }
+
+  const body = [
     /* 0 — Welcome */
     <div key="s0" className="text-center max-w-[520px] mx-auto">
       <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 20, stiffness: 260 }}
@@ -112,7 +100,7 @@ export function Onboarding() {
         duration={1.2}
       />
       <div className="flex flex-wrap justify-center gap-2 mt-6">
-        {['Local-first', 'BYOK providers', 'AIFlowEngine', 'Agent Flood', 'Read & Quiz'].map((t, i) => (
+        {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Read & Quiz', 'Agent Flood'].map((t, i) => (
           <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
             className="px-3 py-1 rounded-full text-[11.5px]"
             style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
@@ -130,84 +118,44 @@ export function Onboarding() {
       </div>
     </div>,
 
-    /* 1 — Theme */
+    /* 1 — Privacy */
     <div key="s1" className="max-w-[560px] mx-auto">
-      <StepHeader icon={Palette} title="Pick your theme" sub="Every surface follows it — chat, code blocks, gradients, everything." />
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+      <StepHeader icon={ShieldCheck} title="Your privacy, enforced by architecture" sub="Not a promise — a design constraint. There is no server to leak from." />
+      <div className="space-y-2 mb-6">
+        {[
+          { icon: HardDrive, t: 'Everything is stored in your browser', d: 'Chats, documents, quizzes and settings live in local storage. Export or wipe them anytime from Settings → Data.' },
+          { icon: Lock, t: 'API keys never touch our code paths', d: 'Keys are encrypted with AES-GCM when you set a passphrase, and are only ever sent to the provider you chose.' },
+          { icon: ShieldCheck, t: 'No telemetry, no analytics, no pings', d: 'Even update checks only run when you press the button yourself.' },
+        ].map((r, i) => (
+          <motion.div key={r.t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.09 }}
+            className="flex items-start gap-3 p-3.5 rounded-[14px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+            <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--success) 12%, transparent)', color: 'var(--success)' }}>
+              <r.icon size={15} strokeWidth={1.8} />
+            </span>
+            <div>
+              <div className="text-[13px] font-medium">{r.t}</div>
+              <div className="text-[11.5px] mt-0.5 leading-relaxed" style={{ color: 'var(--text-3)' }}>{r.d}</div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>While you're here — pick a theme</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {THEMES.map((t) => (
           <button key={t.id} onClick={() => setTheme(t.id)}
-            className={clsx('p-3 rounded-[14px] text-left transition-all hover:scale-[1.02]')}
+            className={clsx('p-2.5 rounded-[12px] text-left transition-all hover:scale-[1.02]')}
             style={{ border: `1.5px solid ${theme === t.id ? 'var(--primary)' : 'var(--surface-border)'}`, background: 'var(--surface)' }}>
-            <div className="flex gap-1.5 mb-2">
-              {t.swatches.map((c, i) => <span key={i} className="w-5 h-5 rounded-[6px]" style={{ background: c }} />)}
+            <div className="flex gap-1 mb-1.5">
+              {t.swatches.map((c, i) => <span key={i} className="w-4 h-4 rounded-[5px]" style={{ background: c }} />)}
             </div>
-            <div className="text-[12px] font-medium flex items-center gap-1">{t.name} {theme === t.id && <Check size={11} style={{ color: 'var(--primary)' }} />}</div>
+            <div className="text-[11px] font-medium flex items-center gap-1">{t.name} {theme === t.id && <Check size={10} style={{ color: 'var(--primary)' }} />}</div>
           </button>
         ))}
       </div>
     </div>,
 
-    /* 2 — Background */
-    <div key="s2" className="max-w-[560px] mx-auto">
-      <StepHeader icon={Image} title="Set a background" sub="Solid color, image, blurred image, or a dark veil. Change it anytime in Settings." />
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-        {([['default', 'Theme default'], ['solid', 'Solid color'], ['image', 'Image'], ['blur', 'Blurred image'], ['veil', 'Dark veil']] as const).map(([id, label]) => (
-          <button key={id} onClick={() => setBgChoice(id)}
-            className="p-3.5 rounded-[14px] text-left transition-all hover:scale-[1.02] h-[74px]"
-            style={{ border: `1.5px solid ${bgChoice === id ? 'var(--primary)' : 'var(--surface-border)'}`, background: 'var(--surface)' }}>
-            <div className="text-[12.5px] font-medium flex items-center gap-1.5">
-              {label} {bgChoice === id && <Check size={11} style={{ color: 'var(--primary)' }} />}
-            </div>
-            <div className="text-[10.5px] mt-1" style={{ color: 'var(--text-3)' }}>
-              {id === 'default' && 'The signature look'}
-              {id === 'solid' && 'One calm color'}
-              {id === 'image' && 'Your own picture'}
-              {id === 'blur' && 'Frosted glass feel'}
-              {id === 'veil' && 'Cinematic dim'}
-            </div>
-          </button>
-        ))}
-        {(bgChoice === 'image' || bgChoice === 'blur') && (
-          <label className="col-span-2 sm:col-span-1 flex items-center justify-center p-3 rounded-[14px] cursor-pointer text-[12px] gap-2"
-            style={{ border: '1.5px dashed var(--surface-border)', color: 'var(--text-2)' }}>
-            {bgDataUrl ? <><Check size={12} style={{ color: 'var(--success)' }} /> Image ready</> : 'Upload image…'}
-            <input type="file" accept="image/*" hidden onChange={async (e) => {
-              const f = e.target.files?.[0]
-              if (f) setBgDataUrl(await fileToBackgroundUrl(f))
-            }} />
-          </label>
-        )}
-      </div>
-      {bgDataUrl && (bgChoice === 'image' || bgChoice === 'blur') && (
-        <div className="mt-3 h-28 rounded-[14px] overflow-hidden hairline relative">
-          <img src={bgDataUrl} alt="Preview" className="w-full h-full object-cover" style={{ filter: bgChoice === 'blur' ? 'blur(14px) scale(1.06)' : undefined }} />
-        </div>
-      )}
-    </div>,
-
-    /* 3 — Flow mode */
-    <div key="s3" className="max-w-[520px] mx-auto">
-      <StepHeader icon={Wind} title="How should AIFlowEngine run?" sub="The optimization layer that cuts token usage 40–70%. You can switch modes anytime." />
-      <div className="space-y-2.5">
-        {FLOW_MODES.map((m) => (
-          <button key={m.id} onClick={() => setFlowMode(m.id)}
-            className="w-full flex items-center gap-3 p-4 rounded-[14px] text-left transition-all"
-            style={{
-              border: `1.5px solid ${flowMode === m.id ? 'var(--primary)' : 'var(--surface-border)'}`,
-              background: flowMode === m.id ? 'color-mix(in srgb, var(--primary) 10%, transparent)' : 'var(--surface)',
-            }}>
-            <div className="flex-1">
-              <div className="text-[14px] font-medium">{m.name}</div>
-              <div className="text-[12px] mt-0.5" style={{ color: 'var(--text-2)' }}>{m.desc}</div>
-            </div>
-            <span className="text-[11px] font-mono px-2 py-1 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>{m.pct}</span>
-          </button>
-        ))}
-      </div>
-    </div>,
-
-    /* 4 — Provider */
-    <div key="s4" className="max-w-[520px] mx-auto">
+    /* 2 — Provider (skippable) */
+    <div key="s2" className="max-w-[520px] mx-auto">
       <StepHeader icon={KeyRound} title="Bring your own key" sub="Optional — everything works on the local demo model until you're ready." />
       <div className="flex flex-wrap gap-1.5 mb-4">
         {PROVIDERS.filter((p) => p.id !== 'custom').map((p) => (
@@ -245,16 +193,36 @@ export function Onboarding() {
       )}
     </div>,
 
-    /* 5 — Done */
-    <div key="s5" className="text-center max-w-[480px] mx-auto">
+    /* 3 — Try the demo */
+    <div key="s3" className="max-w-[520px] mx-auto text-center">
+      <StepHeader icon={BookOpen} title="See it working — no key required" sub="A bundled study demo: a genuine DNA primer, AI study rewrite, three-tier highlights, and a hand-tuned quiz. Fully offline." />
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+        className="rounded-[18px] p-5 text-left mb-5"
+        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+        <div className="text-[13px] font-medium mb-1">“The Structure of DNA” demo</div>
+        <ul className="text-[12px] space-y-1" style={{ color: 'var(--text-2)' }}>
+          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Scripted 3-stage processing pipeline — Parsing, Extracting, Analyzing</li>
+          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> 720px serif reader with progress rail and annotation markers</li>
+          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> AI study rewrite with toggle back to the original</li>
+          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Premium quiz with explanations and source jumps</li>
+        </ul>
+      </motion.div>
+      <div className="flex justify-center gap-2">
+        <Button size="md" onClick={tryDemo} startContent={<BookOpen size={15} />}>Open the reading demo</Button>
+        <Button variant="ghost" size="md" onClick={next}>Later</Button>
+      </div>
+    </div>,
+
+    /* 4 — You're set */
+    <div key="s4" className="text-center max-w-[480px] mx-auto">
       <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 16, stiffness: 240 }}
         className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-5"
         style={{ background: 'color-mix(in srgb, var(--success) 16%, transparent)' }}>
         <Check size={26} style={{ color: 'var(--success)' }} />
       </motion.div>
-      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em' }}>You're set up</h2>
+      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em' }}>You're set</h2>
       <p className="text-[13.5px] mt-2 leading-relaxed" style={{ color: 'var(--text-2)' }}>
-        Theme: <b>{THEMES.find((t) => t.id === theme)?.name}</b> · Flow: <b className="capitalize">{flowMode}</b> ·
+        Theme: <b>{THEMES.find((t) => t.id === theme)?.name}</b> ·
         Model: <b>{apiKey ? PROVIDERS.find((p) => p.id === provider)?.name : 'Local demo'}</b>
       </p>
       <div className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
@@ -273,8 +241,8 @@ export function Onboarding() {
       <div className="h-full flex flex-col">
         {/* progress */}
         <div className="flex items-center justify-center gap-1.5 pt-8">
-          {stepBody.map((_, i) => (
-            <button key={i} onClick={() => { setDir(i > step ? 1 : -1); setStep(i) }} aria-label={`Step ${i + 1}`}
+          {STEPS.map((label, i) => (
+            <button key={label} onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${label}`} title={label}
               className="h-1.5 rounded-full transition-all"
               style={{ width: i === step ? 28 : 8, background: i <= step ? 'var(--primary)' : 'var(--elevated)' }} />
           ))}
@@ -282,16 +250,15 @@ export function Onboarding() {
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 overscroll-contain">
           <div className="min-h-full flex items-center justify-center">
-            <AnimatePresence mode="wait" custom={dir}>
+            <AnimatePresence mode="wait">
               <motion.div
                 key={step}
-                custom={dir}
-                variants={variants}
-                initial="enter" animate="center" exit="exit"
-                transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+                variants={fade}
+                initial="initial" animate="animate" exit="exit"
+                transition={{ duration: 0.28, ease: 'easeInOut' }}
                 className="w-full py-8"
               >
-                {stepBody[step]}
+                {body[step]}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -299,15 +266,13 @@ export function Onboarding() {
 
         {/* footer nav */}
         <div className="flex items-center justify-between px-8 pb-8 max-w-[720px] mx-auto w-full">
-          {step > 0 ? (
+          {step > 0 && step < STEPS.length - 1 ? (
             <Button variant="ghost" color="default" size="sm" onClick={back} startContent={<ArrowLeft size={13} />}>Back</Button>
           ) : <span />}
-          {step > 0 && step < 5 ? (
+          {step > 0 && step < 3 ? (
             <div className="flex items-center gap-2">
-              {step === 4 && <Button variant="ghost" color="default" size="sm" onClick={next}>Skip for now</Button>}
-              <Button size="sm" onClick={next} disabled={step === 4 && PROVIDERS.find((p) => p.id === provider)?.needsKey === true && !apiKey && false}>
-                Continue <ArrowRight size={13} className="inline" />
-              </Button>
+              {step === 2 && <Button variant="ghost" color="default" size="sm" onClick={next}>Skip for now</Button>}
+              <Button size="sm" onClick={next}>Continue <ArrowRight size={13} className="inline" /></Button>
             </div>
           ) : <span />}
         </div>
@@ -318,7 +283,7 @@ export function Onboarding() {
 
 function StepHeader({ icon: Icon, title, sub }: { icon: any; title: string; sub: string }) {
   return (
-    <div className="mb-5">
+    <div className="mb-5 text-left">
       <div className="flex items-center gap-2.5 mb-1">
         <span className="w-8 h-8 rounded-[10px] flex items-center justify-center" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
           <Icon size={15} strokeWidth={1.8} />

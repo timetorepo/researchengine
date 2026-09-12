@@ -56,9 +56,9 @@ export function ChatView() {
     prevLen.current = msgCount
   }, [msgCount, atBottom])
 
-  const send = (prompt: string, opts: { search?: boolean; quality?: boolean } = {}) => {
+  const send = (prompt: string, opts: { search?: boolean; quality?: boolean; replicate?: boolean } = {}) => {
     if (!id || !prompt.trim()) return
-    runChat({ chatId: id, prompt, mode: { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined } })
+    runChat({ chatId: id, prompt, mode: { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined, replicate: opts.replicate || undefined } })
     setAtBottom(true)
   }
 

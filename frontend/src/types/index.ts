@@ -40,10 +40,12 @@ export interface ChatMessage {
   sources?: Source[]
   flow?: FlowStats
   bookmarked?: boolean
-  mode?: { math?: boolean; quality?: boolean; search?: boolean }
+  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
   followUps?: string[]
   error?: string
   agentAttribution?: { name: string; color: string }[]
+  stages?: ReplicateStage[]
+  stopped?: boolean
 }
 
 export interface Chat {
@@ -52,6 +54,7 @@ export interface Chat {
   createdAt: number
   updatedAt: number
   spaceId?: string
+  pinned?: boolean
   parentId?: string        // branch origin chat
   branchMessageId?: string // message branched from
   messages: ChatMessage[]
@@ -98,8 +101,14 @@ export interface Squad {
 
 export interface ArticleBlock {
   id: string
-  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code'
+  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code' | 'image'
   content: string
+  // image block metadata
+  imageUrl?: string
+  caption?: string
+  attribution?: string
+  alt?: string
+  align?: 'left' | 'center' | 'right'
 }
 export interface Article {
   id: string
@@ -157,12 +166,16 @@ export interface DocumentRecord {
 
 export interface QuizQuestion {
   id: string
-  type: 'mc' | 'tf' | 'short' | 'fill'
+  type: 'mc' | 'tf' | 'short' | 'fill' | 'ordering' | 'matching'
   prompt: string
   options?: string[]
   answer: string
   explanation: string
   section?: string
+  /** ordering: the correct order of `options` */
+  correctOrder?: string[]
+  /** matching: left column terms */
+  pairs?: { left: string; right: string }[]
 }
 
 export interface QuizRecord {
@@ -191,7 +204,17 @@ export type BackgroundConfig =
   | { kind: 'veil'; opacity: number }
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'
-  | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os'
+  | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os' | 'perplexity'
+
+export interface ReplicateStage {
+  id: string
+  title: string
+  icon: 'search' | 'layers' | 'book' | 'hammer' | 'shield' | 'map' | 'clock' | 'scale' | 'wrench' | 'flag' | 'sparkles'
+  status: 'pending' | 'running' | 'done' | 'error'
+  content: string
+  ms?: number
+  tokens?: number
+}
 
 export interface Settings {
   theme: ThemeId
@@ -214,4 +237,9 @@ export interface Settings {
   soundEffects: boolean
   background: BackgroundConfig
   onboarded: boolean
+  masterPromptOverrides: Record<string, string>
+  themeFavorites: ThemeId[]
+  profileName: string
+  quizAutoAdvance: boolean
+  readerImages: boolean
 }

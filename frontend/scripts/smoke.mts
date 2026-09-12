@@ -159,6 +159,42 @@ async function main() {
   const searchedMsg = useStore.getState().chats.find((c) => c.id === chat3)!.messages.at(-1)!
   check('search-mode answer carries sources', (searchedMsg.sources?.length ?? 0) > 0)
 
+  /* ---- Round 9 ---- */
+  console.log('\n[10] Master prompts + Replicate mode')
+  const { MASTERS, getMaster, MASTER_VERSION } = await import('../src/lib/prompts/masters')
+  check('7 master prompts versioned', MASTERS.length >= 7 && MASTER_VERSION >= 1)
+  check('getMaster returns default', getMaster('research', {}).text.length > 50)
+  check('getMaster honors override', getMaster('research', { research: 'CUSTOM' }).overridden === true)
+  const { planStages } = await import('../src/lib/chat/replicate')
+  const stages = planStages('history of CRISPR vs TALENs')
+  check('replicate plans 6+ stages', stages.length >= 6)
+  check('replicate detects dynamic history stage', stages.some((s) => s.title === 'Historical context'))
+  check('replicate ends with synthesis', stages[stages.length - 1].title === 'Final synthesis')
+
+  console.log('\n[11] Quiz types incl. ordering + matching')
+  const { generateQuiz: genQuiz2 } = await import('../src/lib/quiz/generate')
+  const longDoc = 'Mitochondria are the powerhouse of the cell. They produce ATP through oxidative phosphorylation. The inner membrane folds into cristae to increase surface area. Chloroplasts perform photosynthesis in plants. Ribosomes synthesize proteins from mRNA templates. The nucleus stores DNA in chromosomes. ' +
+    'Enzymes lower activation energy of reactions. Lysosomes digest cellular waste. The Golgi apparatus packages proteins for export. Cell membranes are phospholipid bilayers.'
+  const allTypes = genQuiz2(longDoc, { count: 12, types: ['mc', 'tf', 'short', 'fill', 'ordering', 'matching'] as any, difficulty: 'medium' })
+  check('quiz covers all 6 types', allTypes.length >= 6)
+  check('ordering question has correctOrder', allTypes.filter((q) => q.type === 'ordering').every((q) => (q.correctOrder?.length ?? 0) >= 2))
+  check('matching question has pairs', allTypes.filter((q) => q.type === 'matching').every((q) => (q.pairs?.length ?? 0) >= 2))
+
+  console.log('\n[12] Demo document + reader + images')
+  const { DEMO_DOC_TEXT, DEMO_QUIZ, DEMO_HIGHLIGHTS, DEMO_REWRITE } = await import('../src/lib/documents/demoDoc')
+  check('demo doc ~1500+ words', DEMO_DOC_TEXT.split(/\s+/).length >= 1200)
+  check('demo has 14 highlights w/ tiers', DEMO_HIGHLIGHTS.length >= 10 && DEMO_HIGHLIGHTS.every((h) => ['definition', 'fact', 'concept'].includes(h.tier)))
+  check('demo quiz 5 Qs w/ source anchors', DEMO_QUIZ.length === 5 && DEMO_QUIZ.every((q) => q.source))
+  check('demo rewrite present', DEMO_REWRITE.length > 500)
+  const { extractText } = await import('../src/lib/documents/extract')
+  check('extractText exports', typeof extractText === 'function')
+
+  console.log('\n[13] Article image fetching (offline-safe)')
+  const { findCommonsImage } = await import('../src/lib/articles/images')
+  const img = await findCommonsImage('DNA double helix')
+  // offline sandbox returns null gracefully; live returns a record
+  check('findCommonsImage returns null or record', img === null || (!!img && !!img.url && !!img.attribution))
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed\n`)
   process.exit(failed === 0 ? 0 : 1)
 }

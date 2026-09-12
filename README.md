@@ -1,8 +1,8 @@
 # Research Engine
 
-**Pre-release: `v0.11.0-beta.1` — the working version**
+**Pre-release: `v0.12.0-beta.1` — the refinement**
 
-> Agent Flood runs real parallel agents on your models. Web search runs real engines and grounds answers in numbered citations. Compare runs every model live. Quiz, articles, citations and skills are fully functional. Without any key, a clearly-labeled on-device engine keeps every feature usable.
+> Everything from v0.11 still works — plus: versioned Master Prompts you can inspect and override; a New Tech (Replication) mode that executes a visible, staged research plan; a rebuilt Read & Quiz studio with a 720px study reader, AI rewrite and premium quizzes (6 question types, confetti, streaks, timer ring); AI-fetched article images from Wikimedia Commons; a Perplexity-inspired theme; ZIP export and merge-import; and a global command palette.
 
 A self-hosted, privacy-first research platform with Perplexity-level answer quality.
 All user data stays local; only outbound API calls to **user-configured** providers ever leave the device.

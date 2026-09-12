@@ -40,12 +40,12 @@ export function HomeScreen() {
   const recentChats = useMemo(() => [...chats].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3), [chats])
   const hasHistory = chats.length > 0 || articles.length > 0
 
-  const sendFromHome = (prompt: string, opts?: { search?: boolean; quality?: boolean }) => {
+  const sendFromHome = (prompt: string, opts?: { search?: boolean; quality?: boolean; replicate?: boolean }) => {
     const id = useStore.getState().newChat()
     navigate(`/chat/${id}`)
     setTimeout(() => runChat({
       chatId: id, prompt,
-      mode: { math: mathMode || undefined, search: opts?.search || undefined, quality: opts?.quality || undefined },
+      mode: { math: mathMode || undefined, search: opts?.search || undefined, quality: opts?.quality || undefined, replicate: opts?.replicate || undefined },
     }), 80)
   }
 

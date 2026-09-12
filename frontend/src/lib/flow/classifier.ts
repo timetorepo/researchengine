@@ -1,6 +1,8 @@
 // AIFlowEngine — query classification. Fast regex + intent heuristics,
 // fully on-device. No API call for the common path.
 
+import { getMaster, STYLE_RULES, type MasterKey } from '@/lib/prompts/masters'
+
 export type QueryClass = 'factual' | 'reasoning' | 'math' | 'code' | 'creative' | 'longform'
 
 const RULES: { cls: QueryClass; re: RegExp }[] = [
@@ -17,21 +19,33 @@ export function classifyQuery(q: string): QueryClass {
   return q.length > 160 ? 'longform' : 'factual'
 }
 
-/** Dynamic prompt shaping — only the instructions relevant to this query type. */
-export function shapeSystemPrompt(cls: QueryClass, extra: { math?: boolean; quality?: boolean } = {}): string {
-  const base: Record<QueryClass, string> = {
-    factual: 'Answer the factual question directly and concisely. Lead with the answer. Cite uncertainty if the fact is not settled.',
-    reasoning: 'Reason step by step, then state a clear conclusion. Surface trade-offs explicitly.',
-    math: 'Solve step by step using LaTeX for all math ($..$ inline, $$..$$ display). State the final answer clearly at the end.',
-    code: 'Provide working code with brief explanation. Prefer idiomatic, minimal solutions. Use fenced code blocks with language tags.',
-    creative: 'Be vivid and original. Match tone to the request. Avoid clichés.',
-    longform: 'Produce a well-structured long-form answer with Markdown headings, lists, and a brief summary up top.',
+/**
+ * Master-prompt composition.
+ * Final shape: [Master Prompt] + [voice rules] + [mode-specific injections].
+ * Skills and pruned history are appended by the caller (runChat).
+ */
+export function shapeSystemPrompt(
+  cls: QueryClass,
+  extra: { math?: boolean; quality?: boolean; flow?: boolean; replicate?: boolean } = {},
+  overrides: Record<string, string> = {},
+): string {
+  // Mode wins over classification.
+  let key: MasterKey = extra.replicate ? 'replicate'
+    : extra.math ? 'math'
+    : extra.quality ? 'quality'
+    : extra.flow ? 'flow'
+    : 'research'
+  const master = getMaster(key, overrides).text
+
+  // Class-specific micro-injections — kept tiny so we never bloat the prompt.
+  const inject: Partial<Record<QueryClass, string>> = {
+    code: 'For code: provide working, idiomatic, minimal solutions in fenced blocks with language tags.',
+    creative: 'For this creative request: be vivid and original; match tone to the request; avoid clichés.',
+    factual: 'Lead with the direct answer.',
   }
-  let p = base[cls]
-  if (extra.math) p += ' Math mode: give a full step-by-step LaTeX solution.'
-  if (extra.quality) p += ' Quality mode: be thorough, structured, and cite sources inline as [n] when web sources are provided.'
-  else p += ' Match response length to query complexity — no filler.'
-  return p
+  const bits = [master, STYLE_RULES]
+  if (inject[cls]) bits.push(inject[cls]!)
+  return bits.join('\n\n')
 }
 
 /** Response length calibration hints appended to API requests. */

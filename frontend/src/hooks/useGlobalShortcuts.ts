@@ -38,6 +38,7 @@ export function useGlobalShortcuts() {
       else if (k === 'f' && !e.shiftKey) { e.preventDefault(); useStore.setState((s) => ({ settings: { ...s.settings, flowEnabled: !s.settings.flowEnabled } })); ui.toast(`AIFlowEngine ${useStore.getState().settings.flowEnabled ? 'on' : 'off'}`) }
       else if (k === 'a' && e.shiftKey) { e.preventDefault(); navigate('/flood') }
       else if (k === 's' && e.shiftKey) { e.preventDefault(); ui.set({ settingsOpen: true, settingsTab: 'providers' }); navigate('/settings') }
+      else if (k === ',') { e.preventDefault(); ui.set({ settingsSheet: !ui.settingsSheet }) }
       else if (e.key === '/') { e.preventDefault(); ui.set({ shortcutsOpen: true }) }
       else if (e.key === ' ' && document.documentElement.dataset.theme === 're-os') {
         e.preventDefault(); ui.set({ paletteOpen: !ui.paletteOpen })

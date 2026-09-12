@@ -1,9 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  UploadCloud, FileText, Trash2, Play, Check, X, ChevronRight, RotateCcw,
-  Layers, Timer, BookOpen, Sparkles, GraduationCap,
+  UploadCloud, FileText, Trash2, Play, ChevronRight, RotateCcw, BookOpen, Sparkles,
+  GraduationCap, FileSearch, ScanText, Brain, AlertTriangle, Eye,
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { DocumentRecord, QuizQuestion, QuizRecord } from '@/types'
@@ -12,398 +11,417 @@ import { useUI } from '@/stores/useUI'
 import { extractText } from '@/lib/documents/extract'
 import { generateQuiz } from '@/lib/quiz/generate'
 import { timeAgo, fmt } from '@/lib/utils'
+import { DEMO_DOC_ID, DEMO_DOC_TEXT, DEMO_HIGHLIGHTS, DEMO_REWRITE, DEMO_QUIZ } from '@/lib/documents/demoDoc'
+import { ReaderView, type ReaderDoc } from '@/components/reader/ReaderView'
+import { QuizPlay, type PlayResult } from './QuizPlay'
+import { QuizResults } from './QuizResults'
+
+type Stage = { id: string; label: string; icon: any; pct: number; done: boolean }
 
 const TYPES = [
   { id: 'mc', label: 'Multiple choice' },
   { id: 'tf', label: 'True / false' },
   { id: 'short', label: 'Short answer' },
   { id: 'fill', label: 'Fill in blank' },
+  { id: 'ordering', label: 'Reorder' },
+  { id: 'matching', label: 'Matching' },
 ]
 
 export function QuizHub() {
   const documents = useStore((s) => s.documents)
   const quizzes = useStore((s) => s.quizzes)
   const ui = useUI()
-  const [selected, setSelected] = useState<string | null>(null)
+
+  const [view, setView] = useState<'hub' | 'processing' | 'reader' | 'quiz' | 'results' | 'review'>('hub')
+  const [readerDoc, setReaderDoc] = useState<ReaderDoc | null>(null)
+  const [pendingNeedle, setPendingNeedle] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  const [extracting, setExtracting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // processing
+  const [stages, setStages] = useState<Stage[]>([])
+  const [procError, setProcError] = useState<string | null>(null)
+  const [procFile, setProcFile] = useState<File | null>(null)
+
   // quiz config
+  const [selected, setSelected] = useState<string | null>(null)
   const [count, setCount] = useState(8)
   const [types, setTypes] = useState<string[]>(['mc', 'tf'])
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
   const [timed, setTimed] = useState(false)
-  const [activeQuiz, setActiveQuiz] = useState<QuizRecord | null>(null)
-  const [results, setResults] = useState<{ quiz: QuizRecord; answers: Record<string, string> } | null>(null)
+  const [activeQuiz, setActiveQuiz] = useState<{ title: string; questions: QuizQuestion[]; docId?: string } | null>(null)
+  const [lastResult, setLastResult] = useState<PlayResult | null>(null)
+  const [quizIsDemo, setQuizIsDemo] = useState(false)
 
   const doc = documents.find((d) => d.id === selected) ?? null
 
+  // Onboarding "try the demo" hand-off
+  useEffect(() => {
+    if (localStorage.getItem('re.quiz.autodemo') === '1') {
+      localStorage.removeItem('re.quiz.autodemo')
+      startDemo(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const initialStages = (): Stage[] => [
+    { id: 'parse', label: 'Parsing', icon: FileSearch, pct: 0, done: false },
+    { id: 'extract', label: 'Extracting', icon: ScanText, pct: 0, done: false },
+    { id: 'analyze', label: 'Analyzing', icon: Brain, pct: 0, done: false },
+  ]
+  const patchStage = (id: string, patch: Partial<Stage>) =>
+    setStages((st) => st.map((s) => s.id === id ? { ...s, ...patch } : s))
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  /* ---------- real upload pipeline ---------- */
   const handleFiles = async (files: FileList | File[]) => {
-    for (const file of Array.from(files)) {
-      setExtracting(true)
-      try {
-        const text = await extractText(file)
-        const rec: DocumentRecord = {
-          id: nanoid(8), name: file.name, kind: file.name.split('.').pop() ?? 'file',
-          text: text.slice(0, 400000), addedAt: Date.now(),
-        }
-        useStore.setState((s) => ({ documents: [rec, ...s.documents] }))
-        setSelected(rec.id)
-        ui.toast('Document ready', `${file.name} · ${fmt(Math.round(text.length / 4))} tokens extracted locally.`, 'success')
-      } catch (e: any) {
-        ui.toast('Could not read file', e?.message ?? 'Unknown error', 'danger')
-      } finally {
-        setExtracting(false)
+    const file = Array.from(files)[0]
+    if (!file) return
+    setProcFile(file)
+    setProcError(null)
+    setStages(initialStages())
+    setView('processing')
+    try {
+      patchStage('parse', { pct: 100, done: true })
+      patchStage('extract', { pct: 8 })
+      const extraction = extractText(file)
+      // animate extraction while the worker runs
+      let p = 8
+      const iv = setInterval(() => { p = Math.min(92, p + 7); patchStage('extract', { pct: p }) }, 160)
+      const text = await extraction
+      clearInterval(iv)
+      patchStage('extract', { pct: 100, done: true })
+      patchStage('analyze', { pct: 30 })
+      await sleep(300)
+      const rec: DocumentRecord = {
+        id: nanoid(8), name: file.name, kind: file.name.split('.').pop() ?? 'file',
+        text: text.slice(0, 400000), addedAt: Date.now(),
       }
+      useStore.setState((s) => ({ documents: [rec, ...s.documents] }))
+      patchStage('analyze', { pct: 100, done: true })
+      await sleep(350)
+      ui.toast('Document ready', `${file.name} · ${fmt(Math.round(text.length / 4))} tokens · ~${Math.max(1, Math.round(text.split(/\s+/).length / 220))} min read.`, 'success')
+      openReaderFor(rec)
+    } catch (e: any) {
+      setProcError(e?.message ?? 'Unknown error while reading the file.')
     }
   }
 
-  const startQuiz = () => {
-    if (!doc) return
-    const questions = generateQuiz(doc.text, { count, types: types as any, difficulty })
+  /* ---------- demo pipeline (scripted, fully offline) ---------- */
+  const startDemo = async (thenQuiz: boolean) => {
+    setProcFile(null)
+    setProcError(null)
+    setStages(initialStages())
+    setView('processing')
+    for (const [id, delay] of [['parse', 300], ['extract', 550], ['analyze', 450]] as const) {
+      patchStage(id, { pct: 25 })
+      await sleep(delay * 0.4); patchStage(id, { pct: 70 })
+      await sleep(delay * 0.6); patchStage(id, { pct: 100, done: true })
+    }
+    await sleep(250)
+    if (thenQuiz) {
+      setActiveQuiz({ title: 'Demo — The Structure of DNA', questions: DEMO_QUIZ as unknown as QuizQuestion[] })
+      setQuizIsDemo(true)
+      setLastResult(null)
+      setView('quiz')
+    } else {
+      setReaderDoc({ id: DEMO_DOC_ID, name: 'The Structure of DNA — Demo', text: DEMO_DOC_TEXT, rewrite: DEMO_REWRITE, highlights: DEMO_HIGHLIGHTS, isDemo: true })
+      setPendingNeedle(null)
+      setView('reader')
+    }
+  }
+
+  const openReaderFor = (rec: DocumentRecord) => {
+    const rewrite = localStorage.getItem(`re.reader.rewrite.${rec.id}`) ?? undefined
+    setReaderDoc({ id: rec.id, name: rec.name, text: rec.text, rewrite })
+    setPendingNeedle(null)
+    setView('reader')
+  }
+
+  /* ---------- quiz launching ---------- */
+  const startQuizFromText = (text: string, title: string, docId?: string) => {
+    const questions = generateQuiz(text, { count, types: types as any, difficulty })
     if (!questions.length) { ui.toast('Not enough text', 'Add a longer document to generate questions.', 'warning'); return }
-    const rec: QuizRecord = { id: nanoid(8), docId: doc.id, title: doc.name, questions, createdAt: Date.now() }
+    const rec: QuizRecord = { id: nanoid(8), docId, title, questions, createdAt: Date.now() }
     useStore.setState((s) => ({ quizzes: [rec, ...s.quizzes] }))
-    setActiveQuiz(rec)
-    setResults(null)
+    setActiveQuiz({ title, questions, docId })
+    setQuizIsDemo(false)
+    setLastResult(null)
+    setView('quiz')
   }
 
-  if (activeQuiz && !results) {
-    return <QuizRunner quiz={activeQuiz} timed={timed}
-      onFinish={(answers) => setResults({ quiz: activeQuiz, answers })}
-      onQuit={() => setActiveQuiz(null)} />
+  const seeSource = (needle: string) => {
+    if (!activeQuiz?.docId && !quizIsDemo) return
+    const rec = quizIsDemo
+      ? { id: DEMO_DOC_ID, name: 'The Structure of DNA — Demo', text: DEMO_DOC_TEXT, rewrite: DEMO_REWRITE, highlights: DEMO_HIGHLIGHTS, isDemo: true }
+      : (() => { const d = documents.find((x) => x.id === activeQuiz?.docId); return d ? { id: d.id, name: d.name, text: d.text, rewrite: localStorage.getItem(`re.reader.rewrite.${d.id}`) ?? undefined } : null })()
+    if (!rec) return
+    setReaderDoc(rec)
+    setPendingNeedle(needle)
+    setView('reader')
   }
 
-  if (results) {
-    return <QuizResults quiz={results.quiz} answers={results.answers}
-      onRetry={() => { setActiveQuiz(results.quiz); setResults(null) }}
-      onBack={() => setResults(null)} />
-  }
-
-  return (
-    <div className="h-full flex overflow-hidden">
-      {/* Document library */}
-      <aside className="w-[260px] shrink-0 hidden md:flex flex-col p-3 overflow-y-auto" style={{ borderRight: '1px solid var(--surface-border)' }}>
-        <div className="flex items-center gap-2 px-2 py-2 mb-2">
-          <GraduationCap size={16} style={{ color: 'var(--primary)' }} />
-          <span className="font-semibold text-[14px]">Read &amp; Quiz</span>
+  /* ---------- views ---------- */
+  if (view === 'processing') {
+    return (
+      <div className="h-full flex items-center justify-center px-5">
+        <div className="w-full max-w-[420px]">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="w-10 h-10 rounded-[12px] flex items-center justify-center grad-quiz"><FileText size={18} className="text-white" /></span>
+            <div>
+              <div className="text-[15px] font-semibold" style={{ letterSpacing: '-0.01em' }}>{procFile?.name ?? 'Demo document'}</div>
+              <div className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Processed entirely on this device</div>
+            </div>
+          </div>
+          {!procError ? (
+            <div className="space-y-3">
+              {stages.map((s) => (
+                <div key={s.id} className="surface p-3.5 flex items-center gap-3">
+                  <motion.span animate={s.done ? { scale: 1 } : { rotate: 360 }} transition={s.done ? {} : { duration: 1.4, repeat: Infinity, ease: 'linear' }}
+                    className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
+                    style={{ background: s.done ? 'color-mix(in srgb, var(--success) 16%, transparent)' : 'var(--elevated)', color: s.done ? 'var(--success)' : 'var(--text-2)' }}>
+                    <s.icon size={15} strokeWidth={1.5} />
+                  </motion.span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between text-[12px] mb-1">
+                      <span className="font-medium">{s.label}</span>
+                      <span className="tabular-nums" style={{ color: 'var(--text-3)' }}>{Math.round(s.pct)}%</span>
+                    </div>
+                    <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--elevated)' }}>
+                      <div className="h-full rounded-full transition-all duration-200" style={{ width: `${s.pct}%`, background: s.done ? 'var(--success)' : 'var(--primary)' }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="surface p-4">
+              <div className="flex items-center gap-2 text-[13px] font-medium mb-1" style={{ color: 'var(--danger)' }}>
+                <AlertTriangle size={15} /> Processing failed
+              </div>
+              <p className="text-[12.5px] leading-relaxed mb-3" style={{ color: 'var(--text-2)' }}>{procError}</p>
+              <div className="flex gap-2">
+                <button onClick={() => procFile && handleFiles([procFile])} className="px-3.5 py-2 rounded-full text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Try again</button>
+                <button onClick={() => ui.toast('Issue noted', 'Check the file format — PDF, DOCX, TXT or Markdown work best.', 'info')}
+                  className="px-3.5 py-2 rounded-full text-[12.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>Report issue</button>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
+    )
+  }
 
+  if (view === 'reader' && readerDoc) {
+    return (
+      <div className="h-full relative">
+        <ReaderView
+          doc={readerDoc}
+          initialNeedle={pendingNeedle ?? undefined}
+          onBack={() => { setView('hub'); setSelected(readerDoc.isDemo ? null : readerDoc.id) }}
+          onQuizSection={(text) => startQuizFromText(text.length > 400 ? text : readerDoc.text, readerDoc.name, readerDoc.isDemo ? undefined : readerDoc.id)}
+        />
+      </div>
+    )
+  }
+
+  if (view === 'quiz' && activeQuiz) {
+    return (
+      <QuizPlay
+        questions={activeQuiz.questions}
+        timed={timed}
+        onQuit={() => setView('hub')}
+        onSeeSource={seeSource}
+        onFinish={(r) => { setLastResult(r); setView('results') }}
+      />
+    )
+  }
+
+  if (view === 'results' && activeQuiz && lastResult) {
+    return (
+      <QuizResults
+        quiz={activeQuiz}
+        result={lastResult}
+        onRetry={() => setView('quiz')}
+        onReviewMistakes={() => {
+          const wrong = activeQuiz.questions.filter((q) => !lastResult.correct[q.id])
+          if (!wrong.length) { ui.toast('Nothing to review', 'Every answer was correct.', 'success'); return }
+          setActiveQuiz({ ...activeQuiz, title: `${activeQuiz.title} — review`, questions: wrong })
+          setLastResult(null)
+          setView('review')
+        }}
+        onSimilar={() => {
+          const d = documents.find((x) => x.id === activeQuiz.docId)
+          const text = quizIsDemo ? DEMO_DOC_TEXT : d?.text ?? ''
+          if (!text) { ui.toast('Need the source document', 'Similar quizzes are generated from the original text.', 'warning'); return }
+          const shuffled = [...types].sort(() => Math.random() - 0.5)
+          const qs = generateQuiz(text, { count: Math.min(count, 10), types: (shuffled.length ? shuffled : ['mc']) as any, difficulty })
+          setActiveQuiz({ title: `${activeQuiz.title} (similar)`, questions: qs, docId: activeQuiz.docId })
+          setLastResult(null)
+          setView('quiz')
+        }}
+        onBack={() => setView('hub')}
+      />
+    )
+  }
+
+  if (view === 'review' && activeQuiz) {
+    return (
+      <QuizPlay
+        questions={activeQuiz.questions}
+        timed={false}
+        onQuit={() => setView('hub')}
+        onSeeSource={seeSource}
+        onFinish={() => setView('hub')}
+      />
+    )
+  }
+
+  /* ---------- hub ---------- */
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-[760px] mx-auto px-5 py-8">
+        <h1 className="text-xl font-semibold flex items-center gap-2" style={{ letterSpacing: '-0.02em' }}>
+          <GraduationCap size={19} style={{ color: 'var(--primary)' }} /> Read &amp; Quiz
+        </h1>
+        <p className="text-[13px] mt-0.5 mb-6" style={{ color: 'var(--text-2)' }}>
+          Upload a document — get a beautiful study reader, an AI reading partner, and premium quizzes. All processed locally.
+        </p>
+
+        {/* Drop zone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
           onClick={() => fileRef.current?.click()}
-          className="p-4 rounded-[14px] text-center cursor-pointer transition-colors mb-3"
-          style={{ border: `1.5px dashed ${dragOver ? 'var(--primary)' : 'var(--surface-border)'}`, background: dragOver ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'transparent' }}
+          className="rounded-[18px] p-8 text-center cursor-pointer transition-all mb-3"
+          style={{ border: `1.5px dashed ${dragOver ? 'var(--primary)' : 'var(--surface-border)'}`, background: dragOver ? 'color-mix(in srgb, var(--primary) 6%, transparent)' : 'var(--surface)' }}
         >
-          <UploadCloud size={20} strokeWidth={1.5} className="mx-auto mb-1.5" style={{ color: dragOver ? 'var(--primary)' : 'var(--text-3)' }} />
-          <div className="text-[12px] font-medium">{extracting ? 'Extracting…' : 'Drop a document'}</div>
-          <div className="text-[10.5px] mt-0.5" style={{ color: 'var(--text-3)' }}>PDF · DOCX · TXT · Markdown</div>
-          <input ref={fileRef} type="file" hidden multiple accept=".pdf,.docx,.txt,.md,.markdown,.epub"
-            onChange={(e) => e.target.files && handleFiles(e.target.files)} />
+          <UploadCloud size={26} strokeWidth={1.5} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
+          <div className="text-[14px] font-medium">Drop a PDF, DOCX, TXT or Markdown file</div>
+          <div className="text-[11.5px] mt-1" style={{ color: 'var(--text-3)' }}>or click to browse — extraction happens on-device</div>
+          <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,.markdown" className="hidden" onChange={(e) => e.target.files && handleFiles(e.target.files)} />
         </div>
 
-        <div className="text-[10px] font-semibold uppercase tracking-wider px-2 mb-1.5" style={{ color: 'var(--text-3)' }}>Documents · {documents.length}</div>
-        {documents.map((d) => (
-          <button key={d.id} onClick={() => setSelected(d.id)}
-            className="group flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-left mb-0.5 transition-colors"
-            style={{ background: selected === d.id ? 'var(--elevated)' : 'transparent' }}>
-            <FileText size={14} strokeWidth={1.5} className="shrink-0" style={{ color: selected === d.id ? 'var(--primary)' : 'var(--text-3)' }} />
-            <span className="flex-1 min-w-0">
-              <span className="block text-[12.5px] truncate">{d.name}</span>
-              <span className="block text-[10px]" style={{ color: 'var(--text-3)' }}>{timeAgo(d.addedAt)}</span>
-            </span>
-            <Trash2 size={11} className="opacity-0 group-hover:opacity-100 shrink-0" style={{ color: 'var(--text-3)' }}
-              onClick={(e) => { e.stopPropagation(); useStore.setState((s) => ({ documents: s.documents.filter((x) => x.id !== d.id) })); if (selected === d.id) setSelected(null) }} />
+        {/* Demo entries */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          <button onClick={() => startDemo(false)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[14px] text-[12.5px] font-medium grad-quiz text-white transition-transform hover:scale-[1.02]">
+            <BookOpen size={14} /> Try the reading demo <ChevronRight size={13} />
           </button>
-        ))}
-      </aside>
+          <button onClick={() => startDemo(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[14px] text-[12.5px] transition-colors"
+            style={{ background: 'var(--elevated)', color: 'var(--text)', border: '1px solid var(--surface-border)' }}>
+            <Sparkles size={14} style={{ color: 'var(--warning)' }} /> Try the demo quiz
+          </button>
+        </div>
 
-      {/* Main */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {!doc ? (
-          <div className="h-full flex flex-col items-center justify-center gap-3 p-8 text-center">
-            <div className="w-14 h-14 rounded-[18px] flex items-center justify-center" style={{ background: 'var(--elevated)' }}>
-              <BookOpen size={24} strokeWidth={1.5} style={{ color: 'var(--primary)' }} />
-            </div>
-            <h2 className="text-lg font-semibold" style={{ letterSpacing: '-0.02em' }}>Study anything</h2>
-            <p className="text-[13px] max-w-[380px]" style={{ color: 'var(--text-2)' }}>
-              Drop a PDF, DOCX, or notes on the left. Everything is processed locally — then generate quizzes, flashcards, and track progress.
-            </p>
-            <button onClick={() => fileRef.current?.click()}
-              className="mt-2 px-4 py-2 rounded-full text-[13px] font-medium md:hidden" style={{ background: 'var(--primary)', color: '#fff' }}>
-              Choose a file
-            </button>
-            <input ref={fileRef} type="file" hidden multiple accept=".pdf,.docx,.txt,.md,.markdown,.epub"
-              onChange={(e) => e.target.files && handleFiles(e.target.files)} />
-          </div>
-        ) : (
-          <div className="max-w-[840px] mx-auto p-5 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
-            {/* Reader */}
-            <div className="surface p-5 min-h-[300px]">
-              <div className="flex items-center gap-2 mb-3">
-                <FileText size={15} style={{ color: 'var(--primary)' }} />
-                <span className="font-medium text-[14px] truncate flex-1">{doc.name}</span>
-                <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{fmt(Math.round(doc.text.length / 4))} tokens</span>
-              </div>
-              <div className="text-[13px] leading-relaxed max-h-[52vh] overflow-y-auto whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>
-                {doc.text.slice(0, 20000)}
-                {doc.text.length > 20000 && <span style={{ color: 'var(--text-3)' }}> …truncated in preview.</span>}
-              </div>
+        {/* Documents + quiz config */}
+        {documents.length > 0 && (
+          <>
+            <h3 className="text-[13px] font-semibold mb-2">Your documents</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+              {documents.map((d) => (
+                <button key={d.id}
+                  onClick={() => { setSelected(d.id); openReaderFor(d) }}
+                  className="surface p-3.5 text-left transition-all hover:border-[var(--primary)]"
+                  style={{ borderColor: selected === d.id ? 'var(--primary)' : undefined }}
+                >
+                  <div className="flex items-center gap-2">
+                    <FileText size={15} strokeWidth={1.5} style={{ color: 'var(--primary)' }} />
+                    <span className="text-[13px] font-medium truncate flex-1">{d.name}</span>
+                    <span onClick={(e) => { e.stopPropagation(); useStore.setState((s) => ({ documents: s.documents.filter((x) => x.id !== d.id) })) }}
+                      className="p-1 rounded hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
+                      <Trash2 size={12.5} />
+                    </span>
+                  </div>
+                  <div className="text-[10.5px] mt-1" style={{ color: 'var(--text-3)' }}>
+                    {fmt(Math.round(d.text.length / 4))} tokens · {timeAgo(d.addedAt)} · <Eye size={9} className="inline" /> reader
+                  </div>
+                </button>
+              ))}
             </div>
 
-            {/* Config */}
-            <div className="space-y-4">
-              <div className="surface p-4">
-                <div className="text-[13px] font-semibold mb-3 flex items-center gap-1.5"><Sparkles size={14} style={{ color: 'var(--secondary)' }} /> Quiz generator</div>
-                <label className="block mb-3">
-                  <span className="text-[11.5px] mb-1 block" style={{ color: 'var(--text-2)' }}>Questions · {count}</span>
-                  <input type="range" min={3} max={20} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full accent-[var(--secondary)]" />
+            <div className="surface p-4 mb-6">
+              <div className="text-[13px] font-semibold mb-3 flex items-center gap-2"><Play size={14} style={{ color: 'var(--primary)' }} /> Generate a quiz{doc ? ` from “${doc.name}”` : ''}</div>
+              <div className="flex flex-wrap items-center gap-3 text-[12px]">
+                <label className="flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
+                  Questions
+                  <select value={count} onChange={(e) => setCount(Number(e.target.value))}
+                    className="px-2 py-1 rounded-[8px] outline-none" style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
+                  {[5, 8, 10, 15].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
                 </label>
-                <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Types</div>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {TYPES.map((t) => {
-                    const on = types.includes(t.id)
-                    return (
-                      <button key={t.id} onClick={() => setTypes((prev) => on ? prev.filter((x) => x !== t.id) : [...prev, t.id])}
-                        className="px-2.5 py-1 rounded-full text-[11px]"
-                        style={{ background: on ? 'var(--secondary)' : 'var(--elevated)', color: on ? '#fff' : 'var(--text-2)' }}>
-                        {t.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Difficulty</div>
-                <div className="flex gap-1.5 mb-3">
-                  {(['easy', 'medium', 'hard'] as const).map((d) => (
-                    <button key={d} onClick={() => setDifficulty(d)} className="flex-1 py-1 rounded-[10px] text-[11px] capitalize"
-                      style={{ background: difficulty === d ? 'var(--secondary)' : 'var(--elevated)', color: difficulty === d ? '#fff' : 'var(--text-2)' }}>
-                      {d}
-                    </button>
-                  ))}
-                </div>
-                <label className="flex items-center gap-2 text-[12px] mb-3 cursor-pointer" style={{ color: 'var(--text-2)' }}>
-                  <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} className="accent-[var(--secondary)]" />
-                  Per-question timer
+                <label className="flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
+                  Difficulty
+                  <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as any)}
+                    className="px-2 py-1 rounded-[8px] outline-none capitalize" style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
+                  {['easy', 'medium', 'hard'].map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
                 </label>
-                <button onClick={startQuiz} disabled={types.length === 0}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[12px] text-[13px] font-medium disabled:opacity-40"
-                  style={{ background: 'var(--secondary)', color: '#fff' }}>
-                  <Play size={14} /> Generate &amp; start
+                <button onClick={() => setTimed((t) => !t)}
+                  className="px-2.5 py-1 rounded-full transition-colors"
+                  style={{ background: timed ? 'color-mix(in srgb, var(--warning) 16%, transparent)' : 'var(--elevated)', color: timed ? 'var(--warning)' : 'var(--text-3)' }}>
+                  30s timer {timed ? 'on' : 'off'}
                 </button>
               </div>
-
-              {/* History */}
-              <div className="surface p-4">
-                <div className="text-[12px] font-semibold mb-2 flex items-center gap-1.5"><Timer size={13} style={{ color: 'var(--text-3)' }} /> History</div>
-                {quizzes.filter((q) => q.docId === doc.id).length === 0 && <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>No attempts yet.</div>}
-                {quizzes.filter((q) => q.docId === doc.id).slice(0, 5).map((q) => (
-                  <div key={q.id} className="flex items-center justify-between py-1.5 text-[11.5px]" style={{ borderBottom: '1px solid var(--surface-border)' }}>
-                    <span style={{ color: 'var(--text-2)' }}>{q.questions.length} Qs · {timeAgo(q.createdAt)}</span>
-                    {q.bestScore != null && <span style={{ color: q.bestScore >= 70 ? 'var(--success)' : 'var(--warning)' }}>{q.bestScore}%</span>}
-                  </div>
+              <div className="flex flex-wrap gap-1.5 mt-3 mb-4">
+                {TYPES.map((t) => (
+                  <button key={t.id}
+                    onClick={() => setTypes((prev) => prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id])}
+                    className="px-2.5 py-1 rounded-full text-[11.5px] transition-colors"
+                    style={{
+                      background: types.includes(t.id) ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)',
+                      color: types.includes(t.id) ? 'var(--primary)' : 'var(--text-3)',
+                      border: `1px solid ${types.includes(t.id) ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'transparent'}`,
+                    }}>
+                    {t.label}
+                  </button>
                 ))}
               </div>
+              <button
+                onClick={() => doc ? startQuizFromText(doc.text, doc.name, doc.id) : ui.toast('Pick a document first', 'Select one of your documents above.', 'info')}
+                disabled={!doc}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-medium disabled:opacity-40"
+                style={{ background: 'var(--primary)', color: '#fff' }}>
+                <GraduationCap size={14} /> Generate quiz
+              </button>
             </div>
+          </>
+        )}
+
+        {/* Empty state */}
+        {documents.length === 0 && (
+          <div className="text-center py-8">
+            <svg width="120" height="90" viewBox="0 0 120 90" fill="none" className="mx-auto mb-4 opacity-80">
+              <rect x="22" y="12" width="76" height="66" rx="8" stroke="var(--primary)" strokeWidth="1.5" opacity="0.6" />
+              <path d="M36 30h48M36 42h48M36 54h30" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" opacity="0.45" />
+              <circle cx="92" cy="66" r="14" stroke="var(--warning)" strokeWidth="1.5" />
+              <path d="M86 66l4 4 8-8" stroke="var(--warning)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <div className="text-[14px] font-medium mb-1">Upload a document to read and quiz on it</div>
+            <div className="text-[12px]" style={{ color: 'var(--text-3)' }}>Or jump straight into the bundled DNA demo — no setup needed.</div>
           </div>
         )}
-      </div>
-    </div>
-  )
-}
 
-/* ---------- Runner ---------- */
-function QuizRunner({ quiz, timed, onFinish, onQuit }: {
-  quiz: QuizRecord; timed: boolean; onFinish: (answers: Record<string, string>) => void; onQuit: () => void
-}) {
-  const [i, setI] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [picked, setPicked] = useState<string | null>(null)
-  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
-  const [timeLeft, setTimeLeft] = useState(30)
-  const q = quiz.questions[i]
-
-  React.useEffect(() => {
-    if (!timed || feedback) return
-    setTimeLeft(30)
-    const iv = setInterval(() => setTimeLeft((t) => {
-      if (t <= 1) { clearInterval(iv); submit('') ; return 0 }
-      return t - 1
-    }), 1000)
-    return () => clearInterval(iv)
-  }, [i, timed])
-
-  const submit = (val: string) => {
-    if (feedback) return
-    const correct = val.trim().toLowerCase() === q.answer.trim().toLowerCase()
-    setPicked(val)
-    setFeedback(correct ? 'correct' : 'wrong')
-    setAnswers((a) => ({ ...a, [q.id]: val }))
-    setTimeout(() => {
-      setFeedback(null); setPicked(null)
-      if (i + 1 >= quiz.questions.length) onFinish(answers)
-      else setI(i + 1)
-    }, 1400)
-  }
-
-  return (
-    <div className="h-full flex items-center justify-center p-5 relative overflow-hidden" style={{ background: 'var(--bg)' }}>
-      <div className="aurora" />
-      <button onClick={onQuit} className="absolute top-4 left-4 text-[12px] flex items-center gap-1 z-10" style={{ color: 'var(--text-3)' }}>
-        <X size={13} /> Quit
-      </button>
-      <div className="absolute top-4 right-4 text-[12px] z-10" style={{ color: 'var(--text-3)' }}>
-        {i + 1} / {quiz.questions.length}
-        {timed && <span className="ml-2 font-mono" style={{ color: timeLeft < 8 ? 'var(--danger)' : 'var(--text-2)' }}>{timeLeft}s</span>}
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div key={q.id}
-          initial={{ x: 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -60, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="w-full max-w-[620px] relative z-10">
-          <div className="mb-4 h-1 rounded-full overflow-hidden" style={{ background: 'var(--elevated)' }}>
-            <div className="h-full rounded-full transition-all" style={{ width: `${((i) / quiz.questions.length) * 100}%`, background: 'var(--secondary)' }} />
-          </div>
-          <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--secondary)' }}>
-            {q.type === 'mc' ? 'Multiple choice' : q.type === 'tf' ? 'True or false' : q.type === 'fill' ? 'Fill in the blank' : 'Short answer'}
-            {q.section && <span className="ml-2" style={{ color: 'var(--text-3)' }}>· {q.section}</span>}
-          </div>
-          <h2 className="text-[17px] font-medium mb-5 leading-relaxed" style={{ letterSpacing: '-0.01em' }}>{q.prompt}</h2>
-
-          {(q.type === 'mc' || q.type === 'tf') ? (
-            <div className="space-y-2">
-              {(q.type === 'tf' ? ['True', 'False'] : q.options ?? []).map((opt) => {
-                const isPicked = picked === opt
-                const isAnswer = opt === q.answer
-                let bg = 'var(--surface)'
-                if (feedback && isAnswer) bg = 'color-mix(in srgb, var(--success) 18%, var(--surface))'
-                else if (feedback && isPicked && !isAnswer) bg = 'color-mix(in srgb, var(--danger) 16%, var(--surface))'
-                return (
-                  <button key={opt} onClick={() => submit(opt)} disabled={!!feedback}
-                    className={`w-full text-left px-4 py-3 rounded-[14px] text-[13.5px] transition-transform ${feedback && isPicked && !isAnswer ? 'shake-x' : ''} ${feedback && isAnswer ? 'fill-correct' : ''}`}
-                    style={{ background: bg, border: '1px solid var(--surface-border)', transform: isPicked && !feedback ? 'scale(1.02)' : undefined }}>
-                    {opt}
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <form onSubmit={(e) => { e.preventDefault(); const v = (e.currentTarget.elements.namedItem('ans') as HTMLInputElement).value; submit(v) }} className="space-y-3">
-              <input name="ans" autoFocus placeholder="Your answer…"
-                className="w-full px-4 py-3 rounded-[14px] outline-none text-[14px]"
-                style={{ background: 'var(--surface)', border: `1px solid ${feedback ? (feedback === 'correct' ? 'var(--success)' : 'var(--danger)') : 'var(--surface-border)'}` }} />
-              <button type="submit" disabled={!!feedback} className="px-5 py-2 rounded-full text-[13px] font-medium" style={{ background: 'var(--secondary)', color: '#fff' }}>
-                Check
-              </button>
-            </form>
-          )}
-
-          <AnimatePresence>
-            {feedback && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="mt-4 p-3.5 rounded-[14px] text-[12.5px]"
-                style={{
-                  background: feedback === 'correct' ? 'color-mix(in srgb, var(--success) 12%, transparent)' : 'color-mix(in srgb, var(--danger) 12%, transparent)',
-                  color: 'var(--text-2)', border: `1px solid ${feedback === 'correct' ? 'var(--success)' : 'var(--danger)'}33`,
-                }}>
-                <div className="font-medium mb-0.5 flex items-center gap-1.5" style={{ color: feedback === 'correct' ? 'var(--success)' : 'var(--danger)' }}>
-                  {feedback === 'correct' ? <Check size={14} /> : <X size={14} />}
-                  {feedback === 'correct' ? 'Correct' : `Answer: ${q.answer}`}
-                </div>
-                {q.explanation}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  )
-}
-
-/* ---------- Results ---------- */
-function QuizResults({ quiz, answers, onRetry, onBack }: {
-  quiz: QuizRecord; answers: Record<string, string>; onRetry: () => void; onBack: () => void
-}) {
-  const ui = useUI()
-  const [showMistakes, setShowMistakes] = useState(false)
-  const correct = quiz.questions.filter((q) => (answers[q.id] ?? '').trim().toLowerCase() === q.answer.trim().toLowerCase())
-  const score = Math.round((correct.length / quiz.questions.length) * 100)
-
-  React.useEffect(() => {
-    useStore.setState((s) => ({
-      quizzes: s.quizzes.map((q) => q.id === quiz.id ? { ...q, bestScore: Math.max(q.bestScore ?? 0, score) } : q),
-    }))
-  }, [quiz.id, score])
-
-  const bySection = useMemo(() => {
-    const m = new Map<string, { total: number; right: number }>()
-    for (const q of quiz.questions) {
-      const sec = q.section ?? 'General'
-      const cur = m.get(sec) ?? { total: 0, right: 0 }
-      cur.total++
-      if ((answers[q.id] ?? '').trim().toLowerCase() === q.answer.trim().toLowerCase()) cur.right++
-      m.set(sec, cur)
-    }
-    return [...m.entries()]
-  }, [quiz, answers])
-
-  return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-[640px] mx-auto">
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
-          className="text-center mb-8 pt-6">
-          <div className="text-[64px] font-bold leading-none" style={{ letterSpacing: '-0.03em', color: score >= 70 ? 'var(--success)' : 'var(--warning)' }}>
-            {score}%
-          </div>
-          <div className="text-[14px] mt-2" style={{ color: 'var(--text-2)' }}>
-            {correct.length} of {quiz.questions.length} correct · {quiz.title}
-          </div>
-        </motion.div>
-
-        <div className="surface p-4 mb-4">
-          <div className="text-[12px] font-semibold mb-3">Topic accuracy</div>
-          {bySection.map(([sec, v]) => (
-            <div key={sec} className="mb-2.5">
-              <div className="flex justify-between text-[11.5px] mb-1"><span style={{ color: 'var(--text-2)' }}>{sec}</span><span style={{ color: 'var(--text-3)' }}>{v.right}/{v.total}</span></div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--elevated)' }}>
-                <motion.div className="h-full rounded-full" initial={{ width: 0 }} animate={{ width: `${(v.right / v.total) * 100}%` }}
-                  transition={{ duration: 0.6, delay: 0.2 }} style={{ background: v.right / v.total >= 0.7 ? 'var(--success)' : 'var(--warning)' }} />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button onClick={onRetry} className="flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-medium" style={{ background: 'var(--secondary)', color: '#fff' }}>
-            <RotateCcw size={13} /> Retake
-          </button>
-          <button onClick={() => setShowMistakes(!showMistakes)} className="flex items-center gap-2 px-4 py-2 rounded-full text-[13px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
-            <Layers size={13} /> Review mistakes ({quiz.questions.length - correct.length})
-          </button>
-          <button onClick={() => { ui.set({ focus: { running: true, endsAt: Date.now() + 25 * 60 * 1000, remaining: 25 * 60, total: 25 * 60, mode: 'work' } }); ui.toast('Focus session started', '25 minutes — perfect for reviewing your mistakes.') }}
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-[13px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
-            <Timer size={13} /> Study session
-          </button>
-          <button onClick={onBack} className="px-4 py-2 rounded-full text-[13px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>Done</button>
-        </div>
-
-        <AnimatePresence>
-          {showMistakes && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-              {quiz.questions.filter((q) => (answers[q.id] ?? '').trim().toLowerCase() !== q.answer.trim().toLowerCase()).map((q) => (
-                <div key={q.id} className="surface p-4 mb-2">
-                  <div className="text-[13px] font-medium mb-1">{q.prompt}</div>
-                  <div className="text-[12px]" style={{ color: 'var(--danger)' }}>You: {answers[q.id] || '(no answer)'}</div>
-                  <div className="text-[12px]" style={{ color: 'var(--success)' }}>Correct: {q.answer}</div>
-                  <div className="text-[11.5px] mt-1.5" style={{ color: 'var(--text-3)' }}>{q.explanation}</div>
-                </div>
+        {/* Past quizzes */}
+        {quizzes.length > 0 && (
+          <>
+            <h3 className="text-[13px] font-semibold mb-2">Recent quizzes</h3>
+            <div className="space-y-1.5">
+              {quizzes.slice(0, 6).map((qz) => (
+                <button key={qz.id}
+                  onClick={() => { setActiveQuiz({ title: qz.title, questions: qz.questions, docId: qz.docId }); setQuizIsDemo(false); setLastResult(null); setView('quiz') }}
+                  className="w-full surface px-4 py-3 flex items-center gap-3 text-left transition-colors hover:border-[var(--primary)]">
+                  <RotateCcw size={14} style={{ color: 'var(--text-3)' }} />
+                  <span className="flex-1 text-[12.5px] truncate">{qz.title}</span>
+                  <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{qz.questions.length} questions · {timeAgo(qz.createdAt)}</span>
+                  <ChevronRight size={13} style={{ color: 'var(--text-3)' }} />
+                </button>
               ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
