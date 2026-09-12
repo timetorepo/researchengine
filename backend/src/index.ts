@@ -20,6 +20,7 @@ async function main() {
   const { integrationRoutes } = await import('./routes/integrations')
   const { resourceRoutes } = await import('./routes/resources')
   const { fsRoutes } = await import('./routes/fs')
+  const { providerRoutes } = await import('./routes/providers')
 
   const app = new Hono()
 
@@ -35,6 +36,7 @@ async function main() {
   app.route('/api/documents', documentRoutes)
   app.route('/api/ollama', ollamaRoutes)
   app.route('/api/integrations', integrationRoutes)
+  app.route('/api', providerRoutes)
 
   app.onError((err, c) => {
     // Surface the real error to the client — the UI shows it verbatim.

@@ -72,7 +72,7 @@ export function SkillBuilderPanel() {
   }
 
   const modelOptions = useMemo(() =>
-    PROVIDERS.flatMap((p) => p.defaultModels.map((m) => `${p.id}:${m}`)).slice(0, 20), [])
+    PROVIDERS.flatMap((p) => ((useStore.getState().settings.providerModels ?? {})[p.id] ?? []).map((m) => `${p.id}:${m}`)).slice(0, 20), [])
 
   return (
     <AnimatePresence>

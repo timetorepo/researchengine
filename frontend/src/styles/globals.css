@@ -18,11 +18,34 @@
 
   --spring: cubic-bezier(0.32, 0.72, 0, 1);
 
-  --grad-research: linear-gradient(135deg, #28407c 0%, #2b3350 100%);
-  --grad-math: linear-gradient(135deg, #7a5a1e 0%, #4a4436 100%);
-  --grad-quiz: linear-gradient(135deg, #0d9488 0%, #16a34a 100%);
-  --grad-article: linear-gradient(135deg, #5b3f9e 0%, #3b3a8f 100%);
-  --grad-flood: linear-gradient(135deg, #6C8EEF 0%, #A78BFA 100%);
+  /* Mesh gradients — soft multi-radial blends (organic, blended, never flat
+     two-stop lines). Layered radials over a tinted base read like diffused
+     light, not a CSS default. */
+  --grad-research:
+    radial-gradient(120% 150% at 88% -12%, #2fa763 0%, rgba(47, 167, 99, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #1f7fae 0%, rgba(31, 127, 174, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(158, 196, 60, 0.5) 0%, rgba(158, 196, 60, 0) 64%),
+    linear-gradient(160deg, #143528 0%, #0e2b26 55%, #123043 100%);
+  --grad-math:
+    radial-gradient(120% 150% at 90% -10%, #d99a2b 0%, rgba(217, 154, 43, 0) 55%),
+    radial-gradient(110% 130% at -10% 110%, #8a5a2b 0%, rgba(138, 90, 43, 0) 60%),
+    radial-gradient(90% 100% at 45% 55%, rgba(214, 178, 94, 0.35) 0%, rgba(214, 178, 94, 0) 62%),
+    linear-gradient(160deg, #3a2d17 0%, #2c2417 55%, #33261a 100%);
+  --grad-quiz:
+    radial-gradient(125% 150% at 85% -12%, #3fae6a 0%, rgba(63, 174, 106, 0) 56%),
+    radial-gradient(115% 135% at -12% 105%, #0e7490 0%, rgba(14, 116, 144, 0) 58%),
+    radial-gradient(90% 100% at 55% 70%, rgba(190, 214, 70, 0.42) 0%, rgba(190, 214, 70, 0) 62%),
+    linear-gradient(155deg, #103125 0%, #0c2b22 60%, #0e2f33 100%);
+  --grad-article:
+    radial-gradient(120% 150% at 88% -12%, #5f7ce0 0%, rgba(95, 124, 224, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #8b5cf6 0%, rgba(139, 92, 246, 0) 58%),
+    radial-gradient(90% 100% at 45% 60%, rgba(94, 210, 200, 0.35) 0%, rgba(94, 210, 200, 0) 62%),
+    linear-gradient(160deg, #232a52 0%, #201d3f 55%, #2a2150 100%);
+  --grad-flood:
+    radial-gradient(120% 150% at 88% -12%, #6c8eef 0%, rgba(108, 142, 239, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #a78bfa 0%, rgba(167, 139, 250, 0) 58%),
+    radial-gradient(90% 100% at 45% 60%, rgba(120, 200, 235, 0.35) 0%, rgba(120, 200, 235, 0) 62%),
+    linear-gradient(160deg, #1e2749 0%, #1d1f3d 55%, #251e46 100%);
 
   --font-scale: 1;
 }
@@ -71,10 +94,24 @@
   --glass: rgba(255, 255, 255, 0.78);
   --aurora-a: rgba(79, 111, 224, 0.06);
   --aurora-b: rgba(139, 92, 246, 0.05);
-  --grad-research: linear-gradient(135deg, #dbe4ff 0%, #e7ebf7 100%);
-  --grad-math: linear-gradient(135deg, #fdeecd 0%, #f3ede0 100%);
-  --grad-quiz: linear-gradient(135deg, #0f766e 0%, #15803d 100%);
-  --grad-article: linear-gradient(135deg, #e8e0ff 0%, #dedffd 100%);
+  --grad-research:
+    radial-gradient(120% 150% at 88% -12%, #7fb069 0%, rgba(127, 176, 105, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #5b93b8 0%, rgba(91, 147, 184, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(196, 214, 110, 0.55) 0%, rgba(196, 214, 110, 0) 64%),
+    linear-gradient(160deg, #4c7a58 0%, #3f6b56 55%, #46688a 100%);
+  --grad-math:
+    radial-gradient(120% 150% at 90% -10%, #e0a94f 0%, rgba(224, 169, 79, 0) 55%),
+    radial-gradient(110% 130% at -10% 110%, #a9793f 0%, rgba(169, 121, 63, 0) 60%),
+    linear-gradient(160deg, #7a5f33 0%, #6b5630 55%, #74583a 100%);
+  --grad-quiz:
+    radial-gradient(125% 150% at 85% -12%, #58b877 0%, rgba(88, 184, 119, 0) 56%),
+    radial-gradient(115% 135% at -12% 105%, #2b8ba6 0%, rgba(43, 139, 166, 0) 58%),
+    radial-gradient(90% 100% at 55% 70%, rgba(205, 226, 105, 0.5) 0%, rgba(205, 226, 105, 0) 62%),
+    linear-gradient(155deg, #357552 0%, #2c6b4e 60%, #2f6f75 100%);
+  --grad-article:
+    radial-gradient(120% 150% at 88% -12%, #7d95e8 0%, rgba(125, 149, 232, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #a58bf8 0%, rgba(165, 139, 248, 0) 58%),
+    linear-gradient(160deg, #55609f 0%, #4f4a8c 55%, #5c509c 100%);
 }
 
 /* ---------- Catppuccin Latte (pastel light) ---------- */
@@ -207,7 +244,11 @@
   --code-bg: #191919;
   --scrim: rgba(0, 0, 0, 0.6);
   --glass: rgba(42, 42, 42, 0.75);
-  --grad-research: linear-gradient(135deg, #20B8CD 0%, #22D3EE 100%);
+  --grad-research:
+    radial-gradient(120% 150% at 88% -12%, #20b8cd 0%, rgba(32, 184, 205, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #1f8fae 0%, rgba(31, 143, 174, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(123, 216, 230, 0.4) 0%, rgba(123, 216, 230, 0) 64%),
+    linear-gradient(160deg, #0d4652 0%, #0b3a46 55%, #0e4257 100%);
   --aurora-a: rgba(32, 184, 205, 0.08);
   --aurora-b: rgba(123, 216, 230, 0.05);
 }

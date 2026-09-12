@@ -16,6 +16,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const osMinimized = useUI((s) => s.osMinimized)
   const location = useLocation()
   const isOS = theme === 're-os'
+  const dynamicIsland = useStore((s) => s.settings.dynamicIsland)
 
   // Route enter transition only — no exit animation and no mode="wait".
   // An exit-gated AnimatePresence can strand the incoming page if the exit
@@ -84,6 +85,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <main className="flex-1 min-h-0 relative">{content}</main>
         </div>
       </div>
+      {/* Optional everywhere: the island floats over any theme when enabled. */}
+      {dynamicIsland && <DynamicIsland />}
       <PrivacyPanel />
     </div>
   )

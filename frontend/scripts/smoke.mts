@@ -71,6 +71,9 @@ async function main() {
   const { useStore } = await import('../src/stores/useStore')
   const { runChat } = await import('../src/lib/chat/runChat')
 
+  // defaultModel starts empty (fresh state) — the pipeline must fall back to
+  // the fully-local demo model, exactly like a brand-new install.
+
   const chatId = useStore.getState().newChat()
   check('chat created', useStore.getState().chats.length === 1)
 

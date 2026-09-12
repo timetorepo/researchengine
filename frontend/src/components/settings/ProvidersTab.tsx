@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
-import { Check, Eye, EyeOff, Loader2, RefreshCw, X, ShieldAlert } from 'lucide-react'
+import { Check, Eye, EyeOff, Loader2, RefreshCw, X, ShieldAlert, Plus } from 'lucide-react'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { testConnection, ollamaTags } from '@/lib/providers/stream'
+import { refreshProviderModels } from '@/lib/providers/refresh'
 import { useStore } from '@/stores/useStore'
+import { useUI } from '@/stores/useUI'
 import { encryptWithPassphrase } from '@/lib/crypto/vault'
 import { getVaultPassphrase, setVaultPassphrase } from '@/lib/crypto/session'
 
@@ -48,6 +50,8 @@ export function ProvidersTab() {
     if (!settings.passphraseSet) {
       useStore.setState({} as any)
     }
+    // Kick off a live model fetch right after saving so the picker fills fast.
+    refreshProviderModels(id).catch(() => { /* surfaced via Add models button */ })
   }
 
   const test = async (id: string) => {
@@ -166,9 +170,10 @@ export function ProvidersTab() {
                       style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
                     />
                   )}
-                  {p.defaultModels.length > 0 && (
+                  {/* Live-fetched models only — never hardcoded. */}
+                  {((settings.providerModels ?? {})[p.id] ?? []).length > 0 ? (
                     <div className="flex flex-wrap gap-1">
-                      {p.defaultModels.slice(0, 5).map((m) => (
+                      {((settings.providerModels ?? {})[p.id] ?? []).slice(0, 6).map((m) => (
                         <button key={m}
                           onClick={() => useStore.setState((s) => ({ settings: { ...s.settings, defaultModel: `${p.id}:${m}` } }))}
                           className="px-2 py-0.5 rounded-full text-[10.5px] font-mono transition-colors"
@@ -179,7 +184,27 @@ export function ProvidersTab() {
                           {m}
                         </button>
                       ))}
+                      <button
+                        onClick={async () => { try { await refreshProviderModels(p.id) } catch (e: any) { setErrors((p2) => ({ ...p2, [p.id]: e?.message ?? 'Fetch failed' })) } }}
+                        aria-label={`Refresh ${p.name} models`}
+                        className="px-1.5 py-0.5 rounded-full hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
+                        <RefreshCw size={10} />
+                      </button>
                     </div>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const n = (await refreshProviderModels(p.id)).length
+                          useUI.getState().toast(`${p.name} models fetched`, `${n} model${n === 1 ? '' : 's'} available.`, 'success')
+                        } catch (e: any) {
+                          setErrors((p2) => ({ ...p2, [p.id]: e?.message ?? 'Could not fetch models — check the key and base URL.' }))
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors hover:border-[var(--primary)]"
+                      style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+                      <Plus size={11} /> Add models
+                    </button>
                   )}
                 </div>
                 <div className="flex sm:flex-col gap-2 items-stretch">

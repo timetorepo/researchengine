@@ -231,6 +231,8 @@ export function AppearanceTab() {
           checked={settings.reduceMotion} onChange={(v) => update({ reduceMotion: v })} />
         <Switch label="OS widgets" description="Show small status widgets in ResearchEngineOS."
           checked={settings.osWidgets} onChange={(v) => update({ osWidgets: v })} />
+        <Switch label="Dynamic Island" description="Float the status island over every theme, not only ResearchEngineOS."
+          checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
       </div>
     </div>
   )

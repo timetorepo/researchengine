@@ -51,6 +51,19 @@ export async function runChat(opts: RunOptions): Promise<void> {
   const [providerId, model] = (opts.modelOverride ?? settings.defaultModel).split(':')
   const providerMeta = providerById(providerId)
 
+  // A model was selected but is broken (unknown provider, or provider with no
+  // model part): surface a clear, actionable error instead of pretending.
+  // A completely empty defaultModel is the fresh/demo state — it falls
+  // through to the fully-local demo pipeline below, by design.
+  if (providerId && (!providerMeta || !model)) {
+    store.addMessage(chatId, {
+      id: asstId, role: 'assistant', content: '', createdAt: Date.now(), mode,
+      model: model || 'none', provider: providerMeta?.name ?? providerId,
+      error: 'The selected model is unavailable. Open the model picker (top bar) and pick a fetched model, or reconnect the provider under Settings → Providers.',
+    })
+    return
+  }
+
   const asstMsg: ChatMessage = {
     id: asstId, role: 'assistant', content: '', createdAt: Date.now(),
     model, provider: providerMeta?.name ?? providerId, mode,

@@ -237,7 +237,10 @@ export interface Settings {
   searxngUrl: string
   searchRegion: string
   providers: Record<string, { apiKey: string; baseUrl: string; enabled: boolean }>
+  /** Model ids fetched live from each provider API (never hardcoded). */
+  providerModels: Record<string, string[]>
   passphraseSet: boolean
+  dynamicIsland: boolean
   floodBudget: number
   osWidgets: boolean
   osWallpaper: string

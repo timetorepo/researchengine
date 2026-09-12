@@ -144,35 +144,40 @@ export async function streamToCallback(
   return { promptEstimate: sysTokens + msgTokens, completionTokens: Math.max(1, Math.round(completionChars / 4)) }
 }
 
+/**
+ * Discovery goes through the same-origin backend proxy: third-party APIs
+ * (NVIDIA NIM, Anthropic, ...) block browser CORS, and the proxy also gives
+ * us one fast, timeout-bounded hop for every provider.
+ */
+async function proxyDiscover(kind: string, base: string, key: string): Promise<{ models?: string[]; ms: number; error?: string }> {
+  const res = await fetch(
+    `/api/providers/models?kind=${encodeURIComponent(kind)}&base=${encodeURIComponent(base)}`,
+    { headers: key ? { 'x-re-key': key } : {} },
+  )
+  const json = await res.json()
+  if (!res.ok || json.error) throw new Error(json.error ?? `Discovery failed (${res.status})`)
+  return json
+}
+
 /** Test a provider connection; returns latency in ms or throws the real error. */
 export async function testConnection(providerId: string, apiKey: string, baseUrl?: string): Promise<number> {
   const meta = providerById(providerId)
   if (!meta) throw new Error('Unknown provider')
   const base = (baseUrl || meta.baseUrl).replace(/\/$/, '')
-  const t0 = performance.now()
-
-  if (meta.id === 'ollama') {
-    // Detection must never hold up the UI — 200ms ceiling, then assume absent.
-    const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(200) })
-    if (!res.ok) throw new Error(`Ollama responded ${res.status}`)
-    return Math.round(performance.now() - t0)
-  }
-  if (meta.kind === 'anthropic') {
-    const res = await fetch(`${base}/models`, { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } })
-    if (!res.ok) throw new Error(await extractError(res))
-    return Math.round(performance.now() - t0)
-  }
-  const headers: Record<string, string> = {}
-  if (apiKey) headers.authorization = `Bearer ${apiKey}`
-  const res = await fetch(`${base}/models`, { headers })
-  if (!res.ok) throw new Error(await extractError(res))
-  return Math.round(performance.now() - t0)
+  const out = await proxyDiscover(meta.kind, base, apiKey)
+  return out.ms
 }
 
-/** Auto-detect Ollama models. */
+/** Live-fetch the model list for a provider (never hardcoded). */
+export async function fetchProviderModels(providerId: string, apiKey: string, baseUrl?: string): Promise<string[]> {
+  const meta = providerById(providerId)
+  if (!meta) throw new Error('Unknown provider')
+  const base = (baseUrl || meta.baseUrl).replace(/\/$/, '')
+  const out = await proxyDiscover(meta.kind, base, apiKey)
+  return (out.models ?? []).sort((a, b) => a.localeCompare(b))
+}
+
+/** Auto-detect Ollama models (via the proxy, like everything else). */
 export async function ollamaTags(baseUrl: string): Promise<string[]> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`, { signal: AbortSignal.timeout(4000) })
-  if (!res.ok) throw new Error(`Ollama responded ${res.status}`)
-  const json = await res.json()
-  return (json.models ?? []).map((m: any) => m.name)
+  return fetchProviderModels('ollama', '', baseUrl)
 }

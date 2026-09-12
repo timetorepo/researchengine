@@ -12,6 +12,7 @@ import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
 import { TextGenerateEffect } from '@/components/ui/aceternity/TextGenerateEffect'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
 import { PROVIDERS } from '@/lib/providers/registry'
+import { refreshProviderModels } from '@/lib/providers/refresh'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { testConnection } from '@/lib/providers/stream'
 import { encryptWithPassphrase } from '@/lib/crypto/vault'
@@ -60,7 +61,15 @@ export function Onboarding() {
         patch.passphraseSet = true
       }
       patch.providers = { ...settings.providers, [provider]: { apiKey: stored, baseUrl: '', enabled: true } }
-      patch.defaultModel = `${provider}:${PROVIDERS.find((p) => p.id === provider)?.defaultModels[0] ?? 'default'}`
+    }
+    if (apiKey.trim()) {
+      // Fetch the provider's live model list and adopt the first model —
+      // names are never hardcoded.
+      refreshProviderModels(provider)
+        .then((models) => {
+          if (models[0]) useStore.setState((s) => ({ settings: { ...s.settings, defaultModel: `${provider}:${models[0]}` } }))
+        })
+        .catch(() => { /* user can pick a model from the picker later */ })
     }
     patch.onboarded = true
     useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))

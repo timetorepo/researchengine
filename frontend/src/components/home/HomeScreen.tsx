@@ -113,8 +113,8 @@ export function HomeScreen() {
               </div>
             </BentoCard>
 
-            <BentoCard className="grad-article" title="AIFlowEngine" icon={Sparkles}>
-              <div className="mt-3">
+            <BentoCard className="grad-article" title="AIFlowEngine" icon={Sparkles} center>
+              <div>
                 <div className="text-3xl font-semibold text-white" style={{ letterSpacing: '-0.02em' }}>
                   <AnimatedCounter value={saved} duration={900} />
                 </div>
@@ -122,8 +122,8 @@ export function HomeScreen() {
               </div>
             </BentoCard>
 
-            <BentoCard className="grad-quiz" title="Articles" icon={BookOpen} onClick={() => navigate('/articles')}>
-              <div className="text-[12px] text-white/80 mt-3">
+            <BentoCard className="grad-quiz" title="Articles" icon={BookOpen} center onClick={() => navigate('/articles')}>
+              <div className="text-[12px] text-white/80">
                 {articles.length === 0 ? 'Nothing published yet.' : `${articles.length} article${articles.length > 1 ? 's' : ''} in your library.`}
                 <button className="mt-2 flex items-center gap-1 text-white font-medium hover:underline" onClick={(e) => { e.stopPropagation(); navigate('/articles') }}>
                   Open <ArrowRight size={12} />
@@ -156,21 +156,24 @@ function pick(arr: string[]): string[] {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, 4)
 }
 
-function BentoCard({ title, icon: Icon, children, className = '', onClick, plain = false }: {
-  title: string; icon: any; children: React.ReactNode; className?: string; onClick?: () => void; plain?: boolean
+function BentoCard({ title, icon: Icon, children, className = '', onClick, plain = false, center = false }: {
+  title: string; icon: any; children: React.ReactNode; className?: string; onClick?: () => void; plain?: boolean; center?: boolean
 }) {
+  // h-full + flex-fill: when a row neighbor (e.g. Recent research) grows,
+  // this card stretches and its content redistributes instead of leaving a
+  // dead gradient region.
   return (
     <motion.div
       whileHover={onClick ? { y: -2 } : undefined}
       onClick={onClick}
-      className={`p-4 rounded-[18px] min-h-[130px] ${className}`}
+      className={`p-4 rounded-[18px] min-h-[130px] h-full flex flex-col ${className}`}
       style={plain ? { background: 'var(--surface)', border: '1px solid var(--surface-border)' } : undefined}
     >
       <div className={`flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider ${plain ? '' : 'text-white/80'}`}
         style={plain ? { color: 'var(--text-2)' } : undefined}>
         <Icon size={14} strokeWidth={1.8} /> {title}
       </div>
-      {children}
+      <div className={`flex-1 min-h-0 flex flex-col ${center ? 'justify-center' : ''}`}>{children}</div>
     </motion.div>
   )
 }

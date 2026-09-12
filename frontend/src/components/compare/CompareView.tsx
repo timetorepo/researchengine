@@ -22,7 +22,8 @@ export function CompareView() {
   const [running, setRunning] = useState(false)
   const syncRef = React.useRef<HTMLDivElement[]>([])
 
-  const options = PROVIDERS.filter((p) => p.defaultModels.length > 0).flatMap((p) => p.defaultModels.slice(0, 3).map((m) => `${p.id}:${m}`))
+  const providerModels = useStore((s) => s.settings.providerModels) ?? {}
+  const options = PROVIDERS.flatMap((p) => (providerModels[p.id] ?? []).slice(0, 5).map((m) => `${p.id}:${m}`))
 
   const run = async () => {
     if (!prompt.trim() || running) return
