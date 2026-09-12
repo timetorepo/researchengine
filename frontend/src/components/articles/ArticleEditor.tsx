@@ -156,7 +156,7 @@ export function ArticleEditor() {
                 {b.type === 'code' && <pre className="p-4 rounded-[14px] text-[13px] font-mono overflow-x-auto" style={{ background: 'var(--code-bg)', border: '1px solid var(--surface-border)' }}>{b.content}</pre>}
                 {b.type === 'image' && b.imageUrl && (
                   <figure style={{ textAlign: (b.align ?? 'center') as any }}>
-                    <img src={b.imageUrl} alt={b.alt ?? b.caption ?? ''} loading="lazy" className="rounded-[12px] max-h-[420px] object-cover inline-block" />
+                    <img src={b.imageUrl} alt={b.alt ?? b.caption ?? ''} loading="lazy" decoding="async" className="rounded-[12px] max-h-[420px] object-cover inline-block" />
                     {(b.caption || b.attribution) && (
                       <figcaption className="text-[11.5px] mt-1.5" style={{ color: 'var(--text-3)' }}>
                         {b.caption}{b.attribution ? <span> · {b.attribution}</span> : null}
@@ -283,7 +283,7 @@ function ImageBlockEditor({ block, onPatch, onReplace, onDrop }: {
       ) : block.imageUrl ? (
         <>
           {!loaded && <div className="absolute inset-0 animate-pulse" style={{ background: 'var(--elevated)', aspectRatio: '16/9' }} />}
-          <img src={block.imageUrl} alt={block.alt ?? ''} loading="lazy" onLoad={() => setLoaded(true)}
+          <img src={block.imageUrl} alt={block.alt ?? ''} loading="lazy" decoding="async" onLoad={() => setLoaded(true)}
             className="w-full object-cover" style={{ maxHeight: 380, opacity: loaded ? 1 : 0, transition: 'opacity 0.3s' }} />
           {/* hover toolbar */}
           <div className="absolute top-2 right-2 flex gap-0.5 p-0.5 rounded-[10px] opacity-0 group-hover/img:opacity-100 transition-opacity"

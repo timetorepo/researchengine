@@ -202,7 +202,7 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
         {renderWithHighlights(p, marks)}
         {images.filter((im) => im.after === i).map((im, k) => (
           <figure key={k} className="my-5">
-            <img src={im.url} alt={im.caption} loading="lazy" className="w-full rounded-[12px]" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }} />
+            <img src={im.url} alt={im.caption} loading="lazy" decoding="async" className="w-full rounded-[12px]" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }} />
             <figcaption className="text-[11.5px] mt-1.5" style={{ color: 'var(--text-3)' }}>
               {im.caption} — <span style={{ color: 'var(--text-3)' }}>{im.credit}</span>
             </figcaption>

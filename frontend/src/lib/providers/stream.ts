@@ -152,7 +152,8 @@ export async function testConnection(providerId: string, apiKey: string, baseUrl
   const t0 = performance.now()
 
   if (meta.id === 'ollama') {
-    const res = await fetch(`${base}/api/tags`)
+    // Detection must never hold up the UI — 200ms ceiling, then assume absent.
+    const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(200) })
     if (!res.ok) throw new Error(`Ollama responded ${res.status}`)
     return Math.round(performance.now() - t0)
   }
@@ -170,7 +171,7 @@ export async function testConnection(providerId: string, apiKey: string, baseUrl
 
 /** Auto-detect Ollama models. */
 export async function ollamaTags(baseUrl: string): Promise<string[]> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`)
+  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`, { signal: AbortSignal.timeout(4000) })
   if (!res.ok) throw new Error(`Ollama responded ${res.status}`)
   const json = await res.json()
   return (json.models ?? []).map((m: any) => m.name)

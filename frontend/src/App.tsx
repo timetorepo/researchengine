@@ -1,20 +1,24 @@
-import React, { useEffect } from 'react'
+import React, { Suspense, useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
 import { Shell } from '@/components/layout/Shell'
 import { HomeScreen } from '@/components/home/HomeScreen'
-import { ChatView } from '@/components/chat/ChatView'
-import { SettingsView } from '@/components/settings/SettingsView'
-import { FloodView } from '@/components/agents/FloodView'
-import { QuizHub } from '@/components/quiz/QuizHub'
-import { ArticlesView } from '@/components/articles/ArticlesView'
-import { ArticleEditor } from '@/components/articles/ArticleEditor'
-import { LibraryView } from '@/components/library/LibraryView'
-import { CompareView } from '@/components/compare/CompareView'
+import { RouteSkeleton } from '@/components/shared/RouteSkeleton'
 import { NotFound404 } from '@/components/easter/NotFound404'
-import { SecretsRoute } from '@/components/easter/SecretsRoute'
+
+// Route-level code splitting: every heavy screen streams in on demand so the
+// initial bundle stays lean. HomeScreen stays eager — it is the landing view.
+const ChatView = React.lazy(() => import('@/components/chat/ChatView').then((m) => ({ default: m.ChatView })))
+const SettingsView = React.lazy(() => import('@/components/settings/SettingsView').then((m) => ({ default: m.SettingsView })))
+const FloodView = React.lazy(() => import('@/components/agents/FloodView').then((m) => ({ default: m.FloodView })))
+const QuizHub = React.lazy(() => import('@/components/quiz/QuizHub').then((m) => ({ default: m.QuizHub })))
+const ArticlesView = React.lazy(() => import('@/components/articles/ArticlesView').then((m) => ({ default: m.ArticlesView })))
+const ArticleEditor = React.lazy(() => import('@/components/articles/ArticleEditor').then((m) => ({ default: m.ArticleEditor })))
+const LibraryView = React.lazy(() => import('@/components/library/LibraryView').then((m) => ({ default: m.LibraryView })))
+const CompareView = React.lazy(() => import('@/components/compare/CompareView').then((m) => ({ default: m.CompareView })))
+const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 import { Toasts } from '@/components/shared/Toasts'
 import { CommandPalette } from '@/components/shared/CommandPalette'
 import { ShortcutsOverlay } from '@/components/shared/ShortcutsOverlay'
@@ -28,9 +32,35 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { SettingsSheet } from '@/components/settings/SettingsSheet'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 
+/** Preload every lazy route chunk during idle time — first paint stays lean,
+ *  but palette/navigation targets are warm by the time the user needs them. */
+function useRoutePreload() {
+  useEffect(() => {
+    const load = () => {
+      Promise.all([
+        import('@/components/chat/ChatView'),
+        import('@/components/settings/SettingsView'),
+        import('@/components/agents/FloodView'),
+        import('@/components/quiz/QuizHub'),
+        import('@/components/articles/ArticlesView'),
+        import('@/components/library/LibraryView'),
+        import('@/components/compare/CompareView'),
+      ]).catch(() => {})
+    }
+    const idle = (window as any).requestIdleCallback
+    if (typeof idle === 'function') {
+      const id = idle(load, { timeout: 4000 })
+      return () => (window as any).cancelIdleCallback?.(id)
+    }
+    const t = setTimeout(load, 2500)
+    return () => clearTimeout(t)
+  }, [])
+}
+
 export default function App() {
   const settings = useStore((s) => s.settings)
   const notFound = useUI((s) => s.notFound)
+  useRoutePreload()
 
   // Apply theme + font scale + motion prefs whenever they change
   useEffect(() => {
@@ -79,6 +109,7 @@ function RoutedApp() {
     <>
       <ErrorBoundary>
       <Shell>
+        <Suspense fallback={<RouteSkeleton />}>
         <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/chat/:id" element={<ChatView />} />
@@ -92,6 +123,7 @@ function RoutedApp() {
           <Route path="/secrets" element={<SecretsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </Shell>
       </ErrorBoundary>
       <Toasts />

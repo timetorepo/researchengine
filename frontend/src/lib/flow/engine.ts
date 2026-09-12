@@ -251,13 +251,15 @@ export class StreamShaper {
       return
     }
 
-    // backpressure: accelerate smoothly when the buffer grows (capped)
+    // backpressure: accelerate smoothly when the buffer grows (capped); a very
+    // deep queue collapses toward real-time so memory stays bounded
     let speedup = 1
     if (this.queue.length > SPEEDUP_BUFFER_WORDS) {
       const excess = this.queue.length - SPEEDUP_BUFFER_WORDS
       const aggr = 0.35 + this.cfg.sensitivity * 0.65 // sensitivity shapes acceleration
       speedup = 1 + Math.min(3, (excess / 25) * aggr)
     }
+    if (this.queue.length > 3000) speedup = 8
 
     if (now < this.nextEmitAt) return
 
