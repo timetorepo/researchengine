@@ -69,8 +69,16 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   }
 
   const f = msg.flow
+  const Row: any = streaming ? motion.div : 'div'
   return (
-    <div className={`msg-row group py-4 ${streaming ? 'msg-streaming' : 'msg-settle'}`}>
+    <Row
+      {...(streaming ? {
+        layout: true,
+        initial: { opacity: 0, y: 6 },
+        animate: { opacity: 1, y: 0 },
+        transition: { layout: { type: 'spring', damping: 26, stiffness: 320 }, opacity: { duration: 0.2 }, y: { duration: 0.2 } },
+      } : {})}
+      className={`msg-row group py-4 ${streaming ? 'msg-streaming' : 'msg-settle'}`}>
       <div className="max-w-[760px] mx-auto px-4">
         {/* Model attribution */}
         <div className="flex items-center gap-1.5 mb-2 text-[11px]" style={{ color: 'var(--text-3)' }}>
@@ -228,7 +236,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           </div>
         )}
       </div>
-    </div>
+    </Row>
   )
 })
 

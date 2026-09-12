@@ -7,7 +7,7 @@ import { useUI } from '@/stores/useUI'
 import { runChat, stopStream, isStreamingChat } from '@/lib/chat/runChat'
 import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
-import { ThinkingOrb } from '@/components/shared/ThinkingOrb'
+import { ThinkingIndicator } from './ThinkingIndicator'
 
 export function ChatView() {
   const { id } = useParams<{ id: string }>()
@@ -89,7 +89,11 @@ export function ChatView() {
   }
 
   const streaming = isStreamingChat(chat.id)
-  const waiting = streaming && chat.messages.length > 0 && chat.messages[chat.messages.length - 1].content === ''
+  const flow = useUI((s) => s.flow)
+  const flowActive = streaming && flow?.chatId === chat.id ? flow : null
+  const lastMsg = chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null
+  const waiting = streaming && lastMsg?.content === ''
+  const stalled = !!flowActive && flowActive.phase === 'stalled' && (lastMsg?.content ?? '') !== ''
 
   return (
     <div className={`h-full flex flex-col relative ${mathMode ? 'graph-paper' : ''}`}>
@@ -119,13 +123,18 @@ export function ChatView() {
             {chat.messages.map((m) => (
               <Message key={m.id} chatId={chat.id} msg={m} streaming={streaming && m.id === chat.messages[chat.messages.length - 1].id && m.role === 'assistant'} onRegenerate={regenerate} />
             ))}
-            {waiting && (
-              <div className="max-w-[760px] mx-auto px-4 py-4">
-                <div className="flex items-center gap-2.5 text-[12.5px]" style={{ color: 'var(--text-3)' }}>
-                  <ThinkingOrb /> Thinking…
-                </div>
-              </div>
-            )}
+            <AnimatePresence>
+              {(waiting || stalled) && (
+                <motion.div
+                  key={waiting ? 'waiting' : 'stalled'}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="max-w-[760px] mx-auto px-4 py-4"
+                >
+                  <ThinkingIndicator stage={waiting ? (flowActive?.stage ?? 'think') : 'think'} inline={!waiting} />
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div className="h-2" />
           </motion.div>
         </AnimatePresence>

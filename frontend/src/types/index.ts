@@ -244,4 +244,8 @@ export interface Settings {
   readerImages: boolean
   performanceProfile: 'eco' | 'balanced' | 'performance'
   highMemoryMode: boolean
+  flowShaping: 'off' | 'subtle' | 'standard' | 'cinematic'
+  thinkingStyle: 'minimal' | 'standard' | 'verbose'
+  pacingSensitivity: number
+  punctuationPauses: boolean
 }

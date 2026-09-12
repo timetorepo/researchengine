@@ -70,6 +70,10 @@ const defaultSettings: Settings = {
   readerImages: true,
   performanceProfile: 'balanced',
   highMemoryMode: false,
+  flowShaping: 'standard',
+  thinkingStyle: 'standard',
+  pacingSensitivity: 0.5,
+  punctuationPauses: true,
 }
 
 const initialSpaces: Space[] = [

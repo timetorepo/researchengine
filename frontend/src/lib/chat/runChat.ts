@@ -5,6 +5,7 @@ import { useStore } from '@/stores/useStore'
 import { classifyQuery, shapeSystemPrompt, lengthHint } from '@/lib/flow/classifier'
 import { runReplicate } from './replicate'
 import { perfCaps } from '@/lib/system/performance'
+import { createFlowRun, shapeConfigFrom } from '@/lib/flow/engine'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError } from '@/lib/providers/stream'
@@ -62,6 +63,10 @@ export async function runChat(opts: RunOptions): Promise<void> {
   activeStreams.set(chatId, controller)
   useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
 
+  // AIFlowEngine: surface pipeline stages immediately — the thinking indicator
+  // commits within a frame, before any network round-trip.
+  useUI.setState({ flow: { chatId, stage: 'understand', phase: 'thinking' } })
+
   // ---- New Tech (Replication) mode: staged plan executed visibly ----
   if (mode.replicate) {
     try {
@@ -88,10 +93,10 @@ export async function runChat(opts: RunOptions): Promise<void> {
   // ---- real web search sources ----
   let sources: Source[] | undefined
   if (mode.search) {
-    useUI.setState({ island: { kind: 'search', sources: 0 } })
+    useUI.setState({ island: { kind: 'search', sources: 0 }, flow: { chatId, stage: 'search', phase: 'thinking' } })
     const outcome = await webSearch(prompt, perfCaps().searchResults)
     sources = outcome.sources
-    useUI.setState({ island: { kind: 'search', sources: sources.length } })
+    useUI.setState({ island: { kind: 'search', sources: sources.length }, flow: { chatId, stage: 'read-sources', phase: 'thinking' } })
     store.logConnection(`search://${outcome.backend}`, `web search: ${prompt.slice(0, 40)}`, 2048, outcome.live ? 'ok' : 'local')
     for (const s of sources) {
       if (!store.citations.find((c) => c.url === s.url)) {
@@ -128,18 +133,33 @@ export async function runChat(opts: RunOptions): Promise<void> {
     }
   }
 
-  // ---- ~40ms chunk batching: fewer store updates, same perceived speed ----
-  let pending = ''
-  let flushTimer: ReturnType<typeof setTimeout> | null = null
-  const flushNow = () => {
-    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
-    if (pending) { const p = pending; pending = ''; useStore.getState().appendToken(chatId, asstId, p) }
-  }
+  // ---- AIFlowEngine: stream shaping + pipeline stages ----
+  // Raw provider bursts enter the engine's ring buffer; the pacer renders
+  // words at a composed cadence. The store only ever sees shaped output.
+  let resolveDrained: () => void
+  const drained = new Promise<void>((res) => { resolveDrained = res })
+  const run = createFlowRun(shapeConfigFrom(settings), (text) => {
+    useStore.getState().appendToken(chatId, asstId, text)
+    bumpIsland()
+  }, {
+    onStageChange: (stage) => useUI.setState({
+      flow: { chatId, stage, phase: stage === 'compose' ? 'streaming' : 'thinking' },
+    }),
+    onStreamStall: () => {
+      const f = useUI.getState().flow
+      if (f && f.chatId === chatId) useUI.setState({ flow: { ...f, phase: 'stalled' } })
+    },
+    onStreamResume: () => {
+      const f = useUI.getState().flow
+      if (f && f.chatId === chatId) useUI.setState({ flow: { ...f, stage: 'compose', phase: 'streaming' } })
+    },
+    onComplete: () => resolveDrained(),
+  })
+  run.setStage('understand')
+  run.setStage('think')
   const pushChunk = (chunk: string) => {
     completionText += chunk
-    pending += chunk
-    bumpIsland()
-    if (!flushTimer) flushTimer = setTimeout(flushNow, 40)
+    run.ingest(chunk)
   }
 
   // Flow cache hit?
@@ -149,7 +169,10 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (cached) {
       completionText = cached
       streamFullText(chatId, asstId, cached)
+      run.abort()
+      useUI.setState({ flow: null })
     } else if (useReal) {
+      run.begin()
       store.logConnection(providerMeta!.baseUrl, `${providerMeta!.name} · ${model}`, estimateTokens(prompt) * 4)
       const res = await streamToCallback({
         providerId, model, apiKey,
@@ -162,18 +185,27 @@ export async function runChat(opts: RunOptions): Promise<void> {
       }, pushChunk)
       promptTokens = res.promptEstimate
       completionTokens = res.completionTokens
+      run.endRaw()
+      await drained
+      run.finish()
     } else {
       usedDemo = true
+      run.begin()
       store.logConnection('local://demo', 'on-device demo model', estimateTokens(prompt) * 4, 'local')
       await streamDemo(prompt, { math: mode.math, quality: mode.quality, search: mode.search }, pushChunk, controller.signal)
       promptTokens = pruned.prunedTokens
       completionTokens = estimateTokens(completionText)
+      run.endRaw()
+      await drained
+      run.finish()
     }
-    flushNow()
+    useUI.setState({ flow: null })
   } catch (e: any) {
-    flushNow()
+    run.abort()
+    useUI.setState({ flow: null })
     if (e.name === 'AbortError') {
-      finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true })
+      // Keep exactly what was rendered — the pacer's un-emitted queue is dropped.
+      finish(chatId, asstId, '', { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true })
       return
     }
     const msg = e instanceof ProviderError ? `${e.provider}: ${e.message}` : String(e?.message ?? e)

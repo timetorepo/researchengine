@@ -10,6 +10,12 @@ export type IslandState =
 
 interface Toast { id: string; title: string; body?: string; tone: 'info' | 'success' | 'warning' | 'danger' }
 
+export interface FlowPipelineState {
+  chatId: string
+  stage: 'understand' | 'search' | 'read-sources' | 'retrieve' | 'think' | 'compose' | 'done'
+  phase: 'thinking' | 'streaming' | 'stalled'
+}
+
 interface UIState {
   sidebarCollapsed: boolean
   sidebarOpenMobile: boolean
@@ -28,6 +34,7 @@ interface UIState {
   secretsFound: boolean
   toasts: Toast[]
   island: IslandState
+  flow: FlowPipelineState | null
   focus: { running: boolean; endsAt: number | null; remaining: number; total: number; mode: 'work' | 'break' }
   shieldClicks: number
   osMinimized: boolean
@@ -58,6 +65,7 @@ export const useUI = create<UIState>((set, get) => ({
   secretsFound: false,
   toasts: [],
   island: { kind: 'idle' },
+  flow: null,
   focus: { running: false, endsAt: null, remaining: 25 * 60, total: 25 * 60, mode: 'work' },
   shieldClicks: 0,
   osMinimized: false,

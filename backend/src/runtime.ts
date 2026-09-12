@@ -162,7 +162,11 @@ export async function resolveRuntime(argv: string[]): Promise<Runtime> {
 
   const host = flags.host ?? process.env.RE_HOST ?? '127.0.0.1'
   const envPort = Number(process.env.RE_PORT ?? process.env.PORT ?? '')
-  const preferredPort = flags.port ?? (envPort || saved.port || 3847)
+  // Dev loop (tsx from src/) targets 8787 — the frontend dev proxy — and never
+  // reuses a remembered port from a previous single-process run; built bundles
+  // keep the remembered-port behaviour with a 3847 default.
+  const isDev = import.meta.url.includes('/src/')
+  const preferredPort = flags.port ?? (envPort || (isDev ? 8787 : (saved.port || 3847)))
   const port = await pickPort(preferredPort, host)
   const rememberedPort = port !== preferredPort
 
@@ -182,7 +186,9 @@ export async function resolveRuntime(argv: string[]): Promise<Runtime> {
   const dbPath = process.env.DB_PATH ?? join(dataDir, 'db.sqlite')
   process.env.DB_PATH = dbPath
 
-  if (rememberedPort) saveConfig(dataDir, { port })
+  // Remember a port we had to move to — but never from the dev loop, where the
+  // proxy target is fixed and a stray write would poison single-process config.
+  if (rememberedPort && !isDev) saveConfig(dataDir, { port })
 
   return { port, host, dataDir, profile, caps: PROFILES[profile], frontendDist, dbPath, rememberedPort }
 }
