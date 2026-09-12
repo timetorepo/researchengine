@@ -113,7 +113,7 @@ Safari        :  File -> Add to Home Screen (or Share on iOS)
 | Linux | `.AppImage`, `.deb`, `.rpm`, Flatpak manifest, AUR package | AppImage needs `chmod +x` and FUSE |
 
 ```bash
-shasum -a 256 ResearchEngine_0.14.0-beta.1_aarch64.dmg   # compare with the SHA256SUMS on the release
+shasum -a 256 ResearchEngine_0.15.0-beta.1_aarch64.dmg   # compare with the SHA256SUMS on the release
 ```
 
 **Run.** Launch from the applications menu. The app starts the local backend automatically; close-to-tray keeps it warm.
@@ -142,7 +142,7 @@ cd downloads
 sha256sum -c SHA256SUMS
 ```
 
-Windows — extract `research-engine-0.14.0-beta.1-win-x64.zip`, then in that
+Windows — extract `research-engine-0.15.0-beta.1-win-x64.zip`, then in that
 folder:
 
 ```bat
@@ -152,7 +152,7 @@ research-engine.cmd serve --port 3847
 Linux — unpack and run:
 
 ```bash
-tar xzf research-engine-0.14.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.15.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ```
 
