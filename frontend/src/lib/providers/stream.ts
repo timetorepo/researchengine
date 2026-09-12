@@ -98,34 +98,59 @@ export async function streamToCallback(
       }
     }
   } else {
-    // Everything else streams through the same-origin backend proxy —
-    // the upstream SSE bytes come back untouched, so the parsers below are
-    // identical to the direct path, but CORS can never block a provider.
-    const res = await fetch('/api/chat', {
-      method: 'POST', signal: req.signal,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        kind: meta.kind, base, key: req.apiKey, model: req.model,
-        system: req.system, messages: req.messages,
-        maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
-      }),
-    })
-    if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
-    req.onFirstByte?.()
-    if (meta.kind === 'anthropic') {
-      await readSSE(res, () => false, (_evt, json) => {
-        if (json.type === 'content_block_delta' && json.delta?.text) {
-          completionChars += json.delta.text.length
-          onChunk(json.delta.text)
-        }
-        return json.type === 'message_stop'
+    // Watchdog: providers can accept a request and then send nothing for a
+    // long time (NIM serverless cold starts, hanging reasoning models).
+    // Fail with a clear message instead of spinning "thinking" forever.
+    const ctrl = new AbortController()
+    const onOuter = () => ctrl.abort()
+    req.signal?.addEventListener('abort', onOuter)
+    let gotChunk = false
+    const timer = setTimeout(() => { if (!gotChunk && !req.signal?.aborted) ctrl.abort() }, 45000)
+    const chunk = (t: string) => {
+      if (!gotChunk && t) { gotChunk = true; clearTimeout(timer) }
+      onChunk(t)
+    }
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: meta.kind, base, key: req.apiKey, model: req.model,
+          system: req.system, messages: req.messages,
+          maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
+        }),
       })
-    } else {
-      await readSSE(res, (json) => {
-        const delta = json.choices?.[0]?.delta?.content
-        if (delta) { completionChars += delta.length; onChunk(delta) }
-        return false
-      })
+      if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
+      req.onFirstByte?.()
+      if (meta.kind === 'anthropic') {
+        await readSSE(res, () => false, (_evt, json) => {
+          if (json.type === 'content_block_delta' && json.delta?.text) {
+            completionChars += json.delta.text.length
+            chunk(json.delta.text)
+          }
+          return json.type === 'message_stop'
+        })
+      } else {
+        await readSSE(res, (json) => {
+          // NIM sends many chunks with delta.content null (and reasoning
+          // models emit reasoning_content separately) — only count real text.
+          const delta = json.choices?.[0]?.delta?.content
+          if (delta) { completionChars += delta.length; chunk(delta) }
+          return false
+        })
+      }
+    } catch (e: any) {
+      if (req.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+      if (!gotChunk && (ctrl.signal.aborted || e?.name === 'AbortError' || e?.name === 'TimeoutError')) {
+        throw new ProviderError(
+          meta.name,
+          'The provider accepted the request but sent no tokens for 45s. Serverless models cold-start slowly — try again, or pick a smaller/warm model.',
+        )
+      }
+      throw e
+    } finally {
+      clearTimeout(timer)
+      req.signal?.removeEventListener('abort', onOuter)
     }
   }
 

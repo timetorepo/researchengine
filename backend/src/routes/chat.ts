@@ -56,6 +56,13 @@ chatRoutes.post('/', async (c) => {
       model, stream: true, max_tokens: maxTokens, temperature,
       messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
     }
+    // NVIDIA NIM reasoning models (deepseek-v4, nemotron-thinking, qwq…)
+    // hang indefinitely unless chat_template_kwargs enables thinking tokens
+    // (opencode#24264). Send it for reasoning-ish NIM models; reasoning
+    // deltas are streamed and ignored by the client parser.
+    if (isNvidia && /deepseek|reasoning|qwq|thought|thinking|nemotron/i.test(model)) {
+      payload.chat_template_kwargs = { enable_thinking: true, thinking: true }
+    }
   }
 
   const upstream = await fetch(url, {
