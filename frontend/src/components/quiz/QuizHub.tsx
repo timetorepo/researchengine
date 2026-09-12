@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   UploadCloud, FileText, Trash2, Play, ChevronRight, RotateCcw, BookOpen, Sparkles,
-  GraduationCap, FileSearch, ScanText, Brain, AlertTriangle, Eye,
+  GraduationCap, FileSearch, ScanText, Brain, AlertTriangle, Eye, X,
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { DocumentRecord, QuizQuestion, QuizRecord } from '@/types'
@@ -42,6 +42,10 @@ export function QuizHub() {
   const [stages, setStages] = useState<Stage[]>([])
   const [procError, setProcError] = useState<string | null>(null)
   const [procFile, setProcFile] = useState<File | null>(null)
+  // run token: bumping it cancels any in-flight pipeline (Cancel button,
+  // component unmount) so late async results never overwrite the UI.
+  const runId = useRef(0)
+  useEffect(() => () => { runId.current++ }, [])
 
   // quiz config
   const [selected, setSelected] = useState<string | null>(null)
@@ -77,6 +81,9 @@ export function QuizHub() {
   const handleFiles = async (files: FileList | File[]) => {
     const file = Array.from(files)[0]
     if (!file) return
+    const run = ++runId.current
+    const alive = () => run === runId.current
+    let iv: ReturnType<typeof setInterval> | null = null
     setProcFile(file)
     setProcError(null)
     setStages(initialStages())
@@ -87,12 +94,14 @@ export function QuizHub() {
       const extraction = extractText(file)
       // animate extraction while the worker runs
       let p = 8
-      const iv = setInterval(() => { p = Math.min(92, p + 7); patchStage('extract', { pct: p }) }, 160)
+      iv = setInterval(() => { p = Math.min(92, p + 7); if (alive()) patchStage('extract', { pct: p }) }, 160)
       const text = await extraction
-      clearInterval(iv)
+      if (iv) clearInterval(iv)
+      if (!alive()) return
       patchStage('extract', { pct: 100, done: true })
       patchStage('analyze', { pct: 30 })
       await sleep(300)
+      if (!alive()) return
       const rec: DocumentRecord = {
         id: nanoid(8), name: file.name, kind: file.name.split('.').pop() ?? 'file',
         text: text.slice(0, 400000), addedAt: Date.now(),
@@ -100,25 +109,37 @@ export function QuizHub() {
       useStore.setState((s) => ({ documents: [rec, ...s.documents] }))
       patchStage('analyze', { pct: 100, done: true })
       await sleep(350)
+      if (!alive()) return
       ui.toast('Document ready', `${file.name} · ${fmt(Math.round(text.length / 4))} tokens · ~${Math.max(1, Math.round(text.split(/\s+/).length / 220))} min read.`, 'success')
       openReaderFor(rec)
     } catch (e: any) {
+      if (iv) clearInterval(iv)
+      if (!alive()) return
       setProcError(e?.message ?? 'Unknown error while reading the file.')
     }
   }
 
+  const cancelProcessing = () => {
+    runId.current++
+    setView('hub')
+    setProcError(null)
+  }
+
   /* ---------- demo pipeline (scripted, fully offline) ---------- */
   const startDemo = async (thenQuiz: boolean) => {
+    const run = ++runId.current
+    const alive = () => run === runId.current
     setProcFile(null)
     setProcError(null)
     setStages(initialStages())
     setView('processing')
     for (const [id, delay] of [['parse', 300], ['extract', 550], ['analyze', 450]] as const) {
       patchStage(id, { pct: 25 })
-      await sleep(delay * 0.4); patchStage(id, { pct: 70 })
-      await sleep(delay * 0.6); patchStage(id, { pct: 100, done: true })
+      await sleep(delay * 0.4); if (!alive()) return; patchStage(id, { pct: 70 })
+      await sleep(delay * 0.6); if (!alive()) return; patchStage(id, { pct: 100, done: true })
     }
     await sleep(250)
+    if (!alive()) return
     if (thenQuiz) {
       setActiveQuiz({ title: 'Demo — The Structure of DNA', questions: DEMO_QUIZ as unknown as QuizQuestion[] })
       setQuizIsDemo(true)
@@ -168,10 +189,14 @@ export function QuizHub() {
         <div className="w-full max-w-[420px]">
           <div className="flex items-center gap-3 mb-6">
             <span className="w-10 h-10 rounded-[12px] flex items-center justify-center grad-quiz"><FileText size={18} className="text-white" /></span>
-            <div>
-              <div className="text-[15px] font-semibold" style={{ letterSpacing: '-0.01em' }}>{procFile?.name ?? 'Demo document'}</div>
+            <div className="min-w-0">
+              <div className="text-[15px] font-semibold truncate" style={{ letterSpacing: '-0.01em' }}>{procFile?.name ?? 'Demo document'}</div>
               <div className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Processed entirely on this device</div>
             </div>
+            <button onClick={cancelProcessing} aria-label="Cancel processing"
+              className="ml-auto p-2 rounded-full shrink-0 hover:bg-[var(--elevated)] transition-colors" style={{ color: 'var(--text-3)' }}>
+              <X size={15} strokeWidth={1.5} />
+            </button>
           </div>
           {!procError ? (
             <div className="space-y-3">
@@ -201,9 +226,11 @@ export function QuizHub() {
               </div>
               <p className="text-[12.5px] leading-relaxed mb-3" style={{ color: 'var(--text-2)' }}>{procError}</p>
               <div className="flex gap-2">
-                <button onClick={() => procFile && handleFiles([procFile])} className="px-3.5 py-2 rounded-full text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Try again</button>
-                <button onClick={() => ui.toast('Issue noted', 'Check the file format — PDF, DOCX, TXT or Markdown work best.', 'info')}
-                  className="px-3.5 py-2 rounded-full text-[12.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>Report issue</button>
+                {procFile && (
+                  <button onClick={() => handleFiles([procFile])} className="px-3.5 py-2 rounded-full text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Try again</button>
+                )}
+                <button onClick={cancelProcessing}
+                  className="px-3.5 py-2 rounded-full text-[12.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>Back to library</button>
               </div>
             </div>
           )}
@@ -300,7 +327,11 @@ export function QuizHub() {
           <UploadCloud size={26} strokeWidth={1.5} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
           <div className="text-[14px] font-medium">Drop a PDF, DOCX, TXT or Markdown file</div>
           <div className="text-[11.5px] mt-1" style={{ color: 'var(--text-3)' }}>or click to browse — extraction happens on-device</div>
-          <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,.markdown" className="hidden" onChange={(e) => e.target.files && handleFiles(e.target.files)} />
+          <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,.markdown" className="hidden" onChange={(e) => {
+            const files = Array.from(e.target.files ?? [])
+            e.target.value = '' // allow re-selecting the same file
+            if (files.length) handleFiles(files)
+          }} />
         </div>
 
         {/* Demo entries */}

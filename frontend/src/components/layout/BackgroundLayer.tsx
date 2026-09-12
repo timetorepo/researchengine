@@ -1,6 +1,8 @@
 import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/stores/useStore'
+import { BackgroundManager } from '@/components/backgrounds/BackgroundManager'
+import { ANIMATED_BG_KINDS } from '@/types'
 
 /** Custom app background, rendered behind all chrome. */
 export function BackgroundLayer() {
@@ -8,6 +10,7 @@ export function BackgroundLayer() {
   if (!bg || bg.kind === 'default') return null
 
   const key = bg.kind + ('dataUrl' in bg ? bg.dataUrl.slice(0, 48) : '')
+  const animated = (ANIMATED_BG_KINDS as readonly string[]).includes(bg.kind)
 
   return (
     <AnimatePresence>
@@ -54,6 +57,10 @@ export function BackgroundLayer() {
             {/* Intensity layer — the slider deepens the veil, never hides content. */}
             <div className="absolute inset-0" style={{ background: `rgba(0,0,0,${Math.min(0.6, bg.opacity * 0.75)})` }} />
           </>
+        )}
+
+        {animated && (
+          <BackgroundManager kind={bg.kind as any} intensity={(bg as any).intensity} />
         )}
       </motion.div>
     </AnimatePresence>

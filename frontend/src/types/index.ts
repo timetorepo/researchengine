@@ -202,6 +202,13 @@ export type BackgroundConfig =
   | { kind: 'image'; dataUrl: string }
   | { kind: 'blur'; dataUrl: string }
   | { kind: 'veil'; opacity: number }
+  | { kind: 'shape-grid'; intensity?: number }
+  | { kind: 'dark-veil'; intensity?: number }
+  | { kind: 'floating-lines'; intensity?: number }
+  | { kind: 'dither'; intensity?: number }
+
+export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', 'dither'] as const
+export type AnimatedBgKind = typeof ANIMATED_BG_KINDS[number]
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'
   | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os' | 'perplexity'

@@ -7,7 +7,45 @@ import { Switch } from '@/components/ui/heroui/Switch'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { fileToBackgroundUrl, SOLID_PRESETS } from '@/lib/backgrounds'
-import type { BackgroundConfig } from '@/types'
+import { getPropsForTheme, mixVec3, ANIMATED_BG_META } from '@/lib/backgrounds/themeProps'
+import type { AnimatedBgKind, BackgroundConfig } from '@/types'
+
+const rgb = (v: [number, number, number]) => `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
+
+/** Static preview swatch approximating each animated background in the
+ *  active theme's palette (the real one runs full-screen on selection). */
+function BgPreview({ kind }: { kind: AnimatedBgKind }) {
+  const themeId = useStore((s) => s.settings.theme)
+  const t = getPropsForTheme(themeId)
+  const bg = rgb(t.bg)
+  const prim = rgb(mixVec3(t.bg, t.primary, 0.55))
+  const sec = rgb(mixVec3(t.bg, t.secondary, 0.45))
+  const style: React.CSSProperties =
+    kind === 'shape-grid'
+      ? {
+          background: bg,
+          backgroundImage:
+            'radial-gradient(circle at 20% 30%, rgba(128,128,128,0.5) 0 2px, transparent 3px), radial-gradient(circle at 65% 60%, rgba(128,128,128,0.4) 0 2.5px, transparent 3.5px), linear-gradient(rgba(128,128,128,0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(128,128,128,0.16) 1px, transparent 1px)',
+          backgroundSize: 'auto, auto, 14px 14px, 14px 14px',
+        }
+      : kind === 'dark-veil'
+        ? { background: `radial-gradient(130% 100% at 25% 0%, ${prim} 0%, ${bg} 62%), radial-gradient(120% 100% at 80% 100%, ${sec} 0%, ${bg} 58%)` }
+        : kind === 'floating-lines'
+          ? {
+              background: bg,
+              backgroundImage: `linear-gradient(90deg, transparent 0%, ${prim} 18%, transparent 40%, ${sec} 62%, transparent 85%)`,
+              backgroundSize: '100% 2px',
+              backgroundRepeat: 'repeat-y',
+              backgroundPosition: '0 6px',
+            }
+          : {
+              background: bg,
+              backgroundImage: `repeating-conic-gradient(${prim} 0% 25%, transparent 0% 50%)`,
+              backgroundSize: '4px 4px',
+              opacity: 0.9,
+            }
+  return <div className="h-12 w-full rounded-[9px] mb-2 border" style={{ ...style, borderColor: 'var(--surface-border)' }} aria-hidden="true" />
+}
 
 export function AppearanceTab() {
   const settings = useStore((s) => s.settings)
@@ -127,6 +165,51 @@ export function AppearanceTab() {
           <input type="range" min={0.15} max={0.8} step={0.05} value={bg.opacity}
             onChange={(e) => setBg({ kind: 'veil', opacity: Number(e.target.value) })}
             className="w-full accent-[var(--primary)]" aria-label="Veil intensity" />
+        </div>
+      )}
+
+      {/* ---- Animated backgrounds ---- */}
+      <h3 className="text-[14px] font-semibold mb-1">Animated backgrounds</h3>
+      <p className="text-[12px] mb-3" style={{ color: 'var(--text-3)' }}>
+        Shape Grid stays neutral and crisp under any theme; the others adapt their colors to the active theme.
+        Paused while the tab is hidden, and replaced by a static version under the Eco profile or Reduce motion.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        {(Object.keys(ANIMATED_BG_META) as AnimatedBgKind[]).map((kind) => {
+          const meta = ANIMATED_BG_META[kind]
+          const active = bg.kind === kind
+          return (
+            <button key={kind} onClick={() => setBg({ kind, intensity: meta.defaultIntensity } as BackgroundConfig)}
+              className="p-2 rounded-[12px] text-left transition-all"
+              style={{
+                border: `1.5px solid ${active ? 'var(--primary)' : 'var(--surface-border)'}`,
+                background: active ? 'color-mix(in srgb, var(--primary) 10%, transparent)' : 'var(--surface)',
+              }}>
+              <BgPreview kind={kind} />
+              <div className="text-[12px] font-medium flex items-center gap-1.5" style={{ color: active ? 'var(--primary)' : 'var(--text)' }}>
+                {meta.label} {active && <Check size={11} />}
+              </div>
+              <div className="text-[10.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>{meta.desc}</div>
+            </button>
+          )
+        })}
+      </div>
+
+      {(bg.kind === 'shape-grid' || bg.kind === 'dark-veil' || bg.kind === 'floating-lines' || bg.kind === 'dither') && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[12.5px] font-medium">Background intensity</span>
+            <span className="text-[12px] font-mono px-2 py-0.5 rounded" style={{ background: 'var(--elevated)' }}>
+              {Math.round((bg.intensity ?? ANIMATED_BG_META[bg.kind].defaultIntensity) * 100)}%
+            </span>
+          </div>
+          <input type="range" min={0.2} max={1} step={0.05} value={bg.intensity ?? ANIMATED_BG_META[bg.kind].defaultIntensity}
+            onChange={(e) => setBg({ ...bg, intensity: Number(e.target.value) } as BackgroundConfig)}
+            className="w-full accent-[var(--primary)]" aria-label="Background intensity" />
+          <button onClick={() => setBg({ kind: 'default' })}
+            className="mt-2 text-[11.5px] inline-flex items-center gap-1 hover:underline" style={{ color: 'var(--text-3)' }}>
+            <RotateCcw size={11} /> Reset to default background
+          </button>
         </div>
       )}
 

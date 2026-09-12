@@ -12,12 +12,24 @@ export async function extractText(file: File): Promise<string> {
     const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
     pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
     const buf = await file.arrayBuffer()
-    const doc = await pdfjs.getDocument({ data: buf }).promise
+    let doc: any
+    try {
+      doc = await pdfjs.getDocument({ data: buf }).promise
+    } catch (err: any) {
+      const msg = String(err?.message ?? err ?? '').toLowerCase()
+      if (msg.includes('password')) {
+        throw new Error('This PDF is password-protected. Remove the password and try again.')
+      }
+      throw new Error('This PDF could not be parsed. It may be corrupted or use an unsupported feature — try re-exporting it.')
+    }
     let out = ''
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i)
       const content = await page.getTextContent()
       out += content.items.map((it: any) => it.str).join(' ') + '\n\n'
+    }
+    if (out.trim().length < 40) {
+      throw new Error('No selectable text found in this PDF. It looks like a scanned or image-only document — try an OCR-processed export.')
     }
     return out
   }
@@ -26,7 +38,11 @@ export async function extractText(file: File): Promise<string> {
     const mammoth: any = await import('mammoth/mammoth.browser')
     const buf = await file.arrayBuffer()
     const res = await mammoth.extractRawText({ arrayBuffer: buf })
-    return res.value
+    const text: string = res.value ?? ''
+    if (text.trim().length < 40) {
+      throw new Error('This DOCX contains no readable text. It may be empty or image-only.')
+    }
+    return text
   }
 
   if (name.endsWith('.epub')) {
