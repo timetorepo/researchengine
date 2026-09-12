@@ -9,7 +9,7 @@
 // + built frontend, runnable with any Node 20+ on the target machine.
 //
 //   node scripts/package-binary.mjs [--out release] [--rebuild]
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, chmodSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 
@@ -48,16 +48,38 @@ cpSync(join(root, 'frontend/dist'), join(dir, 'frontend-dist'), { recursive: tru
 
 // The bundle keeps its npm deps external — ship the production node_modules
 // so the artifact is fully self-contained (no install step on the target).
-const pkg = JSON.parse((await import('node:fs')).readFileSync(join(root, 'backend/package.json'), 'utf8'))
+const pkg = JSON.parse(readFileSync(join(root, 'backend/package.json'), 'utf8'))
 writeFileSync(join(dir, 'server/package.json'), JSON.stringify({
   name: 'research-engine-server', type: 'module', version: pkg.version,
   dependencies: pkg.dependencies, optionalDependencies: pkg.optionalDependencies,
 }, null, 2))
-if (existsSync(join(root, 'backend/node_modules'))) {
-  cpSync(join(root, 'backend/node_modules'), join(dir, 'server/node_modules'), { recursive: true })
-} else {
-  console.warn('warning: backend/node_modules missing — run `npm install` in backend/ first')
+// Gather production deps (incl. transitive) from wherever npm hoisted them —
+// backend/node_modules in nested installs, the workspace root in hoisted ones.
+const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'))
+const moduleRoots = [join(root, 'backend/node_modules'), join(root, 'node_modules')]
+const findPkgDir = (name) => {
+  for (const mr of moduleRoots) {
+    const p = join(mr, ...name.split('/'))
+    if (existsSync(join(p, 'package.json'))) return p
+  }
+  return null
 }
+const wanted = new Set()
+const collect = (name) => {
+  if (wanted.has(name)) return
+  const src = findPkgDir(name)
+  if (!src) { console.warn(`warning: dependency "${name}" not found in node_modules — skipped`); return }
+  wanted.add(name)
+  const sub = readJson(join(src, 'package.json')).dependencies ?? {}
+  for (const d of Object.keys(sub)) collect(d)
+}
+for (const d of [...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.optionalDependencies ?? {})]) collect(d)
+mkdirSync(join(dir, 'server/node_modules'), { recursive: true })
+for (const name of wanted) {
+  const src = findPkgDir(name)
+  cpSync(src, join(dir, 'server/node_modules', ...name.split('/')), { recursive: true })
+}
+console.log(`  shipped ${wanted.size} server dependencies: ${[...wanted].join(', ')}`)
 
 // Launcher that finds node on PATH
 const launcher = process.platform === 'win32'
