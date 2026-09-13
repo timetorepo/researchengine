@@ -35,6 +35,8 @@ async function discover(kind: string, base: string, key: string, timeout: number
     if (kind === 'anthropic') {
       headers['x-api-key'] = key
       headers['anthropic-version'] = '2023-06-01'
+    } else if (kind === 'gemini') {
+      headers['x-goog-api-key'] = key
     } else if (key) {
       headers.authorization = `Bearer ${key}`
     }
@@ -48,6 +50,15 @@ async function discover(kind: string, base: string, key: string, timeout: number
       return { error: msg, ms: Date.now() - t0 }
     }
     const json: any = await res.json()
+    if (kind === 'gemini') {
+      // Gemini shape: { models: [{ name: "models/gemini-2.0-flash", supportedGenerationMethods: [...] }] }
+      // Keep only models that can generate text.
+      const models = (json.models ?? [])
+        .filter((m: any) => Array.isArray(m?.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map((m: any) => String(m.name ?? '').replace(/^models\//, ''))
+        .filter(Boolean)
+      return { models, ms: Date.now() - t0 }
+    }
     const models = (json.data ?? []).map((m: any) => String(m.id ?? m.name)).filter(Boolean)
     return { models, ms: Date.now() - t0 }
   } catch (e: any) {

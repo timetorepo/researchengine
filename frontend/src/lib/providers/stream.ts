@@ -130,6 +130,16 @@ export async function streamToCallback(
           }
           return json.type === 'message_stop'
         })
+      } else if (meta.kind === 'gemini') {
+        // Gemini SSE: each data frame carries candidates[0].content.parts[].text.
+        await readSSE(res, (json) => {
+          const parts = json.candidates?.[0]?.content?.parts
+          if (Array.isArray(parts)) {
+            const t = parts.map((p: any) => (typeof p?.text === 'string' ? p.text : '')).join('')
+            if (t) { completionChars += t.length; chunk(t) }
+          }
+          return false
+        })
       } else {
         await readSSE(res, (json) => {
           // NIM sends many chunks with delta.content null (and reasoning

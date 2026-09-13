@@ -34,6 +34,12 @@ export function ProviderLogo({ id, size = 16 }: { id: string; size?: number }) {
           <path d="M9.6 3.2 3.2 9.6v4.8l6.4 6.4 6.4-6.4v-2.1L9.6 5.9V3.2zm2.4 2.7 6.8 6.8v1.7l-6.8-6.8V5.9z" />
         </svg>
       )
+    case 'gemini':
+      return (
+        <svg {...s} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M12 2c.35 4.9 5.1 7.65 8.5 7.65.35 0 .7.35.7.7s-.35.7-.7.7c-3.4 0-8.15 2.75-8.5 7.65-.04.4-.35.7-.7.7s-.66-.3-.7-.7C10.25 13.75 5.5 11 2.1 11c-.35 0-.7-.35-.7-.7s.35-.7.7-.7c3.4 0 8.15-2.75 8.5-7.65.04-.4.35-.7.7-.7s.66.3.7.7z" />
+        </svg>
+      )
     default:
       return (
         <svg {...s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>

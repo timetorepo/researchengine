@@ -16,7 +16,7 @@ Research Engine is a complete research workstation you run yourself. Ask a quest
 
 It is built for researchers, scientists, students, analysts, and privacy-conscious power users who want frontier-quality AI assistance without handing their thinking to a hosted service. If your work involves sensitive, proprietary, or regulated material, this is the design point: your content never touches a Research Engine server — there are no Research Engine servers.
 
-What makes it different: (1) **local by architecture, not by promise** — SQLite storage, local caches, and local notebooks on disk you can open, back up, or delete; (2) **bring your own keys** — OpenAI-compatible providers, Anthropic, Ollama, NVIDIA NIM, or anything compatible, your choice and your cost ceiling; (3) a genuine **optimization engine (AIFlowEngine)** that classifies every query, prunes context into compact capsules, and paces token delivery so streaming feels written, not dumped.
+What makes it different: (1) **local by architecture, not by promise** — SQLite storage, local caches, and local notebooks on disk you can open, back up, or delete; (2) **bring your own keys** — OpenAI-compatible providers, Anthropic, Google Gemini, Ollama, NVIDIA NIM, or anything compatible, your choice and your cost ceiling; (3) a genuine **optimization engine (AIFlowEngine)** that classifies every query, prunes context into compact capsules, and paces token delivery so streaming feels written, not dumped.
 
 ---
 
@@ -431,7 +431,7 @@ For private-network access without opening ports, put the box on **Tailscale** o
 ## First run & configuration
 
 1. **Onboarding** walks you through theme, motion preferences, and provider setup. Every step is skippable and re-runnable from Settings.
-2. **Providers.** Settings -> Providers. Add an OpenAI-compatible endpoint (including NVIDIA NIM and local Ollama), Anthropic, or paste nothing and rely on the demo model. Keys are stored encrypted in your data directory behind your vault passphrase.
+2. **Providers.** Settings -> Providers. Add an OpenAI-compatible endpoint (including NVIDIA NIM and local Ollama), Anthropic, Google Gemini, or paste nothing and rely on the demo model. Keys are stored encrypted in your data directory behind your vault passphrase.
 3. **Master prompts.** The system prompts that shape every answer are versioned and readable in Settings -> Prompts. Defaults are locked-good; user overrides are visually marked, and a diff shows exactly what changed.
 4. **AIFlowEngine.** Settings -> Flow. Choose the token-pruning mode (Efficient / Balanced / Fidelity), the stream-shaping mode (Off / Subtle / Standard / Cinematic), thinking-indicator verbosity, and pacing sensitivity.
 5. **Performance profile.** `eco`, `balanced`, or `performance` — at launch via `--profile`, at runtime via Settings -> Performance.

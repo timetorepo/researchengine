@@ -41,8 +41,9 @@ export interface ShapeConfig {
  *  cadence stays smooth instead of stepping word-by-word. */
 const TIMING: Record<ShapingMode, { word: [number, number]; punct: [number, number]; newline: number }> = {
   off: { word: [0, 0], punct: [0, 0], newline: 0 },
-  subtle: { word: [0, 6], punct: [25, 55], newline: 80 },
-  standard: { word: [4, 14], punct: [40, 90], newline: 120 },
+  // AIFlowEngine keeps tokens flowing: near-zero word gaps so answers land in 1–4s.
+  subtle: { word: [0, 3], punct: [15, 35], newline: 60 },
+  standard: { word: [0, 6], punct: [20, 45], newline: 70 },
   cinematic: { word: [40, 90], punct: [140, 220], newline: 280 },
 }
 

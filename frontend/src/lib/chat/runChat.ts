@@ -28,6 +28,33 @@ const activeStreams = new Map<string, AbortController>()
 export const stopStream = (chatId: string) => activeStreams.get(chatId)?.abort()
 export const isStreamingChat = (chatId: string) => activeStreams.has(chatId)
 
+// ---- Question queue: prompts sent while the AI is busy are held here and
+// drained automatically, one at a time, when the current run completes. ----
+export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode'] }
+
+export function enqueuePrompt(chatId: string, prompt: string, mode?: RunOptions['mode']): string {
+  const id = nanoid(8)
+  useUI.setState((s) => ({ queue: { ...s.queue, [chatId]: [...(s.queue[chatId] ?? []), { id, prompt, mode }] } }))
+  return id
+}
+
+export function removeQueued(chatId: string, itemId: string) {
+  useUI.setState((s) => {
+    const list = (s.queue[chatId] ?? []).filter((q) => q.id !== itemId)
+    const queue = { ...s.queue }
+    if (list.length) queue[chatId] = list
+    else delete queue[chatId]
+    return { queue }
+  })
+}
+
+function drainQueue(chatId: string) {
+  const next = useUI.getState().queue[chatId]?.[0]
+  if (!next) return
+  useUI.setState((s) => ({ queue: { ...s.queue, [chatId]: (s.queue[chatId] ?? []).slice(1) } }))
+  setTimeout(() => { void runChat({ chatId, prompt: next.prompt, mode: next.mode }) }, 80)
+}
+
 // UI live-stream state (which message is currently receiving tokens)
 export const streamState = { chatId: null as string | null, msgId: null as string | null }
 
@@ -86,6 +113,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     } finally {
       activeStreams.delete(chatId)
       useUI.setState({ island: { kind: 'idle' } })
+      drainQueue(chatId)
     }
     return
   }
@@ -120,8 +148,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     // Ground the model in the retrieved results with numbered citations.
     const grounded = sources.map((s, i) =>
       `[${i + 1}] ${s.title} (${s.domain})\n    ${s.url}${s.snippet ? `\n    ${s.snippet}` : ''}`).join('\n')
-    system += `\n\nWeb search results retrieved for this query. Ground your answer in them and cite inline with [n]:\n${grounded}\n\nCite the most relevant results with [n] markers. Ignore results that are not useful.${outcome.live ? '' : '\n(Note: search backend unreachable — the results above are offline placeholders.)'}`
-    await new Promise((r) => setTimeout(r, 250))
+    system += `\n\nWeb search results retrieved for this query:\n${grounded}\n\nYou MUST write a complete, helpful answer to the user's question — several sentences at minimum. Never respond with only links, titles, or a list of sources: the user cannot see the sources as an answer by themselves. Use the results above where they help and cite them inline with [n] markers; ignore results that are not useful. Where the results are thin, irrelevant, or missing, fall back to your own knowledge and still deliver a full answer. If live search was unavailable (offline placeholders), say briefly that live search could not be reached, then answer from your own knowledge anyway.`
     useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
   }
 
@@ -230,6 +257,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (e.name === 'AbortError') {
       // Keep exactly what was rendered — the pacer's un-emitted queue is dropped.
       finish(chatId, asstId, '', { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true })
+      drainQueue(chatId)
       return
     }
     const msg = e instanceof ProviderError ? `${e.provider}: ${e.message}` : String(e?.message ?? e)
@@ -240,6 +268,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
 
   if (flowEnabled && !cached) cacheSet(prompt + JSON.stringify(mode), completionText)
   finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned })
+  drainQueue(chatId)
 }
 
 function finish(

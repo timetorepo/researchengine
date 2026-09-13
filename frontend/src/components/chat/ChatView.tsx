@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowDown, Sigma, Sparkles, Globe, Wind } from 'lucide-react'
+import { ArrowDown, Sigma, Sparkles, Globe, Wind, ListOrdered, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
-import { runChat, stopStream, isStreamingChat } from '@/lib/chat/runChat'
+import { runChat, stopStream, isStreamingChat, enqueuePrompt, removeQueued } from '@/lib/chat/runChat'
 import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
@@ -58,7 +58,14 @@ export function ChatView() {
 
   const send = (prompt: string, opts: { search?: boolean; quality?: boolean; replicate?: boolean } = {}) => {
     if (!id || !prompt.trim()) return
-    runChat({ chatId: id, prompt, mode: { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined, replicate: opts.replicate || undefined } })
+    const mode = { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined, replicate: opts.replicate || undefined }
+    // While an answer is still streaming, queue the question instead of
+    // dropping it — it runs automatically when the current one finishes.
+    if (isStreamingChat(id)) {
+      enqueuePrompt(id, prompt.trim(), mode)
+      return
+    }
+    runChat({ chatId: id, prompt, mode })
     setAtBottom(true)
   }
 
@@ -89,6 +96,7 @@ export function ChatView() {
   }
 
   const streaming = isStreamingChat(chat.id)
+  const queued = useUI((s) => s.queue[chat.id]) ?? []
   const flow = useUI((s) => s.flow)
   const flowActive = streaming && flow?.chatId === chat.id ? flow : null
   const lastMsg = chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null
@@ -153,6 +161,24 @@ export function ChatView() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Queued follow-ups — sent while the previous answer is streaming */}
+      {queued.length > 0 && (
+        <div className="px-4 pb-1.5 flex flex-wrap gap-1.5">
+          {queued.map((q, i) => (
+            <span key={q.id} className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]"
+              style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+              <ListOrdered size={11} style={{ color: 'var(--primary)' }} />
+              <span className="max-w-[220px] truncate">{i + 1}. {q.prompt}</span>
+              <button onClick={() => removeQueued(chat.id, q.id)} aria-label="Remove queued question"
+                className="p-0.5 rounded-full hover:bg-[var(--surface)]" style={{ color: 'var(--text-3)' }}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          <span className="text-[10.5px] self-center" style={{ color: 'var(--text-3)' }}>runs when the current answer finishes</span>
+        </div>
+      )}
 
       <InputBar
         onSend={send}

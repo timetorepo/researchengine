@@ -44,6 +44,25 @@ chatRoutes.post('/', async (c) => {
       'anthropic-version': '2023-06-01',
     }
     payload = { model, stream: true, system, max_tokens: maxTokens, temperature, messages }
+  } else if (kind === 'gemini') {
+    // Native Gemini streaming (SSE via alt=sse). Model ids carry no "models/" prefix here.
+    url = `${base}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`
+    headers = {
+      ...browserish,
+      'content-type': 'application/json',
+      ...(key ? { 'x-goog-api-key': key } : {}),
+    }
+    const contents = messages
+      .filter((m) => m?.role === 'user' || m?.role === 'assistant' || m?.role === 'model')
+      .map((m) => ({
+        role: m.role === 'assistant' ? 'model' : m.role,
+        parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '') }],
+      }))
+    payload = {
+      contents,
+      generationConfig: { temperature, maxOutputTokens: maxTokens },
+    }
+    if (system) payload.systemInstruction = { parts: [{ text: system }] }
   } else {
     url = `${base}/chat/completions`
     headers = {

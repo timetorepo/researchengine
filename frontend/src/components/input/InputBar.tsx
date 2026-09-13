@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer } from 'lucide-react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer, ListOrdered } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { SkillPicker } from './SkillPicker'
@@ -67,7 +67,9 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
 
   const doSend = (opts: { search?: boolean; quality?: boolean; replicate?: boolean } = {}) => {
     const raw = text.trim()
-    if (!raw || streaming) return
+    // No streaming guard here: ChatView decides — while streaming, prompts
+    // are queued and run automatically when the current answer finishes.
+    if (!raw) return
 
     // ---- Easter eggs (strict rules) ----
     if (raw === '-404') { ui.set({ notFound: true }); setText(''); return }
@@ -171,14 +173,27 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             </button>
 
             {streaming ? (
-              <button
-                onClick={onStop}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-105"
-                style={{ background: 'var(--danger)', color: '#fff' }}
-                aria-label="Stop generating"
-              >
-                <Square size={12} fill="currentColor" />
-              </button>
+              <>
+                {text.trim() && (
+                  <button
+                    onClick={() => doSend({})}
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-105"
+                    style={{ background: 'var(--primary)', color: '#fff' }}
+                    aria-label="Queue question"
+                    title="Queue — runs when the current answer finishes"
+                  >
+                    <ListOrdered size={13} />
+                  </button>
+                )}
+                <button
+                  onClick={onStop}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-105"
+                  style={{ background: 'var(--danger)', color: '#fff' }}
+                  aria-label="Stop generating"
+                >
+                  <Square size={12} fill="currentColor" />
+                </button>
+              </>
             ) : (
               <button
                 onClick={() => doSend({})}

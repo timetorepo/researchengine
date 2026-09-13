@@ -42,6 +42,8 @@ interface UIState {
   pendingQuizFile: File | null
   /** Global prompt to unlock the encrypted-key vault passphrase. */
   vaultPrompt: boolean
+  /** Questions queued while the AI is busy answering the current one. Not persisted. */
+  queue: Record<string, { id: string; prompt: string; mode?: Record<string, unknown> }[]>
 
   set: (patch: Partial<UIState>) => void
   toggleSidebar: () => void
@@ -75,6 +77,7 @@ export const useUI = create<UIState>((set, get) => ({
   osMinimized: false,
   pendingQuizFile: null,
   vaultPrompt: false,
+  queue: {},
 
   set: (patch) => set(patch),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),

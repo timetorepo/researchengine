@@ -1,9 +1,12 @@
-import React from 'react'
-import { Check, Loader2, Plug } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { Loader2, RefreshCw, Upload, BookOpenText, FolderOpen } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { INTEGRATION_META } from '@/components/input/IntegrationPicker'
-import { timeAgo } from '@/lib/utils'
+import { timeAgo, fmt } from '@/lib/utils'
+import type { DocumentRecord } from '@/types'
 
 const SERVICES = [
   { id: 'drive', scopes: ['drive.readonly'], desc: 'Search, read and reference files as context.' },
@@ -12,8 +15,145 @@ const SERVICES = [
   { id: 'github', scopes: ['repo:read'], desc: 'Read repos, reference code, open issues (with consent).' },
   { id: 'notion', scopes: ['read_content'], desc: 'Read pages, insert research summaries.' },
   { id: 'zotero', scopes: ['library:read'], desc: 'Sync your citation library.' },
-  { id: 'files', scopes: ['scoped-folder'], desc: 'A folder you grant access to. Read-only by default.' },
+  { id: 'files', scopes: ['scoped-folder'], desc: 'Upload, browse and importing files from the Research Engine files folder on this machine.' },
 ]
+
+const TEXTISH = /\.(txt|md|markdown|csv|json|log|tex|rst|yml|yaml|xml|html)$/i
+const STUDYABLE = /\.(txt|md|markdown|pdf|docx)$/i
+
+interface FsEntry { name: string; dir: boolean; size: number }
+
+/** The local-files integration: a real, working view of <dataDir>/files with
+ *  upload and import — not a placeholder. All traffic stays on this machine. */
+function LocalFilesPanel() {
+  const ui = useUI()
+  const navigate = useNavigate()
+  const [entries, setEntries] = useState<FsEntry[]>([])
+  const [root, setRoot] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const refresh = async () => {
+    try {
+      const res = await fetch('/api/fs/list')
+      const json = await res.json()
+      setEntries(json.files ?? [])
+      setRoot(json.root ?? '')
+    } catch {
+      setEntries([])
+    } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(() => { void refresh() }, [])
+
+  const upload = async (file: File) => {
+    if (file.size > 8 * 1024 * 1024) { ui.toast('Too large', 'Files are capped at 8 MB in the local folder.', 'warning'); return }
+    setBusy(true)
+    try {
+      const dataBase64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(String(r.result).split(',')[1] ?? '')
+        r.onerror = () => reject(new Error('read failed'))
+        r.readAsDataURL(file)
+      })
+      const res = await fetch('/api/fs/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: file.name, dataBase64 }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      useStore.getState().logConnection('local://files', `upload: ${file.name}`, file.size, 'local')
+      ui.toast('Uploaded', `${file.name} is now in the Research Engine files folder.`, 'success')
+      await refresh()
+    } catch (e: any) {
+      ui.toast('Upload failed', String(e?.message ?? e), 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const study = async (name: string) => {
+    // Pull the raw bytes from the local folder and hand them to Read & Quiz
+    // as a regular File — same extraction pipeline as drag & drop.
+    try {
+      const res = await fetch(`/api/fs/read-bin?path=${encodeURIComponent(name)}`)
+      if (!res.ok) throw new Error(await res.text())
+      const buf = await res.arrayBuffer()
+      const file = new File([buf], name)
+      useUI.setState({ pendingQuizFile: file })
+      navigate('/quiz')
+    } catch (e: any) {
+      ui.toast('Could not open file', String(e?.message ?? e), 'danger')
+    }
+  }
+
+  const importAsDocument = async (name: string) => {
+    try {
+      const res = await fetch(`/api/fs/read?path=${encodeURIComponent(name)}`)
+      if (!res.ok) throw new Error(await res.text())
+      const text = await res.text()
+      if (text.trim().length < 40) throw new Error('This file has too little text to study.')
+      const rec: DocumentRecord = {
+        id: nanoid(8), name, kind: name.split('.').pop() ?? 'file', text, addedAt: Date.now(),
+      }
+      useStore.setState((s) => ({ documents: [rec, ...s.documents] }))
+      useStore.getState().logConnection('local://files', `import: ${name}`, text.length, 'local')
+      ui.toast('Imported as a document', `${name} · ${fmt(Math.round(text.length / 4))} tokens — open Read & Quiz to study it.`, 'success')
+    } catch (e: any) {
+      ui.toast('Import failed', String(e?.message ?? e), 'danger')
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--surface-border)' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <FolderOpen size={13} style={{ color: 'var(--primary)' }} />
+        <span className="text-[11.5px] font-medium">Files folder</span>
+        <span className="text-[10px] font-mono truncate flex-1" style={{ color: 'var(--text-3)' }} title={root}>{root}</span>
+        <button onClick={() => void refresh()} className="p-1 rounded-md hover:bg-[var(--elevated)] transition-colors" aria-label="Refresh file list" style={{ color: 'var(--text-3)' }}>
+          {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+        </button>
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors disabled:opacity-50"
+          style={{ background: 'var(--primary)', color: '#fff' }}>
+          {busy ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />} Upload
+        </button>
+        <input ref={inputRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = '' }} />
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Empty — upload a file or drop one anywhere on the home screen.</p>
+      ) : (
+        <div className="max-h-44 overflow-y-auto rounded-lg" style={{ border: '1px solid var(--surface-border)' }}>
+          {entries.map((f) => (
+            <div key={f.name} className="flex items-center gap-2 px-2.5 py-1.5 text-[11.5px]" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+              <span className="truncate flex-1" title={f.name}>{f.name}</span>
+              <span className="text-[10px] shrink-0" style={{ color: 'var(--text-3)' }}>{f.dir ? 'folder' : fmt(f.size)}</span>
+              {!f.dir && TEXTISH.test(f.name) && (
+                <button onClick={() => void importAsDocument(f.name)}
+                  className="shrink-0 px-1.5 py-0.5 rounded text-[10px] transition-colors"
+                  style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+                  Import
+                </button>
+              )}
+              {!f.dir && STUDYABLE.test(f.name) && (
+                <button onClick={() => void study(f.name)} title="Open in Read & Quiz"
+                  className="shrink-0 p-1 rounded transition-colors"
+                  style={{ color: 'var(--primary)' }}>
+                  <BookOpenText size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function IntegrationsTab() {
   const integrations = useStore((s) => s.integrations)
@@ -80,6 +220,7 @@ export function IntegrationsTab() {
                   ))}
                 </div>
               )}
+              {connected && svc.id === 'files' && <LocalFilesPanel />}
             </div>
           )
         })}

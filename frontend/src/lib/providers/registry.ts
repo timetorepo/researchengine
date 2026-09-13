@@ -8,7 +8,7 @@ import type { ProviderId } from '@/types'
 export interface ProviderMeta {
   id: ProviderId
   name: string
-  kind: 'openai' | 'anthropic' | 'ollama' | 'compatible'
+  kind: 'openai' | 'anthropic' | 'ollama' | 'gemini' | 'compatible'
   baseUrl: string
   needsKey: boolean
   hint?: string
@@ -23,6 +23,10 @@ export const PROVIDERS: ProviderMeta[] = [
   },
   {
     id: 'groq', name: 'Groq', kind: 'openai', baseUrl: 'https://api.groq.com/openai/v1', needsKey: true,
+  },
+  {
+    id: 'gemini', name: 'Google Gemini', kind: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    needsKey: true, hint: 'Google AI Studio key — starts with AIza',
   },
   {
     id: 'ollama', name: 'Ollama', kind: 'ollama', baseUrl: 'http://localhost:11434',
