@@ -62,7 +62,9 @@ export function ideRoutes(rt: Runtime) {
 
   const safeName = (name: string): string | null => {
     const normalized = String(name ?? '').trim().replace(/\s+/g, ' ')
-    return /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,63}$/u.test(normalized) ? normalized : null
+    if (!normalized || normalized.length > 64 || normalized === '.' || normalized === '..') return null
+    if (/[\/\\\u0000]/.test(normalized)) return null
+    return normalized
   }
 
   const projectDir = (name: string): string | null => {
@@ -107,7 +109,7 @@ export function ideRoutes(rt: Runtime) {
     let body: { name?: string; files?: Record<string, string> }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
     const dir = projectDir(body.name ?? '')
-    if (!dir) return c.json({ error: 'Project name must be 1-64 chars: letters, numbers, spaces, dash, dot, underscore.' }, 400)
+    if (!dir) return c.json({ error: 'Project name must be 1-64 characters and cannot contain path separators.' }, 400)
     if (existsSync(dir)) return c.json({ error: 'A project with this name already exists.' }, 409)
     await mkdir(dir, { recursive: true })
     for (const [rel, content] of Object.entries(body.files ?? {})) {

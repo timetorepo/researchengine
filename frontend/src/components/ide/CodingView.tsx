@@ -47,8 +47,8 @@ export function CodingView() {
     const name = newName.trim().replace(/\s+/g, ' ')
     if (!name) { setErr('Enter a project name.'); return }
     if (name.length > 64) { setErr('Project names can be up to 64 characters.'); return }
-    if (!/^[\p{L}\p{N}][\p{L}\p{N} _.-]*$/u.test(name)) {
-      setErr('Use letters, numbers, spaces, dash, dot, or underscore.'); return
+    if (/[/\\\u0000]/.test(name) || name === '.' || name === '..') {
+      setErr('Project names cannot contain path separators.'); return
     }
     setErr('')
     const res = await fetch('/api/ide/projects', {
@@ -126,7 +126,7 @@ export function CodingView() {
                 <button onClick={() => setCreating(false)} className="p-1.5 rounded-[10px]" style={{ color: 'var(--text-3)' }}><X size={14} /></button>
               </div>
               <div className="flex items-center justify-between mt-1.5 px-1">
-                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Letters, numbers, spaces, dash, dot, underscore</p>
+                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Any name up to 64 characters; path separators are not allowed</p>
                 <p className="text-[11px] tabular-nums" style={{ color: newName.length > 64 ? 'var(--danger)' : 'var(--text-3)' }}>{newName.length}/64</p>
               </div>
               {err && <p className="text-[12px] mt-1.5" style={{ color: 'var(--danger)' }}>{err}</p>}

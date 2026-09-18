@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer, ListOrdered, ImagePlus, Plug, X, Loader2, FolderOpen, Mail, CalendarDays, HardDrive } from 'lucide-react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer, ListOrdered, ImagePlus, Plug, X, Loader2, FolderOpen, Mail, CalendarDays, HardDrive, SlidersHorizontal, Calculator, BookOpen } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { SkillPicker } from './SkillPicker'
@@ -38,6 +38,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [imgs, setImgs] = useState<{ name: string; dataUrl: string }[]>([])
   const [refs, setRefs] = useState<ContextRef[]>([])
   const [connOpen, setConnOpen] = useState(false)
+  const [modeOpen, setModeOpen] = useState(false)
   const imgInputRef = useRef<HTMLInputElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const glassMode = useStore((s) => s.settings.glassMode)
@@ -191,29 +192,35 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
 
           {/* Bottom row: pills + send */}
           <div className="flex items-center gap-1.5 px-2.5 pb-2.5 pt-1">
-            <div className="flex items-center gap-1 p-0.5 rounded-full" style={{ background: 'var(--surface)' }}>
-              {pills.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={p.toggle}
-                  title={p.title}
-                  aria-pressed={p.active}
-                  className={clsx('relative flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] font-medium transition-colors')}
-                  style={{ color: p.active ? (p.id === 'math' ? 'var(--warning)' : 'var(--primary)') : 'var(--text-3)' }}
-                >
-                  {p.active && (
-                    <motion.span
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                      className="absolute inset-0 rounded-full"
-                      style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
-                    />
-                  )}
-                  <span className="relative flex items-center gap-1"><p.icon size={12} strokeWidth={1.8} /> {p.label}</span>
-                </button>
-              ))}
+            <div className="relative">
+              <button onClick={() => setModeOpen((v) => !v)} title="Choose a mode" aria-label="Choose a mode" aria-expanded={modeOpen}
+                className="flex items-center justify-center w-9 h-8 rounded-full transition-colors hover:bg-[var(--elevated)]"
+                style={{ color: pills.some((p) => p.active) ? 'var(--primary)' : 'var(--text-3)', background: modeOpen ? 'var(--elevated)' : 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+                <SlidersHorizontal size={15} strokeWidth={1.7} />
+              </button>
+              <AnimatePresence>
+                {modeOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setModeOpen(false)} />
+                    <motion.div initial={{ opacity: 0, y: 5, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }}
+                      className="absolute left-0 bottom-full mb-2 z-50 w-[230px] rounded-[14px] p-1.5"
+                      style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', boxShadow: '0 18px 44px -16px rgba(0,0,0,.55)' }}>
+                      <div className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-3)' }}>Choose mode</div>
+                      {pills.map((p) => (
+                        <button key={p.id} onClick={() => { p.toggle(); setModeOpen(false) }} title={p.title} aria-pressed={p.active}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-left text-[12.5px] transition-colors hover:bg-[var(--surface)]"
+                          style={{ color: p.active ? (p.id === 'math' ? 'var(--warning)' : 'var(--primary)') : 'var(--text-2)' }}>
+                          <p.icon size={14} strokeWidth={1.7} />
+                          <span className="flex-1">{p.label}</span>
+                          {p.active && <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.id === 'math' ? 'var(--warning)' : 'var(--primary)' }} />}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
+            <span className="hidden sm:inline text-[11px]" style={{ color: 'var(--text-3)' }}>{pills.filter((p) => p.active).map((p) => p.label).join(' · ') || 'Mode'}</span>
 
             <div className="flex-1" />
 

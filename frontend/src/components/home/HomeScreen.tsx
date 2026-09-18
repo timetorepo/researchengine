@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud, Search, Code2, Swords } from 'lucide-react'
+import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud, Search, Code2, Swords, Calculator } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { InputBar } from '@/components/input/InputBar'
@@ -9,7 +9,7 @@ import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
-import { greeting, timeAgo, fmt } from '@/lib/utils'
+import { timeAgo, fmt } from '@/lib/utils'
 import { runChat } from '@/lib/chat/runChat'
 
 const SUGGESTIONS = [
@@ -35,6 +35,8 @@ export function HomeScreen() {
     { word: 'research', icon: Search, color: '#39c6c9' },
     { word: 'build', icon: Code2, color: '#b7d46b' },
     { word: 'challenge', icon: Swords, color: '#e5a85f' },
+    { word: 'calculate', icon: Calculator, color: '#d7a86e' },
+    { word: 'learn', icon: BookOpen, color: '#8fc7ee' },
   ] as const
   const [verbIndex, setVerbIndex] = useState(0)
 
@@ -99,18 +101,15 @@ export function HomeScreen() {
         )}
       </AnimatePresence>
       <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
-        {/* Greeting */}
+        {/* Research / build / challenge hero */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">
-          <h1 className="text-[clamp(26px,4vw,36px)] font-semibold" style={{ letterSpacing: '-0.02em' }}>
-            {greeting()}.
-          </h1>
-          <div className="flex items-center justify-center gap-1.5 text-[15px] mt-1.5" aria-live="polite">
+          <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[clamp(28px,4.8vw,46px)] font-semibold leading-tight" style={{ letterSpacing: '-0.035em' }} aria-live="polite">
             <span>What do you want to</span>
             <AnimatePresence mode="wait" initial={false}>
               {(() => { const item = verbs[verbIndex]; const Icon = item.icon; return (
                 <motion.span key={item.word} initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -9 }}
                   transition={{ duration: 0.22 }} className="inline-flex items-center gap-1 font-medium" style={{ color: item.color }}>
-                  <Icon size={15} strokeWidth={1.8} aria-hidden="true" /> {item.word}
+                  <Icon size={24} strokeWidth={1.7} aria-hidden="true" /> {item.word}
                 </motion.span>
               ) })()}
             </AnimatePresence>
