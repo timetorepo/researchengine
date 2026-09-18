@@ -302,6 +302,12 @@ export async function runChat(opts: RunOptions): Promise<void> {
         return { role: m.role, content }
       })
 
+      // Shield the assembled system context as a final boundary. This covers
+      // generated search/MCP/project context that may not have passed through
+      // an earlier content-specific path.
+      const shieldedSystem = shieldOutbound(system)
+      if (shieldedSystem.findings.length) recordScan(`system context → ${providerMeta!.name}`, shieldedSystem.findings)
+
       // ---- tool-calling loop (questionnaire, connectors, search, IDE, MCP) ----
       const toolCtx: ToolContext = { chatId, asstId, project: opts.project, projectTree: opts.projectTree }
       const specs = toolSpecs(toolCtx)
@@ -318,7 +324,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
         const res = await streamToCallback({
           providerId, model, apiKey,
           baseUrl: pconf?.baseUrl || undefined,
-          system,
+          system: shieldedSystem.text,
           messages: current,
           temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
           maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
