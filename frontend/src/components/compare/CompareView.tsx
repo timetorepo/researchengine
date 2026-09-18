@@ -9,6 +9,7 @@ import { streamToCallback } from '@/lib/providers/stream'
 import { streamDemo } from '@/lib/providers/demo'
 import { resolveKey } from '@/lib/crypto/vault'
 import { getVaultPassphrase } from '@/lib/crypto/session'
+import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 import { shapeSystemPrompt, classifyQuery } from '@/lib/flow/classifier'
 import { Markdown } from '@/components/chat/Markdown'
 
@@ -39,14 +40,18 @@ export function CompareView() {
       const meta = PROVIDERS.find((p) => p.id === providerId)
       const pconf = settings.providers[providerId]
       const apiKey = pconf?.apiKey ? await resolveKey(pconf.apiKey, getVaultPassphrase()) : ''
-      const system = shapeSystemPrompt(classifyQuery(prompt))
+      const rawSystem = shapeSystemPrompt(classifyQuery(prompt))
+      const shieldedSystem = shieldOutbound(rawSystem)
+      const shieldedPrompt = shieldOutbound(prompt)
+      if (shieldedSystem.findings.length) recordScan(`compare system → ${meta?.name ?? providerId}`, shieldedSystem.findings)
+      if (shieldedPrompt.findings.length) recordScan(`compare prompt → ${meta?.name ?? providerId}`, shieldedPrompt.findings)
       const startedAt = performance.now()
       try {
         if (meta && (!meta.needsKey || apiKey)) {
           useStore.getState().logConnection(meta.baseUrl, `compare · ${model}`, prompt.length)
           await streamToCallback({
             providerId, model, apiKey, baseUrl: pconf?.baseUrl || undefined,
-            system, messages: [{ role: 'user', content: prompt }], maxTokens: 700,
+            system: shieldedSystem.text, messages: [{ role: 'user', content: shieldedPrompt.text }], maxTokens: 700,
           }, (chunk) => setOutputs((o) => ({ ...o, [ref]: { ...o[ref], text: o[ref].text + chunk } })))
         } else {
           useStore.getState().logConnection('local://demo', `compare demo · ${model}`, prompt.length, 'local')

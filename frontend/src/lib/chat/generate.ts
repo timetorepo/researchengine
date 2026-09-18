@@ -7,6 +7,7 @@ import { demoAnswer } from '@/lib/providers/demo'
 import { usableKey } from '@/lib/providers/keys'
 import { estimateTokens } from '@/lib/flow/pruner'
 import { useStore } from '@/stores/useStore'
+import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 
 export interface GenerateRequest {
   system: string
@@ -38,7 +39,12 @@ export async function generateText(req: GenerateRequest): Promise<GenerateResult
   if (pconf?.apiKey) apiKey = await usableKey(pconf.apiKey)
 
   const useReal = !!meta && (!meta.needsKey || apiKey.length > 0)
-  const messages = [...(req.history ?? []), { role: 'user' as const, content: req.prompt }]
+  const shieldedSystem = shieldOutbound(req.system)
+  const messages = [
+    ...(req.history ?? []).map((m) => ({ ...m, content: shieldOutbound(m.content).text })),
+    { role: 'user' as const, content: shieldOutbound(req.prompt).text },
+  ]
+  if (shieldedSystem.findings.length) recordScan(`generation system → ${meta?.name ?? 'provider'}`, shieldedSystem.findings)
 
   if (useReal) {
     useStore.getState().logConnection(meta!.baseUrl, `${meta!.name} · ${model}`, estimateTokens(req.prompt) * 4)
@@ -46,7 +52,7 @@ export async function generateText(req: GenerateRequest): Promise<GenerateResult
     const res = await streamToCallback({
       providerId, model, apiKey,
       baseUrl: pconf?.baseUrl || undefined,
-      system: req.system,
+      system: shieldedSystem.text,
       messages,
       temperature: req.temperature ?? settings.modelDefaults[model]?.temperature ?? 0.7,
       maxTokens: Math.min(req.maxTokens ?? settings.modelDefaults[model]?.maxTokens ?? 900, 4000),
