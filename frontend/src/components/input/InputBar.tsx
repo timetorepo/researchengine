@@ -203,7 +203,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setModeOpen(false)} />
                     <motion.div initial={{ opacity: 0, y: 5, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }}
-                      className="absolute left-0 bottom-full mb-2 z-50 w-[230px] rounded-[14px] p-1.5"
+                      className="absolute left-0 bottom-full mb-2 z-50 w-[230px] max-h-[calc(100vh-32px)] overflow-y-auto rounded-[14px] p-1.5"
                       style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', boxShadow: '0 18px 44px -16px rgba(0,0,0,.55)' }}>
                       <div className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-3)' }}>Choose mode</div>
                       {pills.map((p) => (

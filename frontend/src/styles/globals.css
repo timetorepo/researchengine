@@ -11,8 +11,10 @@
   --radius-modal: 24px;
   --radius-pill: 999px;
 
-  --font-ui: "Geist Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* HK Guise first when installed; the geometric fallbacks preserve its
+     editorial proportions on machines without the proprietary font. */
+  --font-ui: "HK Guise", "Avenir Next", "Satoshi", "Geist Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "HK Guise", "Avenir Next", "Satoshi", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-serif: "Lora", Georgia, serif;
 

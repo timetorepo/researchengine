@@ -108,7 +108,8 @@ export function ideRoutes(rt: Runtime) {
   r.post('/ide/projects', async (c) => {
     let body: { name?: string; files?: Record<string, string> }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    const dir = projectDir(body.name ?? '')
+    const requestedName = String(body.name ?? (body as any).projectName ?? '')
+    const dir = projectDir(requestedName)
     if (!dir) return c.json({ error: 'Project name must be 1-64 characters and cannot contain path separators.' }, 400)
     if (existsSync(dir)) return c.json({ error: 'A project with this name already exists.' }, 409)
     await mkdir(dir, { recursive: true })

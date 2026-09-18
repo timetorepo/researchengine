@@ -105,14 +105,16 @@ export function HomeScreen() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">
           <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[clamp(28px,4.8vw,46px)] font-semibold leading-tight" style={{ letterSpacing: '-0.035em' }} aria-live="polite">
             <span>What do you want to</span>
-            <AnimatePresence mode="wait" initial={false}>
-              {(() => { const item = verbs[verbIndex]; const Icon = item.icon; return (
-                <motion.span key={item.word} initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -9 }}
-                  transition={{ duration: 0.22 }} className="inline-flex items-center gap-1 font-medium" style={{ color: item.color }}>
-                  <Icon size={24} strokeWidth={1.7} aria-hidden="true" /> {item.word}
-                </motion.span>
-              ) })()}
-            </AnimatePresence>
+            <span className="inline-flex items-center justify-center w-[10.8rem] sm:w-[12.5rem] shrink-0 overflow-hidden align-middle">
+              <AnimatePresence mode="wait" initial={false}>
+                {(() => { const item = verbs[verbIndex]; const Icon = item.icon; return (
+                  <motion.span key={item.word} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.24 }} className="inline-flex items-center gap-1.5 font-medium whitespace-nowrap" style={{ color: item.color }}>
+                    <Icon size={24} strokeWidth={1.7} aria-hidden="true" /> {item.word}
+                  </motion.span>
+                ) })()}
+              </AnimatePresence>
+            </span>
             <span>Today?</span>
           </div>
         </motion.div>

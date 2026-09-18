@@ -53,7 +53,7 @@ export function CodingView() {
     setErr('')
     const res = await fetch('/api/ide/projects', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, files: { 'README.md': `# ${name}\n\nCreated with Research Engine Coding.\n`, 'main.py': 'print("hello")\n' } }),
+      body: JSON.stringify({ name, projectName: name, files: { 'README.md': `# ${name}\n\nCreated with Research Engine Coding.\n`, 'main.py': 'print("hello")\n' } }),
     })
     const j = await res.json()
     if (!res.ok) { setErr(j.error ?? 'Could not create the project.'); return }

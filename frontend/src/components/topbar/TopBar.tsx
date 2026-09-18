@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronDown, Menu, Wind, Settings2, Plus, RefreshCw, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Menu, Wind, Settings2, Plus, RefreshCw, Loader2, Search } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { PROVIDERS } from '@/lib/providers/registry'
@@ -16,6 +16,7 @@ export function TopBar() {
   const settings = useStore((s) => s.settings)
   const saved = useStore((s) => s.tokensSavedSession)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [modelQuery, setModelQuery] = useState('')
   const pickRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -32,8 +33,11 @@ export function TopBar() {
 
   // Model lists come ONLY from live provider fetches (settings.providerModels).
   const hasAnyModels = PROVIDERS.some((p) => (providerModels[p.id]?.length ?? 0) > 0)
-  const groups = PROVIDERS.filter((p) =>
-    (providerModels[p.id]?.length ?? 0) > 0 || settings.providers[p.id]?.enabled || p.needsKey === false)
+  const groups = PROVIDERS.map((p) => ({
+    provider: p,
+    models: (providerModels[p.id] ?? []).filter((m) => !modelQuery.trim() || m.toLowerCase().includes(modelQuery.trim().toLowerCase())),
+  })).filter(({ provider: p, models }) =>
+    models.length > 0 || (!modelQuery.trim() && (settings.providers[p.id]?.enabled || p.needsKey === false)))
 
   const openProviders = () => {
     setPickerOpen(false)
@@ -79,6 +83,15 @@ export function TopBar() {
               style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.5)' }}
               role="listbox"
             >
+              <div className="sticky top-0 z-10 px-1.5 pt-1.5 pb-1" style={{ background: 'var(--elevated)' }}>
+                <div className="flex items-center gap-2 px-2.5 py-2 rounded-[10px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+                  <Search size={13} style={{ color: 'var(--text-3)' }} />
+                  <input value={modelQuery} onChange={(e) => setModelQuery(e.target.value)} autoFocus={pickerOpen}
+                    placeholder="Search models" aria-label="Search models"
+                    className="w-full bg-transparent outline-none text-[12px]" />
+                  {modelQuery && <button onClick={() => setModelQuery('')} aria-label="Clear model search" style={{ color: 'var(--text-3)' }}>×</button>}
+                </div>
+              </div>
               {!hasAnyModels ? (
                 /* Empty state — nothing fetched yet */
                 <div className="flex flex-col items-center text-center px-4 py-6">
@@ -101,8 +114,7 @@ export function TopBar() {
                   </button>
                 </div>
               ) : (
-                groups.map((g) => {
-                  const models = providerModels[g.id] ?? []
+                groups.map(({ provider: g, models }) => {
                   return (
                     <div key={g.id} className="mb-1">
                       <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>
@@ -134,6 +146,9 @@ export function TopBar() {
                     </div>
                   )
                 })
+              )}
+              {hasAnyModels && modelQuery.trim() && groups.length === 0 && (
+                <div className="px-3 py-5 text-center text-[12px]" style={{ color: 'var(--text-3)' }}>No models match “{modelQuery}”.</div>
               )}
               <div className="mt-1 pt-1" style={{ borderTop: '1px solid var(--surface-border)' }}>
                 <button
