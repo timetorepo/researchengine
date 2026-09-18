@@ -21,6 +21,9 @@ async function main() {
   const { resourceRoutes } = await import('./routes/resources')
   const { fsRoutes } = await import('./routes/fs')
   const { providerRoutes } = await import('./routes/providers')
+  const { ideRoutes } = await import('./routes/ide')
+  const { connectorRoutes } = await import('./routes/connectors')
+  const { mcpRoutes } = await import('./routes/mcp')
 
   const app = new Hono()
 
@@ -31,6 +34,9 @@ async function main() {
   app.route('/api', healthRoutes)
   app.route('/api', resourceRoutes(rt))
   app.route('/api', fsRoutes(rt))
+  app.route('/api', ideRoutes(rt))
+  app.route('/api', connectorRoutes(rt))
+  app.route('/api', mcpRoutes())
   app.route('/api/search', searchRoutes)
   app.route('/api/chat', chatRoutes)
   app.route('/api/documents', documentRoutes)

@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { maskSecrets } from './secrets'
 
 /**
  * Same-origin proxy for provider discovery. Browsers enforce CORS against
@@ -47,7 +48,7 @@ async function discover(kind: string, base: string, key: string, timeout: number
         const j: any = await res.json()
         msg = j?.error?.message ?? j?.detail ?? j?.message ?? msg
       } catch { /* non-JSON error body */ }
-      return { error: msg, ms: Date.now() - t0 }
+      return { error: maskSecrets(msg), ms: Date.now() - t0 }
     }
     const json: any = await res.json()
     if (kind === 'gemini') {

@@ -21,6 +21,7 @@ const LibraryView = React.lazy(() => import('@/components/library/LibraryView').
 const CompareView = React.lazy(() => import('@/components/compare/CompareView').then((m) => ({ default: m.CompareView })))
 const WorkflowsList = React.lazy(() => import('@/components/workflows/WorkflowsList').then((m) => ({ default: m.WorkflowsList })))
 const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor })))
+const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 import { Toasts } from '@/components/shared/Toasts'
 import { CommandPalette } from '@/components/shared/CommandPalette'
@@ -116,6 +117,15 @@ function RoutedApp() {
 
   return (
     <>
+      {/* Refraction filter used by Liquid Glass (chatbox / island bend effect). */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden focusable="false">
+        <defs>
+          <filter id="re-glass-bend" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="1" seed="4" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="14" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
       <ErrorBoundary>
       <Shell>
         <Suspense fallback={<RouteSkeleton />}>
@@ -131,6 +141,7 @@ function RoutedApp() {
           <Route path="/compare" element={<CompareView />} />
           <Route path="/workflows" element={<WorkflowsList />} />
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
+          <Route path="/code" element={<CodingView />} />
           <Route path="/secrets" element={<SecretsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

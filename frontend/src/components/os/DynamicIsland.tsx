@@ -78,7 +78,7 @@ export function DynamicIsland() {
         onClick={() => useUI.setState({ islandExpanded: !expanded })}
         onAnimationStart={() => setAnimating(true)}
         onAnimationComplete={() => setAnimating(false)}
-        className="glass cursor-pointer select-none flex flex-col overflow-hidden"
+        className="glass island-glass cursor-pointer select-none flex flex-col overflow-hidden"
         animate={{ borderRadius: expanded ? 26 : 999 }}
         style={{
           border: '1px solid var(--surface-border)',

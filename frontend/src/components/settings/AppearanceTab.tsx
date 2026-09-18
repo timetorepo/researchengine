@@ -235,6 +235,31 @@ export function AppearanceTab() {
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
+
+        {/* Glass surface theme (chatbox + Dynamic Island) */}
+        <div className="surface p-4">
+          <div className="text-[13px] font-medium mb-0.5">Glass surface</div>
+          <div className="text-[11.5px] mb-3" style={{ color: 'var(--text-2)' }}>
+            How the chatbox and Dynamic Island sit over your content.
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { id: 'off', name: 'Solid', desc: 'Opaque surface — the classic look.' },
+              { id: 'liquid', name: 'Liquid Glass', desc: 'Refracts what is behind it — text visibly bends through the glass.' },
+              { id: 'blur', name: 'Blur', desc: 'Frosted blur only, no refraction or gloss.' },
+            ] as const).map((g) => (
+              <button key={g.id} onClick={() => update({ glassMode: g.id })}
+                className="text-left p-3 rounded-[12px] transition-colors"
+                style={{
+                  background: settings.glassMode === g.id ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--surface)',
+                  border: `1px solid ${settings.glassMode === g.id ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--surface-border)'}`,
+                }}>
+                <div className="text-[12.5px] font-medium" style={{ color: settings.glassMode === g.id ? 'var(--primary)' : 'var(--text)' }}>{g.name}</div>
+                <div className="text-[10.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>{g.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )

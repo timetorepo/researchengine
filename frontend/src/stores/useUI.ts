@@ -43,7 +43,7 @@ interface UIState {
   /** Global prompt to unlock the encrypted-key vault passphrase. */
   vaultPrompt: boolean
   /** Questions queued while the AI is busy answering the current one. Not persisted. */
-  queue: Record<string, { id: string; prompt: string; mode?: Record<string, unknown> }[]>
+  queue: Record<string, { id: string; prompt: string; mode?: Record<string, unknown>; extra?: Record<string, unknown> }[]>
 
   set: (patch: Partial<UIState>) => void
   toggleSidebar: () => void

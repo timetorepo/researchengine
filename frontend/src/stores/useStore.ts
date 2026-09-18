@@ -86,6 +86,10 @@ const defaultSettings: Settings = {
   thinkingStyle: 'standard',
   pacingSensitivity: 0.5,
   punctuationPauses: true,
+  privacyMode: 'private',
+  glassMode: 'off',
+  flowBoost: true,
+  mcpServers: [],
 }
 
 const initialSpaces: Space[] = [
@@ -162,13 +166,20 @@ export const useStore = create<StoreState>()(
         }),
       })),
 
-      logConnection: (endpoint, purpose, bytes, status = 'ok') => set((s) => ({
-        totalRequests: s.totalRequests + 1,
-        connectionLog: [
-          { id: nanoid(8), t: Date.now(), endpoint, purpose, bytes, status },
-          ...s.connectionLog,
-        ].slice(0, 400),
-      })),
+      logConnection: (endpoint, purpose, bytes, status = 'ok') => set((s) => {
+        // Top Secret: the connection history itself is a privacy surface —
+        // never persist it. We still count requests for the diagnostics UI.
+        if (s.settings.privacyMode === 'topsecret') {
+          return { totalRequests: s.totalRequests + 1, connectionLog: [] }
+        }
+        return {
+          totalRequests: s.totalRequests + 1,
+          connectionLog: [
+            { id: nanoid(8), t: Date.now(), endpoint, purpose, bytes, status },
+            ...s.connectionLog,
+          ].slice(0, 400),
+        }
+      }),
 
       addTokensSaved: (n) => set((s) => ({
         tokensSavedSession: s.tokensSavedSession + n,

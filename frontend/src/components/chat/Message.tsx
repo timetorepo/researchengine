@@ -9,6 +9,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Markdown } from './Markdown'
 import { ReplicateTimeline } from './ReplicateTimeline'
+import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip } from './ToolUI'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { SourceStrip } from './SourceStrip'
 import { nanoid } from 'nanoid'
@@ -54,7 +55,10 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               </div>
             </div>
           ) : (
-            <div className="text-[14.5px] whitespace-pre-wrap" style={{ color: 'var(--text)' }}>{msg.content}</div>
+            <>
+              <AttachmentStrip msg={msg} />
+              <div className="text-[14.5px] whitespace-pre-wrap" style={{ color: 'var(--text)' }}>{msg.content}</div>
+            </>
           )}
           <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <HoverBtn label="Copy" onClick={() => { navigator.clipboard.writeText(msg.content); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>
@@ -126,6 +130,9 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         ) : (
           <>
             {msg.stages && msg.stages.length > 0 && <ReplicateTimeline chatId={chatId} msg={msg} />}
+            <ToolTraceChips msg={msg} />
+            <ExecApproval chatId={chatId} msg={msg} />
+            <QuestionnaireCard chatId={chatId} msg={msg} />
             <Markdown content={msg.content} streaming={streaming} />
           </>
         )}

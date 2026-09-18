@@ -8,7 +8,9 @@ import { perfCaps } from '@/lib/system/performance'
 import { createFlowRun, shapeConfigFrom } from '@/lib/flow/engine'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
-import { streamToCallback, ProviderError } from '@/lib/providers/stream'
+import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
+import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
+import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 import { providerById } from '@/lib/providers/registry'
 import { streamDemo, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
 import { webSearch } from '@/lib/search/web'
@@ -22,6 +24,13 @@ export interface RunOptions {
   mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
   modelOverride?: string
   overrideHistory?: ChatMessage[]
+  /** Vision: images attached to this prompt. */
+  attachments?: { type: 'image'; name: string; dataUrl: string }[]
+  /** Connector items the user attached via the chatbox connector picker. */
+  contextRefs?: { box: 'files' | 'drive' | 'mail' | 'calendar'; id: string; title: string }[]
+  /** Coding mode: the open project (enables ide_* tools + project context). */
+  project?: string
+  projectTree?: string
 }
 
 const activeStreams = new Map<string, AbortController>()
@@ -30,11 +39,11 @@ export const isStreamingChat = (chatId: string) => activeStreams.has(chatId)
 
 // ---- Question queue: prompts sent while the AI is busy are held here and
 // drained automatically, one at a time, when the current run completes. ----
-export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode'] }
+export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode']; extra?: Pick<RunOptions, 'attachments' | 'contextRefs' | 'project' | 'projectTree'> }
 
-export function enqueuePrompt(chatId: string, prompt: string, mode?: RunOptions['mode']): string {
+export function enqueuePrompt(chatId: string, prompt: string, mode?: RunOptions['mode'], extra?: QueuedPrompt['extra']): string {
   const id = nanoid(8)
-  useUI.setState((s) => ({ queue: { ...s.queue, [chatId]: [...(s.queue[chatId] ?? []), { id, prompt, mode }] } }))
+  useUI.setState((s) => ({ queue: { ...s.queue, [chatId]: [...(s.queue[chatId] ?? []), { id, prompt, mode, extra }] } }))
   return id
 }
 
@@ -52,7 +61,7 @@ function drainQueue(chatId: string) {
   const next = useUI.getState().queue[chatId]?.[0]
   if (!next) return
   useUI.setState((s) => ({ queue: { ...s.queue, [chatId]: (s.queue[chatId] ?? []).slice(1) } }))
-  setTimeout(() => { void runChat({ chatId, prompt: next.prompt, mode: next.mode }) }, 80)
+  setTimeout(() => { void runChat({ chatId, prompt: next.prompt, mode: next.mode, ...next.extra }) }, 80)
 }
 
 // UI live-stream state (which message is currently receiving tokens)
@@ -70,6 +79,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
 
   const userMsg: ChatMessage = {
     id: nanoid(8), role: 'user', content: prompt, createdAt: Date.now(), mode,
+    attachments: opts.attachments?.length ? opts.attachments : undefined,
   }
   store.addMessage(chatId, userMsg)
 
@@ -131,6 +141,8 @@ export async function runChat(opts: RunOptions): Promise<void> {
   let system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
 
   // ---- real web search sources ----
+  // Privacy Shield: in Top Secret mode webSearch itself goes offline-first
+  // (zero external requests), so this path stays safe to call in every mode.
   let sources: Source[] | undefined
   if (mode.search) {
     useUI.setState({ island: { kind: 'search', sources: 0 }, flow: { chatId, stage: 'search', phase: 'thinking' } })
@@ -150,6 +162,37 @@ export async function runChat(opts: RunOptions): Promise<void> {
       `[${i + 1}] ${s.title} (${s.domain})\n    ${s.url}${s.snippet ? `\n    ${s.snippet}` : ''}`).join('\n')
     system += `\n\nWeb search results retrieved for this query:\n${grounded}\n\nYou MUST write a complete, helpful answer to the user's question — several sentences at minimum. Never respond with only links, titles, or a list of sources: the user cannot see the sources as an answer by themselves. Use the results above where they help and cite them inline with [n] markers; ignore results that are not useful. Where the results are thin, irrelevant, or missing, fall back to your own knowledge and still deliver a full answer. If live search was unavailable (offline placeholders), say briefly that live search could not be reached, then answer from your own knowledge anyway.`
     useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
+  }
+
+  // ---- Coding-mode + MCP + privacy context ----
+  if (opts.project) {
+    system += `\n\nYou are in Coding mode inside the local project "${opts.project}". You can inspect and edit its files (ide_list_files, ide_read_file, ide_write_file), run commands with ide_run_command (the user approves each one), and use ide_git for git. Work carefully: prefer small, correct edits; explain what you changed.`
+    if (opts.projectTree) system += `\nProject files:\n${opts.projectTree.slice(0, 4000)}`
+  }
+  system += mcpContextBlock()
+  system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`
+
+  // ---- connector references attached from the chatbox picker ----
+  if (opts.contextRefs?.length) {
+    const parts: string[] = []
+    for (const ref of opts.contextRefs.slice(0, 5)) {
+      try {
+        const res = ref.box === 'files'
+          ? await fetch(`/api/fs/read?path=${encodeURIComponent(ref.id)}`)
+          : await fetch(`/api/connectors/item?box=${ref.box}&id=${encodeURIComponent(ref.id)}`)
+        if (!res.ok) continue
+        if (ref.box === 'files') {
+          parts.push(`--- ${ref.title} (local file) ---\n${(await res.text()).slice(0, 8000)}`)
+        } else {
+          const item = (await res.json()).item
+          if (item) {
+            const body = item.body ?? item.notes ?? item.text ?? JSON.stringify(item)
+            parts.push(`--- ${ref.title} (${ref.box}) ---\n${String(body).slice(0, 8000)}`)
+          }
+        }
+      } catch { /* skip unreadable refs */ }
+    }
+    if (parts.length) system += `\n\nThe user attached these connector items to the message — use them directly:\n\n${parts.join('\n\n')}`
   }
 
   // ---- resolve credentials ----
@@ -225,17 +268,64 @@ export async function runChat(opts: RunOptions): Promise<void> {
     } else if (useReal) {
       run.begin()
       store.logConnection(providerMeta!.baseUrl, `${providerMeta!.name} · ${model}`, estimateTokens(prompt) * 4)
-      const res = await streamToCallback({
-        providerId, model, apiKey,
-        baseUrl: pconf?.baseUrl || undefined,
-        system,
-        messages: pruned.messages,
-        temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
-        maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
-        signal: controller.signal,
-      }, pushChunk)
-      promptTokens = res.promptEstimate
-      completionTokens = res.completionTokens
+
+      // ---- wire messages: history + vision attachments + Privacy Shield ----
+      const kind = providerMeta!.kind
+      const supportsVision = kind === 'openai' || kind === 'gemini' || kind === 'anthropic' || kind === 'compatible'
+      const wire: any[] = pruned.messages.map((m: any, i: number) => {
+        const isLastUser = i === pruned.messages.length - 1 && m.role === 'user'
+        const note = Array.isArray(m.attachments) && m.attachments.length && !isLastUser
+          ? `\n[attached image(s): ${m.attachments.map((a: any) => a.name).join(', ')}]` : ''
+        let content: any = typeof m.content === 'string' ? m.content + note : m.content
+        if (isLastUser && opts.attachments?.length && supportsVision) {
+          content = [
+            ...opts.attachments.map((a) => ({ type: 'image', dataUrl: a.dataUrl })),
+            { type: 'text', text: content },
+          ]
+        }
+        // Privacy Shield: redact secrets before anything leaves the device.
+        if (typeof content === 'string') {
+          const shielded = shieldOutbound(content)
+          if (shielded.findings.length) recordScan(`chat → ${providerMeta!.name}`, shielded.findings)
+          content = shielded.text
+        }
+        return { role: m.role, content }
+      })
+
+      // ---- tool-calling loop (questionnaire, connectors, search, IDE, MCP) ----
+      const toolCtx: ToolContext = { chatId, asstId, project: opts.project, projectTree: opts.projectTree }
+      const specs = toolSpecs(toolCtx)
+      const toolsAllowed = kind === 'openai' || kind === 'gemini' || kind === 'anthropic'
+      const MAX_TOOL_ROUNDS = 4
+      let round = 0
+      let current: any[] = wire
+      const trace = (label: string, status: 'ok' | 'error' | 'blocked' | 'confirm') => {
+        const msg = useStore.getState().chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === asstId)
+        useStore.getState().updateMessage(chatId, asstId, { toolTrace: [...(msg?.toolTrace ?? []), { tool: label, label, status }] })
+      }
+      for (;;) {
+        round++
+        const res = await streamToCallback({
+          providerId, model, apiKey,
+          baseUrl: pconf?.baseUrl || undefined,
+          system,
+          messages: current,
+          temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
+          maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
+          signal: controller.signal,
+          tools: toolsAllowed ? specs : undefined,
+        }, pushChunk)
+        promptTokens = res.promptEstimate
+        completionTokens += res.completionTokens
+        const calls = res.toolCalls ?? []
+        if (!toolsAllowed || !calls.length || round >= MAX_TOOL_ROUNDS) break
+        current = [...current, { role: 'assistant', content: '', toolCalls: calls }]
+        for (const tc of calls) {
+          const result = await executeTool({ id: tc.id, name: tc.name, arguments: tc.arguments }, toolCtx, trace)
+          current.push({ role: 'tool', toolCallId: tc.id, name: tc.name, content: result })
+        }
+        bumpIsland()
+      }
       run.endRaw()
       await drained
       run.finish()

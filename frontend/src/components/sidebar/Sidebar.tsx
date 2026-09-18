@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus,
   Trash2, Search, ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, X, Pencil, Check, Swords,
-  Sun, Moon, RotateCcw, Pin, PinOff, Download, FolderInput, Workflow as WorkflowIcon,
+  Sun, Moon, RotateCcw, Pin, PinOff, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon,
 } from 'lucide-react'
 import { download, timeAgo } from '@/lib/utils'
 import { THEMES } from '@/lib/themes/meta'
@@ -22,6 +22,7 @@ const NAV = [
   { to: '/library', label: 'Library', icon: Library },
   { to: '/compare', label: 'Compare', icon: Swords },
   { to: '/workflows', label: 'Workflows', icon: WorkflowIcon },
+  { to: '/code', label: 'Coding', icon: CodeIcon },
   { to: '/flood', label: 'Agent Flood', icon: Users },
 ]
 

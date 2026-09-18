@@ -7,12 +7,19 @@ export interface StreamRequest {
   apiKey: string
   baseUrl?: string
   system: string
-  messages: { role: 'user' | 'assistant'; content: string }[]
+  /** Common wire format: content may be a string or an array of parts
+   *  ({type:'text'} / {type:'image', dataUrl}); tool rounds add
+   *  {role:'tool', toolCallId, name, content} and assistant toolCalls. */
+  messages: any[]
   temperature?: number
   maxTokens?: number
   signal?: AbortSignal
   onFirstByte?: () => void
+  /** OpenAI-style tool specs; provider dialects are translated by the proxy. */
+  tools?: any[]
 }
+
+export interface StreamToolCall { id: string; name: string; arguments: string }
 
 export class ProviderError extends Error {
   constructor(public provider: string, message: string) {
@@ -57,24 +64,34 @@ async function extractError(res: Response): Promise<string> {
   }
 }
 
-/** Stream a chat completion, calling onChunk per token batch. */
+/** Stream a chat completion, calling onChunk per token batch.
+ *  Returns token estimates PLUS any tool calls the model requested. */
 export async function streamToCallback(
   req: StreamRequest,
   onChunk: (text: string) => void,
-): Promise<{ promptEstimate: number; completionTokens: number }> {
+): Promise<{ promptEstimate: number; completionTokens: number; toolCalls: StreamToolCall[] }> {
   const meta = providerById(req.providerId)
   if (!meta) throw new ProviderError(req.providerId, 'Unknown provider')
   const base = (req.baseUrl || meta.baseUrl).replace(/\/$/, '')
   let completionChars = 0
+  const toolCalls: StreamToolCall[] = []
 
   if (meta.id === 'ollama') {
     // localhost — no CORS concerns, call directly
+    const plain = req.messages.map((m) => {
+      const msg: any = { role: m.role, content: typeof m.content === 'string' ? m.content : (m.content ?? []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') }
+      if (Array.isArray(m.content)) {
+        const imgs = m.content.filter((p: any) => p.type === 'image').map((p: any) => String(p.dataUrl ?? '').split(',')[1] ?? '')
+        if (imgs.length && imgs[0]) msg.images = imgs
+      }
+      return msg
+    })
     const res = await fetch(`${base}/api/chat`, {
       method: 'POST', signal: req.signal,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: req.model, stream: true,
-        messages: [{ role: 'system', content: req.system }, ...req.messages],
+        messages: [{ role: 'system', content: req.system }, ...plain],
         options: { temperature: req.temperature ?? 0.7, num_predict: req.maxTokens ?? 1024 },
       }),
     })
@@ -118,13 +135,22 @@ export async function streamToCallback(
           kind: meta.kind, base, key: req.apiKey, model: req.model,
           system: req.system, messages: req.messages,
           maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
+          tools: req.tools?.length ? req.tools : undefined,
         }),
       })
       if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
       req.onFirstByte?.()
       if (meta.kind === 'anthropic') {
+        let toolAcc: { id: string; name: string; json: string } | null = null
         await readSSE(res, () => false, (_evt, json) => {
-          if (json.type === 'content_block_delta' && json.delta?.text) {
+          if (json.type === 'content_block_start' && json.content_block?.type === 'tool_use') {
+            toolAcc = { id: json.content_block.id, name: json.content_block.name, json: '' }
+          } else if (json.type === 'content_block_delta' && json.delta?.type === 'input_json_delta' && toolAcc) {
+            toolAcc.json += json.delta.partial_json ?? ''
+          } else if (json.type === 'content_block_stop' && toolAcc) {
+            toolCalls.push({ id: toolAcc.id, name: toolAcc.name, arguments: toolAcc.json || '{}' })
+            toolAcc = null
+          } else if (json.type === 'content_block_delta' && json.delta?.text) {
             completionChars += json.delta.text.length
             chunk(json.delta.text)
           }
@@ -132,22 +158,45 @@ export async function streamToCallback(
         })
       } else if (meta.kind === 'gemini') {
         // Gemini SSE: each data frame carries candidates[0].content.parts[].text.
+        let n = 0
         await readSSE(res, (json) => {
           const parts = json.candidates?.[0]?.content?.parts
           if (Array.isArray(parts)) {
-            const t = parts.map((p: any) => (typeof p?.text === 'string' ? p.text : '')).join('')
-            if (t) { completionChars += t.length; chunk(t) }
+            for (const p of parts) {
+              if (p.functionCall?.name) {
+                toolCalls.push({ id: `gmc_${++n}`, name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}) })
+              } else if (typeof p?.text === 'string' && p.text) {
+                completionChars += p.text.length
+                chunk(p.text)
+              }
+            }
           }
           return false
         })
       } else {
+        // OpenAI-dialect tool_calls arrive as incremental chunks keyed by index.
+        const acc = new Map<number, { id: string; name: string; args: string }>()
         await readSSE(res, (json) => {
+          const delta = json.choices?.[0]?.delta
+          if (Array.isArray(delta?.tool_calls)) {
+            for (const tc of delta.tool_calls) {
+              const i = tc.index ?? 0
+              const cur = acc.get(i) ?? { id: '', name: '', args: '' }
+              if (tc.id) cur.id = tc.id
+              if (tc.function?.name) cur.name = tc.function.name
+              if (tc.function?.arguments) cur.args += tc.function.arguments
+              acc.set(i, cur)
+            }
+          }
           // NIM sends many chunks with delta.content null (and reasoning
           // models emit reasoning_content separately) — only count real text.
-          const delta = json.choices?.[0]?.delta?.content
-          if (delta) { completionChars += delta.length; chunk(delta) }
+          const text = delta?.content
+          if (text) { completionChars += text.length; chunk(text) }
           return false
         })
+        for (const cur of acc.values()) {
+          if (cur.name) toolCalls.push({ id: cur.id || `tc_${Math.random().toString(36).slice(2, 8)}`, name: cur.name, arguments: cur.args || '{}' })
+        }
       }
     } catch (e: any) {
       if (req.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -165,8 +214,12 @@ export async function streamToCallback(
   }
 
   const sysTokens = Math.round(req.system.length / 4)
-  const msgTokens = Math.round(req.messages.reduce((a, m) => a + m.content.length, 0) / 4)
-  return { promptEstimate: sysTokens + msgTokens, completionTokens: Math.max(1, Math.round(completionChars / 4)) }
+  const msgTokens = Math.round(req.messages.reduce((a, m) => a + (
+    typeof m.content === 'string' ? m.content.length
+      : Array.isArray(m.content) ? m.content.reduce((x: number, p: any) => x + (p.type === 'text' ? (p.text?.length ?? 0) : 2000), 0)
+      : 0
+  ), 0) / 4)
+  return { promptEstimate: sysTokens + msgTokens, completionTokens: Math.max(1, Math.round(completionChars / 4)), toolCalls }
 }
 
 /**

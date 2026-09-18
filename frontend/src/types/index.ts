@@ -46,6 +46,31 @@ export interface ChatMessage {
   agentAttribution?: { name: string; color: string }[]
   stages?: ReplicateStage[]
   stopped?: boolean
+  /** Vision: images attached by the user, sent to models that support them. */
+  attachments?: { type: 'image'; name: string; dataUrl: string }[]
+  /** Tool activity for this answer (shown as chips above the text). */
+  toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
+  /** AI-generated questionnaire awaiting the user's answers. */
+  questionnaire?: Questionnaire
+  /** Command awaiting explicit user approval (Coding mode safety). */
+  pendingExec?: { toolCallId: string; command: string; reason?: string }
+}
+
+export interface QuestionnaireItem {
+  id: string
+  question: string
+  options?: string[]
+  allowText?: boolean
+}
+
+export interface Questionnaire {
+  title?: string
+  intro?: string
+  items: QuestionnaireItem[]
+  answers?: Record<string, string>
+  submitted?: boolean
+  /** Tool-call id that is resumed when the user submits. */
+  toolCallId?: string
 }
 
 export interface Chat {
@@ -260,4 +285,21 @@ export interface Settings {
   thinkingStyle: 'minimal' | 'standard' | 'verbose'
   pacingSensitivity: number
   punctuationPauses: boolean
+  /** Privacy Shield: none = no scanning, private = scan + keep local (default),
+   *  topsecret = scan everything, block all non-essential outbound traffic. */
+  privacyMode: 'none' | 'private' | 'topsecret'
+  /** Chatbox / Dynamic Island surface style. */
+  glassMode: 'off' | 'liquid' | 'blur'
+  /** AIFlowEngine speed booster applied to API model output. */
+  flowBoost: boolean
+  mcpServers: McpServerConfig[]
+}
+
+export interface McpServerConfig {
+  id: string
+  name: string
+  command: string
+  args: string[]
+  env?: Record<string, string>
+  enabled: boolean
 }

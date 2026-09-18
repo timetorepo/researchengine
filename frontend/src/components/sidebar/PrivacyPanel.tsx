@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ShieldCheck, X, ArrowUpRight, Download } from 'lucide-react'
+import { ShieldCheck, ShieldOff, ShieldAlert, X, ArrowUpRight, Download, ScanSearch } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { timeAgo } from '@/lib/utils'
 import { download } from '@/lib/utils'
+import { PRIVACY_MODES, getScanLog, clearScanLog, type PrivacyMode } from '@/lib/privacy/shield'
 
 export function PrivacyPanel() {
   const [open, setOpen] = useState(false)
@@ -41,6 +42,33 @@ export function PrivacyPanel() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              <section>
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>Shield mode</h4>
+                <div className="grid grid-cols-3 gap-1.5 mb-2">
+                  {PRIVACY_MODES.map((m) => {
+                    const active = settings.privacyMode === m.id
+                    const Icon = m.id === 'none' ? ShieldOff : m.id === 'private' ? ShieldCheck : ShieldAlert
+                    return (
+                      <button key={m.id}
+                        onClick={() => useStore.setState((s) => ({ settings: { ...s.settings, privacyMode: m.id as PrivacyMode } }))}
+                        className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-[12px] text-[11px] font-medium transition-colors"
+                        style={{
+                          background: active ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'var(--surface)',
+                          border: `1px solid ${active ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--surface-border)'}`,
+                          color: active ? 'var(--primary)' : 'var(--text-2)',
+                        }}>
+                        <Icon size={15} strokeWidth={1.6} />
+                        {m.name}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[11.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                  {PRIVACY_MODES.find((m) => m.id === settings.privacyMode)?.desc}
+                </p>
+                <ScanLogView />
+              </section>
+
               <section>
                 <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>Stays on this device</h4>
                 <ul className="space-y-1.5 text-[13px]" style={{ color: 'var(--text-2)' }}>
@@ -95,5 +123,36 @@ export function PrivacyPanel() {
         </>
       )}
     </AnimatePresence>
+  )
+}
+
+function ScanLogView() {
+  const [, force] = useState(0)
+  useEffect(() => {
+    const iv = setInterval(() => force((n) => n + 1), 1500)
+    return () => clearInterval(iv)
+  }, [])
+  const log = getScanLog()
+  if (!log.length) return null
+  return (
+    <div className="mt-2.5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="flex items-center gap-1 text-[10.5px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-3)' }}>
+          <ScanSearch size={11} /> Shield scans
+        </span>
+        <button onClick={() => { clearScanLog(); force((n) => n + 1) }} className="text-[10.5px] hover:underline" style={{ color: 'var(--text-3)' }}>clear</button>
+      </div>
+      <div className="space-y-1">
+        {log.slice(0, 5).map((e, i) => (
+          <div key={i} className="flex items-center gap-2 text-[11px] px-2 py-1 rounded-[8px]" style={{ background: 'var(--surface)' }}>
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: e.blocked ? 'var(--danger)' : 'var(--warning)' }} />
+            <span className="flex-1 truncate" style={{ color: 'var(--text-2)' }}>
+              {e.where}: {e.findings.map((f) => `${f.label}×${f.count}`).join(', ')}{e.blocked ? ' — blocked' : ' — redacted'}
+            </span>
+            <span style={{ color: 'var(--text-3)' }}>{timeAgo(e.t)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

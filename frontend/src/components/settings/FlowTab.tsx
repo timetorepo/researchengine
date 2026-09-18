@@ -165,6 +165,8 @@ export function FlowTab() {
             </div>
             <ToggleRow label="Punctuation pauses" desc="Slight pause after . ? ! : ; and , for a natural read."
               value={settings.punctuationPauses ?? true} onChange={(v) => update({ punctuationPauses: v })} />
+            <ToggleRow label="Speed booster" desc="AIFlowEngine tightens every micro-delay so API models answer in the 1–4 second band while the composed cadence keeps quality high."
+              value={settings.flowBoost ?? true} onChange={(v) => update({ flowBoost: v })} />
           </div>
         </div>
       </div>

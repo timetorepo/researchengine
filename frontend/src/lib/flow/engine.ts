@@ -34,6 +34,9 @@ export interface ShapeConfig {
   /** 0..1 — how aggressively the pacer accelerates when the buffer grows */
   sensitivity: number
   punctuationPauses: boolean
+  /** AIFlowEngine speed booster: cuts micro-delays so API models feel 1–4s fast
+   *  while the composed cadence (and quality) is preserved. */
+  boost?: boolean
 }
 
 /** Per-mode micro-timing (ms). Standard/subtle flow continuously — the reveal
@@ -193,7 +196,10 @@ export class StreamShaper {
   /* ---- tokenization: pending raw text -> emit items with micro-timing ---- */
   private tokenize() {
     const t = TIMING[this.cfg.shaping]
-    const rand = (r: [number, number]) => r[0] + Math.random() * (r[1] - r[0])
+    // Boosted pacing tightens every micro-delay so API tokens land in the
+    // 1–4s band; without the flag the composed, gentler cadence is kept.
+    const k = this.cfg.boost ? 0.45 : 1
+    const rand = (r: [number, number]) => (r[0] + Math.random() * (r[1] - r[0])) * k
 
     while (this.pending.length > 0) {
       if (this.inCodeFence) {
@@ -341,11 +347,12 @@ export function createFlowRun(cfg: ShapeConfig, flush: (text: string) => void, h
 }
 
 export function shapeConfigFrom(settings: {
-  flowShaping?: ShapingMode; pacingSensitivity?: number; punctuationPauses?: boolean
+  flowShaping?: ShapingMode; pacingSensitivity?: number; punctuationPauses?: boolean; flowBoost?: boolean
 }): ShapeConfig {
   return {
     shaping: settings.flowShaping ?? 'standard',
     sensitivity: settings.pacingSensitivity ?? 0.5,
     punctuationPauses: settings.punctuationPauses ?? true,
+    boost: settings.flowBoost ?? true,
   }
 }

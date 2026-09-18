@@ -198,6 +198,28 @@ async function main() {
   // offline sandbox returns null gracefully; live returns a record
   check('findCommonsImage returns null or record', img === null || (!!img && !!img.url && !!img.attribution))
 
+  console.log('\n[14] Privacy Shield scanning')
+  const shield = await import('../src/lib/privacy/shield')
+  const leaky = 'my key is sk-abcdefghijklmnop1234 and google AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx ok'
+  const found = shield.scanSecrets(leaky)
+  check('shield detects secrets', found.length >= 2)
+  const redacted = shield.redactSecrets(leaky)
+  check('shield redacts secrets', redacted.includes('[REDACTED]') && !redacted.includes('sk-abcdefghijklmnop'))
+  const clean = shield.shieldOutbound('just a normal research question')
+  check('clean text passes untouched', clean.text.includes('normal research') && clean.findings.length === 0)
+  check('three privacy modes exposed', shield.PRIVACY_MODES.length === 3 && shield.PRIVACY_MODES.some((m) => m.id === 'topsecret'))
+
+  console.log('\n[15] AI tool registry')
+  const { TOOLS, toolSpecs } = await import('../src/lib/chat/tools')
+  const names = TOOLS.map((t) => t.name)
+  check('questionnaire tool present', names.includes('ask_user'))
+  check('connector tools present', names.includes('connector_search') && names.includes('connector_read'))
+  check('ide tools present', names.includes('ide_write_file') && names.includes('ide_run_command'))
+  check('mcp_call present', names.includes('mcp_call'))
+  const noProj = toolSpecs({ chatId: 'c', asstId: 'a' })
+  const withProj = toolSpecs({ chatId: 'c', asstId: 'a', project: 'p' })
+  check('ide tools gated to projects', withProj.length > noProj.length)
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed\n`)
   process.exit(failed === 0 ? 0 : 1)
 }

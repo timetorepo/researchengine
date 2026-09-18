@@ -1,7 +1,8 @@
 import React from 'react'
 import {
-  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge,
+  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code,
 } from 'lucide-react'
+import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
 import { IntegrationsTab } from './IntegrationsTab'
 import { SearchTab } from './SearchTab'
@@ -24,6 +25,7 @@ export const TABS = [
   { id: 'flow', label: 'AIFlowEngine', icon: Wind },
   { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'skills', label: 'Skills', icon: Wand2 },
+  { id: 'coding', label: 'Coding & MCP', icon: Code },
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'data', label: 'Data', icon: Database },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
@@ -40,6 +42,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'flow': return <FlowTab />
     case 'performance': return <PerformanceTab />
     case 'skills': return <SkillsTab />
+    case 'coding': return <CodingTab />
     case 'agents': return <AgentsTab />
     case 'data': return <DataTab />
     case 'shortcuts': return <ShortcutsTab />

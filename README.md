@@ -31,6 +31,10 @@ What makes it different: (1) **local by architecture, not by promise** — SQLit
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> | **Agent Flood** | Point a swarm of agents at a topic; each agent researches in parallel and files findings into your notebook |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F472B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> | **Articles & notebooks** | Long-form editor with AI blocks and Wikimedia-sourced imagery, plus a private notebook for retrieval-grounded chats |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> | **Private vault** | API keys encrypted at rest (AES-GCM with a passphrase-derived key) in your data directory — never in a browser sync service |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg> | **Coding mode** | A VS Code-style workspace over local projects: edit code with a floating AI pair-programmer, a guarded terminal, git, and project upload |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> | **Vision + tool calls** | Attach images for models that can see them; the AI can call tools — questionnaires, connectors, web search, files, commands, and MCP servers |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5a3.5 3.5 0 1 1 7 0c0 1.7-1 2.5-2 3.5h-3c-1-1-2-1.8-2-3.5z"/><path d="M12 2v2M4.9 4.9l1.4 1.4M2 12h2M19.1 4.9l-1.4 1.4M22 12h-2"/></svg> | **Connectors** | Local Files, Drive, Mail and Calendar you populate yourself — attach them in the chatbox or let the AI search them by tool call |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> | **Privacy Shield** | Three postures — No Privacy, Privated (default), Top Secret — controlling outbound scanning and what may leave the device at all |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> | **Runs anywhere** | One process on a laptop, a Raspberry Pi, a NAS, or a container; installable as a PWA; desktop app via Tauri |
 
 ---
@@ -433,8 +437,11 @@ For private-network access without opening ports, put the box on **Tailscale** o
 1. **Onboarding** walks you through theme, motion preferences, and provider setup. Every step is skippable and re-runnable from Settings.
 2. **Providers.** Settings -> Providers. Add an OpenAI-compatible endpoint (including NVIDIA NIM and local Ollama), Anthropic, Google Gemini, or paste nothing and rely on the demo model. Keys are stored encrypted in your data directory behind your vault passphrase.
 3. **Master prompts.** The system prompts that shape every answer are versioned and readable in Settings -> Prompts. Defaults are locked-good; user overrides are visually marked, and a diff shows exactly what changed.
-4. **AIFlowEngine.** Settings -> Flow. Choose the token-pruning mode (Efficient / Balanced / Fidelity), the stream-shaping mode (Off / Subtle / Standard / Cinematic), thinking-indicator verbosity, and pacing sensitivity.
+4. **AIFlowEngine.** Settings -> Flow. Choose the token-pruning mode (Efficient / Balanced / Fidelity), the stream-shaping mode (Off / Subtle / Standard / Cinematic), thinking-indicator verbosity, pacing sensitivity, and the speed booster that keeps API models in the 1–4 second band.
 5. **Performance profile.** `eco`, `balanced`, or `performance` — at launch via `--profile`, at runtime via Settings -> Performance.
+6. **Connectors.** Settings -> Integrations -> Local connector data. Populate Drive (file upload), Mail and Calendar with your own data, then attach them from the plug icon in the chatbox or let the AI reach them by tool call.
+7. **Coding.** Open Coding in the sidebar to create or upload a project (.zip / .tar.gz). A floating AI assistant edits files with you, runs commands behind an approval gate, and talks git. Add MCP servers under Settings -> Coding & MCP.
+8. **Glass surface.** Settings -> Appearance -> Glass surface. Solid (classic), Liquid Glass (refracts and bends what is behind the chatbox and Dynamic Island), or Blur (frosted, no refraction).
 
 ---
 
@@ -450,6 +457,10 @@ Everything Research Engine writes lives in one directory: `~/.research-engine/` 
 | `config.json` | Remembered port and profile |
 
 **What leaves the machine.** Only outbound calls to providers *you configured*, containing the prompts and context needed to answer. Web search calls go to the search backend you selected. Nothing else is transmitted: no telemetry, no analytics, no crash reports, no update pings.
+
+**Privacy Shield.** Three postures, switchable in the shield panel: **No Privacy** scans nothing; **Privated** (default) scans every interaction and redacts API keys and other secrets from anything outbound, keeping chats private to the outside world; **Top Secret** scans everything, blocks all outbound traffic except your selected chat provider (search runs offline with clearly-labeled local results), and never persists connection history. Secret-looking tokens are redacted to `[REDACTED]` before they can leave the device in any mode that scans.
+
+**Coding mode & MCP.** The Coding workspace edits projects stored in `<data-dir>/projects/` and runs commands only inside the project folder with secrets stripped from the environment. Destructive commands are blocked outright; mutating ones require explicit approval. MCP servers (Settings → Coding & MCP) are spawned on demand and killed after each tool listing or call; their environment variables are used but never logged.
 
 | Platform | Where data lives | Notes |
 |---|---|---|

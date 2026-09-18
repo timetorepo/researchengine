@@ -29,9 +29,11 @@ export async function webSearch(query: string, count = 6): Promise<SearchOutcome
   // ---- 1) local backend engines ----
   let demoFromBackend: Source[] | null = null
   try {
+    const { getPrivacyMode } = await import('@/lib/privacy/shield')
+    const offline = getPrivacyMode() === 'topsecret' ? '&offline=1' : ''
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), 9000)
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
+    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}${offline}`, { signal: ctrl.signal })
     clearTimeout(timer)
     if (res.ok) {
       const json = await res.json()

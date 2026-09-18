@@ -9,6 +9,11 @@ export const searchRoutes = new Hono()
 searchRoutes.get('/', async (c) => {
   const q = c.req.query('q')
   if (!q) return c.json({ error: 'Missing ?q=' }, 400)
+  // Top Secret privacy mode forces offline=1: clearly-labeled local results,
+  // zero external requests. The frontend decides the mode; the backend honors it.
+  if (c.req.query('offline') === '1') {
+    return c.json({ backend: 'demo', results: searchDemo(q) })
+  }
   const requested = c.req.query('backend') ?? process.env.SEARCH_BACKEND ?? 'searxng'
 
   const run = async (backend: string) => {

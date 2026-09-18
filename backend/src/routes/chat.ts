@@ -1,7 +1,113 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
+import { maskSecrets } from './secrets'
 
 export const chatRoutes = new Hono()
+
+/* ---- Common wire format (frontend -> this proxy) ----
+ * user/assistant messages: { role, content: string | Part[] , toolCalls? }
+ *   Part: { type:'text', text } | { type:'image', dataUrl, mime? }
+ * tool results: { role:'tool', toolCallId, name, content }
+ * tools (OpenAI-style): [{ type:'function', function:{ name, description, parameters } }]
+ */
+
+type Part = { type: 'text'; text: string } | { type: 'image'; dataUrl: string; mime?: string }
+
+const splitDataUrl = (dataUrl: string): { mime: string; data: string } => {
+  const m = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl ?? '')
+  return m ? { mime: m[1], data: m[2] } : { mime: 'image/png', data: dataUrl ?? '' }
+}
+
+function toOpenAIMessages(system: string, messages: any[]): any[] {
+  const out: any[] = system ? [{ role: 'system', content: system }] : []
+  for (const m of messages) {
+    if (m.role === 'tool') {
+      out.push({ role: 'tool', tool_call_id: m.toolCallId, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) })
+      continue
+    }
+    const msg: any = { role: m.role }
+    if (Array.isArray(m.content)) {
+      msg.content = m.content.map((p: Part) => p.type === 'image'
+        ? { type: 'image_url', image_url: { url: p.dataUrl } }
+        : { type: 'text', text: p.text })
+    } else {
+      msg.content = m.content ?? ''
+    }
+    if (m.toolCalls?.length) {
+      msg.tool_calls = m.toolCalls.map((t: any) => ({ id: t.id, type: 'function', function: { name: t.name, arguments: typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments ?? {}) } }))
+    }
+    out.push(msg)
+  }
+  return out
+}
+
+function toGeminiContents(messages: any[]): any[] {
+  const out: any[] = []
+  for (const m of messages) {
+    if (m.role === 'tool') {
+      out.push({ role: 'user', parts: [{ functionResponse: { name: m.name ?? 'tool', response: { result: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) } } }] })
+      continue
+    }
+    const role = m.role === 'assistant' ? 'model' : 'user'
+    const parts: any[] = []
+    if (Array.isArray(m.content)) {
+      for (const p of m.content as Part[]) {
+        if (p.type === 'image') {
+          const { mime, data } = splitDataUrl(p.dataUrl)
+          parts.push({ inline_data: { mime_type: mime, data } })
+        } else if (p.text) parts.push({ text: p.text })
+      }
+    } else if (typeof m.content === 'string' && m.content) {
+      parts.push({ text: m.content })
+    }
+    if (m.toolCalls?.length) {
+      for (const t of m.toolCalls) {
+        let args: any = t.arguments
+        if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = { input: args } } }
+        parts.push({ functionCall: { name: t.name, args: args ?? {} } })
+      }
+    }
+    if (parts.length) out.push({ role, parts })
+  }
+  return out
+}
+
+function toAnthropicBody(system: string, messages: any[]): { system?: string; messages: any[] } {
+  const out: any[] = []
+  for (const m of messages) {
+    if (m.role === 'tool') {
+      out.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: m.toolCallId, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }] })
+      continue
+    }
+    const content: any[] = []
+    if (Array.isArray(m.content)) {
+      for (const p of m.content as Part[]) {
+        if (p.type === 'image') {
+          const { mime, data } = splitDataUrl(p.dataUrl)
+          content.push({ type: 'image', source: { type: 'base64', media_type: mime, data } })
+        } else if (p.text) content.push({ type: 'text', text: p.text })
+      }
+    } else if (typeof m.content === 'string' && m.content) {
+      content.push({ type: 'text', text: m.content })
+    }
+    if (m.role === 'assistant' && m.toolCalls?.length) {
+      for (const t of m.toolCalls) {
+        let input: any = t.arguments
+        if (typeof input === 'string') { try { input = JSON.parse(input) } catch { input = {} } }
+        content.push({ type: 'tool_use', id: t.id, name: t.name, input: input ?? {} })
+      }
+    }
+    if (content.length) out.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content })
+  }
+  // Anthropic requires strictly alternating roles — merge consecutive same-role messages.
+  const merged: any[] = []
+  for (const m of out) {
+    const last = merged[merged.length - 1]
+    if (last && last.role === m.role) last.content = [...last.content, ...m.content]
+    else merged.push(m)
+  }
+  return { system: system || undefined, messages: merged.filter((m) => m.role === 'user' || merged.indexOf(m) > 0) }
+}
 
 /**
  * Same-origin streaming proxy. Browsers block CORS for several providers
@@ -19,6 +125,7 @@ chatRoutes.post('/', async (c) => {
   const messages: any[] = body.messages ?? []
   const maxTokens: number = body.maxTokens ?? 1024
   const temperature: number = body.temperature ?? 0.7
+  const tools: any[] | null = Array.isArray(body.tools) && body.tools.length ? body.tools : null
 
   if (!model) return c.json({ error: 'model is required' }, 400)
   if (!base) return c.json({ error: 'base is required' }, 400)
@@ -43,7 +150,11 @@ chatRoutes.post('/', async (c) => {
       'x-api-key': key,
       'anthropic-version': '2023-06-01',
     }
-    payload = { model, stream: true, system, max_tokens: maxTokens, temperature, messages }
+    const conv = toAnthropicBody(system, messages)
+    payload = { model, stream: true, max_tokens: maxTokens, temperature, system: conv.system ?? '', messages: conv.messages }
+    if (tools) {
+      payload.tools = tools.map((t) => ({ name: t.function.name, description: t.function.description ?? '', input_schema: t.function.parameters ?? { type: 'object', properties: {} } }))
+    }
   } else if (kind === 'gemini') {
     // Native Gemini streaming (SSE via alt=sse). Model ids carry no "models/" prefix here.
     url = `${base}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`
@@ -52,17 +163,20 @@ chatRoutes.post('/', async (c) => {
       'content-type': 'application/json',
       ...(key ? { 'x-goog-api-key': key } : {}),
     }
-    const contents = messages
-      .filter((m) => m?.role === 'user' || m?.role === 'assistant' || m?.role === 'model')
-      .map((m) => ({
-        role: m.role === 'assistant' ? 'model' : m.role,
-        parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '') }],
-      }))
     payload = {
-      contents,
+      contents: toGeminiContents(messages),
       generationConfig: { temperature, maxOutputTokens: maxTokens },
     }
     if (system) payload.systemInstruction = { parts: [{ text: system }] }
+    if (tools) {
+      payload.tools = [{
+        functionDeclarations: tools.map((t) => ({
+          name: t.function.name,
+          description: t.function.description ?? '',
+          parameters: t.function.parameters ?? { type: 'object', properties: {} },
+        })),
+      }]
+    }
   } else {
     url = `${base}/chat/completions`
     headers = {
@@ -73,7 +187,11 @@ chatRoutes.post('/', async (c) => {
     }
     payload = {
       model, stream: true, max_tokens: maxTokens, temperature,
-      messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
+      messages: toOpenAIMessages(system, messages),
+    }
+    if (tools) {
+      payload.tools = tools
+      payload.tool_choice = 'auto'
     }
     // NVIDIA NIM reasoning models (deepseek-v4, nemotron-thinking, qwq…)
     // hang indefinitely unless chat_template_kwargs enables thinking tokens
@@ -101,7 +219,8 @@ chatRoutes.post('/', async (c) => {
     if (upstream.status === 403 && isNvidia) {
       msg += ' — NVIDIA rejected this key for chat. Fixes that usually work: regenerate the key at build.nvidia.com/settings/api-keys, accept the model\'s terms on its catalog page, or pick a different model.'
     }
-    return c.json({ error: msg }, upstream.status as any)
+    // Never let an upstream error body leak a key-shaped string to the client.
+    return c.json({ error: maskSecrets(msg) }, upstream.status as any)
   }
 
   // Pass the SSE stream straight through.

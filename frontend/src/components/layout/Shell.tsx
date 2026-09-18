@@ -18,11 +18,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isOS = theme === 're-os'
   const dynamicIsland = useStore((s) => s.settings.dynamicIsland)
   const themeGradients = useStore((s) => s.settings.themeGradients)
+  const glassMode = useStore((s) => s.settings.glassMode)
 
   // Gradient style lives on <html> so every gradient surface follows.
   useEffect(() => {
     document.documentElement.dataset.grad = themeGradients ? 'theme' : 'vibrant'
   }, [themeGradients])
+
+  // Glass theme (chatbox + Dynamic Island) also lives on <html>.
+  useEffect(() => {
+    document.documentElement.dataset.glass = glassMode ?? 'off'
+  }, [glassMode])
 
   // Route enter transition only — no exit animation and no mode="wait".
   // An exit-gated AnimatePresence can strand the incoming page if the exit
