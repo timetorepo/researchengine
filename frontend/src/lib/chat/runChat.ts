@@ -167,7 +167,11 @@ export async function runChat(opts: RunOptions): Promise<void> {
   // ---- Coding-mode + MCP + privacy context ----
   if (opts.project) {
     system += `\n\nYou are in Coding mode inside the local project "${opts.project}". You can inspect and edit its files (ide_list_files, ide_read_file, ide_write_file), run commands with ide_run_command (the user approves each one), and use ide_git for git. Work carefully: prefer small, correct edits; explain what you changed.`
-    if (opts.projectTree) system += `\nProject files:\n${opts.projectTree.slice(0, 4000)}`
+    if (opts.projectTree) {
+      const tree = shieldOutbound(opts.projectTree.slice(0, 4000))
+      if (tree.findings.length) recordScan('coding project tree', tree.findings)
+      system += `\nProject files:\n${tree.text}`
+    }
   }
   system += mcpContextBlock()
   system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`
@@ -192,7 +196,13 @@ export async function runChat(opts: RunOptions): Promise<void> {
         }
       } catch { /* skip unreadable refs */ }
     }
-    if (parts.length) system += `\n\nThe user attached these connector items to the message — use them directly:\n\n${parts.join('\n\n')}`
+    if (parts.length) {
+      // Attached connector data is user content heading outbound — run it
+      // through the Privacy Shield so secrets are redacted per the active mode.
+      const joined = shieldOutbound(parts.join('\n\n'))
+      if (joined.findings.length) recordScan(`connector attachments (${opts.contextRefs!.length})`, joined.findings)
+      system += `\n\nThe user attached these connector items to the message — use them directly:\n\n${joined.text}`
+    }
   }
 
   // ---- resolve credentials ----
@@ -322,7 +332,11 @@ export async function runChat(opts: RunOptions): Promise<void> {
         current = [...current, { role: 'assistant', content: '', toolCalls: calls }]
         for (const tc of calls) {
           const result = await executeTool({ id: tc.id, name: tc.name, arguments: tc.arguments }, toolCtx, trace)
-          current.push({ role: 'tool', toolCallId: tc.id, name: tc.name, content: result })
+          // Tool output re-enters the outbound conversation on the next round
+          // (a file read could surface a .env secret) — shield it too.
+          const shielded = shieldOutbound(result)
+          if (shielded.findings.length) recordScan(`tool result · ${tc.name}`, shielded.findings)
+          current.push({ role: 'tool', toolCallId: tc.id, name: tc.name, content: shielded.text })
         }
         bumpIsland()
       }

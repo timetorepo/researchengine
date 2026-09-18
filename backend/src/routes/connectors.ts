@@ -76,8 +76,10 @@ export function connectorRoutes(rt: Runtime) {
     let item: any
     if (box === 'drive' || box === 'files') {
       const buf = Buffer.from(body.dataBase64 ?? '', 'base64')
-      if (!buf.length || buf.length > CAPS[box]) return c.json({ error: 'File missing or larger than 8 MB.' }, 413)
-      item = { id, name: String(body.name ?? 'file').slice(0, 200), mime: body.mime ?? 'application/octet-stream', text: body.text ?? null, dataBase64: body.dataBase64, addedAt: Date.now() }
+      if (buf.length > CAPS[box]) return c.json({ error: 'File larger than 8 MB.' }, 413)
+      // Accept either a file (dataBase64) or a pasted text note.
+      if (!buf.length && !String(body.text ?? '').trim()) return c.json({ error: 'Provide a file or some text.' }, 400)
+      item = { id, name: String(body.name ?? 'file').slice(0, 200), mime: body.mime ?? (buf.length ? 'application/octet-stream' : 'text/plain'), text: body.text ?? null, dataBase64: buf.length ? body.dataBase64 : null, addedAt: Date.now() }
     } else if (box === 'mail') {
       item = { id, from: body.from ?? '', to: body.to ?? '', subject: String(body.subject ?? '').slice(0, 300), body: String(body.body ?? '').slice(0, CAPS.mail), date: body.date ?? new Date().toISOString(), read: false, addedAt: Date.now() }
     } else {
