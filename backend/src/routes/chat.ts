@@ -217,7 +217,7 @@ chatRoutes.post('/', async (c) => {
       msg = j?.error?.message ?? j?.detail ?? j?.message ?? msg
     } catch { /* keep status */ }
     if (upstream.status === 403 && isNvidia) {
-      msg += ' — NVIDIA rejected this key for chat. Fixes that usually work: regenerate the key at build.nvidia.com/settings/api-keys, accept the model\'s terms on its catalog page, or pick a different model.'
+      msg += ' — NVIDIA rejected this key for chat. GET /v1/models can still work when inference is not enabled. Check that your NVIDIA organization has Public API Endpoints access, accept the model terms on its catalog page, regenerate the nvapi key, and try a currently chat-capable model. Research Engine already sends NVIDIA-NIM-Client/1.0, Bearer, and X-NVIDIA-API-Key headers.'
     }
     // Never let an upstream error body leak a key-shaped string to the client.
     return c.json({ error: maskSecrets(msg) }, upstream.status as any)

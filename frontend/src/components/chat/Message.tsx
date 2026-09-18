@@ -105,7 +105,8 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
 
         {/* Sources strip */}
         {msg.sources && msg.sources.length > 0 && (
-          <SourceStrip sources={msg.sources} hoverId={hoverSource} onHover={setHoverSource} />
+          <SourceStrip sources={msg.sources} hoverId={hoverSource} onHover={setHoverSource}
+            onDelete={(id) => useStore.setState((s) => ({ citations: s.citations.filter((c) => c.id !== id) }))} />
         )}
 
         {msg.error ? (

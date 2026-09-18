@@ -48,6 +48,9 @@ async function discover(kind: string, base: string, key: string, timeout: number
         const j: any = await res.json()
         msg = j?.error?.message ?? j?.detail ?? j?.message ?? msg
       } catch { /* non-JSON error body */ }
+      if (res.status === 403 && (base.includes('api.nvidia.com') || kind === 'nim')) {
+        msg += ' — NVIDIA may allow model listing while blocking inference. Check Public API Endpoints access, model terms, key status, and current model availability.'
+      }
       return { error: maskSecrets(msg), ms: Date.now() - t0 }
     }
     const json: any = await res.json()

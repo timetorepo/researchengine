@@ -60,8 +60,10 @@ export function ideRoutes(rt: Runtime) {
   const projectsRoot = resolve(join(rt.dataDir, 'projects'))
   mkdir(projectsRoot, { recursive: true }).catch(() => {})
 
-  const safeName = (name: string): string | null =>
-    /^[a-zA-Z0-9][a-zA-Z0-9 _.-]{0,63}$/.test(name) ? name : null
+  const safeName = (name: string): string | null => {
+    const normalized = String(name ?? '').trim().replace(/\s+/g, ' ')
+    return /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,63}$/u.test(normalized) ? normalized : null
+  }
 
   const projectDir = (name: string): string | null => {
     const n = safeName(name)

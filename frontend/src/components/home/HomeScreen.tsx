@@ -1,12 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud } from 'lucide-react'
+import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud, Search, Code2, Swords } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { InputBar } from '@/components/input/InputBar'
 import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
-import { TextGenerateEffect } from '@/components/ui/aceternity/TextGenerateEffect'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
@@ -32,6 +31,17 @@ export function HomeScreen() {
   const saved = useStore((s) => s.tokensSavedLifetime)
   const [chips, setChips] = useState<string[]>(() => pick(SUGGESTIONS))
   const [mathMode, setMathMode] = useState(false)
+  const verbs = [
+    { word: 'research', icon: Search, color: '#39c6c9' },
+    { word: 'build', icon: Code2, color: '#b7d46b' },
+    { word: 'challenge', icon: Swords, color: '#e5a85f' },
+  ] as const
+  const [verbIndex, setVerbIndex] = useState(0)
+
+  useEffect(() => {
+    const iv = setInterval(() => setVerbIndex((i) => (i + 1) % verbs.length), 2000)
+    return () => clearInterval(iv)
+  }, [])
 
   useEffect(() => {
     const iv = setInterval(() => setChips(pick(SUGGESTIONS)), 8000)
@@ -94,12 +104,18 @@ export function HomeScreen() {
           <h1 className="text-[clamp(26px,4vw,36px)] font-semibold" style={{ letterSpacing: '-0.02em' }}>
             {greeting()}.
           </h1>
-          <TextGenerateEffect
-            text="What would you like to research today?"
-            className="text-[15px] mt-1.5"
-            duration={0.7}
-            delay={0.15}
-          />
+          <div className="flex items-center justify-center gap-1.5 text-[15px] mt-1.5" aria-live="polite">
+            <span>What do you want to</span>
+            <AnimatePresence mode="wait" initial={false}>
+              {(() => { const item = verbs[verbIndex]; const Icon = item.icon; return (
+                <motion.span key={item.word} initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -9 }}
+                  transition={{ duration: 0.22 }} className="inline-flex items-center gap-1 font-medium" style={{ color: item.color }}>
+                  <Icon size={15} strokeWidth={1.8} aria-hidden="true" /> {item.word}
+                </motion.span>
+              ) })()}
+            </AnimatePresence>
+            <span>Today?</span>
+          </div>
         </motion.div>
 
         {/* Input */}
@@ -220,6 +236,7 @@ function GettingStarted() {
     { title: 'Ask with citations', desc: 'Toggle Search to get sourced answers with numbered citations.', icon: MessageSquare, grad: 'grad-research', go: () => navigate(`/chat/${useStore.getState().newChat()}`) },
     { title: 'Read & Quiz', desc: 'Drop a PDF or notes — get quizzes, flashcards and progress.', icon: GraduationCap, grad: 'grad-quiz', go: () => navigate('/quiz') },
     { title: 'Write articles', desc: 'Turn any conversation into a structured, exportable article.', icon: BookOpen, grad: 'grad-article', go: () => navigate('/articles') },
+    { title: 'Build in Coding', desc: 'Open a guarded local workspace to edit, run and ship code with AI.', icon: Code2, grad: 'grad-article', go: () => navigate('/code') },
     { title: 'Deploy an Agent Flood', desc: 'Point a squad of specialized agents at one objective.', icon: Users, grad: 'grad-research', go: () => navigate('/flood') },
   ]
   return (

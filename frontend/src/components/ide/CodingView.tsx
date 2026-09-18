@@ -44,8 +44,12 @@ export function CodingView() {
   }, [refresh])
 
   const create = async () => {
-    const name = newName.trim()
-    if (!name) return
+    const name = newName.trim().replace(/\s+/g, ' ')
+    if (!name) { setErr('Enter a project name.'); return }
+    if (name.length > 64) { setErr('Project names can be up to 64 characters.'); return }
+    if (!/^[\p{L}\p{N}][\p{L}\p{N} _.-]*$/u.test(name)) {
+      setErr('Use letters, numbers, spaces, dash, dot, or underscore.'); return
+    }
     setErr('')
     const res = await fetch('/api/ide/projects', {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -113,11 +117,17 @@ export function CodingView() {
                 <FolderPlus size={15} style={{ color: 'var(--primary)' }} />
                 <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
                   onKeyDown={(e) => e.key === 'Enter' && create()}
-                  placeholder="Project name — letters, numbers, dash, dot"
+                  maxLength={64}
+                  placeholder="Name your project"
+                  aria-label="Project name"
                   className="flex-1 px-3 py-1.5 rounded-[10px] text-[13px] outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
                 <button onClick={create} className="px-3 py-1.5 rounded-[10px] text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Create</button>
                 <button onClick={() => setCreating(false)} className="p-1.5 rounded-[10px]" style={{ color: 'var(--text-3)' }}><X size={14} /></button>
+              </div>
+              <div className="flex items-center justify-between mt-1.5 px-1">
+                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Letters, numbers, spaces, dash, dot, underscore</p>
+                <p className="text-[11px] tabular-nums" style={{ color: newName.length > 64 ? 'var(--danger)' : 'var(--text-3)' }}>{newName.length}/64</p>
               </div>
               {err && <p className="text-[12px] mt-1.5" style={{ color: 'var(--danger)' }}>{err}</p>}
             </motion.div>
