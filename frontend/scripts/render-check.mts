@@ -408,7 +408,7 @@ async function main() {
   root5.render(React.createElement(AboutTab as any, {}))
   await wait(250)
   const about = c5.textContent ?? ''
-  check('the author is credited', about.includes('timetorepo'))
+  check('the author is credited', about.includes('dnishh'))
   check('ReactBits is credited', about.includes('ReactBits'))
   check('HeroUI is credited', about.includes('HeroUI'))
   check('Aceternity UI is credited', about.includes('Aceternity UI'))
@@ -418,6 +418,18 @@ async function main() {
   check('a stale self-hosted build is called out', about.includes('older build'))
   check('the fix is spelled out', about.includes('npm run build'))
   check('clearing the cached shell is offered', about.includes('Clear cache'))
+  check('diagnostics are offered', about.includes('Diagnostics'))
+  check('the notice trail is reachable', about.includes('notices'))
+  // The trail is what makes a vague report findable: it keeps the exact wording
+  // of every notification, including ones that already faded from the screen.
+  const { useUI } = await import('../src/stores/useUI')
+  useUI.getState().toast('Length check', 'Keep it between 0 - 120 characters.', 'warning')
+  await wait(50)
+  const trail = useUI.getState().notices
+  check('a toast is written to the trail', trail.some((n) => n.body?.includes('0 - 120 characters')), JSON.stringify(trail.slice(-1)))
+  check('the trail records the tone', trail[trail.length - 1]?.tone === 'warning')
+  useUI.getState().clearNotices()
+  check('the trail can be cleared', useUI.getState().notices.length === 0)
   ;(globalThis as any).fetch = realFetch
   ;(win as any).fetch = realFetch
 

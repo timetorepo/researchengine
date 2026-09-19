@@ -623,9 +623,9 @@ If the banner does not appear but the page still looks stale, press **Clear cach
 
 ## License & credits
 
-MIT License — Copyright (c) 2026 timetorepo. See [LICENSE](LICENSE). Use it, fork it, ship it inside your own product, sell it; the only requirement is that the copyright notice and permission notice travel with the copy.
+MIT License — Copyright (c) 2026 dnishh. See [LICENSE](LICENSE). Use it, fork it, ship it inside your own product, sell it; the only requirement is that the copyright notice and permission notice travel with the copy.
 
-Made by [timetorepo](https://github.com/timetorepo/researchengine), in the open, with no company behind it.
+Made by **dnishh**, in the open, with no company behind it.
 
 Interface components come from [ReactBits](https://reactbits.dev), [HeroUI](https://www.heroui.com), [Aceternity UI](https://ui.aceternity.com), [Border Beam](https://beam.jakubantalik.com) and [Orbs](https://orbs.jakubantalik.com) by Jakub Antalik, and [Blobatar](https://blobatar.dev) by Alain — all credited inside the app under Settings → About.
 

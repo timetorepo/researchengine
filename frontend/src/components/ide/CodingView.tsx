@@ -63,14 +63,20 @@ export function CodingView() {
 
   const create = async () => {
     const check = nameCheck
-    if (!check.name) { setErr(check.reason ?? 'Enter a project name.'); return }
+    // A blank name — or one made only of characters no filesystem can store —
+    // is not an error to argue about: we name the project and open it. The
+    // `unique` flag makes the server pick the next free folder, so this path
+    // cannot collide either.
+    const auto = !check.name
+    const requested = check.name || 'untitled-project'
     setErr('')
     const res = await fetch('/api/ide/projects', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        name: check.name,
+        name: requested,
+        unique: auto || undefined,
         files: {
-          'README.md': `# ${check.name}\n\nCreated with Research Engine Coding.\n`,
+          'README.md': `# ${requested}\n\nCreated with Research Engine Coding.\n`,
           'main.py': 'print("hello")\n',
         },
       }),
@@ -78,16 +84,17 @@ export function CodingView() {
     const j = await res.json()
     if (res.status === 409) {
       // Not a dead end: the name is taken, so open what is already there.
-      const existing = j.existing ?? check.name
+      const existing = j.existing ?? requested
       setCreating(false); setNewName(''); setErr('')
       setOpen(existing); void refresh()
       ui.toast('That project already exists', `Opening “${existing}” instead.`, 'info')
       return
     }
     if (!res.ok) { setErr(j.error ?? 'Could not create the project.'); return }
-    const finalName = j.name ?? check.name
+    const finalName = j.name ?? requested
     setCreating(false); setNewName(''); setOpen(finalName); void refresh()
-    if (j.renamed || finalName !== check.name) ui.toast('Project created', `Saved in a folder named “${finalName}”.`, 'success')
+    if (auto) ui.toast('Project created', `Named it “${finalName}” — click the title to rename it.`, 'success')
+    else if (j.renamed || finalName !== requested) ui.toast('Project created', `Saved in a folder named “${finalName}”.`, 'success')
   }
 
   /** The sample button must always work — the server picks the next free name. */
@@ -191,7 +198,7 @@ export function CodingView() {
               </div>
               <div className="flex items-center justify-between mt-1.5 px-1 gap-3">
                 <p className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
-                  {!newName.trim() ? 'Anything you like — spaces, capitals, punctuation, emoji.'
+                  {!newName.trim() ? 'Anything you like — spaces, capitals, punctuation, emoji. Leave it blank and it is named for you.'
                     : !nameCheck.name ? (nameCheck.reason ?? '')
                     : nameCheck.changed ? <>Saved as <span style={{ color: 'var(--text-2)' }}>“{nameCheck.name}”</span> — characters Windows cannot store are cleaned up</>
                     : 'Press Enter to create it.'}

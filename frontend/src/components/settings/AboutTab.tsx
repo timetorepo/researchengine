@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import {
   Github, ShieldCheck, ExternalLink, Sparkles, RefreshCw, CheckCircle2, Heart, Scale,
-  Layers, Component, AlertTriangle, Eraser,
+  Layers, Component, AlertTriangle, Eraser, ClipboardList, Copy,
 } from 'lucide-react'
 import { AppLogo } from '@/components/shared/AppLogo'
 import { useStore } from '@/stores/useStore'
@@ -159,13 +159,13 @@ export function AboutTab() {
           <Heart size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
           <div className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
             <div className="flex items-center gap-2 mb-1">
-              <b style={{ color: 'var(--text)' }}>Made by timetorepo</b>
+              <b style={{ color: 'var(--text)' }}>Made by dnishh</b>
               <a href={REPO} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11.5px]" style={{ color: 'var(--primary)' }}>
                 source <ExternalLink size={10} />
               </a>
             </div>
             <p>
-              Research Engine is built in the open by <b style={{ color: 'var(--text)' }}>timetorepo</b> — a
+              Research Engine is built in the open by <b style={{ color: 'var(--text)' }}>dnishh</b> — a
               one-person project with no company behind it, no funding, and no roadmap dictated by an
               investor. Ideas, bug reports and pull requests all arrive through the repository and shape
               what gets built next.
@@ -249,6 +249,9 @@ export function AboutTab() {
         </div>
       </div>
 
+      {/* Diagnostics ---------------------------------------------------- */}
+      <DiagnosticsCard />
+
       {/* Actions ------------------------------------------------------- */}
       <div className="flex gap-2 flex-wrap mb-6">
         <a href={REPO} target="_blank" rel="noreferrer"
@@ -279,6 +282,89 @@ export function AboutTab() {
         <p className="mt-1.5">0.11.0-beta.1 — The working version: Agent Flood runs real parallel agents on configured models with real synthesis and live token/budget accounting; web search runs real engines and grounds answers in numbered citations; navigation hardening; error boundary.</p>
         <p className="mt-1.5">0.10.0-beta.1 — Onboarding flow, custom backgrounds (solid / image / blur / veil), UI component libraries, adaptive context pruning.</p>
         <p className="mt-1.5">0.9.0 — Agent Flood scratchpad, ResearchEngineOS Dynamic Island, citation export formats.</p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Everything we would otherwise have to ask you for.
+ *
+ * When a message appears that we cannot find anywhere in the code (say, a
+ * notification about character limits that no release ever shipped), this is how
+ * we find out what actually said it: the build fingerprint, whether a service
+ * worker is holding an old bundle, and every notification this session raised,
+ * in order, with the exact wording.
+ */
+function DiagnosticsCard() {
+  const ui = useUI()
+  const notices = useUI((s) => s.notices)
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const sw = typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+    ? (navigator.serviceWorker.controller ? 'a service worker is controlling this page' : 'no service worker control')
+    : 'service workers unavailable'
+  const cacheLine = typeof caches !== 'undefined' ? 'caches API present' : 'no caches API'
+
+  const report = () => [
+    `Research Engine ${APP_VERSION}`,
+    `build      : ${BUILD_ID}`,
+    `theme      : ${useStore.getState().settings.theme}`,
+    `model      : ${useStore.getState().settings.defaultModel || '(none)'}`,
+    `page       : ${typeof location !== 'undefined' ? location.href : ''}`,
+    `service    : ${sw}`,
+    `cache      : ${cacheLine}`,
+    `notices    : ${notices.length}`,
+    ...notices.slice(-20).map((n) => `  ${new Date(n.t).toISOString()}  [${n.tone}] ${n.title}${n.body ? ` — ${n.body}` : ''}`),
+  ].join('\n')
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(report())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      ui.toast('Copy failed', 'Select the text above and copy it by hand.', 'warning')
+    }
+  }
+
+  return (
+    <div className="surface p-4 mb-4">
+      <div className="flex items-start gap-3">
+        <ClipboardList size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <b className="text-[12.5px]" style={{ color: 'var(--text)' }}>Diagnostics</b>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setOpen((o) => !o)} className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+                {open ? 'Hide' : `Show notices (${notices.length})`}
+              </button>
+              <button onClick={copy} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[11.5px]"
+                style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                <Copy size={12} /> {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+          <div className="text-[11.5px] mt-1 leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            {sw.startsWith('a service worker') ? 'A cached app shell is active on this copy. ' : ''}
+            Report any message this app shows that <b>looks like it came from somewhere else</b> — the notice trail keeps the
+            exact wording, including notifications that have already faded.
+          </div>
+          {open && (
+            <>
+              <pre className="mt-2 px-2.5 py-2 rounded-[8px] text-[11px] max-h-56 overflow-auto whitespace-pre-wrap"
+                style={{ background: 'var(--elevated)', fontFamily: 'Geist Mono, ui-monospace, monospace', color: 'var(--text-2)' }}>
+                {report()}
+              </pre>
+              {notices.length > 0 && (
+                <button onClick={() => ui.clearNotices()} className="text-[11px] mt-1.5" style={{ color: 'var(--text-3)' }}>
+                  Clear the trail
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
