@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch,
-  TerminalSquare, Sparkles, Loader2, AlertTriangle, Check, X, MessageSquareText, FolderPlus, RefreshCw,
+  TerminalSquare, Sparkles, Loader2, AlertTriangle, Check, X, MessageSquareText, FolderPlus, RefreshCw, Code2,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -23,6 +23,7 @@ export function CodingView() {
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null)
   const [open, setOpen] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [demo, setDemo] = useState(false)
   const [newName, setNewName] = useState('')
   const [err, setErr] = useState('')
   const uploadRef = useRef<HTMLInputElement>(null)
@@ -82,6 +83,7 @@ export function CodingView() {
   }
 
   if (open) return <IDE project={open} onClose={() => { setOpen(null); void refresh() }} />
+  if (demo) return <DemoIDE onClose={() => setDemo(false)} />
 
   return (
     <div className="h-full overflow-y-auto">
@@ -140,6 +142,7 @@ export function CodingView() {
           <div className="surface p-8 text-center">
             <p className="text-[13.5px] mb-1">No projects yet.</p>
             <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>Create one, or upload a local project archive and let the AI fix or refine it.</p>
+            <button onClick={() => setDemo(true)} className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}><Code2 size={13} /> Preview the IDE</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -162,6 +165,36 @@ export function CodingView() {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+/* ================================================================== */
+/* IDE demo                                                            */
+/* ================================================================== */
+function DemoIDE({ onClose }: { onClose: () => void }) {
+  const [file, setFile] = useState('src/App.tsx')
+  const [code, setCode] = useState(`export function App() {\n  return <ResearchEngine />\n}\n`)
+  const files = ['src/App.tsx', 'src/main.tsx', 'package.json', 'README.md']
+  return (
+    <div className="h-full flex flex-col" style={{ background: 'var(--code-bg)' }}>
+      <div className="h-12 shrink-0 flex items-center gap-3 px-4" style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
+        <button onClick={onClose} className="text-[12px]" style={{ color: 'var(--text-2)' }}>Back to projects</button>
+        <span style={{ color: 'var(--text-3)' }}>/</span><span className="text-[13px] font-medium">IDE preview</span>
+        <span className="ml-auto px-2 py-1 rounded-full text-[10px]" style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>Read-only demo</span>
+      </div>
+      <div className="flex-1 min-h-0 grid grid-cols-[210px_minmax(0,1fr)]">
+        <aside className="p-3 overflow-y-auto" style={{ borderRight: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
+          <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--text-3)' }}>Explorer</div>
+          {files.map((f) => <button key={f} onClick={() => setFile(f)} className="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-left text-[12px] hover:bg-[var(--elevated)]" style={{ color: f === file ? 'var(--primary)' : 'var(--text-2)' }}><FileCode2 size={13} />{f}</button>)}
+          <div className="mt-5 text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--text-3)' }}>Source control</div><div className="text-[11px]" style={{ color: 'var(--text-3)' }}>No repository connected</div>
+        </aside>
+        <main className="min-w-0 flex flex-col">
+          <div className="h-10 flex items-center px-4 text-[12px]" style={{ borderBottom: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>{file}</div>
+          <textarea value={code} onChange={(e) => setCode(e.target.value)} spellCheck={false} className="flex-1 w-full resize-none p-5 outline-none font-mono text-[13px] leading-6" style={{ background: 'var(--code-bg)', color: 'var(--text)' }} aria-label="Demo code editor" />
+          <div className="h-32 shrink-0 p-3 font-mono text-[11px]" style={{ borderTop: '1px solid var(--surface-border)', background: '#0b0d10', color: 'var(--text-3)' }}><div className="flex items-center gap-2 mb-2" style={{ color: 'var(--text-2)' }}><TerminalSquare size={13} /> Terminal</div><div>$ npm test</div><div style={{ color: 'var(--success)' }}>Demo preview: commands are disabled until you open a real project.</div></div>
+        </main>
       </div>
     </div>
   )

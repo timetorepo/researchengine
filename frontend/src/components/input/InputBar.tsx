@@ -39,6 +39,8 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [refs, setRefs] = useState<ContextRef[]>([])
   const [connOpen, setConnOpen] = useState(false)
   const [modeOpen, setModeOpen] = useState(false)
+  const [modePos, setModePos] = useState({ left: 12, bottom: 80 })
+  const modeButtonRef = useRef<HTMLButtonElement>(null)
   const imgInputRef = useRef<HTMLInputElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const glassMode = useStore((s) => s.settings.glassMode)
@@ -193,7 +195,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
           {/* Bottom row: pills + send */}
           <div className="flex items-center gap-1.5 px-2.5 pb-2.5 pt-1">
             <div className="relative">
-              <button onClick={() => setModeOpen((v) => !v)} title="Choose a mode" aria-label="Choose a mode" aria-expanded={modeOpen}
+              <button ref={modeButtonRef} onClick={() => { const r = modeButtonRef.current?.getBoundingClientRect(); if (r) setModePos({ left: Math.max(12, Math.min(r.left, window.innerWidth - 246)), bottom: Math.max(12, window.innerHeight - r.top + 8) }); setModeOpen((v) => !v) }} title="Choose a mode" aria-label="Choose a mode" aria-expanded={modeOpen}
                 className="flex items-center justify-center w-9 h-8 rounded-full transition-colors hover:bg-[var(--elevated)]"
                 style={{ color: pills.some((p) => p.active) ? 'var(--primary)' : 'var(--text-3)', background: modeOpen ? 'var(--elevated)' : 'var(--surface)', border: '1px solid var(--surface-border)' }}>
                 <SlidersHorizontal size={15} strokeWidth={1.7} />
@@ -203,8 +205,8 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setModeOpen(false)} />
                     <motion.div initial={{ opacity: 0, y: 5, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }}
-                      className="absolute left-0 bottom-full mb-2 z-50 w-[230px] max-h-[calc(100vh-32px)] overflow-y-auto rounded-[14px] p-1.5"
-                      style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', boxShadow: '0 18px 44px -16px rgba(0,0,0,.55)' }}>
+                      className="fixed z-[80] w-[230px] max-h-[calc(100vh-24px)] overflow-y-auto rounded-[14px] p-1.5" style={{ left: modePos.left, bottom: modePos.bottom, background: 'var(--elevated)', border: '1px solid var(--surface-border)', boxShadow: '0 18px 44px -16px rgba(0,0,0,.55)' }}
+>
                       <div className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-3)' }}>Choose mode</div>
                       {pills.map((p) => (
                         <button key={p.id} onClick={() => { p.toggle(); setModeOpen(false) }} title={p.title} aria-pressed={p.active}
