@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch,
-  TerminalSquare, Sparkles, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,
+  TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,
   Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2,
-  FolderOpen, Circle, Wand2, ListChecks, Terminal as TerminalIcon, XCircle, ExternalLink,
+  FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -380,43 +380,43 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
   const previewLive = preview.running && preview.ready
 
   return (
-    <div className="h-full flex flex-col min-h-0" style={{ background: 'var(--bg)' }}>
+    <div className="ide-shell h-full flex flex-col min-h-0">
       {/* ---------- title bar ---------- */}
-      <div className="shrink-0 h-11 flex items-center gap-2 px-3" style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
-        <button onClick={onBack} className="text-[12px] px-2 py-1 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}>Projects</button>
-        <ChevronRight size={12} style={{ color: 'var(--text-3)' }} />
-        <FolderGit2 size={14} style={{ color: 'var(--primary)' }} />
-        <span className="text-[13px] font-medium truncate max-w-[240px]">{project}</span>
+      <div className="shrink-0 h-11 flex items-center gap-2 px-3" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+        <button onClick={onBack} className="ide-btn" title="Back to projects">
+          <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} /> Projects
+        </button>
+        <span className="w-px h-4" style={{ background: 'var(--ide-border)' }} />
+        <FolderGit2 size={13} style={{ color: 'var(--ide-accent)' }} />
+        <span className="text-[12.5px] font-medium truncate max-w-[240px]">{project}</span>
+        {dirty && <span className="ide-badge warn">unsaved</span>}
         <div className="flex-1" />
 
-        <button onClick={() => void startPreview()} disabled={starting}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium disabled:opacity-50"
-          style={{ background: previewLive ? 'color-mix(in srgb, var(--success) 16%, transparent)' : 'var(--elevated)', color: previewLive ? 'var(--success)' : 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
-          {starting ? <Loader2 size={12} className="animate-spin" /> : previewLive ? <Circle size={9} fill="currentColor" /> : <Play size={12} />}
-          {previewLive ? `localhost:${preview.port}` : preview.running ? 'booting…' : 'Run'}
+        {/* preview + hand-off to Design mode, mirroring the reference's segmented bar */}
+        <button onClick={() => void startPreview()} disabled={starting} className="ide-btn outlined"
+          title={previewLive ? `Preview running on port ${preview.port}` : 'Run the project and start the preview'}>
+          {starting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Run
         </button>
         {previewLive && preview.port && (
-          <button onClick={() => window.open(previewUrlFor(preview.port!, designSession.token), '_blank')} title="Open preview in a new tab"
-            className="p-1.5 rounded-[8px]" style={{ background: 'var(--elevated)', color: 'var(--text-3)', border: '1px solid var(--surface-border)' }}>
+          <button onClick={() => window.open(previewUrlFor(preview.port!, designSession.token), '_blank')}
+            className="ide-icon-btn" title="Open the preview in a new tab">
             <ExternalLink size={12} />
           </button>
         )}
-
-        <button onClick={onDesign}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium"
-          style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
-          <MonitorUp size={12} /> Design mode
-        </button>
-        <button onClick={() => void save()} disabled={!dirty}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium disabled:opacity-40"
-          style={{ background: 'var(--primary)', color: '#fff' }}>
+        <div className="ide-seg" role="tablist" aria-label="Workspace mode">
+          <button data-active="true" role="tab" aria-selected="true" title="Edit the code">Code</button>
+          <button className="design" data-active="false" role="tab" onClick={onDesign} title="Let the AI see and fix the running app">
+            <span className="inline-flex items-center gap-1"><MonitorUp size={11} /> Design</span>
+          </button>
+        </div>
+        <button onClick={() => void save()} disabled={!dirty} className="ide-btn primary" title="Save the active file (⌘S)">
           <Save size={12} /> Save
         </button>
       </div>
 
       <div className="flex-1 min-h-0 flex">
         {/* ---------- activity bar ---------- */}
-        <div className="w-11 shrink-0 flex flex-col items-center py-2 gap-1" style={{ borderRight: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
+        <div className="w-11 shrink-0 flex flex-col items-center py-2 gap-1" style={{ borderRight: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
           <ActivityBtn active={activity === 'explorer'} onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} icon={<Files size={17} />} label="Explorer" />
           <ActivityBtn active={activity === 'search'} onClick={() => { setActivity('search'); setSidebarOpen(true) }} icon={<SearchIcon size={17} />} label="Search" />
           <ActivityBtn active={activity === 'git'} onClick={() => { setActivity('git'); setSidebarOpen(true); setPanel('git'); setPanelOpen(true) }} icon={<GitBranch size={17} />} label="Source control" />
@@ -429,24 +429,23 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
 
         {/* ---------- side bar ---------- */}
         {sidebarOpen && (
-          <div className="w-[248px] shrink-0 min-h-0 flex flex-col" style={{ borderRight: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--surface) 70%, var(--bg))' }}>
+          <div className="w-[250px] shrink-0 min-h-0 flex flex-col" style={{ borderRight: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
             {activity === 'explorer' && (
               <>
                 <div className="shrink-0 flex items-center gap-1 px-3 py-2">
-                  <span className="text-[10px] uppercase tracking-wider font-semibold flex-1" style={{ color: 'var(--text-3)' }}>Explorer</span>
-                  <button title="New file" onClick={() => setNewFile('src/')} className="p-1 rounded" style={{ color: 'var(--text-3)' }}><FilePlus2 size={12} /></button>
-                  <button title="Refresh" onClick={onTreeRefresh} className="p-1 rounded" style={{ color: 'var(--text-3)' }}><RefreshCw size={12} /></button>
+                  <span className="ide-section flex-1">Explorer</span>
+                  <button title="New file" onClick={() => setNewFile('src/')} className="ide-icon-btn" style={{ width: 22, height: 22 }}><FilePlus2 size={12} /></button>
+                  <button title="Refresh the file tree" onClick={onTreeRefresh} className="ide-icon-btn" style={{ width: 22, height: 22 }}><RefreshCw size={12} /></button>
                 </div>
                 <div className="px-2 pb-1.5">
                   <input value={newFile} onChange={(e) => setNewFile(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && void addFile()}
                     placeholder="new/file.tsx + Enter" aria-label="New file path"
-                    className="w-full px-2 py-1 rounded-[8px] text-[11px] outline-none"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                    className="ide-input" style={{ fontSize: 11 }} />
                 </div>
                 <div className="flex-1 overflow-y-auto pb-3">
                   <Tree nodes={tree} depth={0} sel={active} onOpen={(p) => void openFile(p)} onDelete={deleteFile} />
-                  {!tree.length && <p className="px-3 text-[11px]" style={{ color: 'var(--text-3)' }}>Empty project — create a file above.</p>}
+                  {!tree.length && <p className="px-3 text-[11px]" style={{ color: 'var(--ide-faint)' }}>Empty project — create a file above.</p>}
                 </div>
               </>
             )}
@@ -454,20 +453,18 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
             {activity === 'search' && (
               <>
                 <div className="shrink-0 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: 'var(--text-3)' }}>Search in project</div>
+                  <div className="ide-section mb-1.5">Search in project</div>
                   <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)} autoFocus
-                    placeholder="text or file name…" aria-label="Search project"
-                    className="w-full px-2 py-1.5 rounded-[8px] text-[11.5px] outline-none"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                    placeholder="text or file name…" aria-label="Search project" className="ide-input" />
                 </div>
                 <div className="flex-1 overflow-y-auto px-1.5">
-                  {searching && <div className="flex items-center gap-2 px-2 text-[11px]" style={{ color: 'var(--text-3)' }}><Loader2 size={11} className="animate-spin" /> searching…</div>}
-                  {!searching && searchQ.trim().length > 1 && !results.length && <p className="px-2 text-[11px]" style={{ color: 'var(--text-3)' }}>No matches.</p>}
+                  {searching && <div className="flex items-center gap-2 px-2 text-[11px]" style={{ color: 'var(--ide-faint)' }}><Loader2 size={11} className="animate-spin" /> searching…</div>}
+                  {!searching && searchQ.trim().length > 1 && !results.length && <p className="px-2 text-[11px]" style={{ color: 'var(--ide-faint)' }}>No matches.</p>}
                   {results.map((r, i) => (
                     <button key={i} onClick={() => void openFile(r.path, r.line)}
-                      className="w-full text-left px-2 py-1.5 rounded-[6px] mb-0.5 hover:bg-[var(--elevated)]">
-                      <span className="block text-[10.5px] font-mono truncate" style={{ color: 'var(--primary)' }}>{r.path}:{r.line}</span>
-                      <span className="block text-[10.5px] truncate" style={{ color: 'var(--text-3)' }}>{r.text}</span>
+                      className="w-full text-left px-2 py-1.5 rounded-[6px] mb-0.5 hover:bg-[var(--ide-hover)]">
+                      <span className="block text-[10.5px] font-mono truncate" style={{ color: 'var(--ide-accent)' }}>{r.path}:{r.line}</span>
+                      <span className="block text-[10.5px] truncate" style={{ color: 'var(--ide-dim)' }}>{r.text}</span>
                     </button>
                   ))}
                 </div>
@@ -481,32 +478,25 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
         {/* ---------- editor column ---------- */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* tabs */}
-          <div className="shrink-0 flex items-stretch overflow-x-auto" style={{ borderBottom: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--surface) 70%, var(--bg))' }}>
+          <div className="shrink-0 flex items-stretch overflow-x-auto" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
             {files.map((f) => (
-              <div key={f.path}
-                className="group flex items-center gap-1.5 pl-3 pr-1.5 h-9 shrink-0"
-                style={{
-                  background: f.path === active ? 'var(--bg)' : 'transparent',
-                  borderRight: '1px solid var(--surface-border)',
-                  borderTop: f.path === active ? '1px solid var(--primary)' : '1px solid transparent',
-                }}>
-                <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="text-[11.5px] flex items-center gap-1.5"
-                  style={{ color: f.path === active ? 'var(--text)' : 'var(--text-3)' }}>
+              <div key={f.path} className="ide-tab group" data-active={f.path === active}>
+                <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="flex items-center gap-1.5">
                   <FileCode2 size={11} />
                   {f.path.split('/').pop()}
-                  {f.content !== f.disk && <Circle size={6} fill="var(--warning)" style={{ color: 'var(--warning)' }} />}
+                  {f.content !== f.disk && <Circle size={6} fill="currentColor" className="name-dirty" />}
                 </button>
                 <button onClick={() => closeFile(f.path)} aria-label={`Close ${f.path}`}
-                  className="p-0.5 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--text-3)' }}>
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--ide-faint)' }}>
                   <X size={11} />
                 </button>
               </div>
             ))}
-            {!files.length && <div className="flex items-center px-3 h-9 text-[11.5px]" style={{ color: 'var(--text-3)' }}>No file open</div>}
+            {!files.length && <div className="flex items-center px-3 h-8 text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>No file open</div>}
             <div className="flex-1" />
             <div className="hidden md:flex items-center gap-1 px-2">
               {!!breadcrumb.length && (
-                <span className="text-[10.5px] font-mono" style={{ color: 'var(--text-3)' }}>{breadcrumb.join(' › ')}</span>
+                <span className="text-[10.5px] font-mono" style={{ color: 'var(--ide-faint)' }}>{breadcrumb.join(' › ')}</span>
               )}
             </div>
           </div>
@@ -521,24 +511,27 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
               onSave={() => void save()}
             />
           ) : (
-            <div className="flex-1 min-h-0 flex items-center justify-center" style={{ background: 'var(--code-bg)' }}>
+            <div className="flex-1 min-h-0 flex items-center justify-center" style={{ background: 'var(--ide-code-bg)' }}>
               <div className="text-center">
-                <FileCode2 size={26} className="mx-auto mb-2" style={{ color: 'var(--text-3)', opacity: 0.6 }} />
-                <p className="text-[12.5px]" style={{ color: 'var(--text-3)' }}>Open a file from the explorer — or ask the AI to create one.</p>
+                <FileCode2 size={26} className="mx-auto mb-2" style={{ color: 'var(--ide-faint)' }} />
+                <p className="text-[12.5px]" style={{ color: 'var(--ide-dim)' }}>Open a file from the explorer — or ask the AI to create one.</p>
+                <p className="text-[11px] mt-1" style={{ color: 'var(--ide-faint)' }}>
+                  Press <span className="ide-badge">⌘B</span> explorer · <span className="ide-badge">⌘J</span> panel · <span className="ide-badge">⌘S</span> save
+                </p>
               </div>
             </div>
           )}
 
           {/* bottom panel */}
-          <div className="shrink-0 flex flex-col" style={{ borderTop: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--surface) 70%, var(--bg))', height: panelOpen ? 220 : undefined }}>
+          <div className="ide-panel-strip shrink-0 flex flex-col" style={{ height: panelOpen ? 220 : undefined }}>
             <div className="flex items-center gap-1 px-2 py-1 shrink-0">
               <PanelTabBtn active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
               <PanelTabBtn active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
               <PanelTabBtn active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
               <PanelTabBtn active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
               <div className="flex-1" />
-              <span className="text-[10px] hidden lg:block" style={{ color: 'var(--text-3)' }}>commands run inside the project folder · destructive commands are blocked · mutating ones need approval</span>
-              <button onClick={() => setPanelOpen((v) => !v)} className="p-1 rounded" style={{ color: 'var(--text-3)' }} aria-label="Toggle panel">
+              <span className="text-[10px] hidden lg:block" style={{ color: 'var(--ide-faint)' }}>commands run inside the project folder · destructive commands are blocked · mutating ones need approval</span>
+              <button onClick={() => setPanelOpen((v) => !v)} className="ide-icon-btn" style={{ width: 22, height: 22 }} aria-label="Toggle panel">
                 <ChevronDown size={12} style={{ transform: panelOpen ? undefined : 'rotate(180deg)' }} />
               </button>
             </div>
@@ -558,7 +551,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
           {agentOpen && (
             <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 384, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="shrink-0 min-h-0 overflow-hidden" style={{ borderLeft: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
+              className="shrink-0 min-h-0 overflow-hidden" style={{ borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
               <div className="w-[384px] h-full">
                 <AgentPanel project={project} tree={tree} onClose={() => setAgentOpen(false)} />
               </div>
@@ -568,16 +561,16 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
       </div>
 
       {/* ---------- status bar ---------- */}
-      <div className="shrink-0 h-6 flex items-center gap-3 px-3 text-[10.5px]" style={{ borderTop: '1px solid var(--surface-border)', background: 'var(--surface)', color: 'var(--text-3)' }}>
-        <button onClick={onBack} className="flex items-center gap-1 hover:underline"><FolderOpen size={10} /> {project}</button>
+      <div className="shrink-0 h-[26px] flex items-center gap-3 px-3 text-[10.5px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)', color: 'var(--ide-faint)' }}>
+        <button onClick={onBack} className="flex items-center gap-1 hover:text-[var(--ide-dim)]"><FolderOpen size={10} /> {project}</button>
         <span className="flex items-center gap-1"><GitBranch size={10} /> local</span>
-        {current && <span className="font-mono">{current.path}</span>}
-        {dirty && <span className="flex items-center gap-1" style={{ color: 'var(--warning)' }}><Circle size={6} fill="currentColor" /> unsaved</span>}
+        {current && <span className="font-mono" style={{ color: 'var(--ide-dim)' }}>{current.path}</span>}
+        {dirty && <span className="flex items-center gap-1" style={{ color: 'var(--ide-warn)' }}><Circle size={6} fill="currentColor" /> unsaved</span>}
         {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span>{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
         <div className="flex-1" />
-        {streaming && <span className="flex items-center gap-1" style={{ color: 'var(--primary)' }}><span className="re-orb re-orb-sm" /> AI working</span>}
-        <span className="flex items-center gap-1">
-          <Circle size={6} fill={previewLive ? 'var(--success)' : 'var(--text-3)'} style={{ color: previewLive ? 'var(--success)' : 'var(--text-3)' }} />
+        {streaming && <span className="flex items-center gap-1" style={{ color: 'var(--ide-accent)' }}><span className="re-orb re-orb-sm" /> AI working</span>}
+        <span className="flex items-center gap-1" style={{ color: previewLive ? 'var(--ide-accent)' : undefined }}>
+          <Circle size={6} fill="currentColor" />
           {previewLive ? `preview :${preview.port}` : preview.running ? 'preview booting' : 'preview stopped'}
         </span>
         <span>{files.length} open</span>
@@ -585,17 +578,17 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
 
       {/* unsaved-changes guard */}
       {confirmClose && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'var(--scrim, rgba(0,0,0,.45))' }}>
-          <div className="surface-elevated p-4 max-w-[360px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+          <div className="p-4 max-w-[380px] rounded-[12px]" style={{ background: 'var(--ide-elevated)', border: '1px solid var(--ide-border-strong)' }}>
             <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle size={14} style={{ color: 'var(--warning)' }} />
+              <AlertTriangle size={14} style={{ color: 'var(--ide-warn)' }} />
               <span className="text-[13px] font-medium">Discard unsaved changes?</span>
             </div>
-            <p className="text-[12px] mb-3" style={{ color: 'var(--text-2)' }}><span className="font-mono">{confirmClose}</span> has edits that are not saved.</p>
+            <p className="text-[12px] mb-3" style={{ color: 'var(--ide-dim)' }}><span className="font-mono">{confirmClose}</span> has edits that are not saved.</p>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => { const p = confirmClose; doClose(p) }} className="px-3 py-1.5 rounded-[8px] text-[12px]" style={{ background: 'var(--danger)', color: '#fff' }}>Discard</button>
-              <button onClick={() => { void save(confirmClose); doClose(confirmClose) }} className="px-3 py-1.5 rounded-[8px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>Save</button>
-              <button onClick={() => setConfirmClose(null)} className="px-3 py-1.5 rounded-[8px] text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>Cancel</button>
+              <button onClick={() => { const p = confirmClose; doClose(p) }} className="ide-btn outlined" style={{ color: 'var(--ide-danger)' }}>Discard</button>
+              <button onClick={() => { void save(confirmClose); doClose(confirmClose) }} className="ide-btn primary">Save</button>
+              <button onClick={() => setConfirmClose(null)} className="ide-btn outlined">Cancel</button>
             </div>
           </div>
         </div>
@@ -610,18 +603,18 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
 function ActivityBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
     <button onClick={onClick} title={label} aria-label={label}
-      className="relative w-9 h-9 rounded-[10px] flex items-center justify-center"
-      style={{ background: active ? 'var(--elevated)' : 'transparent', color: active ? 'var(--primary)' : 'var(--text-3)' }}>
+      className="relative w-9 h-9 rounded-[8px] flex items-center justify-center transition-colors"
+      style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
       {icon}
-      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: 'var(--primary)' }} />}
+      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: 'var(--ide-accent)' }} />}
     </button>
   )
 }
 
 function PanelTabBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-1.5 px-2 py-1 rounded-[8px] text-[11.5px]"
-      style={{ background: active ? 'var(--elevated)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-3)' }}>
+    <button onClick={onClick} className="flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-[11.5px]"
+      style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-text)' : 'var(--ide-faint)' }}>
       {icon}{label}
     </button>
   )
@@ -642,14 +635,14 @@ function Tree({ nodes, depth, sel, onOpen, onDelete, onParent }: {
             <div className="group flex items-center" style={{ paddingLeft: 6 + depth * 11 }}>
               <button
                 onClick={() => n.dir ? setOpenDirs((d) => ({ ...d, [n.path]: !dirOpen })) : onOpen(n.path)}
-                className="flex-1 min-w-0 flex items-center gap-1 py-[3px] pr-1 text-left text-[11.5px] rounded-[6px] hover:bg-[var(--elevated)]"
-                style={{ color: sel === n.path ? 'var(--primary)' : 'var(--text-2)' }}>
+                className="flex-1 min-w-0 flex items-center gap-1 py-[3px] pr-1 text-left text-[11.5px] rounded-[5px] hover:bg-[var(--ide-hover)]"
+                style={{ color: sel === n.path ? 'var(--ide-accent)' : 'var(--ide-dim)' }}>
                 {n.dir ? (dirOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />) : <FileCode2 size={11} style={{ opacity: 0.7 }} />}
                 <span className="truncate">{n.name}</span>
               </button>
               {!n.dir && onDelete && (
                 <button onClick={() => onDelete(n.path)} title={`Delete ${n.path}`}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--text-3)' }}>
+                  className="p-1 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--ide-faint)' }}>
                   <Trash2 size={10} />
                 </button>
               )}
@@ -677,7 +670,7 @@ function TerminalPanel({ project }: { project: string }) {
   const [history, setHistory] = useState<string[]>([])
   const [histIdx, setHistIdx] = useState(-1)
   const endRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [lines])
+  useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth' }) }, [lines])
 
   const run = async (command: string, confirmed = false) => {
     setBusy(true)
@@ -702,24 +695,26 @@ function TerminalPanel({ project }: { project: string }) {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-relaxed">
+      <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)' }}>
         {lines.map((l, i) => (
-          <div key={i} className="whitespace-pre-wrap" style={{ color: l.kind === 'cmd' ? 'var(--primary)' : l.kind === 'err' ? 'var(--danger)' : l.kind === 'info' ? 'var(--text-3)' : 'var(--text)' }}>{l.text}</div>
+          <div key={i} className="whitespace-pre-wrap" style={{ color: l.kind === 'cmd' ? 'var(--ide-accent)' : l.kind === 'err' ? 'var(--ide-danger)' : l.kind === 'info' ? 'var(--ide-faint)' : 'var(--ide-text)' }}>{l.text}</div>
         ))}
         {confirm && (
           <div className="flex items-center gap-2 mt-2">
-            <AlertTriangle size={13} style={{ color: 'var(--warning)' }} />
-            <span className="text-[11px]" style={{ color: 'var(--text-2)' }}>Approve “{confirm.command}”?</span>
-            <button onClick={() => { const c = confirm.command; setConfirm(null); void run(c, true) }}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px]" style={{ background: 'var(--success)', color: '#fff' }}><Check size={11} /> Run</button>
-            <button onClick={() => setConfirm(null)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}><X size={11} /> Skip</button>
+            <AlertTriangle size={13} style={{ color: 'var(--ide-warn)' }} />
+            <span className="text-[11px]" style={{ color: 'var(--ide-dim)' }}>Approve “{confirm.command}”?</span>
+            <button onClick={() => { const c = confirm.command; setConfirm(null); void run(c, true) }} className="ide-btn primary" style={{ height: 20 }}>
+              <Check size={11} /> Run
+            </button>
+            <button onClick={() => setConfirm(null)} className="ide-btn outlined" style={{ height: 20 }}>
+              <X size={11} /> Skip
+            </button>
           </div>
         )}
         <div ref={endRef} />
       </div>
-      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
-        <span className="font-mono text-[11.5px]" style={{ color: 'var(--primary)' }}>$</span>
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ borderTop: '1px solid var(--ide-border)' }}>
+        <span className="font-mono text-[11.5px]" style={{ color: 'var(--ide-accent)' }}>$</span>
         <input value={cmd} onChange={(e) => setCmd(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && cmd.trim() && !busy) { const c = cmd.trim(); setCmd(''); setHistIdx(-1); void run(c) }
@@ -729,8 +724,8 @@ function TerminalPanel({ project }: { project: string }) {
           disabled={busy}
           placeholder={busy ? 'running…' : 'npm test, git status, ls — Enter to run'}
           aria-label="Terminal command"
-          className="flex-1 bg-transparent outline-none font-mono text-[11.5px]" style={{ color: 'var(--text)' }} />
-        {busy && <Loader2 size={13} className="animate-spin" style={{ color: 'var(--text-3)' }} />}
+          className="flex-1 bg-transparent outline-none font-mono text-[11.5px]" style={{ color: 'var(--ide-text)' }} />
+        {busy && <Loader2 size={13} className="animate-spin" style={{ color: 'var(--ide-faint)' }} />}
       </div>
     </div>
   )
@@ -789,13 +784,13 @@ function GitSidebar({ project }: { project: string }) {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 flex items-center gap-1 px-3 py-2">
-        <span className="text-[10px] uppercase tracking-wider font-semibold flex-1" style={{ color: 'var(--text-3)' }}>Source control</span>
-        <button onClick={() => void refresh()} className="p-1 rounded" style={{ color: 'var(--text-3)' }} title="Refresh"><RefreshCw size={12} /></button>
+        <span className="ide-section flex-1">Source control</span>
+        <button onClick={() => void refresh()} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Refresh git status"><RefreshCw size={12} /></button>
       </div>
       {!isRepo ? (
         <div className="px-3 flex flex-col gap-2">
-          <p className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Not a git repository yet.</p>
-          <button onClick={() => void git('init')} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
+          <p className="text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>Not a git repository yet.</p>
+          <button onClick={() => void git('init')} className="ide-btn primary" style={{ justifyContent: 'center' }}>
             <GitBranch size={12} /> git init
           </button>
         </div>
@@ -803,18 +798,17 @@ function GitSidebar({ project }: { project: string }) {
         <>
           <div className="px-3 pb-2">
             <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={2} placeholder="Commit message…"
-              className="w-full p-2 rounded-[8px] text-[11.5px] outline-none resize-none"
-              style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+              className="w-full p-2 rounded-[6px] text-[11.5px] outline-none resize-none"
+              style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }} />
             <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }}
               disabled={busy || !msg.trim()}
-              className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium disabled:opacity-40"
-              style={{ background: 'var(--primary)', color: '#fff' }}>
+              className="ide-btn primary mt-1.5" style={{ width: '100%', justifyContent: 'center' }}>
               {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Commit all
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-3 font-mono text-[10.5px] leading-relaxed">
-            <div className="text-[10px] uppercase tracking-wider mb-1 font-sans" style={{ color: 'var(--text-3)' }}>changes</div>
-            <div className="whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>{status || 'working tree clean'}</div>
+            <div className="ide-section mb-1">changes</div>
+            <div className="whitespace-pre-wrap" style={{ color: 'var(--ide-dim)' }}>{status || 'working tree clean'}</div>
           </div>
         </>
       )}
@@ -828,8 +822,8 @@ function GitPanel({ project }: { project: string }) {
   if (!isRepo) {
     return (
       <div className="h-full flex items-center justify-center gap-3">
-        <span className="text-[12px]" style={{ color: 'var(--text-3)' }}>Not a git repository yet.</span>
-        <button onClick={() => void git('init')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
+        <span className="text-[12px]" style={{ color: 'var(--ide-faint)' }}>Not a git repository yet.</span>
+        <button onClick={() => void git('init')} className="ide-btn primary">
           <GitBranch size={13} /> git init
         </button>
       </div>
@@ -837,23 +831,22 @@ function GitPanel({ project }: { project: string }) {
   }
   return (
     <div className="h-full min-h-0 grid grid-cols-2">
-      <div className="overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed" style={{ borderRight: '1px solid var(--surface-border)' }}>
-        <div className="text-[10px] uppercase tracking-wider mb-1 font-sans" style={{ color: 'var(--text-3)' }}>status</div>
-        <div className="whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>{status || 'working tree clean'}</div>
-        <div className="text-[10px] uppercase tracking-wider mt-3 mb-1 font-sans" style={{ color: 'var(--text-3)' }}>log</div>
-        <div className="whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>{log || 'no commits yet'}</div>
+      <div className="overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed" style={{ borderRight: '1px solid var(--ide-border)' }}>
+        <div className="ide-section mb-1">status</div>
+        <div className="whitespace-pre-wrap" style={{ color: 'var(--ide-dim)' }}>{status || 'working tree clean'}</div>
+        <div className="ide-section mt-3 mb-1">log</div>
+        <div className="whitespace-pre-wrap" style={{ color: 'var(--ide-dim)' }}>{log || 'no commits yet'}</div>
       </div>
       <div className="p-3 flex flex-col gap-2">
         <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={3} placeholder="Commit message…"
-          className="w-full p-2 rounded-[10px] text-[12px] outline-none resize-none"
-          style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+          className="w-full p-2 rounded-[6px] text-[12px] outline-none resize-none"
+          style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }} />
         <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }} disabled={busy || !msg.trim()}
-          className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium disabled:opacity-40"
-          style={{ background: 'var(--primary)', color: '#fff' }}>
+          className="ide-btn primary" style={{ justifyContent: 'center' }}>
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Stage all &amp; commit
         </button>
-        {out && <div className="text-[10.5px] font-mono" style={{ color: 'var(--text-3)' }}>{out.slice(0, 400)}</div>}
-        <button onClick={() => void refresh()} className="flex items-center gap-1 text-[11px] self-start" style={{ color: 'var(--text-3)' }}>
+        {out && <div className="text-[10.5px] font-mono" style={{ color: 'var(--ide-faint)' }}>{out.slice(0, 400)}</div>}
+        <button onClick={() => void refresh()} className="ide-btn self-start">
           <RefreshCw size={11} /> refresh
         </button>
       </div>
@@ -887,34 +880,33 @@ function ProblemsPanel({ project, onDesign }: { project: string; onDesign: () =>
   return (
     <div className="h-full flex flex-col min-h-0">
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <span className="text-[11px] flex-1" style={{ color: 'var(--text-3)' }}>
+        <span className="text-[11px] flex-1" style={{ color: 'var(--ide-faint)' }}>
           Scan the running app for layout, contrast, accessibility and console problems.
         </span>
-        <button onClick={() => void scan()} disabled={loading}
-          className="flex items-center gap-1 px-2 py-1 rounded-[8px] text-[11px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+        <button onClick={() => void scan()} disabled={loading} className="ide-btn outlined">
           {loading ? <Loader2 size={11} className="animate-spin" /> : <Bug size={11} />} scan
         </button>
-        <button onClick={onDesign} className="flex items-center gap-1 px-2 py-1 rounded-[8px] text-[11px]" style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+        <button onClick={onDesign} className="ide-btn outlined" style={{ color: 'var(--ide-accent)' }}>
           <MonitorUp size={11} /> open design mode
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-3 pb-2">
-        {findings === null && <p className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Press scan to look at the running app.</p>}
-        {findings?.length === 0 && <p className="text-[11.5px]" style={{ color: 'var(--success)' }}>No problems found.</p>}
+        {findings === null && <p className="text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>Press scan to look at the running app.</p>}
+        {findings?.length === 0 && <p className="text-[11.5px]" style={{ color: 'var(--ide-accent)' }}>No problems found.</p>}
         {findings?.map((f, i) => (
           <div key={i} className="flex items-start gap-2 py-1 text-[11.5px]">
-            <AlertTriangle size={12} className="mt-[2px] shrink-0" style={{ color: f.kind === 'console' || f.kind === 'network' ? 'var(--danger)' : 'var(--warning)' }} />
+            <AlertTriangle size={12} className="mt-[2px] shrink-0" style={{ color: f.kind === 'console' || f.kind === 'network' ? 'var(--ide-danger)' : 'var(--ide-warn)' }} />
             <div className="min-w-0">
-              <div style={{ color: 'var(--text-2)' }}>{f.msg}</div>
-              {f.sel && <div className="font-mono text-[10px]" style={{ color: 'var(--text-3)' }}>{f.sel}</div>}
+              <div style={{ color: 'var(--ide-dim)' }}>{f.msg}</div>
+              {f.sel && <div className="font-mono text-[10px]" style={{ color: 'var(--ide-faint)' }}>{f.sel}</div>}
             </div>
           </div>
         ))}
         {!!consoleErrs.length && (
           <>
-            <div className="text-[10px] uppercase tracking-wider font-semibold mt-2 mb-1" style={{ color: 'var(--text-3)' }}>console</div>
+            <div className="ide-section mt-2 mb-1">console</div>
             {consoleErrs.map((c, i) => (
-              <div key={i} className="font-mono text-[10.5px] py-0.5 break-words" style={{ color: c.level === 'error' ? 'var(--danger)' : 'var(--warning)' }}>{c.text}</div>
+              <div key={i} className="font-mono text-[10.5px] py-0.5 break-words" style={{ color: c.level === 'error' ? 'var(--ide-danger)' : 'var(--ide-warn)' }}>{c.text}</div>
             ))}
           </>
         )}
@@ -945,20 +937,20 @@ function PreviewLogPanel({ project, preview, onStart, starting, onDesign }: {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 text-[11px]" style={{ color: 'var(--text-3)' }}>
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 text-[11px]" style={{ color: 'var(--ide-faint)' }}>
         <span className="flex-1">
           {preview.running
             ? `running (${preview.kind}) on port ${preview.port ?? '—'}${preview.ready ? '' : ' · booting'}`
             : 'no preview running for this project'}
         </span>
-        <button onClick={onStart} disabled={starting || preview.running} className="flex items-center gap-1 px-2 py-1 rounded-[8px] disabled:opacity-40" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+        <button onClick={onStart} disabled={starting || preview.running} className="ide-btn outlined">
           {starting ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />} start
         </button>
-        <button onClick={onDesign} className="flex items-center gap-1 px-2 py-1 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+        <button onClick={onDesign} className="ide-btn outlined" style={{ color: 'var(--ide-accent)' }}>
           <MonitorUp size={11} /> design mode
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-3 pb-2 font-mono text-[10.5px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+      <div className="flex-1 overflow-y-auto px-3 pb-2 font-mono text-[10.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)', color: 'var(--ide-dim)' }}>
         {logs.slice(-80).map((l, i) => <div key={i} className="whitespace-pre-wrap break-words">{l}</div>)}
         {!logs.length && <div>no output yet — the dev server's stdout and stderr land here</div>}
       </div>

@@ -215,47 +215,50 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
 
   /* ---------------- render ---------------- */
   return (
-    <div className="h-full flex flex-col min-h-0" style={{ background: 'var(--bg)' }}>
+    <div className="ide-shell h-full flex flex-col min-h-0">
       {/* ---- header ---- */}
-      <div className="shrink-0 flex items-center gap-2 px-3 h-11" style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
-        <button onClick={onExit} className="text-[12px] px-2 py-1 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}>Code</button>
-        <ChevronRight size={12} style={{ color: 'var(--text-3)' }} />
-        <MonitorUp size={14} style={{ color: 'var(--primary)' }} />
-        <span className="text-[13px] font-medium truncate max-w-[220px]">Design · {project}</span>
+      <div className="shrink-0 flex items-center gap-2 px-3 h-11" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+        <button onClick={onExit} className="ide-btn" title="Back to the code">
+          <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} /> Code
+        </button>
+        <span className="w-px h-4" style={{ background: 'var(--ide-border)' }} />
+        <MonitorUp size={13} style={{ color: 'var(--ide-accent)' }} />
+        <span className="text-[12.5px] font-medium truncate max-w-[200px]">Design · {project}</span>
 
-        <span className="flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded-full text-[10.5px]"
-          style={{
-            background: state?.ready ? 'color-mix(in srgb, var(--success) 14%, transparent)' : state?.running ? 'color-mix(in srgb, var(--warning) 14%, transparent)' : 'var(--elevated)',
-            color: state?.ready ? 'var(--success)' : state?.running ? 'var(--warning)' : 'var(--text-3)',
-          }}>
+        <span className={state?.ready ? 'ide-badge accent' : state?.running ? 'ide-badge warn' : 'ide-badge'}>
           {starting || (state?.running && !state.ready)
             ? <Loader2 size={10} className="animate-spin" />
             : <span style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor' }} />}
           {starting ? 'starting…' : state?.ready ? `live · :${state.port}` : state?.running ? 'booting' : 'offline'}
         </span>
-        {state?.kind && <span className="text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>{state.kind}</span>}
+        {state?.kind && <span className="ide-badge">{state.kind}</span>}
 
         <div className="flex-1" />
 
+        {/* the reference's segmented [Preview | Code] + Design switch */}
+        <div className="ide-seg" role="tablist" aria-label="Workspace mode">
+          <button data-active="true" role="tab" aria-selected="true">Preview</button>
+          <button data-active="false" role="tab" onClick={onExit}>Code</button>
+          <button className="design" data-active="true" role="tab" aria-selected="true">
+            <span className="inline-flex items-center gap-1"><MonitorUp size={11} /> Design</span>
+          </button>
+        </div>
+
         <button onClick={() => void call('reload', async () => { await designSession.call('reload', {}, 4000).catch(() => null) })}
-          disabled={!state?.ready} title="Reload the preview"
-          className="p-1.5 rounded-[8px] disabled:opacity-40" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+          disabled={!state?.ready} title="Reload the preview" className="ide-icon-btn">
           <RefreshCw size={13} />
         </button>
-        <button onClick={() => void start(true)} disabled={starting} title="Restart the dev server (picks up code changes)"
-          className="p-1.5 rounded-[8px] disabled:opacity-40" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+        <button onClick={() => void start(true)} disabled={starting} title="Restart the dev server (picks up code changes)" className="ide-icon-btn">
           {starting ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
         </button>
         {state?.running && (
           <button onClick={() => void call('stop', async () => { await stopPreview(project); await refreshStatus() })}
-            title="Stop the preview" className="p-1.5 rounded-[8px]" style={{ background: 'var(--elevated)', color: 'var(--text-3)', border: '1px solid var(--surface-border)' }}>
+            title="Stop the preview" className="ide-icon-btn">
             <Square size={12} />
           </button>
         )}
         <button onClick={() => port && window.open(previewUrlFor(port, designSession.token), '_blank')} disabled={!port}
-          title="Open the preview in a new tab"
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-[8px] text-[11.5px] disabled:opacity-40"
-          style={{ background: 'var(--primary)', color: '#fff' }}>
+          title="Open the preview in a new tab" className="ide-btn primary">
           <ExternalLink size={11} /> Open
         </button>
       </div>
@@ -264,78 +267,72 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
         {/* ---- preview column ---- */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* address + device bar */}
-          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5" style={{ borderBottom: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--surface) 60%, var(--bg))' }}>
-            <div className="flex items-center gap-1.5 flex-1 min-w-0 px-2 py-1 rounded-[8px]"
-              style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)' }}>
-              <span className="text-[10.5px] shrink-0" style={{ color: designSession.lastUrl ? 'var(--success)' : 'var(--text-3)' }}>
+          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 flex-wrap" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+            <div className="flex items-center gap-1.5 flex-1 min-w-[180px] px-2 py-1 rounded-[6px]"
+              style={{ background: '#0c1110', border: '1px solid var(--ide-border)' }}>
+              <span className="text-[10.5px] shrink-0" style={{ color: designSession.lastUrl ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
                 {designSession.lastUrl ? '●' : '○'}
               </span>
               <input value={pathDraft} onChange={(e) => setPathDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') void navigate() }}
                 placeholder={designSession.lastUrl || 'path — e.g. /settings'}
                 aria-label="Preview path"
-                className="flex-1 min-w-0 bg-transparent outline-none text-[11.5px] font-mono" style={{ color: 'var(--text)' }} />
-              {pathDraft && <button onClick={() => void navigate()} className="text-[10.5px] px-1.5 rounded" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>Go</button>}
+                className="flex-1 min-w-0 bg-transparent outline-none text-[11.5px] font-mono" style={{ color: 'var(--ide-text)' }} />
+              {pathDraft && <button onClick={() => void navigate()} className="text-[10.5px] px-1.5 rounded" style={{ background: 'var(--ide-accent-soft)', color: 'var(--ide-accent)' }}>Go</button>}
             </div>
 
             {/* device presets */}
-            <div className="flex items-center gap-0.5 p-0.5 rounded-[8px]" style={{ background: 'var(--elevated)' }}>
+            <div className="flex items-center gap-0.5 p-0.5 rounded-[8px]" style={{ background: '#0c1110', border: '1px solid var(--ide-border)' }}>
               {DEVICE_PRESETS.map((d) => (
                 <button key={d.id} onClick={() => { setDevice(d.id); if (d.w) setSize({ w: d.w, h: d.h }) }}
                   title={`${d.label}${d.w ? ` · ${d.w}×${d.h}` : ''}`}
                   className="flex items-center gap-1 px-2 py-1 rounded-[6px] text-[10.5px]"
-                  style={{ background: device === d.id ? 'var(--surface)' : 'transparent', color: device === d.id ? 'var(--text)' : 'var(--text-3)' }}>
+                  style={{ background: device === d.id ? 'var(--ide-active)' : 'transparent', color: device === d.id ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
                   {deviceIcon(d.id)}<span className="hidden xl:inline">{d.label}</span>
                 </button>
               ))}
             </div>
 
-            <div className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--text-3)' }}>
+            <div className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
               {(['fill', 'desktop', 'phone'] as DeviceId[]).includes(device) && device === 'fill' ? null : (
                 <>
                   <input type="number" value={size.w} onChange={(e) => setSize((s) => ({ ...s, w: Number(e.target.value) || 0 }))}
-                    className="w-14 px-1.5 py-1 rounded-[6px] tabular-nums outline-none" style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                    className="w-14 px-1.5 py-1 rounded-[6px] tabular-nums outline-none" style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }} />
                   <span>×</span>
                   <input type="number" value={size.h} onChange={(e) => setSize((s) => ({ ...s, h: Number(e.target.value) || 0 }))}
                     className="w-14 px-1.5 py-1 rounded-[6px] tabular-nums outline-none" style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
                 </>
               )}
               <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))} aria-label="Zoom"
-                className="px-1 py-1 rounded-[6px] outline-none" style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}>
+                className="px-1 py-1 rounded-[6px] outline-none" style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }}>
                 {[0.5, 0.75, 1, 1.25].map((z) => <option key={z} value={z}>{Math.round(z * 100)}%</option>)}
               </select>
             </div>
 
             <button onClick={() => void togglePick()} title="Pick an element from the screen"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-[8px] text-[11px]"
-              style={{ background: picking ? 'color-mix(in srgb, var(--primary) 22%, transparent)' : 'var(--elevated)', color: picking ? 'var(--primary)' : 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+              className={picking ? 'ide-btn primary' : 'ide-btn outlined'}>
               <Crosshair size={11} /> Pick
             </button>
-            <button onClick={() => void capture(false)} disabled={!state?.ready} title="Capture the visible screen"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-[8px] text-[11px] disabled:opacity-40"
-              style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+            <button onClick={() => void capture(false)} disabled={!state?.ready} title="Capture the visible screen" className="ide-btn outlined">
               {busy === 'capture' ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />} Shot
             </button>
             <button onClick={() => void sendScreenToAI()} disabled={!state?.ready} title="Capture and attach the screen to your next message"
-              className="flex items-center gap-1 px-2 py-1.5 rounded-[8px] text-[11px] disabled:opacity-40"
-              style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+              className="ide-btn primary">
               <Send size={11} /> Send to AI
             </button>
           </div>
 
           {/* the screen */}
-          <div className="flex-1 min-h-0 overflow-auto p-4 grid place-items-center" style={{ background: 'color-mix(in srgb, var(--code-bg) 85%, var(--bg))' }}>
+          <div className="flex-1 min-h-0 overflow-auto p-4 grid place-items-center" style={{ background: 'var(--ide-bg)' }}>
             {!port ? (
               <div className="max-w-[420px] text-center flex flex-col items-center gap-3 py-10">
-                <MonitorUp size={30} style={{ color: 'var(--text-3)' }} />
-                <div className="text-[13px]" style={{ color: 'var(--text-2)' }}>{starting ? 'Starting the project…' : 'No preview running yet.'}</div>
-                <div className="text-[11.5px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+                <MonitorUp size={30} style={{ color: 'var(--ide-faint)' }} />
+                <div className="text-[13px]" style={{ color: 'var(--ide-dim)' }}>{starting ? 'Starting the project…' : 'No preview running yet.'}</div>
+                <div className="text-[11.5px] leading-relaxed" style={{ color: 'var(--ide-faint)' }}>
                   The IDE runs your project's own dev server, injects a design bridge into it, and shows it here.
                   Everything the AI does — reading the layout, clicking, asserting, screenshotting — happens on this screen.
                 </div>
-                <button onClick={() => void start(false)} disabled={starting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium disabled:opacity-50"
-                  style={{ background: 'var(--primary)', color: '#fff' }}>
+                <button onClick={() => void start(false)} disabled={starting} className="ide-btn primary">
                   {starting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Start preview
                 </button>
               </div>
@@ -347,8 +344,8 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                     height: device === 'fill' ? '100%' : size.h,
                     minWidth: device === 'fill' ? 480 : undefined,
                     maxWidth: '100%',
-                    border: '1px solid var(--surface-border)',
-                    boxShadow: '0 20px 60px -24px rgba(0,0,0,0.6)',
+                    border: '1px solid var(--ide-border-strong)',
+                    boxShadow: '0 20px 60px -24px rgba(0,0,0,0.7)',
                     background: '#fff',
                   }}>
                   <iframe
@@ -371,23 +368,23 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           </div>
 
           {/* findings strip */}
-          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px]" style={{ borderTop: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
-            <Activity size={12} style={{ color: findings.length ? 'var(--warning)' : 'var(--success)' }} />
-            <span style={{ color: 'var(--text-2)' }}>
+          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+            <Activity size={12} style={{ color: findings.length ? 'var(--ide-warn)' : 'var(--ide-accent)' }} />
+            <span style={{ color: 'var(--ide-dim)' }}>
               {snapshot ? `${snapshot.elements.length} elements · ${snapshot.counts.interactive} controls · ${findings.length} finding(s)` : 'waiting for the page…'}
             </span>
-            {errorCount > 0 && <span style={{ color: 'var(--danger)' }}>· {errorCount} console/network error(s)</span>}
+            {errorCount > 0 && <span style={{ color: 'var(--ide-danger)' }}>· {errorCount} console/network error(s)</span>}
             <div className="flex-1" />
-            <span className="tabular-nums" style={{ color: 'var(--text-3)' }}>{snapshot ? `${snapshot.viewport.w}×${snapshot.viewport.h}` : ''}</span>
-            <button onClick={() => void readScreen()} className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--primary)' }}>
+            <span className="tabular-nums" style={{ color: 'var(--ide-faint)' }}>{snapshot ? `${snapshot.viewport.w}×${snapshot.viewport.h}` : ''}</span>
+            <button onClick={() => void readScreen()} className="ide-btn" style={{ color: 'var(--ide-accent)' }}>
               {busy === 'read' ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} re-read screen
             </button>
           </div>
         </div>
 
         {/* ---- right rail ---- */}
-        <aside className="w-[430px] shrink-0 min-h-0 flex flex-col" style={{ borderLeft: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
-          <div className="shrink-0 flex items-center gap-0.5 px-2 py-1.5" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+        <aside className="w-[430px] shrink-0 min-h-0 flex flex-col" style={{ borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+          <div className="shrink-0 flex items-center gap-0.5 px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <RailTab active={tab === 'assistant'} onClick={() => setTab('assistant')} icon={<Sparkles size={12} />} label="Assistant" />
             <RailTab active={tab === 'inspect'} onClick={() => setTab('inspect')} icon={<Search size={12} />} label="Inspect" badge={snapshot?.elements.length} />
             <RailTab active={tab === 'tests'} onClick={() => setTab('tests')} icon={<ListChecks size={12} />} label="Tests" badge={controls.length} />
@@ -397,8 +394,8 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
 
           {banner && (
             <div className="shrink-0 flex items-start gap-2 mx-3 mt-2 p-2 rounded-[8px] text-[11px]"
-              style={{ background: 'color-mix(in srgb, var(--warning) 12%, transparent)', color: 'var(--text-2)' }}>
-              <AlertTriangle size={12} className="mt-[1px] shrink-0" style={{ color: 'var(--warning)' }} />
+              style={{ background: 'color-mix(in srgb, var(--ide-warn) 12%, transparent)', color: 'var(--ide-dim)' }}>
+              <AlertTriangle size={12} className="mt-[1px] shrink-0" style={{ color: 'var(--ide-warn)' }} />
               <span className="flex-1">{banner}</span>
               <button onClick={() => setBanner('')}><X size={11} /></button>
             </div>
@@ -409,12 +406,12 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
               <AgentPanel project={project} tree={tree} design />
             )}
 
+
             {tab === 'inspect' && (
               <div className="h-full overflow-y-auto p-3 flex flex-col gap-3">
                 <input value={inspectFilter} onChange={(e) => setInspectFilter(e.target.value)}
                   placeholder="Filter elements by selector, text or role…"
-                  className="px-2.5 py-1.5 rounded-[8px] text-[11.5px] outline-none"
-                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                  className="ide-input" />
                 {selected && (
                   <ElementDetail data={selected} onClose={() => setSelected(null)} onHighlight={highlight} />
                 )}
@@ -422,16 +419,16 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                   {filteredElements.slice(0, 80).map((el: any) => (
                     <button key={el.uid} onClick={() => { setSelected(el); void highlight(el.sel) }}
                       className="text-left px-2 py-1.5 rounded-[8px] flex items-start gap-2"
-                      style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-                      <span className="text-[9.5px] px-1 py-0.5 rounded shrink-0" style={{ background: 'var(--bg)', color: 'var(--primary)' }}>{el.role}</span>
+                      style={{ background: 'var(--ide-elevated)', border: '1px solid var(--ide-border)' }}>
+                      <span className="text-[9.5px] px-1 py-0.5 rounded shrink-0" style={{ background: 'var(--ide-accent-soft)', color: 'var(--ide-accent)' }}>{el.role}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[11px] truncate" style={{ color: 'var(--text)' }}>{el.name || el.text || el.sel}</span>
-                        <span className="block text-[10px] font-mono truncate" style={{ color: 'var(--text-3)' }}>{el.sel}</span>
+                        <span className="block text-[11px] truncate" style={{ color: 'var(--ide-text)' }}>{el.name || el.text || el.sel}</span>
+                        <span className="block text-[10px] font-mono truncate" style={{ color: 'var(--ide-faint)' }}>{el.sel}</span>
                       </span>
-                      {!!el.flags?.length && <AlertTriangle size={11} className="mt-[3px] shrink-0" style={{ color: 'var(--warning)' }} />}
+                      {!!el.flags?.length && <AlertTriangle size={11} className="mt-[3px] shrink-0" style={{ color: 'var(--ide-warn)' }} />}
                     </button>
                   ))}
-                  {!filteredElements.length && <p className="text-[11.5px] px-1" style={{ color: 'var(--text-3)' }}>Nothing to show yet — re-read the screen once the preview is live.</p>}
+                  {!filteredElements.length && <p className="text-[11.5px] px-1" style={{ color: 'var(--ide-faint)' }}>Nothing to show yet — re-read the screen once the preview is live.</p>}
                 </div>
               </div>
             )}
@@ -449,9 +446,9 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             {tab === 'console' && (
               <div className="h-full overflow-y-auto p-3 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-wider font-semibold flex-1" style={{ color: 'var(--text-3)' }}>Findings · {findings.length}</span>
+                  <span className="ide-section flex-1">Findings · {findings.length}</span>
                   <button onClick={() => void call('audit', async () => { await designSession.call('console', { clear: true }); await readScreen() })}
-                    className="text-[10.5px] px-2 py-1 rounded-[6px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+                    className="ide-btn outlined">
                     clear console
                   </button>
                 </div>
@@ -464,51 +461,51 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                       {list.map((f, i) => (
                         <button key={i} onClick={() => f.sel && void highlight(f.sel)}
                           className="text-left px-2 py-1.5 rounded-[8px] text-[11px] leading-snug"
-                          style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                          style={{ background: 'var(--ide-elevated)', border: '1px solid var(--ide-border)', color: 'var(--ide-dim)' }}>
                           {f.msg}
-                          {f.sel && <span className="block font-mono text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-3)' }}>{f.sel}</span>}
+                          {f.sel && <span className="block font-mono text-[10px] mt-0.5 truncate" style={{ color: 'var(--ide-faint)' }}>{f.sel}</span>}
                         </button>
                       ))}
                     </div>
                   )
                 })}
-                <div className="text-[10px] uppercase tracking-wider font-semibold mt-2" style={{ color: 'var(--text-3)' }}>Console · {consoleEntries.length}</div>
+                <div className="ide-section mt-2">Console · {consoleEntries.length}</div>
                 {consoleEntries.map((c, i) => (
                   <div key={i} className="px-2 py-1.5 rounded-[8px] font-mono text-[10.5px] leading-snug break-words"
                     style={{
-                      background: 'var(--code-bg)',
-                      border: '1px solid var(--surface-border)',
-                      color: c.level === 'error' ? 'var(--danger)' : c.level === 'warn' ? 'var(--warning)' : 'var(--text-2)',
+                      background: 'var(--ide-code-bg)',
+                      border: '1px solid var(--ide-border)',
+                      color: c.level === 'error' ? 'var(--ide-danger)' : c.level === 'warn' ? 'var(--ide-warn)' : 'var(--ide-dim)',
                     }}>
                     {c.text}{c.repeat && c.repeat > 1 ? ` (×${c.repeat})` : ''}
                   </div>
                 ))}
-                {!consoleEntries.length && <p className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Console is quiet.</p>}
+                {!consoleEntries.length && <p className="text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>Console is quiet.</p>}
               </div>
             )}
 
             {tab === 'captures' && (
               <div className="h-full overflow-y-auto p-3 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-wider font-semibold flex-1" style={{ color: 'var(--text-3)' }}>Screenshots · {captures.length}</span>
-                  <button onClick={() => void capture(false)} disabled={!state?.ready} className="text-[10.5px] px-2 py-1 rounded-[6px]" style={{ background: 'var(--primary)', color: '#fff' }}>viewport</button>
-                  <button onClick={() => void capture(true)} disabled={!state?.ready} className="text-[10.5px] px-2 py-1 rounded-[6px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>full page</button>
+                  <span className="ide-section flex-1">Screenshots · {captures.length}</span>
+                  <button onClick={() => void capture(false)} disabled={!state?.ready} className="ide-btn primary" style={{ height: 22 }}>viewport</button>
+                  <button onClick={() => void capture(true)} disabled={!state?.ready} className="ide-btn outlined" style={{ height: 22 }}>full page</button>
                 </div>
                 {captures.map((c) => (
-                  <div key={c.id} className="rounded-[10px] overflow-hidden" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
+                  <div key={c.id} className="rounded-[10px] overflow-hidden" style={{ border: '1px solid var(--ide-border)', background: 'var(--ide-elevated)' }}>
                     <img src={c.dataUrl} alt={c.label} className="w-full block" />
                     <div className="flex items-center gap-2 px-2 py-1.5">
-                      <span className="text-[10.5px] flex-1 truncate" style={{ color: 'var(--text-3)' }}>{c.label} · {c.w}×{c.h}</span>
-                      <a href={c.dataUrl} download={`${project}-${c.id}.jpg`} className="p-1 rounded" style={{ color: 'var(--text-3)' }} title="Download"><Download size={11} /></a>
+                      <span className="text-[10.5px] flex-1 truncate" style={{ color: 'var(--ide-faint)' }}>{c.label} · {c.w}×{c.h}</span>
+                      <a href={c.dataUrl} download={`${project}-${c.id}.jpg`} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Download"><Download size={11} /></a>
                       <button onClick={() => { attachmentTray.add({ type: 'image', name: `${project}-${c.id}.jpg`, dataUrl: c.dataUrl }); setTab('assistant'); setBanner('Screenshot attached — send your next message.') }}
-                        className="text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+                        className="ide-btn" style={{ color: 'var(--ide-accent)' }}>
                         attach
                       </button>
                     </div>
                   </div>
                 ))}
                 {!captures.length && (
-                  <p className="text-[11.5px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+                  <p className="text-[11.5px] leading-relaxed" style={{ color: 'var(--ide-faint)' }}>
                     No screenshots yet. Press <strong>Shot</strong>, or ask the AI — its <span className="font-mono">design_screenshot</span> tool drops pictures here.
                   </p>
                 )}
@@ -517,14 +514,14 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           </div>
 
           {/* preview log drawer */}
-          <div className="shrink-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
-            <button onClick={() => setLogOpen((v) => !v)} className="w-full flex items-center gap-2 px-3 py-1.5 text-[10.5px]" style={{ color: 'var(--text-3)' }}>
+          <div className="shrink-0" style={{ borderTop: '1px solid var(--ide-border)' }}>
+            <button onClick={() => setLogOpen((v) => !v)} className="w-full flex items-center gap-2 px-3 py-1.5 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
               <Bug size={11} /> preview log
               <span className="flex-1" />
               <ChevronRight size={11} style={{ transform: logOpen ? 'rotate(90deg)' : undefined, transition: 'transform 120ms' }} />
             </button>
             {logOpen && (
-              <div className="max-h-40 overflow-y-auto px-3 pb-2 font-mono text-[10px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+              <div className="max-h-40 overflow-y-auto px-3 pb-2 font-mono text-[10px] leading-relaxed" style={{ background: 'var(--ide-code-bg)', color: 'var(--ide-dim)' }}>
                 {(state?.logs ?? []).slice(-60).map((l, i) => <div key={i} className="whitespace-pre-wrap break-words">{l}</div>)}
                 {!state?.logs?.length && <div>no output yet</div>}
               </div>
@@ -540,11 +537,11 @@ function RailTab({ active, onClick, icon, label, badge, tone }: {
   active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number; tone?: string
 }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[11.5px]"
-      style={{ background: active ? 'var(--elevated)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-3)' }}>
+    <button onClick={onClick} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[6px] text-[11.5px]"
+      style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-text)' : 'var(--ide-faint)' }}>
       {icon}{label}
       {!!badge && (
-        <span className="text-[9.5px] px-1 rounded-full tabular-nums" style={{ background: tone ? `color-mix(in srgb, ${tone} 20%, transparent)` : 'var(--bg)', color: tone ?? 'var(--text-3)' }}>{badge}</span>
+        <span className="ide-badge" style={{ padding: '2px 6px', color: tone, borderColor: tone ? `color-mix(in srgb, ${tone} 40%, transparent)` : undefined }}>{badge}</span>
       )}
     </button>
   )
@@ -553,8 +550,8 @@ function RailTab({ active, onClick, icon, label, badge, tone }: {
 function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
   return (
     <div className="flex gap-2 text-[10.5px] py-[1px]">
-      <span className="w-24 shrink-0" style={{ color: 'var(--text-3)' }}>{k}</span>
-      <span className="flex-1 min-w-0 break-words" style={{ color: 'var(--text-2)', fontFamily: mono ? 'var(--font-mono)' : undefined }}>{v}</span>
+      <span className="w-24 shrink-0" style={{ color: 'var(--ide-faint)' }}>{k}</span>
+      <span className="flex-1 min-w-0 break-words" style={{ color: 'var(--ide-dim)', fontFamily: mono ? 'var(--font-mono)' : undefined }}>{v}</span>
     </div>
   )
 }
@@ -562,14 +559,14 @@ function Row({ k, v, mono = true }: { k: string; v: string; mono?: boolean }) {
 function ElementDetail({ data, onClose, onHighlight }: { data: any; onClose: () => void; onHighlight: (sel: string) => void }) {
   const styles = data.styles ?? {}
   return (
-    <div className="rounded-[10px] p-2.5" style={{ background: 'var(--elevated)', border: '1px solid var(--primary)' }}>
+    <div className="rounded-[10px] p-2.5" style={{ background: 'var(--ide-elevated)', border: '1px solid var(--ide-accent)' }}>
       <div className="flex items-center gap-2 mb-1.5">
-        <Layers size={12} style={{ color: 'var(--primary)' }} />
+        <Layers size={12} style={{ color: 'var(--ide-accent)' }} />
         <span className="text-[11.5px] font-medium flex-1 truncate">{data.role} · {data.tag}</span>
-        <button onClick={() => onHighlight(data.sel)} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg)', color: 'var(--primary)' }}>highlight</button>
-        <button onClick={onClose} style={{ color: 'var(--text-3)' }}><X size={11} /></button>
+        <button onClick={() => onHighlight(data.sel)} className="ide-btn" style={{ height: 20, color: 'var(--ide-accent)' }}>highlight</button>
+        <button onClick={onClose} className="ide-icon-btn" style={{ width: 20, height: 20 }} aria-label="Close inspector"><X size={11} /></button>
       </div>
-      {data.sel && <div className="font-mono text-[10px] mb-2 break-all" style={{ color: 'var(--text-3)' }}>{data.sel}</div>}
+      {data.sel && <div className="font-mono text-[10px] mb-2 break-all" style={{ color: 'var(--ide-faint)' }}>{data.sel}</div>}
       {!!data.flags?.length && (
         <div className="flex flex-wrap gap-1 mb-2">
           {data.flags.map((f: string, i: number) => (

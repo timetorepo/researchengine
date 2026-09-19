@@ -73,14 +73,14 @@ export function CodeEditor({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex" style={{ background: 'var(--code-bg)' }}>
+    <div className="flex-1 min-h-0 flex" style={{ background: 'var(--ide-code-bg, var(--code-bg))' }}>
       {/* gutter */}
       <div ref={gutterRef} aria-hidden
         className="shrink-0 overflow-hidden select-none text-right"
-        style={{ width: 52, paddingTop: 14, paddingBottom: 14, borderRight: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--code-bg) 70%, var(--surface))' }}>
+        style={{ width: 52, paddingTop: 14, paddingBottom: 14, borderRight: '1px solid var(--ide-border, var(--surface-border))', background: 'var(--ide-code-bg, var(--code-bg))' }}>
         {Array.from({ length: lineCount }, (_, i) => (
           <div key={i} className="tabular-nums pr-3 font-mono"
-            style={{ fontSize: 11.5, lineHeight: 1.62 * 12.5, color: caret.line === i + 1 ? 'var(--text-2)' : 'var(--text-3)', opacity: caret.line === i + 1 ? 1 : 0.55 }}>
+            style={{ fontSize: 11.5, lineHeight: 1.62 * 12.5, color: caret.line === i + 1 ? 'var(--ide-dim, var(--text-2))' : 'var(--ide-faint, var(--text-3))', opacity: caret.line === i + 1 ? 1 : 0.55 }}>
             {i + 1}
           </div>
         ))}
@@ -90,7 +90,7 @@ export function CodeEditor({
       <div className="relative flex-1 min-w-0">
         <pre ref={preRef} aria-hidden
           className="absolute inset-0 m-0 overflow-hidden pointer-events-none"
-          style={{ ...shared, whiteSpace: wrap ? 'pre-wrap' : 'pre', wordBreak: wrap ? 'break-word' : 'normal', color: 'var(--text)' }}
+          style={{ ...shared, whiteSpace: wrap ? 'pre-wrap' : 'pre', wordBreak: wrap ? 'break-word' : 'normal', color: 'var(--ide-text, var(--text))' }}
           dangerouslySetInnerHTML={{ __html: html }} />
         <textarea
           ref={taRef}
@@ -115,7 +115,7 @@ export function CodeEditor({
           aria-label={path ? `Editor: ${path}` : 'Code editor'}
           placeholder="Open a file from the explorer — or ask the AI to create one."
           className="absolute inset-0 w-full h-full resize-none outline-none bg-transparent"
-          style={{ ...shared, whiteSpace: wrap ? 'pre-wrap' : 'pre', wordBreak: wrap ? 'break-word' : 'normal', color: 'transparent', caretColor: 'var(--primary)', overflow: 'auto' }}
+          style={{ ...shared, whiteSpace: wrap ? 'pre-wrap' : 'pre', wordBreak: wrap ? 'break-word' : 'normal', color: 'transparent', caretColor: 'var(--ide-accent, var(--primary))', overflow: 'auto' }}
         />
       </div>
 

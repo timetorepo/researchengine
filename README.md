@@ -542,6 +542,7 @@ Daily loop:
 ```bash
 npm run dev                     # hot reload, both servers
 npm run smoke                   # functional smoke suite (frontend/scripts/smoke.mts)
+npx tsx scripts/ui-test.mts     # IDE chrome render check (workbench + design studio)
 npx tsx scripts/design-test.mts # design-bridge end-to-end (preview + jsdom, needs a running backend)
 npx tsx scripts/sample-test.mts # sample app: create → preview → audit → AI-side fix
 ```

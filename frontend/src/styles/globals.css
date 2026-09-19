@@ -703,3 +703,152 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   :root[data-glass="liquid"] .glass-chat::before,
   :root[data-glass="liquid"] .island-glass::before { display: none; }
 }
+
+/* ================================================================== */
+/* IDE shell (Coding / Design mode)                                    */
+/*                                                                     */
+/* The workbench keeps its own chrome instead of following the app     */
+/* theme: an editor is a place you sit in for hours, and the reference */
+/* look is a near-black surface with a single green accent. Everything */
+/* is scoped to .ide-shell so the rest of the app is untouched.        */
+/* ================================================================== */
+.ide-shell {
+  --ide-bg: #0b0e0d;
+  --ide-panel: #0f1413;
+  --ide-elevated: #151b19;
+  --ide-hover: #1a2120;
+  --ide-active: #202925;
+  --ide-border: #1c2321;
+  --ide-border-strong: #2a3430;
+  --ide-text: #e7edea;
+  --ide-dim: #8b9793;
+  --ide-faint: #5a6663;
+  --ide-accent: #3ddc84;
+  --ide-accent-soft: color-mix(in srgb, #3ddc84 14%, transparent);
+  --ide-accent-ink: #05170e;
+  --ide-cyan: #2dd4bf;
+  --ide-warn: #e0b071;
+  --ide-danger: #ef6b6b;
+  --ide-code-bg: #0c100f;
+
+  background: var(--ide-bg);
+  color: var(--ide-text);
+  font-size: 12.5px;
+}
+.ide-shell * { border-color: var(--ide-border); }
+.ide-shell ::selection { background: color-mix(in srgb, var(--ide-accent) 30%, transparent); }
+.ide-shell *::-webkit-scrollbar { width: 9px; height: 9px; }
+.ide-shell *::-webkit-scrollbar-thumb { background: color-mix(in srgb, #fff 11%, transparent); border-radius: 99px; }
+.ide-shell *::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, #fff 20%, transparent); }
+.ide-shell *::-webkit-scrollbar-track { background: transparent; }
+
+/* Syntax: green-forward, one warm tone for literals — matches the reference. */
+.ide-shell .tok-kw { color: #4ade80; }
+.ide-shell .tok-str { color: #e0b071; }
+.ide-shell .tok-num { color: #f0a45d; }
+.ide-shell .tok-com { color: #4d5a55; font-style: italic; }
+.ide-shell .tok-fn { color: #8ce0b0; }
+
+/* ---------- controls ---------- */
+.ide-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 10px; border-radius: 6px;
+  font-size: 11.5px; color: var(--ide-dim);
+  background: transparent; border: 1px solid transparent;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  white-space: nowrap;
+}
+.ide-btn:hover:not(:disabled) { background: var(--ide-hover); color: var(--ide-text); }
+.ide-btn:disabled { opacity: 0.4; }
+.ide-btn.outlined { border-color: var(--ide-border-strong); }
+.ide-btn.outlined:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border-strong)); color: var(--ide-text); }
+.ide-btn.primary { background: var(--ide-accent); color: var(--ide-accent-ink); font-weight: 600; }
+.ide-btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--ide-accent) 88%, #fff); color: var(--ide-accent-ink); }
+.ide-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 6px; color: var(--ide-dim);
+}
+.ide-icon-btn:hover { background: var(--ide-hover); color: var(--ide-text); }
+.ide-icon-btn.active { background: var(--ide-active); color: var(--ide-text); }
+
+/* segmented control: [Preview | Code] + Design */
+.ide-seg { display: inline-flex; align-items: center; padding: 2px; gap: 2px; border-radius: 8px; background: #0c1110; border: 1px solid var(--ide-border); }
+.ide-seg > button { height: 22px; padding: 0 11px; border-radius: 6px; font-size: 11.5px; color: var(--ide-dim); }
+.ide-seg > button:hover { color: var(--ide-text); }
+.ide-seg > button[data-active="true"] { background: var(--ide-elevated); color: var(--ide-text); box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset; }
+.ide-seg > button.design[data-active="true"] { background: var(--ide-accent); color: var(--ide-accent-ink); font-weight: 600; }
+
+/* badges (Kodeo-style status pills) */
+.ide-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; line-height: 1; padding: 3px 7px; border-radius: 999px;
+  border: 1px solid var(--ide-border-strong); color: var(--ide-dim); background: transparent;
+}
+.ide-badge.accent { color: var(--ide-accent); border-color: color-mix(in srgb, var(--ide-accent) 35%, transparent); background: var(--ide-accent-soft); }
+.ide-badge.cyan { color: var(--ide-cyan); border-color: color-mix(in srgb, var(--ide-cyan) 35%, transparent); background: color-mix(in srgb, var(--ide-cyan) 14%, transparent); }
+.ide-badge.danger { color: var(--ide-danger); border-color: color-mix(in srgb, var(--ide-danger) 35%, transparent); background: color-mix(in srgb, var(--ide-danger) 12%, transparent); }
+.ide-badge.warn { color: var(--ide-warn); border-color: color-mix(in srgb, var(--ide-warn) 35%, transparent); background: color-mix(in srgb, var(--ide-warn) 12%, transparent); }
+
+/* ---------- tabs ---------- */
+.ide-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 10px 0 12px; font-size: 11.5px;
+  color: var(--ide-faint); border-right: 1px solid var(--ide-border);
+  border-top: 1px solid transparent; background: transparent;
+}
+.ide-tab:hover { color: var(--ide-dim); background: color-mix(in srgb, #fff 2%, transparent); }
+.ide-tab[data-active="true"] { background: var(--ide-bg); color: var(--ide-text); border-top-color: var(--ide-accent); }
+
+/* ---------- tree / list rows ---------- */
+.ide-row { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 5px; font-size: 11.5px; color: var(--ide-dim); }
+.ide-row:hover { background: var(--ide-hover); color: var(--ide-text); }
+.ide-row[data-active="true"] { background: var(--ide-active); color: var(--ide-text); }
+.ide-row .name-dirty { color: var(--ide-accent); }
+.ide-section {
+  font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ide-faint); font-weight: 600;
+}
+
+/* ---------- inputs ---------- */
+.ide-input {
+  width: 100%; height: 26px; padding: 0 8px; border-radius: 6px;
+  background: #0c1110; border: 1px solid var(--ide-border);
+  color: var(--ide-text); font-size: 11.5px; outline: none;
+}
+.ide-input:focus { border-color: color-mix(in srgb, var(--ide-accent) 50%, var(--ide-border)); }
+.ide-input::placeholder { color: var(--ide-faint); }
+
+/* ---------- terminal / panel ---------- */
+.ide-panel-strip { background: var(--ide-panel); border-top: 1px solid var(--ide-border); }
+.ide-caret { display: inline-block; width: 7px; height: 14px; background: var(--ide-accent); vertical-align: -2px; margin-left: 2px; animation: ide-blink 1.1s step-end infinite; }
+@keyframes ide-blink { 50% { opacity: 0; } }
+
+/* ---------- agent panel (composer) ---------- */
+.ide-composer {
+  border: 1px solid var(--ide-border-strong); border-radius: 12px;
+  background: #0e1211; transition: border-color 140ms ease;
+}
+.ide-composer:focus-within { border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border-strong)); }
+.ide-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 8px; border-radius: 999px;
+  font-size: 10.5px; color: var(--ide-dim);
+  border: 1px solid var(--ide-border-strong); background: transparent;
+}
+.ide-chip:hover { color: var(--ide-text); border-color: color-mix(in srgb, var(--ide-accent) 35%, var(--ide-border-strong)); }
+.ide-msg-user {
+  background: color-mix(in srgb, var(--ide-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ide-accent) 22%, transparent);
+  border-radius: 10px;
+}
+.ide-msg-agent { background: var(--ide-elevated); border: 1px solid var(--ide-border); border-radius: 10px; }
+.ide-diff-add { background: color-mix(in srgb, var(--ide-accent) 14%, transparent); color: #a7f3c6; }
+.ide-diff-del { background: color-mix(in srgb, var(--ide-danger) 14%, transparent); color: #f7b4b4; }
+
+/* progress: Kodeo's segmented bars */
+.ide-progress { display: flex; gap: 3px; }
+.ide-progress > i { flex: 1; height: 10px; border-radius: 2px; background: color-mix(in srgb, #fff 7%, transparent); }
+.ide-progress > i.on { background: var(--ide-cyan); }
+
+/* dark tooltips for icon-only controls */
+.ide-shell [title] { position: relative; }

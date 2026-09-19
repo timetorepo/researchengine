@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSyncExternalStore } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Sparkles, X, Play, Square, Paperclip, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye } from 'lucide-react'
+import { Sparkles, X, Square, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye, Plus, Send, Globe, CornerDownLeft } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { runChat, isStreamingChat, enqueuePrompt, stopStream } from '@/lib/chat/runChat'
 import { useUI } from '@/stores/useUI'
@@ -59,7 +59,7 @@ export function AgentPanel({
     return () => clearInterval(iv)
   }, [chatId])
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat?.messages.length, streaming])
+  useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth' }) }, [chat?.messages.length, streaming])
 
   const treeText = useMemo(() => tree.map((n) => (n.dir ? `${n.name}/` : n.name)).join('\n'), [tree])
 
@@ -101,27 +101,27 @@ export function AgentPanel({
   return (
     <div className="h-full flex flex-col min-h-0" style={{ background: 'transparent' }}>
       {/* header */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--surface-border)' }}>
-        <Sparkles size={13} style={{ color: 'var(--primary)' }} />
+      <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--ide-border)' }}>
+        <Sparkles size={13} style={{ color: 'var(--ide-accent)' }} />
         <span className="text-[12px] font-medium flex-1 truncate">{design ? 'Design assistant' : 'AI pair-programmer'}</span>
-        {streaming && <span className="re-orb re-orb-sm" aria-hidden />}
+        {streaming
+          ? <span className="ide-badge accent"><span className="re-orb re-orb-sm" aria-hidden /> thinking</span>
+          : <span className="ide-badge">{design ? 'sees the screen' : 'ready'}</span>}
         <button onClick={() => setShowActions((v) => !v)} title="Quick actions"
-          className="p-1 rounded-[6px]" style={{ color: 'var(--text-3)' }}>
+          className="ide-icon-btn" style={{ width: 22, height: 22 }}>
           <ChevronDown size={12} style={{ transform: showActions ? 'rotate(180deg)' : undefined, transition: 'transform 120ms' }} />
         </button>
-        {onClose && <button onClick={onClose} className="p-1 rounded-[6px]" style={{ color: 'var(--text-3)' }}><X size={12} /></button>}
+        {onClose && <button onClick={onClose} className="ide-icon-btn" style={{ width: 22, height: 22 }} aria-label="Close assistant"><X size={12} /></button>}
       </div>
 
       {/* quick actions */}
       <AnimatePresence initial={false}>
         {showActions && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="shrink-0 overflow-hidden" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+            className="shrink-0 overflow-hidden" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <div className="flex flex-wrap gap-1.5 p-2">
               {actions.map((a) => (
-                <button key={a.label} onClick={() => send(a.prompt)} disabled={!chatId}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-[10.5px] disabled:opacity-40"
-                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                <button key={a.label} onClick={() => send(a.prompt)} disabled={!chatId} className="ide-chip disabled:opacity-40">
                   {a.icon}{a.label}
                 </button>
               ))}
@@ -133,7 +133,7 @@ export function AgentPanel({
       {/* messages */}
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
         {!chat?.messages.length && (
-          <div className="text-[12px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+          <div className="text-[12px] leading-relaxed" style={{ color: 'var(--ide-dim)' }}>
             {design
               ? 'I can see the running app: layout, computed styles, console and screenshots. Ask me to audit it, test the buttons, or fix what looks wrong — I verify with real assertions.'
               : 'I can read and edit this project, run commands (with your approval), and check git. Try “What should we fix?”'}
@@ -146,12 +146,11 @@ export function AgentPanel({
                 {!!m.attachments?.length && (
                   <div className="flex gap-1.5 flex-wrap justify-end">
                     {m.attachments.map((a, i) => (
-                      <img key={i} src={a.dataUrl} alt={a.name} className="max-h-24 rounded-[8px]" style={{ border: '1px solid var(--surface-border)' }} />
+                      <img key={i} src={a.dataUrl} alt={a.name} className="max-h-24 rounded-[8px]" style={{ border: '1px solid var(--ide-border-strong)' }} />
                     ))}
                   </div>
                 )}
-                <div className="max-w-[88%] px-3 py-2 rounded-[12px] text-[12.5px] whitespace-pre-wrap"
-                  style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--text)' }}>
+                <div className="ide-msg-user max-w-[88%] px-3 py-2 text-[12.5px] whitespace-pre-wrap" style={{ color: 'var(--ide-text)' }}>
                   {m.content}
                 </div>
               </div>
@@ -161,7 +160,7 @@ export function AgentPanel({
                 <ExecApproval chatId={chat!.id} msg={m} />
                 <QuestionnaireCard chatId={chat!.id} msg={m} />
                 {m.error ? (
-                  <div className="text-[12px] p-2.5 rounded-[10px]" style={{ background: 'color-mix(in srgb, var(--danger) 10%, transparent)', color: 'var(--danger)' }}>{m.error}</div>
+                  <div className="text-[12px] p-2.5 rounded-[10px]" style={{ background: 'color-mix(in srgb, var(--ide-danger) 12%, transparent)', color: 'var(--ide-danger)' }}>{m.error}</div>
                 ) : (
                   <div className="text-[12.5px]"><Markdown content={m.content} streaming={streaming && m.id === chat!.messages[chat!.messages.length - 1]?.id} /></div>
                 )}
@@ -170,7 +169,7 @@ export function AgentPanel({
           </div>
         ))}
         {!!queue.length && (
-          <div className="text-[11px] px-2.5 py-1.5 rounded-[8px]" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
+          <div className="text-[11px] px-2.5 py-1.5 rounded-[8px]" style={{ background: 'var(--ide-elevated)', color: 'var(--ide-faint)' }}>
             {queue.length} queued message{queue.length > 1 ? 's' : ''} — sent when the current answer finishes
           </div>
         )}
@@ -178,54 +177,66 @@ export function AgentPanel({
       </div>
 
       {/* attachments + composer */}
-      <div className="shrink-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
+      <div className="shrink-0 px-2.5 pb-2.5 pt-1.5" style={{ borderTop: '1px solid var(--ide-border)' }}>
+        {/* hint chips, like the reference's shortcut row */}
+        <div className="flex items-center gap-1.5 px-0.5 pb-2 flex-wrap">
+          <span className="ide-chip"><CornerDownLeft size={9} /> to send</span>
+          <span className="ide-chip"><CornerDownLeft size={9} /> ⇧ new line</span>
+          <span className="ide-chip">/ audit</span>
+          <span className="ide-chip">/ fix</span>
+          <span className="ide-chip">/ test</span>
+        </div>
+
         {!!tray.length && (
-          <div className="flex items-center gap-2 px-3 pt-2 flex-wrap">
+          <div className="flex items-center gap-2 pb-2 flex-wrap">
             {tray.map((a, i) => (
               <span key={i} className="relative group">
-                <img src={a.dataUrl} alt={a.name} className="h-10 rounded-[6px]" style={{ border: '1px solid var(--surface-border)' }} />
-                <button onClick={() => attachmentTray.remove(i)}
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] opacity-0 group-hover:opacity-100"
-                  style={{ background: 'var(--danger)', color: '#fff' }}>×</button>
+                <img src={a.dataUrl} alt={a.name} className="h-11 rounded-[6px]" style={{ border: '1px solid var(--ide-border-strong)' }} />
+                <button onClick={() => attachmentTray.remove(i)} aria-label={`Remove ${a.name}`}
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] opacity-0 group-hover:opacity-100"
+                  style={{ background: 'var(--ide-danger)', color: '#fff' }}>×</button>
               </span>
             ))}
-            <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>will be sent with your message</span>
+            <span className="text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>sent with your next message</span>
           </div>
         )}
-        <div className="flex items-end gap-2 px-3 py-2.5">
-          <button onClick={() => fileRef.current?.click()} title="Attach an image"
-            className="p-1.5 rounded-[8px] shrink-0" style={{ color: 'var(--text-3)' }}>
-            <Paperclip size={13} />
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) attachFile(f); e.target.value = '' }} />
+
+        <div className="ide-composer p-2">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const t = text; setText(''); send(t) }
             }}
-            rows={1}
+            rows={2}
             placeholder={streaming ? 'Type to queue another message…' : design ? 'Ask about this screen…' : 'Ask the AI about this project…'}
-            className="flex-1 bg-transparent outline-none text-[12.5px] resize-none py-1.5 max-h-28"
-            style={{ color: 'var(--text)' }} />
-          {streaming ? (
-            <button onClick={() => chatId && stopStream(chatId)} aria-label="Stop"
-              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--danger)', color: '#fff' }}>
-              <Square size={10} />
+            className="w-full bg-transparent outline-none text-[12.5px] resize-none px-1 py-1 max-h-32"
+            style={{ color: 'var(--ide-text)' }} />
+          <div className="flex items-center gap-1.5 pt-1">
+            <button onClick={() => fileRef.current?.click()} className="ide-btn outlined" title="Attach an image">
+              <Plus size={11} /> Attach
             </button>
-          ) : (
-            <button onClick={() => { const t = text; setText(''); send(t) }} disabled={!text.trim() && !tray.length} aria-label="Send"
-              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 disabled:opacity-40"
-              style={{ background: 'var(--primary)', color: '#fff' }}>
-              <Play size={11} />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) attachFile(f); e.target.value = '' }} />
+            <button onClick={() => setShowActions(true)} className="ide-icon-btn" title="Quick actions" style={{ width: 24, height: 24 }}>
+              <ImageIcon size={12} />
             </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2 px-3 pb-2 text-[10px]" style={{ color: 'var(--text-3)' }}>
-          <ImageIcon size={10} /> Enter sends · Shift+Enter newline
-          <span className="flex-1" />
-          <button onClick={() => ui.toast('Model', 'Change models from the top bar', 'info')} className="hover:underline">model</button>
+            <button onClick={() => ui.toast('Model', 'Change models from the top bar', 'info')} className="ide-icon-btn" title="Model settings" style={{ width: 24, height: 24 }}>
+              <Globe size={12} />
+            </button>
+            <span className="flex-1" />
+            {streaming ? (
+              <button onClick={() => chatId && stopStream(chatId)} aria-label="Stop"
+                className="ide-btn" style={{ color: 'var(--ide-danger)' }}>
+                <Square size={10} /> Stop
+              </button>
+            ) : (
+              <button onClick={() => { const t = text; setText(''); send(t) }} disabled={!text.trim() && !tray.length}
+                className="ide-btn primary" aria-label="Send">
+                <Send size={11} /> Send
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
