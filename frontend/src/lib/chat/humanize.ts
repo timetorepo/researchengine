@@ -79,6 +79,13 @@ const PHRASES: [RegExp, string][] = [
  * worst detector bait (stock transitions, inflated vocabulary, dash overuse).
  */
 export function localHumanize(input: string): string {
+  // Never touch code: fenced blocks and inline spans are copied verbatim, so a
+  // word like `leverage` inside a snippet stays exactly as the author wrote it.
+  const parts = input.split(/(```[\s\S]*?```|`[^`\n]*`)/g)
+  return parts.map((part, i) => (i % 2 === 1 ? part : localHumanizeProse(part))).join('')
+}
+
+function localHumanizeProse(input: string): string {
   let out = input
   for (const [re, to] of PHRASES) out = out.replace(re, to)
   // Sentence-start "However," / "Therefore," / "Thus," → how people actually talk.

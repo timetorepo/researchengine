@@ -64,10 +64,18 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         onChunk: (soFar) => store.getState().updateMessage(chatId, msg.id, { humanized: soFar }),
       })
       store.getState().updateMessage(chatId, msg.id, { humanized: res.text, humanizedBy: res.by, humanizing: false })
+      // A rewrite that is dramatically shorter than the original usually means
+      // the model ran into its output limit — say so instead of quietly losing
+      // half an answer.
+      const clipped = msg.content.length > 800 && res.text.length < msg.content.length * 0.55
       ui.toast(
-        res.local ? 'Humanized on device' : 'Humanized',
-        res.local ? 'No provider key is set, so the on-device pass rewrote it.' : `Rewritten by ${res.by}. Hover the green text for the previous response.`,
-        'success',
+        clipped ? 'Humanized — check the length' : res.local ? 'Humanized on device' : 'Humanized',
+        clipped
+          ? 'The rewrite is much shorter than the original: the model may have been cut off. Press Humanize again for another pass.'
+          : res.local
+            ? 'No provider key is set, so the on-device pass rewrote it.'
+            : `Rewritten by ${res.by}. Hover the green text for the previous response.`,
+        clipped ? 'warning' : 'success',
       )
     } catch (e: any) {
       if (e?.name === 'AbortError') { store.getState().updateMessage(chatId, msg.id, { humanizing: false }); return }

@@ -260,6 +260,11 @@ async function main() {
   check('stock phrases are replaced', !/utilise|in order to|furthermore|crucial/i.test(local), local)
   check('meaning survives the rewrite', local.includes('the data') && local.includes('approach'))
   check('at most one em dash survives', (local.match(/—/g) ?? []).length <= 1)
+  const codeSafe = localHumanize('Use this:\n```js\nutilise(leverage) // crucial\n```\nIn order to proceed, utilise it.')
+  check('fenced code is copied verbatim', codeSafe.includes('```js\nutilise(leverage) // crucial\n```'), codeSafe)
+  check('prose around code is still rewritten', !/In order to|utilise it/.test(codeSafe), codeSafe)
+  const inlineSafe = localHumanize('Call `utilise(x)` to leverage nothing.')
+  check('inline code is protected too', inlineSafe.includes('`utilise(x)`'), inlineSafe)
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
