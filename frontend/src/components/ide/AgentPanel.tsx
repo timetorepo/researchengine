@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSyncExternalStore } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Sparkles, X, Square, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye, Plus, Send, Globe, CornerDownLeft } from 'lucide-react'
+import {
+  Sparkles, X, Square, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye,
+  Plus, Send, CornerDownLeft, Bug, Hammer, Check, Search, Cpu, ChevronUp, Globe,
+} from 'lucide-react'
+import { PROVIDERS } from '@/lib/providers/registry'
 import { useStore } from '@/stores/useStore'
 import { runChat, isStreamingChat, enqueuePrompt, stopStream } from '@/lib/chat/runChat'
 import { useUI } from '@/stores/useUI'
@@ -14,6 +18,37 @@ import type { TreeNode } from './types'
 function useTray(): TrayAttachment[] {
   return useSyncExternalStore(attachmentTray.subscribe, attachmentTray.get, attachmentTray.get)
 }
+
+/**
+ * What the user wants done. The intent is sent as a system preamble so the
+ * model works the way the button implies — and it's visible next to the
+ * composer, so "ask the AI to fix" can never be mistaken for "ask it to build".
+ */
+export const INTENTS = [
+  {
+    id: 'fix',
+    label: 'Fix',
+    icon: Bug,
+    hint: 'Find the real cause of a bug, repair it, prove it',
+    preamble: 'INTENT: FIX. The user wants a defect removed. Find the actual root cause (read the code and, in Design mode, observe the running app) — never guess. Then apply the smallest correct change, explain the cause in one or two sentences, and verify the fix (assertion, test, or reproduction) before claiming success. If you cannot reproduce it, say exactly what you checked and what you need.',
+  },
+  {
+    id: 'build',
+    label: 'Build',
+    icon: Hammer,
+    hint: 'Implement a new feature end to end',
+    preamble: 'INTENT: BUILD. The user wants something new implemented. Establish the requirements from the code and the conversation (call ask_user if a genuinely ambiguous decision blocks you), outline the plan in a few lines, then implement it completely — files, wiring, states, edge cases. Prefer matching the existing architecture and style over introducing new patterns. Finish by telling the user how to try it.',
+  },
+  {
+    id: 'refine',
+    label: 'Refine',
+    icon: Wand2,
+    hint: 'Polish what exists: clarity, UX, structure, performance',
+    preamble: 'INTENT: REFINE. The user wants existing code or UI made better without changing intended behaviour. Look for unclear naming, duplicated logic, awkward layout, weak hierarchy, missing states, and needless complexity. Make focused improvements, keep the diff reviewable, and list what you changed and why. Do not rewrite working code just because you would have written it differently.',
+  },
+] as const
+
+type IntentId = typeof INTENTS[number]['id']
 
 export function chatIdFor(project: string): string {
   const store = useStore.getState()
@@ -42,6 +77,10 @@ export function AgentPanel({
   const [chatId, setChatId] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [showActions, setShowActions] = useState(true)
+  const [intent, setIntent] = useState<IntentId>('fix')
+  const [modelRef, setModelRef] = useState<string>('')
+  const [modelOpen, setModelOpen] = useState(false)
+  const [modelQuery, setModelQuery] = useState('')
   const [, force] = useState(0)
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -52,6 +91,19 @@ export function AgentPanel({
   useEffect(() => { setChatId(chatIdFor(project)) }, [project])
 
   const chat = useStore((s) => s.chats.find((c) => c.id === chatId))
+  const settings = useStore((s) => s.settings)
+  const [defaultProvider, defaultModelName] = settings.defaultModel.split(':')
+
+  // Model choices come from whatever the user actually fetched (never a
+  // hardcoded list), grouped by provider.
+  const modelGroups = useMemo(() => PROVIDERS.map((p) => ({
+    provider: p,
+    models: (settings.providerModels[p.id] ?? []).filter((m) =>
+      !modelQuery.trim() || m.toLowerCase().includes(modelQuery.trim().toLowerCase())),
+  })).filter(({ provider, models }) => models.length > 0 && settings.providers[provider.id]?.enabled !== false), [settings.providerModels, settings.providers, modelQuery])
+
+  const activeIntent = INTENTS.find((i) => i.id === intent) ?? INTENTS[0]
+  const activeModelLabel = modelRef ? modelRef.split(':')[1] : (defaultModelName || 'default model')
   const streaming = chatId ? isStreamingChat(chatId) : false
 
   useEffect(() => {
@@ -63,12 +115,14 @@ export function AgentPanel({
 
   const treeText = useMemo(() => tree.map((n) => (n.dir ? `${n.name}/` : n.name)).join('\n'), [tree])
 
-  const send = (prompt: string, extraImages?: TrayAttachment[]) => {
+  const send = (prompt: string, extraImages?: TrayAttachment[], optsIn?: { intent?: IntentId; forceNewChat?: boolean }) => {
     if (!chatId || (!prompt.trim() && !extraImages?.length)) return
     const queued = attachmentTray.take()
     const attachments = [...(extraImages ?? []), ...queued]
+    const preamble = (INTENTS.find((i) => i.id === (optsIn?.intent ?? intent)) ?? activeIntent).preamble
     const opts = {
-      project, projectTree: treeText, design,
+      project, projectTree: treeText, design, preamble,
+      modelOverride: modelRef || undefined,
       attachments: attachments.length ? attachments : undefined,
     }
     if (isStreamingChat(chatId)) { enqueuePrompt(chatId, prompt.trim(), {}, opts); return }
@@ -82,18 +136,19 @@ export function AgentPanel({
     r.readAsDataURL(f)
   }
 
-  const defaultActions = design
+  const defaultActions: { label: string; prompt: string; icon?: React.ReactNode; intent: IntentId }[] = design
     ? [
-        { label: 'Audit the screen', icon: <Accessibility size={11} />, prompt: 'Run design_audit on the live preview, then design_snapshot. List the concrete UI problems you find, ranked by impact, with the exact selector for each. Do not edit files yet.' },
-        { label: 'Fix the worst issue', icon: <Wand2 size={11} />, prompt: 'Audit the live preview, pick the single most impactful UI problem, fix it in the project files, restart the preview, then verify the fix with design_assert. Show me the before/after.' },
-        { label: 'Test every button', icon: <MousePointerClick size={11} />, prompt: 'Enumerate the interactive controls with design_controls, then click every button and report which ones do nothing, throw console errors, or navigate somewhere unexpected. Summarise as a table of control → result.' },
-        { label: 'Check mobile layout', icon: <Smartphone size={11} />, prompt: 'Resize the preview to 390×844 with design_resize, then audit and snapshot. List everything that breaks at phone width and fix the worst of it.' },
-        { label: 'Review the visuals', icon: <Eye size={11} />, prompt: 'Take a design_screenshot so I can see the screen, then critique spacing, hierarchy, contrast and alignment, and propose specific changes.' },
+        { label: 'Audit the screen', intent: 'refine', icon: <Accessibility size={11} />, prompt: 'Run design_audit on the live preview, then design_snapshot. List the concrete UI problems you find, ranked by impact, with the exact selector for each. Do not edit files yet.' },
+        { label: 'Fix the worst issue', intent: 'fix', icon: <Wand2 size={11} />, prompt: 'Audit the live preview, pick the single most impactful UI problem, fix it in the project files, restart the preview, then verify the fix with design_assert. Show me the before/after.' },
+        { label: 'Test every button', intent: 'fix', icon: <MousePointerClick size={11} />, prompt: 'Enumerate the interactive controls with design_controls, then click every button and report which ones do nothing, throw console errors, or navigate somewhere unexpected. Summarise as a table of control → result.' },
+        { label: 'Check mobile layout', intent: 'refine', icon: <Smartphone size={11} />, prompt: 'Resize the preview to 390×844 with design_resize, then audit and snapshot. List everything that breaks at phone width and fix the worst of it.' },
+        { label: 'Review the visuals', intent: 'refine', icon: <Eye size={11} />, prompt: 'Take a design_screenshot so I can see the screen, then critique spacing, hierarchy, contrast and alignment, and propose specific changes.' },
       ]
     : [
-        { label: 'What should we fix?', icon: <Wand2 size={11} />, prompt: 'Interview me about what I want to fix or refine in this project. Call the ask_user tool with 3-5 focused questions you generate from the project\'s actual files and stack (do not use canned questions). After I answer, inspect the relevant files and propose a concrete plan before changing anything.' },
-        { label: 'Find bugs', icon: <Sparkles size={11} />, prompt: 'Read the project files and find real bugs, dead code and fragility. Report each with file, line and a concrete fix. Then ask me which ones to apply.' },
-        { label: 'Explain the project', icon: <Sparkles size={11} />, prompt: 'Explain how this project is structured: entry points, data flow, key files. Keep it tight and point at the files you read.' },
+        { label: 'What should we fix?', intent: 'refine', icon: <Wand2 size={11} />, prompt: 'Interview me about what I want to fix or refine in this project. Call the ask_user tool with 3-5 focused questions you generate from the project\'s actual files and stack (do not use canned questions). After I answer, inspect the relevant files and propose a concrete plan before changing anything.' },
+        { label: 'Find bugs', intent: 'fix', icon: <Sparkles size={11} />, prompt: 'Read the project files and find real bugs, dead code and fragility. Report each with file, line and a concrete fix. Then ask me which ones to apply.' },
+        { label: 'Build something', intent: 'build', icon: <Hammer size={11} />, prompt: 'Look at this project and propose three things worth building next, ranked by value. Then ask me which one to implement and build it end to end.' },
+        { label: 'Explain the project', intent: 'refine', icon: <Sparkles size={11} />, prompt: 'Explain how this project is structured: entry points, data flow, key files. Keep it tight and point at the files you read.' },
       ]
 
   const actions = quickActions ?? defaultActions
@@ -121,7 +176,8 @@ export function AgentPanel({
             className="shrink-0 overflow-hidden" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <div className="flex flex-wrap gap-1.5 p-2">
               {actions.map((a) => (
-                <button key={a.label} onClick={() => send(a.prompt)} disabled={!chatId} className="ide-chip disabled:opacity-40">
+                <button key={a.label} onClick={() => send(a.prompt, undefined, { intent: (a as any).intent ?? intent })}
+                  disabled={!chatId} className="ide-chip disabled:opacity-40" title={(a as any).intent ? `Runs as: ${(a as any).intent.toUpperCase()}` : undefined}>
                   {a.icon}{a.label}
                 </button>
               ))}
@@ -200,6 +256,77 @@ export function AgentPanel({
             <span className="text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>sent with your next message</span>
           </div>
         )}
+
+        {/* intent + model: what should be done, and by which model */}
+        <div className="flex items-center gap-1.5 pb-2 flex-wrap">
+          <div className="ide-seg" role="group" aria-label="What should the AI do">
+            {INTENTS.map((i) => {
+              const Icon = i.icon
+              return (
+                <button key={i.id} data-active={intent === i.id} onClick={() => setIntent(i.id)} title={i.hint}>
+                  <span className="inline-flex items-center gap-1"><Icon size={11} /> {i.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="relative">
+            <button onClick={() => setModelOpen((v) => !v)} className="ide-chip" title="Choose which model answers">
+              <Cpu size={10} /> <span className="max-w-[130px] truncate">{activeModelLabel}</span>
+              {modelOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            </button>
+            <AnimatePresence>
+              {modelOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute bottom-[110%] left-0 z-30 w-[300px] max-h-[300px] overflow-hidden rounded-[14px] ios-material flex flex-col"
+                >
+                  <div className="p-2 shrink-0" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+                    <div className="flex items-center gap-1.5 px-2 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--bg) 60%, var(--surface))' }}>
+                      <Search size={11} style={{ color: 'var(--text-3)' }} />
+                      <input value={modelQuery} onChange={(e) => setModelQuery(e.target.value)} autoFocus
+                        placeholder="Search models…" aria-label="Search models"
+                        className="flex-1 bg-transparent outline-none py-1.5 text-[11.5px]" style={{ color: 'var(--text)' }} />
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto p-1.5">
+                    <button onClick={() => { setModelRef(''); setModelOpen(false) }}
+                      className="ide-row w-full" data-active={!modelRef}>
+                      <Check size={11} style={{ opacity: modelRef ? 0 : 1 }} />
+                      <span className="flex-1 truncate">Project default{defaultModelName ? ` · ${defaultModelName}` : ''}</span>
+                    </button>
+                    {modelGroups.map(({ provider, models }) => (
+                      <div key={provider.id} className="mt-1">
+                        <div className="ide-section px-2 py-1">{provider.name}</div>
+                        {models.slice(0, 30).map((m) => {
+                          const ref = `${provider.id}:${m}`
+                          return (
+                            <button key={ref} onClick={() => { setModelRef(ref); setModelOpen(false) }}
+                              className="ide-row w-full" data-active={modelRef === ref}>
+                              <Check size={11} style={{ opacity: modelRef === ref ? 1 : 0 }} />
+                              <span className="flex-1 truncate">{m}</span>
+                              {settings.defaultModel === ref && <span className="ide-badge accent">default</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ))}
+                    {!modelGroups.length && (
+                      <p className="px-2 py-3 text-[11px]" style={{ color: 'var(--text-3)' }}>
+                        No fetched models yet — add a provider key under Settings → Providers, then refresh models.
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <span className="text-[10px] truncate" style={{ color: 'var(--text-3)' }}>{activeIntent.hint}</span>
+        </div>
 
         <div className="ide-composer p-2">
           <textarea

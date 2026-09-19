@@ -6,6 +6,7 @@ import {
   Image as ImageIcon, Send, Sparkles, Download, X, Layers, ListChecks, Activity,
 } from 'lucide-react'
 import { AgentPanel } from './AgentPanel'
+import { AIFloat, FocusButton } from './AIFloat'
 import { TestPanel } from './TestPanel'
 import {
   designSession, captureStore, attachmentTray, previewUrlFor, type Snapshot, type ControlInfo, type Finding, type Capture,
@@ -44,6 +45,9 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
   // that origin (some sandboxes do), fall back to serving it through the app's
   // own origin so the pane still works.
   const [originFallback, setOriginFallback] = useState(false)
+  // Full-screen mode: the canvas takes the window and the chat collapses into
+  // the floating pill (still draggable, still the same conversation).
+  const [focus, setFocus] = useState(false)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const captures = useCaptures()
 
@@ -214,6 +218,18 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
   const deviceIcon = (id: string) => id === 'phone' ? <Smartphone size={12} /> : id === 'tablet' ? <Tablet size={12} /> : id === 'fill' ? <Maximize2 size={12} /> : <Monitor size={12} />
 
   /* ---------------- render ---------------- */
+  // ⌘⇧F / Ctrl⇧F toggles full screen; the right rail folds into the float pill.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setFocus((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
     <div className="ide-shell h-full flex flex-col min-h-0">
       {/* ---- header ---- */}
@@ -257,6 +273,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             <Square size={12} />
           </button>
         )}
+        <FocusButton focus={focus} onToggle={() => setFocus((v) => !v)} />
         <button onClick={() => port && window.open(previewUrlFor(port, designSession.token), '_blank')} disabled={!port}
           title="Open the preview in a new tab" className="ide-btn primary">
           <ExternalLink size={11} /> Open
@@ -269,7 +286,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           {/* address + device bar */}
           <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 flex-wrap" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
             <div className="flex items-center gap-1.5 flex-1 min-w-[180px] px-2 py-1 rounded-[6px]"
-              style={{ background: '#0c1110', border: '1px solid var(--ide-border)' }}>
+              style={{ background: 'color-mix(in srgb, var(--bg) 65%, var(--surface))', border: '1px solid var(--ide-border)' }}>
               <span className="text-[10.5px] shrink-0" style={{ color: designSession.lastUrl ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
                 {designSession.lastUrl ? '●' : '○'}
               </span>
@@ -282,7 +299,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             </div>
 
             {/* device presets */}
-            <div className="flex items-center gap-0.5 p-0.5 rounded-[8px]" style={{ background: '#0c1110', border: '1px solid var(--ide-border)' }}>
+            <div className="flex items-center gap-0.5 p-0.5 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--bg) 65%, var(--surface))', border: '1px solid var(--ide-border)' }}>
               {DEVICE_PRESETS.map((d) => (
                 <button key={d.id} onClick={() => { setDevice(d.id); if (d.w) setSize({ w: d.w, h: d.h }) }}
                   title={`${d.label}${d.w ? ` · ${d.w}×${d.h}` : ''}`}
@@ -297,14 +314,14 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
               {(['fill', 'desktop', 'phone'] as DeviceId[]).includes(device) && device === 'fill' ? null : (
                 <>
                   <input type="number" value={size.w} onChange={(e) => setSize((s) => ({ ...s, w: Number(e.target.value) || 0 }))}
-                    className="w-14 px-1.5 py-1 rounded-[6px] tabular-nums outline-none" style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }} />
+                    aria-label="Viewport width" className="ide-input tabular-nums" style={{ width: 58, padding: '4px 6px' }} />
                   <span>×</span>
                   <input type="number" value={size.h} onChange={(e) => setSize((s) => ({ ...s, h: Number(e.target.value) || 0 }))}
                     className="w-14 px-1.5 py-1 rounded-[6px] tabular-nums outline-none" style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
                 </>
               )}
               <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))} aria-label="Zoom"
-                className="px-1 py-1 rounded-[6px] outline-none" style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }}>
+                className="ide-input" style={{ width: 70, padding: '4px 6px' }}>
                 {[0.5, 0.75, 1, 1.25].map((z) => <option key={z} value={z}>{Math.round(z * 100)}%</option>)}
               </select>
             </div>
@@ -345,7 +362,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                     minWidth: device === 'fill' ? 480 : undefined,
                     maxWidth: '100%',
                     border: '1px solid var(--ide-border-strong)',
-                    boxShadow: '0 20px 60px -24px rgba(0,0,0,0.7)',
+                    boxShadow: 'var(--ide-shadow)',
                     background: '#fff',
                   }}>
                   <iframe
@@ -382,7 +399,8 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           </div>
         </div>
 
-        {/* ---- right rail ---- */}
+        {/* ---- right rail (the AI docks out to a pill in full screen) ---- */}
+        {!focus && (
         <aside className="w-[430px] shrink-0 min-h-0 flex flex-col" style={{ borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
           <div className="shrink-0 flex items-center gap-0.5 px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <RailTab active={tab === 'assistant'} onClick={() => setTab('assistant')} icon={<Sparkles size={12} />} label="Assistant" />
@@ -528,6 +546,9 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             )}
           </div>
         </aside>
+        )}
+
+        {focus && <AIFloat project={project} tree={tree} design />}
       </div>
     </div>
   )

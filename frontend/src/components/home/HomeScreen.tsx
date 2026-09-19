@@ -11,6 +11,8 @@ import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
 import { timeAgo, fmt } from '@/lib/utils'
 import { runChat } from '@/lib/chat/runChat'
+import { RevolvingText } from './RevolvingText'
+import { SuggestedForYou } from './SuggestedForYou'
 
 const SUGGESTIONS = [
   'Compare RAG vs fine-tuning for domain-specific Q&A',
@@ -31,19 +33,13 @@ export function HomeScreen() {
   const saved = useStore((s) => s.tokensSavedLifetime)
   const [chips, setChips] = useState<string[]>(() => pick(SUGGESTIONS))
   const [mathMode, setMathMode] = useState(false)
-  const verbs = [
-    { word: 'research', icon: Search, color: '#39c6c9' },
-    { word: 'build', icon: Code2, color: '#b7d46b' },
-    { word: 'challenge', icon: Swords, color: '#e5a85f' },
-    { word: 'calculate', icon: Calculator, color: '#d7a86e' },
-    { word: 'learn', icon: BookOpen, color: '#8fc7ee' },
-  ] as const
-  const [verbIndex, setVerbIndex] = useState(0)
-
-  useEffect(() => {
-    const iv = setInterval(() => setVerbIndex((i) => (i + 1) % verbs.length), 2000)
-    return () => clearInterval(iv)
-  }, [])
+  const verbs = useMemo(() => [
+    { word: 'research', icon: Search, color: 'var(--primary)' },
+    { word: 'build', icon: Code2, color: 'var(--success)' },
+    { word: 'challenge', icon: Swords, color: 'var(--warning)' },
+    { word: 'calculate', icon: Calculator, color: 'var(--secondary)' },
+    { word: 'learn', icon: BookOpen, color: 'var(--primary)' },
+  ], [])
 
   useEffect(() => {
     const iv = setInterval(() => setChips(pick(SUGGESTIONS)), 8000)
@@ -101,22 +97,17 @@ export function HomeScreen() {
         )}
       </AnimatePresence>
       <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
-        {/* Research / build / challenge hero */}
+        {/* Research / build / challenge hero — the rotating word morphs its
+            slot width instead of being clipped, and the line scales down rather
+            than wrapping (which used to shove the composer south). */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="text-center">
-          <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[clamp(28px,4.8vw,46px)] font-semibold leading-tight" style={{ letterSpacing: '-0.035em' }} aria-live="polite">
-            <span>What do you want to</span>
-            <span className="inline-flex items-center justify-center w-[10.8rem] sm:w-[12.5rem] shrink-0 overflow-hidden align-middle">
-              <AnimatePresence mode="wait" initial={false}>
-                {(() => { const item = verbs[verbIndex]; const Icon = item.icon; return (
-                  <motion.span key={item.word} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.24 }} className="inline-flex items-center gap-1.5 font-medium whitespace-nowrap" style={{ color: item.color }}>
-                    <Icon size={24} strokeWidth={1.7} aria-hidden="true" /> {item.word}
-                  </motion.span>
-                ) })()}
-              </AnimatePresence>
-            </span>
-            <span>Today?</span>
-          </div>
+          <RevolvingText
+            items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
+            prefix="What do you want to"
+            suffix="Today?"
+            maxFontPx={46}
+            intervalMs={2200}
+          />
         </motion.div>
 
         {/* Input */}
@@ -125,22 +116,9 @@ export function HomeScreen() {
             streaming={false} onStop={() => {}} mathMode={mathMode} setMathMode={setMathMode} />
         </motion.div>
 
-        {/* Rotating suggestion chips */}
-        <div className="flex flex-wrap justify-center gap-2 -mt-2 mb-10 min-h-[34px]">
-          {chips.map((c, i) => (
-            <Magnetic key={c} strength={0.2}>
-              <motion.button
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                transition={{ delay: i * 0.04 }}
-                onClick={() => sendFromHome(c)}
-                className="px-3.5 py-1.5 rounded-full text-[12px] transition-colors hover:border-[var(--primary)]"
-                style={{ border: '1px solid var(--surface-border)', color: 'var(--text-2)', background: 'var(--surface)' }}
-              >
-                {c}
-              </motion.button>
-            </Magnetic>
-          ))}
-        </div>
+        {/* Suggestions: drawn from your recent chats when there is history,
+            otherwise the generic research prompts. */}
+        <SuggestedForYou chats={recentChats} onAsk={(prompt, opts) => sendFromHome(prompt, opts)} fallback={chips} />
 
         {/* Bento grid */}
         {hasHistory ? (

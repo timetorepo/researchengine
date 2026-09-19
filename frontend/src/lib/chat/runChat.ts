@@ -34,6 +34,8 @@ export interface RunOptions {
   /** Design mode: a live preview of the project is on screen and the AI may
    *  drive it (snapshot / click / assert / screenshot) through the bridge. */
   design?: boolean
+  /** Extra instructions appended to the system prompt (intent preambles). */
+  preamble?: string
 }
 
 const activeStreams = new Map<string, AbortController>()
@@ -42,7 +44,7 @@ export const isStreamingChat = (chatId: string) => activeStreams.has(chatId)
 
 // ---- Question queue: prompts sent while the AI is busy are held here and
 // drained automatically, one at a time, when the current run completes. ----
-export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode']; extra?: Pick<RunOptions, 'attachments' | 'contextRefs' | 'project' | 'projectTree' | 'design'> }
+export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode']; extra?: Pick<RunOptions, 'attachments' | 'contextRefs' | 'project' | 'projectTree' | 'design' | 'preamble' | 'modelOverride'> }
 
 export function enqueuePrompt(chatId: string, prompt: string, mode?: RunOptions['mode'], extra?: QueuedPrompt['extra']): string {
   const id = nanoid(8)
@@ -184,6 +186,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
       + `\n- Fix what you find by editing the project files (ide_read_file / ide_write_file), then design_preview action=restart and re-check.`
       + `\n- Never claim a UI issue is fixed without a passing design_assert or run_ui_test result.`
   }
+  if (opts.preamble) system += `\n\n${opts.preamble}`
   system += mcpContextBlock()
   system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`
 

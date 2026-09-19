@@ -10,6 +10,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { DesignStudio } from './DesignStudio'
 import { AgentPanel, chatIdFor } from './AgentPanel'
+import { AIFloat, FocusButton } from './AIFloat'
 import { CodeEditor } from './CodeEditor'
 import type { ProjectInfo, TreeNode, OpenFile } from './types'
 import { designSession, previewUrlFor } from '@/lib/ide/bridge'
@@ -117,6 +118,7 @@ export function CodingView() {
         onTreeRefresh={() => loadTree(open)}
         onBack={() => { setOpen(null); setDesign(false); void refresh() }}
         onDesign={() => setDesign(true)}
+        onRenamed={(next) => { setOpen(next); void loadTree(next); void refresh() }}
       />
     )
   }
@@ -227,12 +229,13 @@ export function CodingView() {
 type Activity = 'explorer' | 'search' | 'git' | 'design'
 type PanelTab = 'terminal' | 'problems' | 'git' | 'preview'
 
-function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
+function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }: {
   project: string
   tree: TreeNode[]
   onTreeRefresh: () => void
   onBack: () => void
   onDesign: () => void
+  onRenamed: (next: string) => void
 }) {
   const ui = useUI()
   const [activity, setActivity] = useState<Activity>('explorer')
@@ -250,6 +253,12 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
   const [preview, setPreview] = useState<{ running: boolean; port?: number; kind?: string; ready?: boolean; error?: string | null }>({ running: false })
   const [starting, setStarting] = useState(false)
   const [confirmClose, setConfirmClose] = useState<string | null>(null)
+  // Full-screen (focus) mode: the canvas fills the window and the assistant
+  // collapses into the floating pill.
+  const [focus, setFocus] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [nameDraft, setNameDraft] = useState(project)
+  const nameRef = useRef<HTMLInputElement>(null)
 
   const chatId = useMemo(() => chatIdFor(project), [project])
   const streaming = isStreamingChat(chatId)
@@ -331,6 +340,44 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
     return () => clearTimeout(t)
   }, [searchQ, activity, runSearch])
 
+  // ⌘⇧F / Ctrl⇧F toggles full screen — the AI dock folds into the floating pill.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setFocus((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  /* ---------------- rename (inline, from the title bar) ---------------- */
+  const startRename = () => { setNameDraft(project); setRenaming(true); setTimeout(() => nameRef.current?.select(), 0) }
+  const commitRename = async () => {
+    const next = nameDraft.trim().replace(/\s+/g, ' ')
+    setRenaming(false)
+    if (!next || next === project) return
+    try {
+      // The preview is bound to the old folder — stop it before the move.
+      await fetch('/api/ide/preview/stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project }) }).catch(() => null)
+      const res = await fetch('/api/ide/projects/rename', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ from: project, to: next }),
+      })
+      const j = await res.json()
+      if (!res.ok) { ui.toast('Rename failed', j.error ?? 'Unknown error', 'danger'); return }
+      // Keep the conversation attached to the renamed project.
+      const store = useStore.getState()
+      const oldChat = [...store.chats].reverse().find((c) => c.title === `Coding · ${project}`)
+      if (oldChat) store.renameChat(oldChat.id, `Coding · ${next}`)
+      onRenamed(next)
+      ui.toast('Project renamed', `${project} → ${next}`, 'success')
+    } catch (e: any) {
+      ui.toast('Rename failed', String(e?.message ?? e), 'danger')
+    }
+  }
+
   /* ---------------- preview ---------------- */
   const refreshPreview = useCallback(async () => {
     setPreview(await previewStatus(project))
@@ -388,7 +435,28 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
         </button>
         <span className="w-px h-4" style={{ background: 'var(--ide-border)' }} />
         <FolderGit2 size={13} style={{ color: 'var(--ide-accent)' }} />
-        <span className="text-[12.5px] font-medium truncate max-w-[240px]">{project}</span>
+        {renaming ? (
+          <input
+            ref={nameRef}
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={() => void commitRename()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); void commitRename() }
+              if (e.key === 'Escape') { e.preventDefault(); setRenaming(false) }
+            }}
+            maxLength={128}
+            aria-label="Project name"
+            className="ide-input ios-pop"
+            style={{ width: 200, height: 24, fontWeight: 500 }}
+          />
+        ) : (
+          <button onClick={startRename} title="Click to rename this project"
+            className="text-[12.5px] font-medium truncate max-w-[240px] px-1.5 py-0.5 rounded-md ios-press"
+            style={{ color: 'var(--ide-text)' }}>
+            {project}
+          </button>
+        )}
         {dirty && <span className="ide-badge warn">unsaved</span>}
         <div className="flex-1" />
 
@@ -412,10 +480,12 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
         <button onClick={() => void save()} disabled={!dirty} className="ide-btn primary" title="Save the active file (⌘S)">
           <Save size={12} /> Save
         </button>
+        <FocusButton focus={focus} onToggle={() => setFocus((v) => !v)} />
       </div>
 
       <div className="flex-1 min-h-0 flex">
         {/* ---------- activity bar ---------- */}
+        {!focus && (
         <div className="w-11 shrink-0 flex flex-col items-center py-2 gap-1" style={{ borderRight: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
           <ActivityBtn active={activity === 'explorer'} onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} icon={<Files size={17} />} label="Explorer" />
           <ActivityBtn active={activity === 'search'} onClick={() => { setActivity('search'); setSidebarOpen(true) }} icon={<SearchIcon size={17} />} label="Search" />
@@ -426,9 +496,10 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
           <ActivityBtn active={activity === 'design'} onClick={onDesign} icon={<MonitorUp size={17} />} label="Design mode" />
           <ActivityBtn active={agentOpen} onClick={() => setAgentOpen((v) => !v)} icon={agentOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />} label="AI assistant" />
         </div>
+        )}
 
         {/* ---------- side bar ---------- */}
-        {sidebarOpen && (
+        {sidebarOpen && !focus && (
           <div className="w-[250px] shrink-0 min-h-0 flex flex-col" style={{ borderRight: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
             {activity === 'explorer' && (
               <>
@@ -523,6 +594,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
           )}
 
           {/* bottom panel */}
+          {!focus && (
           <div className="ide-panel-strip shrink-0 flex flex-col" style={{ height: panelOpen ? 220 : undefined }}>
             <div className="flex items-center gap-1 px-2 py-1 shrink-0">
               <PanelTabBtn active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
@@ -544,9 +616,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
               </div>
             )}
           </div>
+          )}
         </div>
 
-        {/* ---------- AI dock ---------- */}
+        {/* ---------- AI dock (a floating pill once the canvas goes full screen) ---------- */}
+        {focus && <AIFloat project={project} tree={tree} />}
+        {/* Unmount the whole dock (rather than animating it out) the moment the
+            canvas goes full screen, so the pill is the only assistant on screen. */}
+        {!focus && (
         <AnimatePresence initial={false}>
           {agentOpen && (
             <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 384, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
@@ -558,9 +635,11 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
             </motion.aside>
           )}
         </AnimatePresence>
+        )}
       </div>
 
       {/* ---------- status bar ---------- */}
+      {!focus && (
       <div className="shrink-0 h-[26px] flex items-center gap-3 px-3 text-[10.5px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)', color: 'var(--ide-faint)' }}>
         <button onClick={onBack} className="flex items-center gap-1 hover:text-[var(--ide-dim)]"><FolderOpen size={10} /> {project}</button>
         <span className="flex items-center gap-1"><GitBranch size={10} /> local</span>
@@ -575,10 +654,11 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
         </span>
         <span>{files.length} open</span>
       </div>
+      )}
 
       {/* unsaved-changes guard */}
       {confirmClose && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'color-mix(in srgb, var(--bg) 55%, transparent)' }}>
           <div className="p-4 max-w-[380px] rounded-[12px]" style={{ background: 'var(--ide-elevated)', border: '1px solid var(--ide-border-strong)' }}>
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle size={14} style={{ color: 'var(--ide-warn)' }} />
@@ -798,8 +878,7 @@ function GitSidebar({ project }: { project: string }) {
         <>
           <div className="px-3 pb-2">
             <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={2} placeholder="Commit message…"
-              className="w-full p-2 rounded-[6px] text-[11.5px] outline-none resize-none"
-              style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }} />
+              className="ide-input resize-none" style={{ height: 'auto', padding: '6px 8px', fontSize: 11.5 }} />
             <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }}
               disabled={busy || !msg.trim()}
               className="ide-btn primary mt-1.5" style={{ width: '100%', justifyContent: 'center' }}>
@@ -839,8 +918,7 @@ function GitPanel({ project }: { project: string }) {
       </div>
       <div className="p-3 flex flex-col gap-2">
         <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={3} placeholder="Commit message…"
-          className="w-full p-2 rounded-[6px] text-[12px] outline-none resize-none"
-          style={{ background: '#0c1110', border: '1px solid var(--ide-border)', color: 'var(--ide-text)' }} />
+          className="ide-input resize-none" style={{ height: 'auto', padding: '6px 8px' }} />
         <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }} disabled={busy || !msg.trim()}
           className="ide-btn primary" style={{ justifyContent: 'center' }}>
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Stage all &amp; commit

@@ -121,6 +121,26 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ ok: true })
   })
 
+  // Rename a project: the folder moves, nothing inside it is touched. The IDE
+  // uses this for inline editing of the project name in the title bar.
+  r.post('/ide/projects/rename', async (c) => {
+    let body: { project?: string; from?: string; to?: string }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const fromDir = projectDir(body.from ?? body.project ?? '')
+    if (!fromDir || !existsSync(fromDir)) return c.json({ error: 'Project not found.' }, 404)
+    const toName = String(body.to ?? '').trim().replace(/\s+/g, ' ')
+    const toDir = projectDir(toName)
+    if (!toDir) return c.json({ error: 'Names must be 1-128 characters and cannot contain path separators.' }, 400)
+    if (toDir === fromDir) return c.json({ ok: true, name: toName, unchanged: true })
+    if (existsSync(toDir)) return c.json({ error: 'A project with this name already exists.' }, 409)
+    try {
+      await rename(fromDir, toDir)
+      return c.json({ ok: true, name: toName })
+    } catch (e: any) {
+      return c.json({ error: String(e?.message ?? e) }, 500)
+    }
+  })
+
   // Import a local project archive (.zip / .tar.gz / .tgz), uploaded as base64.
   // Extraction happens in a temp dir first; a single wrapping folder is flattened.
   r.post('/ide/import', async (c) => {

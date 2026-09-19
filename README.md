@@ -31,7 +31,7 @@ What makes it different: (1) **local by architecture, not by promise** — SQLit
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> | **Agent Flood** | Point a swarm of agents at a topic; each agent researches in parallel and files findings into your notebook |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F472B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> | **Articles & notebooks** | Long-form editor with AI blocks and Wikimedia-sourced imagery, plus a private notebook for retrieval-grounded chats |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> | **Private vault** | API keys encrypted at rest (AES-GCM with a passphrase-derived key) in your data directory — never in a browser sync service |
-| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg> | **Coding mode** | A VS Code-style workspace over local projects: file explorer, tabs, syntax-highlighted editor, guarded terminal, git panel, in-project search, and an AI pair-programmer that edits files with you. Create a project, upload a `.zip`/`.tar.gz`, or click **Try a sample app** |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg> | **Coding mode** | A VS Code-style workspace over local projects: file explorer, tabs, syntax-highlighted editor, guarded terminal, git panel, in-project search, and an AI pair-programmer that edits files with you. The IDE is skinned by *your* active theme, the project name renames inline on click, and the assistant runs as **Fix / Build / Refine** with a model of your choosing. Full screen (`Cmd/Ctrl + Shift + F`) folds the chat into a draggable floating pill. Create a project, upload a `.zip`/`.tar.gz`, or click **Try a sample app** |
 | **Design mode** | The IDE runs your project's own dev server and embeds the live app. The AI can *see* the screen (structured DOM + geometry + colours + console), take real screenshots, pick/inspect elements, click and type through it, resize to phone/tablet widths, and prove fixes with assertions. Every control is also a one-click test button for you |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> | **Vision + tool calls** | Attach images for models that can see them; the AI can call tools — questionnaires, connectors, web search, files, commands, and MCP servers |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5a3.5 3.5 0 1 1 7 0c0 1.7-1 2.5-2 3.5h-3c-1-1-2-1.8-2-3.5z"/><path d="M12 2v2M4.9 4.9l1.4 1.4M2 12h2M19.1 4.9l-1.4 1.4M22 12h-2"/></svg> | **Connectors** | Local Files, Drive, Mail and Calendar you populate yourself — attach them in the chatbox or let the AI search them by tool call |
@@ -118,7 +118,7 @@ Safari        :  File -> Add to Home Screen (or Share on iOS)
 | Linux | `.AppImage`, `.deb`, `.rpm`, Flatpak manifest, AUR package | AppImage needs `chmod +x` and FUSE |
 
 ```bash
-shasum -a 256 ResearchEngine_0.16.0-beta.1_aarch64.dmg   # compare with the SHA256SUMS on the release
+shasum -a 256 ResearchEngine_0.17.0-beta.1_aarch64.dmg   # compare with the SHA256SUMS on the release
 ```
 
 **Run.** Launch from the applications menu. The app starts the local backend automatically; close-to-tray keeps it warm.
@@ -147,7 +147,7 @@ cd downloads
 sha256sum -c SHA256SUMS
 ```
 
-Windows — extract `research-engine-0.16.0-beta.1-win-x64.zip`, then in that
+Windows — extract `research-engine-0.17.0-beta.1-win-x64.zip`, then in that
 folder:
 
 ```bat
@@ -157,7 +157,7 @@ research-engine.cmd serve --port 3847
 Linux — unpack and run:
 
 ```bash
-tar xzf research-engine-0.16.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.17.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ```
 
@@ -515,6 +515,7 @@ Long chats use windowed rendering (`content-visibility`), heavy routes load on d
 | `Cmd/Ctrl + Shift + S` | Settings -> Providers |
 | `Cmd/Ctrl + ,` | Settings sheet |
 | `Cmd/Ctrl + /` | This shortcuts list |
+| `Cmd/Ctrl + Shift + F` | Full screen in the IDE (chat becomes a floating pill) |
 | `Esc` | Close the topmost overlay |
 
 ---

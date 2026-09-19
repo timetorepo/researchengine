@@ -54,6 +54,11 @@ for (const k of ['window', 'document', 'navigator', 'localStorage', 'matchMedia'
     ;(globalThis as any)[k] = (win as any)[k]
   }
 }
+// framer-motion's press gesture passes an AbortSignal to addEventListener, and
+// jsdom only accepts *its own* AbortSignal — hand the DOM implementations over.
+for (const k of ['AbortController', 'AbortSignal', 'DOMException', 'Event', 'MouseEvent', 'KeyboardEvent', 'PointerEvent', 'CustomEvent', 'Blob', 'File']) {
+  if ((win as any)[k]) (globalThis as any)[k] = (win as any)[k]
+}
 ;(globalThis as any).window = win
 ;(globalThis as any).document = win.document
 ;(globalThis as any).location = win.location
@@ -94,7 +99,9 @@ async function main() {
   const { CodingView } = await import('../src/components/ide/CodingView')
   const { DesignStudio } = await import('../src/components/ide/DesignStudio')
   const { TestPanel } = await import('../src/components/ide/TestPanel')
-  const { AgentPanel } = await import('../src/components/ide/AgentPanel')
+  const { AgentPanel, INTENTS } = await import('../src/components/ide/AgentPanel')
+  const { RevolvingText } = await import('../src/components/home/RevolvingText')
+  const { SuggestedForYou } = await import('../src/components/home/SuggestedForYou')
 
   console.log('\n[1] Coding workbench renders')
   const { useStore } = await import('../src/stores/useStore')
@@ -165,8 +172,90 @@ async function main() {
   check('globals define the IDE shell tokens', css.includes('.ide-shell {') && css.includes('--ide-accent:'))
   check('segmented control styles exist', css.includes('.ide-seg > button.design[data-active="true"]'))
   check('segmented progress bars exist', css.includes('.ide-progress > i.on'))
-  check('syntax highlighting is overridden inside the shell', css.includes('.ide-shell .tok-kw'))
+  check('token colours come from the theme (no IDE override)', css.includes('.tok-kw { color: var(--secondary)') && !css.includes('.ide-shell .tok-kw'))
+  check('IDE surfaces are derived from the theme tokens', /--ide-bg:\s*var\(--bg\)/.test(css) && css.includes('--ide-accent: var(--primary)') && css.includes('--ide-code-bg: var(--code-bg)'))
+  check('light themes get their own IDE shadow', css.includes(':root[data-theme="light"] .ide-shell'))
+  check('iOS motion layer exists', css.includes('--ease-ios:') && css.includes('.ios-material') && css.includes('.ios-press') && css.includes('.ios-pop'))
+  check('Motion is reduced when the user asks for it', css.includes('prefers-reduced-motion') && css.includes('.ios-press:active, .ios-lift:hover { transform: none; }'))
   check('IDE surfaces are used by the components', studio.includes('ide-badge') || studio.includes('ide-btn'))
+
+  console.log('\n[5] Rename, intents + model picker')
+  check('the project name is a click-to-edit control', wb.includes('Click to rename this project'))
+  const nameBtn = [...container.querySelectorAll('button')].find((b) => (b.getAttribute('title') ?? '') === 'Click to rename this project')
+  nameBtn?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 120))
+  const renameHtml = container.innerHTML
+  check('clicking the name opens an inline input', renameHtml.includes('aria-label="Project name"'))
+  check('the inline input is pre-filled with the project', (container.querySelector('input[aria-label="Project name"]') as any)?.value === 'demo')
+  const renameInput = container.querySelector('input[aria-label="Project name"]') as any
+  renameInput.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  await new Promise((r) => setTimeout(r, 120))
+  check('Escape cancels the rename', !container.innerHTML.includes('aria-label="Project name"'))
+  check('assistant offers fix / build / refine intents',
+    wb.includes('Fix') && wb.includes('Build') && wb.includes('Refine'))
+  check('assistant offers a model picker', /default model|Choose a model/i.test(wb))
+  const agentHtml = renderToStaticMarkup(React.createElement(AgentPanel as any, { project: 'demo', tree: TREE }))
+  check('intent buttons carry their own preamble', agentHtml.includes('Bug') || agentHtml.includes('Fix'))
+  check('the rethink preamble is distinct per intent', INTENTS.map((i: any) => i.preamble).filter(Boolean).length === INTENTS.length)
+
+  console.log('\n[6] Full screen folds the chat into a floating pill')
+  const fullBtn = [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Full')
+  check('the workbench has a full-screen control', !!fullBtn)
+  fullBtn?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 300))
+  const focusHtml = container.innerHTML
+  check('full screen shows the floating AI pill', focusHtml.includes('Ask about this file'))
+  check('the pill is draggable (drag grip + hint)', focusHtml.includes('Drag to move'))
+  check('full screen hides the docked assistant', !focusHtml.includes('AI pair-programmer'))
+  check('full screen hides the explorer chrome', !focusHtml.includes('aria-label="Explorer"'))
+  const pill = [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Ask about this file'))
+  pill?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 300))
+  check('tapping the pill opens the assistant sheet', container.innerHTML.includes('AI pair-programmer'))
+  const exitBtn = [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Exit full')
+  exitBtn?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 300))
+  check('exiting full screen restores the docked assistant', container.innerHTML.includes('aria-label="Explorer"'))
+  root2.unmount()
+
+  console.log('\n[7] Design studio full screen')
+  container.innerHTML = ''
+  const root3 = createRoot(container)
+  root3.render(React.createElement(DesignStudio as any, { project: 'demo', tree: TREE, onExit: () => {} }))
+  await new Promise((r) => setTimeout(r, 300))
+  const studioFull = [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Full')
+  check('design studio has a full-screen control', !!studioFull)
+  studioFull?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 300))
+  check('design full screen swaps the rail for the pill', container.innerHTML.includes('Ask about this screen') && !container.innerHTML.includes('Design assistant'))
+  check('the preview stays visible in full screen', container.innerHTML.includes('title="Preview of demo"'))
+  root3.unmount()
+
+  console.log('\n[8] Hero revolving text + home suggestions')
+  const revolving = renderToStaticMarkup(React.createElement(RevolvingText as any, {
+    items: [{ word: 'research' }, { word: 'build' }], maxFontPx: 46,
+  }))
+  check('revolving text renders the full sentence', revolving.includes('What do you want to') && revolving.includes('Today?'))
+  check('revolving text never clips the word', !revolving.includes('overflow-hidden') && revolving.includes('whitespace-nowrap'))
+  check('revolving text measures the natural word width', revolving.includes('data-fit-scale'))
+  const rtCss = readFileSync(new URL('../src/components/home/RevolvingText.tsx', import.meta.url), 'utf8')
+  check('the slot animates its width, not its overflow', rtCss.includes('animate={{ width: slotWidth') && rtCss.includes('probeRef'))
+  check('the line scales down instead of wrapping', rtCss.includes('available / natural') && rtCss.includes('transformOrigin'))
+
+  const now = Date.now()
+  const { MemoryRouter } = await import('react-router-dom')
+  const suggest = renderToStaticMarkup(React.createElement(MemoryRouter, null as any, React.createElement(SuggestedForYou as any, {
+    chats: [
+      { id: 'c1', title: 'Transformer attention', messages: [{ role: 'user', content: 'explain attention heads' }, { role: 'assistant', content: 'A head projects…' }], updatedAt: now, createdAt: now },
+      { id: 'c2', title: 'RAG vs fine-tuning', messages: [], updatedAt: now - 90000, createdAt: now - 90000 },
+    ],
+    onAsk: () => {}, fallback: ['generic prompt'],
+  })))
+  check('home suggestions come from recent chats', suggest.includes('Transformer attention') && suggest.includes('Continue'))
+  check('home suggestions never show generic prompts when history exists', !suggest.includes('generic prompt'))
+  check('home suggestions explain what they will do', suggest.includes('Pick up from your recent work'))
+  const noHistory = renderToStaticMarkup(React.createElement(MemoryRouter, null as any, React.createElement(SuggestedForYou as any, { chats: [], onAsk: () => {}, fallback: ['generic prompt'] })))
+  check('home falls back to generic prompts without history', noHistory.includes('generic prompt'))
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed\n`)
   process.exit(failed ? 1 : 0)

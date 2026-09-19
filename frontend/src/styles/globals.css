@@ -707,78 +707,99 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 /* ================================================================== */
 /* IDE shell (Coding / Design mode)                                    */
 /*                                                                     */
-/* The workbench keeps its own chrome instead of following the app     */
-/* theme: an editor is a place you sit in for hours, and the reference */
-/* look is a near-black surface with a single green accent. Everything */
-/* is scoped to .ide-shell so the rest of the app is untouched.        */
+/* The workbench is denser than the rest of the app but it must still   */
+/* belong to the SAME theme the user picked: every token below is       */
+/* derived from the active theme variables, so switching to Catppuccin  */
+/* or a light theme re-skins the editor too. Only the *proportions*     */
+/* (row heights, tab strip, panel chrome) are IDE-specific.             */
 /* ================================================================== */
 .ide-shell {
-  --ide-bg: #0b0e0d;
-  --ide-panel: #0f1413;
-  --ide-elevated: #151b19;
-  --ide-hover: #1a2120;
-  --ide-active: #202925;
-  --ide-border: #1c2321;
-  --ide-border-strong: #2a3430;
-  --ide-text: #e7edea;
-  --ide-dim: #8b9793;
-  --ide-faint: #5a6663;
-  --ide-accent: #3ddc84;
-  --ide-accent-soft: color-mix(in srgb, #3ddc84 14%, transparent);
-  --ide-accent-ink: #05170e;
-  --ide-cyan: #2dd4bf;
-  --ide-warn: #e0b071;
-  --ide-danger: #ef6b6b;
-  --ide-code-bg: #0c100f;
+  /* Surfaces: the editor sits one step "deeper" than the app chrome. */
+  --ide-bg: var(--bg);
+  --ide-panel: color-mix(in srgb, var(--surface) 88%, var(--bg));
+  --ide-elevated: var(--elevated);
+  --ide-hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --ide-active: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  --ide-border: var(--surface-border);
+  --ide-border-strong: color-mix(in srgb, var(--text) 16%, transparent);
+  --ide-text: var(--text);
+  --ide-dim: var(--text-2);
+  --ide-faint: var(--text-3);
+  --ide-accent: var(--primary);
+  --ide-accent-soft: color-mix(in srgb, var(--primary) 14%, transparent);
+  --ide-accent-ink: #fff;
+  --ide-cyan: var(--secondary);
+  --ide-warn: var(--warning);
+  --ide-danger: var(--danger);
+  --ide-code-bg: var(--code-bg);
+  --ide-shadow: 0 18px 48px -22px rgba(0, 0, 0, 0.55);
 
   background: var(--ide-bg);
   color: var(--ide-text);
   font-size: 12.5px;
 }
+/* Light themes need a shallower shadow and a darker accent ink check. */
+:root[data-theme="light"] .ide-shell,
+:root[data-theme="catppuccin-latte"] .ide-shell,
+:root[data-theme="solarized-light"] .ide-shell {
+  --ide-shadow: 0 16px 40px -24px rgba(15, 23, 42, 0.28);
+}
+
 .ide-shell * { border-color: var(--ide-border); }
 .ide-shell ::selection { background: color-mix(in srgb, var(--ide-accent) 30%, transparent); }
 .ide-shell *::-webkit-scrollbar { width: 9px; height: 9px; }
-.ide-shell *::-webkit-scrollbar-thumb { background: color-mix(in srgb, #fff 11%, transparent); border-radius: 99px; }
-.ide-shell *::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, #fff 20%, transparent); }
+.ide-shell *::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 16%, transparent); border-radius: 99px; }
+.ide-shell *::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text) 28%, transparent); }
 .ide-shell *::-webkit-scrollbar-track { background: transparent; }
 
-/* Syntax: green-forward, one warm tone for literals — matches the reference. */
-.ide-shell .tok-kw { color: #4ade80; }
-.ide-shell .tok-str { color: #e0b071; }
-.ide-shell .tok-num { color: #f0a45d; }
-.ide-shell .tok-com { color: #4d5a55; font-style: italic; }
-.ide-shell .tok-fn { color: #8ce0b0; }
+/* Syntax highlighting follows the theme's own token colours (no IDE override). */
 
 /* ---------- controls ---------- */
 .ide-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 26px; padding: 0 10px; border-radius: 6px;
+  height: 26px; padding: 0 10px; border-radius: 7px;
   font-size: 11.5px; color: var(--ide-dim);
   background: transparent; border: 1px solid transparent;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition: background 140ms var(--ease-ios), color 140ms var(--ease-ios),
+              border-color 140ms var(--ease-ios), transform 140ms var(--ease-ios);
   white-space: nowrap;
 }
 .ide-btn:hover:not(:disabled) { background: var(--ide-hover); color: var(--ide-text); }
+/* iOS-style tactile press on every IDE control. */
+.ide-btn:active:not(:disabled), .ide-icon-btn:active:not(:disabled), .ide-chip:active:not(:disabled) { transform: scale(0.97); }
+.ide-btn:active:not(:disabled) { transform: scale(0.97); }
 .ide-btn:disabled { opacity: 0.4; }
 .ide-btn.outlined { border-color: var(--ide-border-strong); }
 .ide-btn.outlined:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border-strong)); color: var(--ide-text); }
 .ide-btn.primary { background: var(--ide-accent); color: var(--ide-accent-ink); font-weight: 600; }
-.ide-btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--ide-accent) 88%, #fff); color: var(--ide-accent-ink); }
+.ide-btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--ide-accent) 88%, var(--text)); }
+.ide-btn.soft { background: var(--ide-accent-soft); color: var(--ide-accent); }
+.ide-btn.soft:hover:not(:disabled) { background: color-mix(in srgb, var(--ide-accent) 22%, transparent); }
 .ide-icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 6px; color: var(--ide-dim);
+  width: 26px; height: 26px; border-radius: 7px; color: var(--ide-dim);
+  transition: background 140ms var(--ease-ios), color 140ms var(--ease-ios), transform 140ms var(--ease-ios);
 }
 .ide-icon-btn:hover { background: var(--ide-hover); color: var(--ide-text); }
+.ide-icon-btn:active { transform: scale(0.94); }
 .ide-icon-btn.active { background: var(--ide-active); color: var(--ide-text); }
 
 /* segmented control: [Preview | Code] + Design */
-.ide-seg { display: inline-flex; align-items: center; padding: 2px; gap: 2px; border-radius: 8px; background: #0c1110; border: 1px solid var(--ide-border); }
-.ide-seg > button { height: 22px; padding: 0 11px; border-radius: 6px; font-size: 11.5px; color: var(--ide-dim); }
+.ide-seg {
+  display: inline-flex; align-items: center; padding: 2px; gap: 2px;
+  border-radius: 9px; background: color-mix(in srgb, var(--text) 7%, transparent);
+  border: 1px solid var(--ide-border);
+}
+.ide-seg > button {
+  height: 22px; padding: 0 11px; border-radius: 7px; font-size: 11.5px; color: var(--ide-dim);
+  transition: background 180ms var(--ease-ios), color 180ms var(--ease-ios), transform 140ms var(--ease-ios);
+}
 .ide-seg > button:hover { color: var(--ide-text); }
-.ide-seg > button[data-active="true"] { background: var(--ide-elevated); color: var(--ide-text); box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset; }
+.ide-seg > button:active { transform: scale(0.97); }
+.ide-seg > button[data-active="true"] { background: var(--surface); color: var(--ide-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
 .ide-seg > button.design[data-active="true"] { background: var(--ide-accent); color: var(--ide-accent-ink); font-weight: 600; }
 
-/* badges (Kodeo-style status pills) */
+/* badges (status pills) */
 .ide-badge {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10px; line-height: 1; padding: 3px 7px; border-radius: 999px;
@@ -795,12 +816,13 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   height: 32px; padding: 0 10px 0 12px; font-size: 11.5px;
   color: var(--ide-faint); border-right: 1px solid var(--ide-border);
   border-top: 1px solid transparent; background: transparent;
+  transition: color 160ms var(--ease-ios), background 160ms var(--ease-ios);
 }
-.ide-tab:hover { color: var(--ide-dim); background: color-mix(in srgb, #fff 2%, transparent); }
+.ide-tab:hover { color: var(--ide-dim); background: var(--ide-hover); }
 .ide-tab[data-active="true"] { background: var(--ide-bg); color: var(--ide-text); border-top-color: var(--ide-accent); }
 
 /* ---------- tree / list rows ---------- */
-.ide-row { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 5px; font-size: 11.5px; color: var(--ide-dim); }
+.ide-row { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11.5px; color: var(--ide-dim); }
 .ide-row:hover { background: var(--ide-hover); color: var(--ide-text); }
 .ide-row[data-active="true"] { background: var(--ide-active); color: var(--ide-text); }
 .ide-row .name-dirty { color: var(--ide-accent); }
@@ -811,11 +833,13 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 
 /* ---------- inputs ---------- */
 .ide-input {
-  width: 100%; height: 26px; padding: 0 8px; border-radius: 6px;
-  background: #0c1110; border: 1px solid var(--ide-border);
+  width: 100%; height: 26px; padding: 0 8px; border-radius: 7px;
+  background: color-mix(in srgb, var(--bg) 65%, var(--surface));
+  border: 1px solid var(--ide-border);
   color: var(--ide-text); font-size: 11.5px; outline: none;
+  transition: border-color 160ms var(--ease-ios), box-shadow 160ms var(--ease-ios);
 }
-.ide-input:focus { border-color: color-mix(in srgb, var(--ide-accent) 50%, var(--ide-border)); }
+.ide-input:focus { border-color: color-mix(in srgb, var(--ide-accent) 50%, var(--ide-border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ide-accent) 18%, transparent); }
 .ide-input::placeholder { color: var(--ide-faint); }
 
 /* ---------- terminal / panel ---------- */
@@ -825,27 +849,81 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 
 /* ---------- agent panel (composer) ---------- */
 .ide-composer {
-  border: 1px solid var(--ide-border-strong); border-radius: 12px;
-  background: #0e1211; transition: border-color 140ms ease;
+  border: 1px solid var(--ide-border-strong); border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+  transition: border-color 200ms var(--ease-ios), box-shadow 200ms var(--ease-ios);
 }
-.ide-composer:focus-within { border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border-strong)); }
+.ide-composer:focus-within {
+  border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border-strong));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ide-accent) 14%, transparent);
+}
 .ide-chip {
   display: inline-flex; align-items: center; gap: 5px;
   height: 22px; padding: 0 8px; border-radius: 999px;
   font-size: 10.5px; color: var(--ide-dim);
   border: 1px solid var(--ide-border-strong); background: transparent;
+  transition: color 150ms var(--ease-ios), border-color 150ms var(--ease-ios), transform 120ms var(--ease-ios);
 }
 .ide-chip:hover { color: var(--ide-text); border-color: color-mix(in srgb, var(--ide-accent) 35%, var(--ide-border-strong)); }
-.ide-msg-user {
-  background: color-mix(in srgb, var(--ide-accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ide-accent) 22%, transparent);
-  border-radius: 10px;
-}
-.ide-msg-agent { background: var(--ide-elevated); border: 1px solid var(--ide-border); border-radius: 10px; }
-.ide-diff-add { background: color-mix(in srgb, var(--ide-accent) 14%, transparent); color: #a7f3c6; }
-.ide-diff-del { background: color-mix(in srgb, var(--ide-danger) 14%, transparent); color: #f7b4b4; }
+.ide-chip:active { transform: scale(0.96); }
+.ide-chip[data-active="true"] { background: var(--ide-accent-soft); border-color: color-mix(in srgb, var(--ide-accent) 45%, transparent); color: var(--ide-accent); }
+.ide-msg-user { background: color-mix(in srgb, var(--ide-accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ide-accent) 22%, transparent); border-radius: 12px; }
+.ide-msg-agent { background: var(--ide-elevated); border: 1px solid var(--ide-border); border-radius: 12px; }
+.ide-diff-add { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.ide-diff-del { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 
-/* progress: Kodeo's segmented bars */
+/* progress: segmented bars */
 .ide-progress { display: flex; gap: 3px; }
-.ide-progress > i { flex: 1; height: 10px; border-radius: 2px; background: color-mix(in srgb, #fff 7%, transparent); }
+.ide-progress > i { flex: 1; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--text) 9%, transparent); transition: background 260ms var(--ease-ios); }
 .ide-progress > i.on { background: var(--ide-cyan); }
+
+/* ================================================================== */
+/* iOS-flavoured motion + materials                                    */
+/* ================================================================== */
+:root {
+  /* Apple's sheet/ease-out curve, and a soft spring for scale pops. */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ios-material {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(1.7);
+  backdrop-filter: blur(28px) saturate(1.7);
+  border: 1px solid var(--ide-border-strong, var(--surface-border));
+  box-shadow: var(--ide-shadow, 0 18px 48px -22px rgba(0, 0, 0, 0.55));
+}
+.ios-press { transition: transform 140ms var(--ease-ios), opacity 140ms var(--ease-ios); }
+.ios-press:active { transform: scale(0.96); }
+.ios-lift { transition: transform 220ms var(--ease-ios), box-shadow 220ms var(--ease-ios); }
+.ios-lift:hover { transform: translateY(-2px); box-shadow: var(--ide-shadow, 0 18px 48px -22px rgba(0, 0, 0, 0.45)); }
+
+@keyframes ios-pop-in {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.ios-pop { animation: ios-pop-in 260ms var(--ease-spring) both; }
+
+@keyframes ios-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ios-rise { animation: ios-fade-up 320ms var(--ease-ios) both; }
+
+/* Sheen sweep used on the floating assistant pill. */
+@keyframes ios-sheen {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+.ios-sheen::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, #fff 12%, transparent) 48%, transparent 62%);
+  animation: ios-sheen 4.5s var(--ease-ios) 1.2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-pop, .ios-rise, .ios-sheen::after { animation: none; }
+  .ios-press:active, .ios-lift:hover { transform: none; }
+  .ide-btn:active:not(:disabled), .ide-icon-btn:active:not(:disabled), .ide-chip:active:not(:disabled) { transform: none; }
+}
