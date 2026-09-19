@@ -579,7 +579,13 @@ npm run build && npm start               # single-process verification
 
 **6. Streaming feels choppy behind a proxy.** Disable proxy buffering (`proxy_buffering off;` in nginx) and raise `proxy_read_timeout` — see the reverse-proxy examples above.
 
-**7. A fix is in the code but the app still shows the old behaviour.** You are almost certainly running an older build. Open **Settings -> About**: it prints the version and build stamp of the bundle in your browser, and if the server on disk is serving a different one it says so with the command to run. For a source checkout that is:
+**7. A fix is in the code but the app still shows the old behaviour.** You are almost certainly running an older build. Ask the launcher first:
+
+```bash
+./research-engine version      # prints the version being served and whether it matches this code
+```
+
+Then open **Settings -> About**: it prints the version and build stamp of the bundle in your browser, and if the server on disk is serving a different one it says so with the command to run. For a source checkout that is:
 
 ```bash
 git pull && npm install && npm run build   # then restart the server

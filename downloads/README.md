@@ -48,12 +48,26 @@ templates are in the root README, install method C.
 
 ## Which build am I running?
 
-Every archive ships a `frontend-dist/build-info.json`, the server prints its
-version at startup, and **Settings -> About** shows it with a warning card if
-the bundle in your browser is older than the build on disk. If the app still
-behaves like an older release, you are on an older build: unpack the current
-archive over this folder (your data in `~/.research-engine` is untouched) or
-press **Clear cache & reload** on the About screen to drop a cached app shell.
+Ask the launcher:
+
+```bash
+./research-engine version      # or: research-engine.cmd version
+```
+
+```
+Research Engine 0.19.0-beta.1  [portable]
+  built frontend : 0.17.0-beta.1 (2026-09-19T12:43:33.105Z)
+  STATUS         : STALE — the served build is 0.17.0-beta.1 but this code is 0.19.0-beta.1
+                   fix: unpack the current release archive over this folder
+```
+
+Every archive ships a `frontend-dist/build-info.json`, the server prints the
+same fingerprint at startup, `/api/health` reports it, and **Settings -> About**
+shows it with a warning card if the bundle in your browser is older than the
+build on disk. If the app still behaves like an older release, you are on an
+older build: unpack the current archive over this folder (your data in
+`~/.research-engine` is untouched) or press **Clear cache & reload** on the About
+screen to drop a cached app shell.
 
 ## Other platforms / newer builds
 

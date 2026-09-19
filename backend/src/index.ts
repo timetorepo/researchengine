@@ -8,7 +8,7 @@ import { logger } from 'hono/logger'
 import { resolveRuntime, type Runtime } from './runtime'
 import { staticHandler } from './static'
 // Pure helpers — safe to import eagerly; the route itself is wired below.
-import { sourceVersion, webBuild } from './routes/health'
+import { sourceVersion, webBuild } from './build-info'
 
 async function main() {
   // Resolve the runtime FIRST — db/index.ts reads DB_PATH at import time.

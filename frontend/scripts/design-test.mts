@@ -181,6 +181,21 @@ async function main() {
   const navigation = await host.call('ping')
   check('page url is reported', String(navigation.url).includes('/'), String(navigation.url))
 
+  console.log('\n[6] Build fingerprint — "which build am I running?"')
+  // The CLI answers the question a self-hoster actually has: is the bundle on
+  // disk the one this code produces? Its output is the first thing to check
+  // when a fix is in the source but not in the app.
+  const { execFileSync } = await import('node:child_process')
+  const cli = execFileSync(process.execPath, ['backend/bin/research-engine.mjs', 'version'], { cwd: '..', encoding: 'utf8' })
+  check('the CLI names a version', /Research Engine \d+\.\d+/.test(cli), cli.trim())
+  check('the CLI names the built frontend', /built frontend\s*:/.test(cli))
+  check('the CLI states a status', /STATUS\s+:/.test(cli))
+  const health = await api<{ web: { served: { version: string } | null; source: string; mode?: string } }>('/api/health')
+  check('/api/health reports the served build', !!health.web?.served?.version, JSON.stringify(health.web))
+  check('/api/health reports the source version', !!health.web?.source)
+  check('/api/health reports the install mode', health.web?.mode === 'checkout' || health.web?.mode === 'portable', String(health.web?.mode))
+  check('served and source agree in a current checkout', health.web?.served?.version === health.web?.source, `${health.web?.served?.version} vs ${health.web?.source}`)
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed\n`)
   try { (dom.window as any).close() } catch { /* ignore */ }
   process.exit(failed ? 1 : 0)
