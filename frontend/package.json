@@ -10,7 +10,8 @@
     "smoke": "tsx scripts/smoke.mts",
     "design-test": "tsx scripts/design-test.mts",
     "sample-test": "tsx scripts/sample-test.mts",
-    "ui-test": "tsx scripts/ui-test.mts"
+    "ui-test": "tsx scripts/ui-test.mts",
+    "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts"
   },
   "dependencies": {
     "@fontsource/geist-mono": "^5.3.0",

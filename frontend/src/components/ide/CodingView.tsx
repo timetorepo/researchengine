@@ -17,6 +17,7 @@ import { designSession, previewUrlFor } from '@/lib/ide/bridge'
 import { previewStatus, ensurePreviewServer } from '@/lib/ide/preview'
 import { isStreamingChat } from '@/lib/chat/runChat'
 import { SAMPLE_PROJECT } from '@/lib/ide/sample'
+import { normalizeProjectName } from '@/lib/ide/names'
 import { fmt, timeAgo } from '@/lib/utils'
 
 /* ================================================================== */
@@ -57,34 +58,53 @@ export function CodingView() {
     return () => window.removeEventListener('re:ide-changed', h)
   }, [open, loadTree])
 
+  /** Live preview of the folder name the user will actually get. */
+  const nameCheck = normalizeProjectName(newName)
+
   const create = async () => {
-    const name = newName.trim().replace(/\s+/g, ' ')
-    if (!name) { setErr('Enter a project name.'); return }
-    if (name.length > 128) { setErr('Project names can be up to 128 characters.'); return }
-    if (/[/\\\u0000]/.test(name) || name === '.' || name === '..') { setErr('Project names cannot contain path separators.'); return }
+    const check = nameCheck
+    if (!check.name) { setErr(check.reason ?? 'Enter a project name.'); return }
     setErr('')
     const res = await fetch('/api/ide/projects', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, files: { 'README.md': `# ${name}\n\nCreated with Research Engine Coding.\n`, 'main.py': 'print("hello")\n' } }),
+      body: JSON.stringify({
+        name: check.name,
+        files: {
+          'README.md': `# ${check.name}\n\nCreated with Research Engine Coding.\n`,
+          'main.py': 'print("hello")\n',
+        },
+      }),
     })
     const j = await res.json()
+    if (res.status === 409) {
+      // Not a dead end: the name is taken, so open what is already there.
+      const existing = j.existing ?? check.name
+      setCreating(false); setNewName(''); setErr('')
+      setOpen(existing); void refresh()
+      ui.toast('That project already exists', `Opening “${existing}” instead.`, 'info')
+      return
+    }
     if (!res.ok) { setErr(j.error ?? 'Could not create the project.'); return }
-    setCreating(false); setNewName(''); setOpen(name); void refresh()
+    const finalName = j.name ?? check.name
+    setCreating(false); setNewName(''); setOpen(finalName); void refresh()
+    if (j.renamed || finalName !== check.name) ui.toast('Project created', `Saved in a folder named “${finalName}”.`, 'success')
   }
 
+  /** The sample button must always work — the server picks the next free name. */
   const createSample = async () => {
-    const name = 'sample-landing'
     const res = await fetch('/api/ide/projects', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, files: SAMPLE_PROJECT }),
+      body: JSON.stringify({ name: 'sample-landing', files: SAMPLE_PROJECT, unique: true }),
     })
-    if (!res.ok) { ui.toast('Could not create the sample', (await res.json()).error ?? '', 'danger'); return }
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) { ui.toast('Could not create the sample', j.error ?? 'Unknown error', 'danger'); return }
+    const name = j.name ?? 'sample-landing'
     setOpen(name); setDesign(true); void refresh()
-    ui.toast('Sample ready', 'Open Design mode — the AI can audit and fix this page live.', 'success')
+    ui.toast('Sample ready', `${name} — Design mode is opening; the AI can audit and fix this page live.`, 'success')
   }
 
   const importArchive = async (file: File) => {
-    const name = file.name.replace(/\.(zip|tar\.gz|tgz|tar)$/i, '').replace(/[^a-zA-Z0-9 _.-]/g, '') || 'imported'
+    const name = normalizeProjectName(file.name.replace(/\.(zip|tar\.gz|tgz|tar)$/i, '')).name || 'imported-project'
     if (file.size > 24 * 1024 * 1024) { ui.toast('Too large', 'Project archives are capped at 24 MB.', 'warning'); return }
     const dataBase64 = await new Promise<string>((resolve) => {
       const r = new FileReader(); r.onload = () => resolve(String(r.result).split(',')[1] ?? ''); r.readAsDataURL(file)
@@ -95,8 +115,9 @@ export function CodingView() {
     })
     const j = await res.json()
     if (!res.ok) { ui.toast('Import failed', j.error ?? 'Unknown error', 'danger'); return }
-    ui.toast('Project imported', `${name} is ready — the AI can now read, fix and refine it.`, 'success')
-    setOpen(name); void refresh()
+    const finalName = j.name ?? name
+    ui.toast('Project imported', `${finalName} is ready — the AI can now read, fix and refine it.`, 'success')
+    setOpen(finalName); void refresh()
   }
 
   const del = async (name: string) => {
@@ -161,16 +182,21 @@ export function CodingView() {
               <div className="surface p-4 flex items-center gap-2">
                 <FolderPlus size={15} style={{ color: 'var(--primary)' }} />
                 <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && create()} maxLength={128}
+                  onKeyDown={(e) => e.key === 'Enter' && create()} maxLength={160}
                   placeholder="Name your project" aria-label="Project name"
                   className="flex-1 px-3 py-1.5 rounded-[10px] text-[13px] outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
                 <button onClick={create} className="px-3 py-1.5 rounded-[10px] text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Create</button>
                 <button onClick={() => setCreating(false)} className="p-1.5 rounded-[10px]" style={{ color: 'var(--text-3)' }}><X size={14} /></button>
               </div>
-              <div className="flex items-center justify-between mt-1.5 px-1">
-                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Any name up to 128 characters; path separators are not allowed</p>
-                <p className="text-[11px] tabular-nums" style={{ color: 'var(--text-3)' }}>{newName.length}/128</p>
+              <div className="flex items-center justify-between mt-1.5 px-1 gap-3">
+                <p className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
+                  {!newName.trim() ? 'Anything you like — spaces, capitals, punctuation, emoji.'
+                    : !nameCheck.name ? (nameCheck.reason ?? '')
+                    : nameCheck.changed ? <>Saved as <span style={{ color: 'var(--text-2)' }}>“{nameCheck.name}”</span> — characters Windows cannot store are cleaned up</>
+                    : 'Press Enter to create it.'}
+                </p>
+                <p className="text-[11px] tabular-nums shrink-0" style={{ color: 'var(--text-3)' }}>{nameCheck.name.length}/128</p>
               </div>
               {err && <p className="text-[12px] mt-1.5" style={{ color: 'var(--danger)' }}>{err}</p>}
             </motion.div>
@@ -260,6 +286,13 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   const [nameDraft, setNameDraft] = useState(project)
   const nameRef = useRef<HTMLInputElement>(null)
 
+  // Live mirrors of the tab state: callbacks (opened by the AI, the terminal,
+  // or a disk-change event) must never read a stale snapshot of `files`.
+  const filesRef = useRef<OpenFile[]>(files)
+  filesRef.current = files
+  const activeRef = useRef<string | null>(active)
+  activeRef.current = active
+
   const chatId = useMemo(() => chatIdFor(project), [project])
   const streaming = isStreamingChat(chatId)
   const current = files.find((f) => f.path === active) ?? null
@@ -267,29 +300,85 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   const anyDirty = files.some((f) => f.content !== f.disk)
 
   /* ---------------- files ---------------- */
+  // Tabs are keyed by path and must never appear twice: a click on an
+  // already-loading file (or a fast double-click) used to add it a second time,
+  // which made the active tab and the editor disagree.
+  const opening = useRef(new Set<string>())
+  /** Paths we wrote ourselves — their own disk-change event is ours to ignore. */
+  const justSaved = useRef(new Set<string>())
   const openFile = useCallback(async (path: string, line = 0) => {
     setGotoLine(line)
-    const existing = files.find((f) => f.path === path)
-    if (existing) { setActive(path); return }
-    const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`)
-    if (!res.ok) { ui.toast('Cannot open', (await res.json()).error ?? 'File error', 'danger'); return }
-    const j = await res.json()
-    setFiles((f) => [...f, { path, content: j.content, disk: j.content }])
-    setActive(path)
-  }, [files, project, ui])
+    if (filesRef.current.some((f) => f.path === path)) { setActive(path); return }
+    if (opening.current.has(path)) { setActive(path); return }
+    opening.current.add(path)
+    try {
+      const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`)
+      if (!res.ok) { ui.toast('Cannot open', (await res.json()).error ?? 'File error', 'danger'); return }
+      const j = await res.json()
+      setFiles((f) => (f.some((x) => x.path === path) ? f : [...f, { path, content: j.content, disk: j.content }]))
+      setActive(path)
+    } finally {
+      opening.current.delete(path)
+    }
+  }, [project, ui])
 
   const closeFile = (path: string) => {
-    const f = files.find((x) => x.path === path)
+    const f = filesRef.current.find((x) => x.path === path)
     if (f && f.content !== f.disk) { setConfirmClose(path); return }
     doClose(path)
   }
+  /** Closing the active tab moves the selection to its neighbour — computed
+   *  outside the state updater so the two can never disagree. */
   const doClose = (path: string) => {
     setConfirmClose(null)
-    setFiles((list) => {
-      const next = list.filter((x) => x.path !== path)
-      if (active === path) setActive(next.length ? next[next.length - 1].path : null)
-      return next
-    })
+    const list = filesRef.current
+    const idx = list.findIndex((x) => x.path === path)
+    const next = list.filter((x) => x.path !== path)
+    setFiles(next)
+    if (active === path) setActive(next.length ? (next[Math.min(idx, next.length - 1)]?.path ?? null) : null)
+  }
+
+  /** Pull disk changes into the tabs: clean buffers reload silently, dirty ones
+   *  are flagged so the user can choose. Files that vanished close themselves. */
+  const syncFromDisk = useCallback(async () => {
+    const list = filesRef.current
+    if (!list.length) return
+    // Drop the paths this workbench just wrote; only external writes matter.
+    const own = justSaved.current
+    justSaved.current = new Set()
+    const results = await Promise.all(list.map(async (f) => {
+      const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(f.path)}`)
+      if (!res.ok) return { path: f.path, gone: true as const }
+      const j = await res.json()
+      return { path: f.path, content: String(j.content ?? ''), gone: false as const }
+    }))
+    const byPath = new Map(results.map((x) => [x.path, x]))
+    const gone = results.filter((x) => x.gone).map((x) => x.path)
+    setFiles((current) => current
+      .filter((f) => !gone.includes(f.path))
+      .map((f) => {
+        const fresh = byPath.get(f.path)
+        if (!fresh || fresh.gone) return f
+        if (fresh.content === f.disk) return { ...f, stale: false }
+        if (own.has(f.path)) return { ...f, content: f.content === f.disk ? fresh.content : f.content, disk: fresh.content, stale: false }
+        // Changed on disk. Keep unsaved edits, flag them; otherwise adopt it.
+        if (f.content !== f.disk) return { ...f, disk: fresh.content, stale: true }
+        return { ...f, content: fresh.content, disk: fresh.content, stale: false }
+      }))
+    if (gone.length) {
+      const first = gone[0]
+      if (activeRef.current && gone.includes(activeRef.current)) setActive(null)
+      ui.toast(gone.length === 1 ? 'File deleted' : 'Files deleted', `${first} was removed outside the editor.`, 'info')
+    }
+  }, [project, ui])
+
+  const reloadFromDisk = async (path = active) => {
+    if (!path) return
+    const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`)
+    if (!res.ok) { ui.toast('Cannot reload', (await res.json()).error ?? 'File error', 'danger'); return }
+    const j = await res.json()
+    setFiles((list) => list.map((f) => (f.path === path ? { path, content: j.content, disk: j.content, stale: false } : f)))
+    ui.toast('Reloaded from disk', path, 'success')
   }
 
   const save = useCallback(async (path?: string) => {
@@ -300,8 +389,9 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
       body: JSON.stringify({ project, path: target.path, content: target.content }),
     })
     if (res.ok) {
-      setFiles((list) => list.map((f) => (f.path === target.path ? { ...f, disk: f.content } : f)))
+      setFiles((list) => list.map((f) => (f.path === target.path ? { ...f, disk: f.content, stale: false } : f)))
       ui.toast('Saved', target.path, 'success')
+      justSaved.current.add(target.path)
       window.dispatchEvent(new CustomEvent('re:ide-changed'))
     } else {
       ui.toast('Save failed', (await res.json()).error ?? 'Unknown error', 'danger')
@@ -323,6 +413,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
     await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' })
     doClose(path); onTreeRefresh()
   }
+
+  // Anything that writes files (the AI, the terminal, git) announces itself —
+  // the open tabs catch up instead of drifting out of sync with disk.
+  useEffect(() => {
+    const h = () => { void syncFromDisk() }
+    window.addEventListener('re:ide-changed', h)
+    return () => window.removeEventListener('re:ide-changed', h)
+  }, [syncFromDisk])
 
   /* ---------------- search ---------------- */
   const runSearch = useCallback(async (q: string) => {
@@ -351,6 +449,13 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Keep the active tab in view — a tab opened by the AI used to land offscreen.
+  useEffect(() => {
+    if (!active) return
+    const el = document.querySelector(`[data-tab="${CSS.escape(active)}"]`)
+    el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [active, files.length])
 
   /* ---------------- rename (inline, from the title bar) ---------------- */
   const startRename = () => { setNameDraft(project); setRenaming(true); setTimeout(() => nameRef.current?.select(), 0) }
@@ -549,13 +654,19 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         {/* ---------- editor column ---------- */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* tabs */}
-          <div className="shrink-0 flex items-stretch overflow-x-auto" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+          <div
+            className="shrink-0 flex items-stretch overflow-x-auto ide-tabstrip"
+            style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}
+            onWheel={(e) => { if (e.deltaY) e.currentTarget.scrollLeft += e.deltaY }}
+          >
             {files.map((f) => (
-              <div key={f.path} className="ide-tab group" data-active={f.path === active}>
-                <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="flex items-center gap-1.5">
+              <div key={f.path} data-tab={f.path} className="ide-tab group" data-active={f.path === active} data-stale={f.stale || undefined}>
+                <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="flex items-center gap-1.5"
+                  title={f.stale ? `${f.path} — changed on disk` : f.path}>
                   <FileCode2 size={11} />
                   {f.path.split('/').pop()}
                   {f.content !== f.disk && <Circle size={6} fill="currentColor" className="name-dirty" />}
+                  {f.stale && <span className="ide-stale-dot" title="Changed on disk" />}
                 </button>
                 <button onClick={() => closeFile(f.path)} aria-label={`Close ${f.path}`}
                   className="p-0.5 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--ide-faint)' }}>
@@ -571,6 +682,18 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
               )}
             </div>
           </div>
+
+          {/* changed-on-disk banner: never silently overwrite unsaved work */}
+          {current?.stale && (
+            <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px] ios-rise"
+              style={{ background: 'color-mix(in srgb, var(--warning) 12%, var(--ide-panel))', color: 'var(--ide-dim)', borderBottom: '1px solid var(--ide-border)' }}>
+              <AlertTriangle size={12} style={{ color: 'var(--ide-warn)' }} />
+              <span className="flex-1 truncate">This file changed on disk while you were editing it.</span>
+              <button onClick={() => void reloadFromDisk(current.path)} className="ide-btn">Reload from disk</button>
+              <button onClick={() => setFiles((list) => list.map((f) => (f.path === current.path ? { ...f, stale: false } : f)))}
+                className="ide-btn">Keep my version</button>
+            </div>
+          )}
 
           {/* editor */}
           {current ? (

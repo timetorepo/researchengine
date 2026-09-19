@@ -1,8 +1,8 @@
-import React, { memo, useState } from 'react'
+import React, { memo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles,
+  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2,
 } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { useStore } from '@/stores/useStore'
@@ -12,6 +12,8 @@ import { ReplicateTimeline } from './ReplicateTimeline'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip } from './ToolUI'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { SourceStrip } from './SourceStrip'
+import { HumanizedAnswer, HumanizingIndicator, HumanizeError } from './HumanizedAnswer'
+import { humanizeText } from '@/lib/chat/humanize'
 import { nanoid } from 'nanoid'
 
 interface Props {
@@ -29,6 +31,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   const [draft, setDraft] = useState(msg.content)
   const [showInfo, setShowInfo] = useState(false)
   const [hoverSource, setHoverSource] = useState<string | null>(null)
+  const humanizeAbort = useRef<AbortController | null>(null)
   const store = useStore
   const contextExhausted = !!msg.error && /(context|token|maximum|limit|length).{0,24}(window|capacity|exceed|long|limit|token)|too many tokens/i.test(msg.error)
   const forkWithSummary = () => {
@@ -42,6 +45,39 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
     store.getState().addMessage(forkId, { id: nanoid(8), role: 'user', content: 'Continue from this simplified conversation capsule. Ask me to clarify anything that was lost.', createdAt: Date.now() })
     navigate(`/chat/${forkId}`)
     ui.toast('Conversation forked', 'A compact context capsule was carried into a new chat.', 'success')
+  }
+
+  /** Humanize is a Chat affordance — never offered inside Coding mode. */
+  const chatTitle = store((s) => s.chats.find((c) => c.id === chatId)?.title ?? '')
+  const humanizeAllowed = !/^Coding ·/.test(chatTitle)
+
+  const runHumanize = async () => {
+    if (msg.humanizing) { humanizeAbort.current?.abort(); store.getState().updateMessage(chatId, msg.id, { humanizing: false }); return }
+    const ctrl = new AbortController()
+    humanizeAbort.current = ctrl
+    store.getState().updateMessage(chatId, msg.id, { humanizing: true, humanizeError: undefined })
+    try {
+      const res = await humanizeText({
+        text: msg.content,
+        signal: ctrl.signal,
+        // Stream into the message so long answers appear as they are rewritten.
+        onChunk: (soFar) => store.getState().updateMessage(chatId, msg.id, { humanized: soFar }),
+      })
+      store.getState().updateMessage(chatId, msg.id, { humanized: res.text, humanizedBy: res.by, humanizing: false })
+      ui.toast(
+        res.local ? 'Humanized on device' : 'Humanized',
+        res.local ? 'No provider key is set, so the on-device pass rewrote it.' : `Rewritten by ${res.by}. Hover the green text for the previous response.`,
+        'success',
+      )
+    } catch (e: any) {
+      if (e?.name === 'AbortError') { store.getState().updateMessage(chatId, msg.id, { humanizing: false }); return }
+      store.getState().updateMessage(chatId, msg.id, {
+        humanizing: false,
+        humanizeError: String(e?.message ?? e).slice(0, 200),
+      })
+    } finally {
+      humanizeAbort.current = null
+    }
   }
 
   if (msg.role === 'user') {
@@ -151,7 +187,16 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
             <ToolTraceChips msg={msg} />
             <ExecApproval chatId={chatId} msg={msg} />
             <QuestionnaireCard chatId={chatId} msg={msg} />
-            <Markdown content={msg.content} streaming={streaming} />
+            {msg.humanizing && !msg.humanized && <HumanizingIndicator onCancel={() => void runHumanize()} />}
+            {msg.humanized ? (
+              <HumanizedAnswer
+                msg={msg}
+                onRestore={() => store.getState().updateMessage(chatId, msg.id, { humanized: undefined, humanizedBy: undefined, humanizeError: undefined })}
+              />
+            ) : (
+              !msg.humanizing && <Markdown content={msg.content} streaming={streaming} />
+            )}
+            {msg.humanizeError && <HumanizeError message={msg.humanizeError} onRetry={() => void runHumanize()} />}
           </>
         )}
 
@@ -176,6 +221,28 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                 {s.domain}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Humanize — always visible, because a hidden button is not a feature.
+            Chat only: the IDE has its own agent surface, and Chat messages that
+            belong to a Coding project (title "Coding · …") are excluded too. */}
+        {!streaming && msg.content && !msg.error && humanizeAllowed && !msg.humanized && (
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+            <button
+              onClick={() => void runHumanize()}
+              disabled={msg.humanizing}
+              title="Rewrite this answer so it reads like a person wrote it — the original stays one hover away"
+              aria-label="Humanize this answer"
+              className="humanize-action"
+            >
+              {msg.humanizing
+                ? <><Loader2 size={12} className="animate-spin" /> Humanizing…</>
+                : <><Feather size={12} /> Humanize</>}
+            </button>
+            <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>
+              {msg.humanizing ? 'rewriting it now' : 'rewrites it in plain, human prose'}
+            </span>
           </div>
         )}
 

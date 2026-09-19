@@ -59,6 +59,16 @@ export interface ChatMessage {
   questionnaire?: Questionnaire
   /** Command awaiting explicit user approval (Coding mode safety). */
   pendingExec?: { toolCallId: string; command: string; reason?: string }
+  /**
+   * Humanized rewrite of `content` (Chat only — never Coding). `content` is
+   * always kept: it is the "previous response" shown in red on hover.
+   */
+  humanized?: string
+  /** Rewrite is streaming in right now. */
+  humanizing?: boolean
+  /** Who produced the rewrite ("OpenAI · gpt-4o", "on-device pass"). */
+  humanizedBy?: string
+  humanizeError?: string
 }
 
 export interface QuestionnaireItem {

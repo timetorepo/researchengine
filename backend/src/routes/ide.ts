@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
-import { projectDirOf, projectsRootOf } from '../preview/paths'
+import { projectDirOf, projectDirFor, isInternalEntry, projectsRootOf } from '../preview/paths'
 
 const EXEC_TIMEOUT_MS = 60_000
 const OUTPUT_CAP = 200_000
@@ -63,6 +63,25 @@ export function ideRoutes(rt: Runtime) {
 
   const projectDir = (name: string): string | null => projectDirOf(projectsRoot, name)
 
+  /** Existing folder that matches `name` case-insensitively (any platform). */
+  const existingFor = async (name: string): Promise<string | null> => {
+    const wanted = name.toLowerCase()
+    for (const e of await readdir(projectsRoot, { withFileTypes: true }).catch(() => [] as any[])) {
+      if (e.isDirectory() && e.name.toLowerCase() === wanted) return e.name
+    }
+    return null
+  }
+
+  /** A free project name based on `base`: base, base-2, base-3 … */
+  const freeName = async (base: string): Promise<string> => {
+    if (!(await existingFor(base))) return base
+    for (let i = 2; i < 500; i++) {
+      const candidate = `${base}-${i}`
+      if (!(await existingFor(candidate))) return candidate
+    }
+    return `${base}-${Date.now()}`
+  }
+
   const safeRel = (dir: string, rel: string): string | null => {
     if (!rel || rel.startsWith('/') || rel.includes('\u0000')) return null
     // Reject genuine traversal ("..", "a/../..") without banning harmless names
@@ -77,7 +96,9 @@ export function ideRoutes(rt: Runtime) {
     await mkdir(projectsRoot, { recursive: true })
     const out: { name: string; files: number; size: number; mtime: number; git: boolean }[] = []
     for (const e of await readdir(projectsRoot, { withFileTypes: true })) {
-      if (!e.isDirectory() || e.name.startsWith('.')) continue
+      // Names starting with "." are valid projects — only skip our own temp dirs
+      // (hiding them made a freshly created project look like it never existed).
+      if (!e.isDirectory() || isInternalEntry(e.name)) continue
       const dir = join(projectsRoot, e.name)
       let files = 0, size = 0
       const walk = async (d: string, depth: number) => {
@@ -98,20 +119,32 @@ export function ideRoutes(rt: Runtime) {
   })
 
   r.post('/ide/projects', async (c) => {
-    let body: { name?: string; files?: Record<string, string> }
+    let body: { name?: string; files?: Record<string, string>; unique?: boolean }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    const requestedName = String(body.name ?? (body as any).projectName ?? '')
-    const dir = projectDir(requestedName)
-    if (!dir) return c.json({ error: 'Project name must be 1-128 characters and cannot contain path separators.' }, 400)
-    if (existsSync(dir)) return c.json({ error: 'A project with this name already exists.' }, 409)
+    const target = projectDirFor(projectsRoot, String(body.name ?? (body as any).projectName ?? ''))
+    if (!target) {
+      return c.json({ error: 'That name has no usable characters left. Try letters, numbers or a dash.', code: 'bad_name' }, 400)
+    }
+    // `unique` is what the sample button uses: never dead-end on a collision.
+    const name = body.unique ? await freeName(target.name) : target.name
+    const dir = body.unique ? projectDir(name)! : target.dir
+    const existing = await existingFor(name)
+    if (existing) {
+      return c.json({
+        error: `A project called “${existing}” already exists.`,
+        code: 'exists', existing,
+      }, 409)
+    }
     await mkdir(dir, { recursive: true })
+    let written = 0
     for (const [rel, content] of Object.entries(body.files ?? {})) {
       const abs = safeRel(dir, rel)
       if (!abs || typeof content !== 'string' || content.length > 500_000) continue
       await mkdir(dirname(abs), { recursive: true })
       await writeFile(abs, content, 'utf8')
+      written++
     }
-    return c.json({ ok: true, name: body.name })
+    return c.json({ ok: true, name, renamed: name !== target.name, files: written })
   })
 
   r.delete('/ide/projects/:name', async (c) => {
@@ -128,11 +161,20 @@ export function ideRoutes(rt: Runtime) {
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
     const fromDir = projectDir(body.from ?? body.project ?? '')
     if (!fromDir || !existsSync(fromDir)) return c.json({ error: 'Project not found.' }, 404)
-    const toName = String(body.to ?? '').trim().replace(/\s+/g, ' ')
-    const toDir = projectDir(toName)
-    if (!toDir) return c.json({ error: 'Names must be 1-128 characters and cannot contain path separators.' }, 400)
+    const target = projectDirFor(projectsRoot, body.to ?? '')
+    if (!target) {
+      return c.json({ error: 'That name has no usable characters left. Try letters, numbers or a dash.', code: 'bad_name' }, 400)
+    }
+    const toName = target.name
+    const toDir = target.dir
     if (toDir === fromDir) return c.json({ ok: true, name: toName, unchanged: true })
-    if (existsSync(toDir)) return c.json({ error: 'A project with this name already exists.' }, 409)
+    // Renaming "demo" to "Demo" is not a collision — it is the same folder.
+    const fromName = await existingFor(String(body.from ?? body.project ?? ''))
+    const sameTarget = !!fromName && fromName.toLowerCase() === toName.toLowerCase()
+    const taken = await existingFor(toName)
+    if (taken && !sameTarget) {
+      return c.json({ error: `A project called “${taken}” already exists.`, code: 'exists', existing: taken }, 409)
+    }
     try {
       await rename(fromDir, toDir)
       return c.json({ ok: true, name: toName })
@@ -146,9 +188,11 @@ export function ideRoutes(rt: Runtime) {
   r.post('/ide/import', async (c) => {
     let body: { name?: string; fileName?: string; dataBase64?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    const dir = projectDir(body.name ?? '')
-    if (!dir) return c.json({ error: 'Invalid project name.' }, 400)
-    if (existsSync(dir)) return c.json({ error: 'A project with this name already exists.' }, 409)
+    const target = projectDirFor(projectsRoot, body.name ?? '')
+    if (!target) return c.json({ error: 'Invalid project name.', code: 'bad_name' }, 400)
+    const taken = await existingFor(target.name)
+    if (taken) return c.json({ error: `A project called “${taken}” already exists.`, code: 'exists', existing: taken }, 409)
+    const dir = target.dir
     const buf = Buffer.from(body.dataBase64 ?? '', 'base64')
     if (!buf.length || buf.length > IMPORT_CAP) return c.json({ error: 'Archive missing or larger than 24 MB.' }, 413)
     const fn = (body.fileName ?? 'project.zip').toLowerCase()
@@ -174,7 +218,7 @@ export function ideRoutes(rt: Runtime) {
         await rm(inner, { force: true })
       }
       await rename(tmp, dir)
-      return c.json({ ok: true, name: body.name })
+      return c.json({ ok: true, name: target.name, renamed: target.changed })
     } catch (e: any) {
       await rm(tmp, { recursive: true, force: true }).catch(() => {})
       return c.json({ error: String(e?.message ?? e) }, 500)

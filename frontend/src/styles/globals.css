@@ -820,6 +820,15 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 }
 .ide-tab:hover { color: var(--ide-dim); background: var(--ide-hover); }
 .ide-tab[data-active="true"] { background: var(--ide-bg); color: var(--ide-text); border-top-color: var(--ide-accent); }
+/* Tabs scroll sideways without the strip jumping between rows. */
+.ide-tabstrip { scrollbar-width: none; overscroll-behavior-x: contain; scroll-behavior: smooth; }
+.ide-tabstrip::-webkit-scrollbar { height: 0; }
+/* Hollow amber dot: "this file changed on disk". */
+.ide-stale-dot {
+  width: 6px; height: 6px; border-radius: 99px; flex: none; margin-left: 2px;
+  border: 1.5px solid var(--ide-warn); background: transparent;
+  animation: ios-pop-in 260ms var(--ease-spring) both;
+}
 
 /* ---------- tree / list rows ---------- */
 .ide-row { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11.5px; color: var(--ide-dim); }
@@ -876,6 +885,111 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 .ide-progress { display: flex; gap: 3px; }
 .ide-progress > i { flex: 1; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--text) 9%, transparent); transition: background 260ms var(--ease-ios); }
 .ide-progress > i.on { background: var(--ide-cyan); }
+
+/* ================================================================== */
+/* Gradient settle — colours travel into place instead of snapping     */
+/* ================================================================== */
+/* Registered properties are animatable, so the mesh can genuinely move
+   rather than cross-fade. Browsers without @property simply skip it. */
+@property --grad-drift-x { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --grad-drift-y { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --grad-tilt { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+
+.grad-research, .grad-math, .grad-quiz, .grad-article, .grad-flood {
+  background-size: 100% 100%;
+  background-position: var(--grad-drift-x) var(--grad-drift-y);
+  transition: background-position 900ms var(--ease-ios), filter 900ms var(--ease-ios);
+}
+
+@keyframes re-grad-pan {
+  0%   { --grad-drift-x: 8%;  --grad-drift-y: 6%;  filter: saturate(1.45) brightness(1.1); }
+  28%  { --grad-drift-x: 82%; --grad-drift-y: 34%; filter: saturate(1.3) brightness(1.05); }
+  58%  { --grad-drift-x: 24%; --grad-drift-y: 88%; filter: saturate(1.16) brightness(1.02); }
+  100% { --grad-drift-x: 50%; --grad-drift-y: 50%; filter: none; }
+}
+
+/* While settling, every gradient surface is oversized a touch so the mesh
+   visibly slides across it — the colour arrives rather than appearing. */
+.re-grad-settle .grad-research,
+.re-grad-settle .grad-math,
+.re-grad-settle .grad-quiz,
+.re-grad-settle .grad-article,
+.re-grad-settle .grad-flood {
+  background-size: 168% 168%;
+  animation: re-grad-pan 1150ms var(--ease-ios) both;
+  will-change: background-position, filter;
+}
+
+/* ================================================================== */
+/* Humanized answers (chat only)                                       */
+/* Green = the rewrite · red = the previous response                   */
+/* ================================================================== */
+.humanized-block { position: relative; }
+.humanized-text {
+  color: var(--success);
+  border-left: 2px solid color-mix(in srgb, var(--success) 45%, transparent);
+  padding-left: 12px; margin-left: -14px;
+  border-radius: 2px;
+  outline: none;
+  transition: background 160ms var(--ease-ios), border-color 160ms var(--ease-ios);
+}
+.humanized-text:hover, .humanized-text:focus-visible {
+  background: color-mix(in srgb, var(--success) 7%, transparent);
+  border-left-color: var(--success);
+}
+/* Markdown inside the rewrite keeps the humanized ink, links stay readable. */
+.humanized-text a { color: var(--success); text-decoration: underline; text-underline-offset: 2px; }
+.humanized-text code, .humanized-text pre { color: var(--text); }
+
+.previous-text {
+  color: var(--danger);
+  border-left: 2px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  padding-left: 12px;
+  border-radius: 2px;
+}
+.previous-text a { color: var(--danger); text-decoration: underline; }
+.previous-text code, .previous-text pre { color: var(--text); }
+.previous-text * { color: inherit; }
+
+.humanize-tip {
+  position: fixed; z-index: 70; border-radius: 16px; overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+.humanize-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 32%, transparent);
+}
+.humanize-action {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 500; cursor: pointer;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  transition: background 160ms var(--ease-ios), transform 160ms var(--ease-ios), border-color 160ms var(--ease-ios);
+}
+.humanize-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  transform: translateY(-1px);
+}
+.humanize-action:active:not(:disabled) { transform: scale(0.97); }
+.humanize-action:disabled { opacity: 0.7; cursor: progress; }
+
+.humanize-mini {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 7px; border-radius: 999px; font-size: 10.5px; cursor: pointer;
+  color: var(--text-2); border: 1px solid var(--surface-border);
+  transition: color 140ms var(--ease-ios), border-color 140ms var(--ease-ios), transform 140ms var(--ease-ios);
+}
+.humanize-mini:hover { color: var(--text); border-color: color-mix(in srgb, var(--text) 24%, transparent); }
+.humanize-mini:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .humanize-mini:active { transform: none; }
+}
 
 /* ================================================================== */
 /* iOS-flavoured motion + materials                                    */

@@ -236,6 +236,34 @@ export function AppearanceTab() {
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
 
+        {/* Live swatches. They use the very same .grad-* classes as the cards, so
+            flipping the switch (or the theme) makes the mesh travel into place
+            here too — you see the colour settle before you leave Settings. */}
+        <div className="surface p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div>
+              <div className="text-[13px] font-medium mb-0.5">Gradient preview</div>
+              <div className="text-[11.5px]" style={{ color: 'var(--text-2)' }}>
+                {settings.themeGradients
+                  ? 'Pulled from the active palette — switch theme to watch it re-settle.'
+                  : 'Vibrant house hues — independent of the theme.'}
+              </div>
+            </div>
+            <button onClick={() => update({ themeGradients: !settings.themeGradients })} className="humanize-mini shrink-0">
+              {settings.themeGradients ? 'Use vibrant' : 'Match theme'}
+            </button>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {(['research', 'math', 'quiz', 'article', 'flood'] as const).map((k, i) => (
+              <div key={k} className={`grad-${k} h-14 rounded-[12px] relative overflow-hidden`}
+                style={{ border: '1px solid var(--surface-border)', animationDelay: `${i * 60}ms` }}>
+                <span className="absolute left-2 bottom-1.5 text-[9.5px] capitalize"
+                  style={{ color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 2px rgba(0,0,0,0.45)' }}>{k}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Glass surface theme (chatbox + Dynamic Island) */}
         <div className="surface p-4">
           <div className="text-[13px] font-medium mb-0.5">Glass surface</div>
