@@ -12,7 +12,7 @@ import { getVaultPassphrase, setVaultPassphrase } from '@/lib/crypto/session'
 
 export function ProvidersTab() {
   const settings = useStore((s) => s.settings)
-  const [drafts, setDrafts] = useState<Record<string, { key: string; url: string }>>({})
+  const [drafts, setDrafts] = useState<Record<string, { key: string; url: string; imageKey: string; voiceKey: string }>>({})
   const [show, setShow] = useState<Record<string, boolean>>({})
   const [testing, setTesting] = useState<Record<string, 'idle' | 'busy' | 'ok' | 'err'>>({})
   const [latency, setLatency] = useState<Record<string, number>>({})
@@ -21,33 +21,32 @@ export function ProvidersTab() {
   const [pass, setPass] = useState('')
   const log = useStore.getState().logConnection
 
-  const get = (id: string) => settings.providers[id] ?? { apiKey: '', baseUrl: '', enabled: false }
+  const get = (id: string): any => settings.providers[id] ?? { apiKey: '', baseUrl: '', enabled: false, imageApiKey: '', voiceApiKey: '' }
   const meta = (id: string) => PROVIDERS.find((p) => p.id === id)!
 
   const saveProvider = async (id: string) => {
-    const d = drafts[id] ?? {}
+    const d = drafts[id] ?? { key: '', url: '', imageKey: '', voiceKey: '' }
     const m = meta(id)
     const rawKey = d.key ?? ''
     const baseUrl = d.url ?? get(id).baseUrl ?? m.baseUrl
 
-    let storedKey = get(id).apiKey
-    if (rawKey) {
-      if (settings.passphraseSet && getVaultPassphrase()) {
-        storedKey = await encryptWithPassphrase(rawKey, getVaultPassphrase()!)
-      } else if (!settings.passphraseSet) {
-        storedKey = rawKey // plaintext, with warning
-      } else {
-        storedKey = rawKey
-      }
+    const protect = async (raw: string, previous = '') => {
+      if (!raw) return previous
+      if (settings.passphraseSet && getVaultPassphrase()) return encryptWithPassphrase(raw, getVaultPassphrase()!)
+      return raw
     }
+    const conf = get(id)
+    const storedKey = await protect(rawKey, conf.apiKey)
+    const imageApiKey = await protect(d.imageKey ?? '', conf.imageApiKey)
+    const voiceApiKey = await protect(d.voiceKey ?? '', conf.voiceApiKey)
 
     useStore.setState((s) => ({
       settings: {
         ...s.settings,
-        providers: { ...s.settings.providers, [id]: { apiKey: storedKey, baseUrl, enabled: true } },
+        providers: { ...s.settings.providers, [id]: { ...conf, apiKey: storedKey, baseUrl, imageApiKey, voiceApiKey, enabled: true } },
       },
     }))
-    setDrafts((prev) => ({ ...prev, [id]: { key: '', url: baseUrl } }))
+    setDrafts((prev) => ({ ...prev, [id]: { key: '', url: baseUrl, imageKey: '', voiceKey: '' } }))
     if (!settings.passphraseSet) {
       useStore.setState({} as any)
     }
@@ -122,7 +121,7 @@ export function ProvidersTab() {
       <div className="grid grid-cols-1 gap-3">
         {PROVIDERS.map((p) => {
           const conf = get(p.id)
-          const d = drafts[p.id] ?? { key: '', url: conf.baseUrl || p.baseUrl }
+          const d = drafts[p.id] ?? { key: '', url: conf.baseUrl || p.baseUrl, imageKey: '', voiceKey: '' }
           const state = testing[p.id] ?? 'idle'
           return (
             <div key={p.id} className="surface p-4">
@@ -160,6 +159,16 @@ export function ProvidersTab() {
                         className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }}>
                         {show[p.id] ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
+                    </div>
+                  )}
+                  {(p.id === 'openai' || p.id === 'gemini' || p.id === 'openrouter') && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input type="password" value={d.imageKey} onChange={(e) => setDrafts((prev) => ({ ...prev, [p.id]: { ...d, imageKey: e.target.value } }))}
+                        placeholder={conf.imageApiKey ? 'Image key saved' : 'Image generation key'} autoComplete="off"
+                        className="w-full px-3 py-2 rounded-[10px] bg-transparent outline-none text-[12px] font-mono" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
+                      <input type="password" value={d.voiceKey} onChange={(e) => setDrafts((prev) => ({ ...prev, [p.id]: { ...d, voiceKey: e.target.value } }))}
+                        placeholder={conf.voiceApiKey ? 'Voice key saved' : 'Voice generation key'} autoComplete="off"
+                        className="w-full px-3 py-2 rounded-[10px] bg-transparent outline-none text-[12px] font-mono" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
                     </div>
                   )}
                   {(p.kind === 'ollama' || p.id === 'custom' || p.id === 'lmstudio' || p.id === 'nim' || p.id === 'openrouter' || conf.baseUrl) && (

@@ -591,6 +591,11 @@ body {
 
 /* Input shell: the surface itself communicates focus — no outline */
 .input-shell { border: 1px solid var(--surface-border); transition: border-color 180ms var(--spring), box-shadow 180ms var(--spring); }
+
+/* Word-level streaming: soft blur resolves into focus as each token lands. */
+.re-word-focus { display: inline-block; animation: re-word-focus 420ms var(--spring) both; }
+@keyframes re-word-focus { from { opacity: 0; filter: blur(5px); transform: translateY(2px); } to { opacity: 1; filter: blur(0); transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .re-word-focus { animation: none; } }
 .input-shell:focus-within {
   border-color: color-mix(in srgb, var(--primary) 55%, var(--surface-border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);

@@ -8,6 +8,11 @@ export interface ProviderConfig {
   baseUrl?: string
   models: string[]
   enabled: boolean
+  /** Optional media credentials, encrypted with the same local vault. */
+  imageApiKey?: string
+  voiceApiKey?: string
+  imageModel?: string
+  voiceModel?: string
 }
 
 export interface FlowStats {

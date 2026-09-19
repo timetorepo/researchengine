@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { nanoid } from 'nanoid'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch,
-  TerminalSquare, Sparkles, Loader2, AlertTriangle, Check, X, MessageSquareText, FolderPlus, RefreshCw, Code2,
+  TerminalSquare, Sparkles, Loader2, AlertTriangle, Check, X, MessageSquareText, FolderPlus, RefreshCw, Code2, ImagePlus, MonitorUp,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -171,11 +172,47 @@ export function CodingView() {
 }
 
 /* ================================================================== */
+/* Design mode — screenshot-aware UI repair                           */
+/* ================================================================== */
+function DesignMode({ project, tree, onClose }: { project: string; tree: TreeNode[]; onClose: () => void }) {
+  const [image, setImage] = useState<{ name: string; dataUrl: string } | null>(null)
+  const [prompt, setPrompt] = useState('Inspect this screen and suggest precise UI fixes. Ask before making destructive changes.')
+  const [chatId, setChatId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const title = `Design · ${project}`
+    const existing = [...useStore.getState().chats].reverse().find((c) => c.title === title)
+    const id = existing?.id ?? useStore.getState().newChat()
+    if (!existing) useStore.getState().renameChat(id, title)
+    setChatId(id)
+  }, [project])
+  const chat = useStore((s) => s.chats.find((c) => c.id === chatId))
+  const attach = (f: File) => {
+    if (!f.type.startsWith('image/')) return
+    const r = new FileReader(); r.onload = () => setImage({ name: f.name, dataUrl: String(r.result) }); r.readAsDataURL(f)
+  }
+  const send = async () => {
+    if (!chatId || !prompt.trim() || busy) return
+    setBusy(true)
+    try { await runChat({ chatId, prompt: prompt.trim(), project, projectTree: tree.map((n) => n.dir ? `${n.name}/` : n.name).join('\n'), attachments: image ? [{ type: 'image', name: image.name, dataUrl: image.dataUrl }] : undefined }) } finally { setBusy(false) }
+  }
+  return <div className="h-full flex flex-col" style={{ background: 'var(--bg)' }}>
+    <div className="h-12 shrink-0 flex items-center gap-3 px-4" style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--surface)' }}><button onClick={onClose} className="text-[12px]" style={{ color: 'var(--text-2)' }}>Back to code</button><span style={{ color: 'var(--text-3)' }}>/</span><MonitorUp size={14} style={{ color: 'var(--primary)' }} /><span className="text-[13px] font-medium">Design mode · {project}</span><span className="ml-auto text-[11px]" style={{ color: 'var(--text-3)' }}>Screenshot-aware UI repair</span></div>
+    <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-0">
+      <div className="p-5 overflow-y-auto"><div className="max-w-[900px] mx-auto"><div className="flex items-center justify-between mb-3"><div><h2 className="text-[18px] font-semibold">Screen canvas</h2><p className="text-[12px] mt-1" style={{ color: 'var(--text-2)' }}>Drop a screenshot or capture and describe what should change. The AI receives the image and this project context.</p></div><button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}><ImagePlus size={13} /> Add screen</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) attach(f); e.target.value = '' }} /></div>{image ? <div className="rounded-[16px] overflow-hidden" style={{ border: '1px solid var(--primary)', background: 'var(--surface)' }}><img src={image.dataUrl} alt="Uploaded design reference" className="max-h-[65vh] w-full object-contain" /></div> : <div onClick={() => fileRef.current?.click()} className="min-h-[55vh] rounded-[18px] flex flex-col items-center justify-center gap-3 cursor-pointer" style={{ border: '1px dashed var(--surface-border)', background: 'var(--surface)', color: 'var(--text-3)' }}><ImagePlus size={32} /><span className="text-[13px]">Drop or choose a screenshot to begin</span><span className="text-[11px]">The AI can inspect spacing, hierarchy, contrast and responsive layout.</span></div>}</div></div>
+      <aside className="min-h-0 flex flex-col" style={{ borderLeft: '1px solid var(--surface-border)', background: 'var(--surface)' }}><div className="px-4 py-3 text-[12px] font-medium" style={{ borderBottom: '1px solid var(--surface-border)' }}>Design assistant</div><div className="flex-1 overflow-y-auto p-3 space-y-3">{chat?.messages.map((m) => <div key={m.id} className={`text-[12px] leading-relaxed p-2.5 rounded-[11px] ${m.role === 'user' ? 'ml-5' : 'mr-2'}`} style={{ background: m.role === 'user' ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)' }}>{m.content}</div>)}{!chat?.messages.length && <div className="text-[12px] leading-relaxed" style={{ color: 'var(--text-3)' }}>I can compare the screenshot with the project, identify visual bugs, and use guarded IDE tools to apply approved fixes.</div>}</div><div className="p-3" style={{ borderTop: '1px solid var(--surface-border)' }}><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className="w-full resize-none p-2.5 rounded-[10px] outline-none text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text)' }} /><button onClick={() => void send()} disabled={busy || !prompt.trim()} className="mt-2 w-full py-2 rounded-[10px] text-[12px] font-medium disabled:opacity-40" style={{ background: 'var(--primary)', color: '#fff' }}>{busy ? 'Analyzing screen…' : 'Ask AI to inspect and fix'}</button></div></aside>
+    </div>
+  </div>
+}
+
+/* ================================================================== */
 /* IDE demo                                                            */
 /* ================================================================== */
 function DemoIDE({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState('src/App.tsx')
   const [code, setCode] = useState(`export function App() {\n  return <ResearchEngine />\n}\n`)
+  const [activity, setActivity] = useState('Demo preview: commands are disabled until you open a real project.')
   const files = ['src/App.tsx', 'src/main.tsx', 'package.json', 'README.md']
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--code-bg)' }}>
@@ -193,7 +230,7 @@ function DemoIDE({ onClose }: { onClose: () => void }) {
         <main className="min-w-0 flex flex-col">
           <div className="h-10 flex items-center px-4 text-[12px]" style={{ borderBottom: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>{file}</div>
           <textarea value={code} onChange={(e) => setCode(e.target.value)} spellCheck={false} className="flex-1 w-full resize-none p-5 outline-none font-mono text-[13px] leading-6" style={{ background: 'var(--code-bg)', color: 'var(--text)' }} aria-label="Demo code editor" />
-          <div className="h-32 shrink-0 p-3 font-mono text-[11px]" style={{ borderTop: '1px solid var(--surface-border)', background: '#0b0d10', color: 'var(--text-3)' }}><div className="flex items-center gap-2 mb-2" style={{ color: 'var(--text-2)' }}><TerminalSquare size={13} /> Terminal</div><div>$ npm test</div><div style={{ color: 'var(--success)' }}>Demo preview: commands are disabled until you open a real project.</div></div>
+          <div className="h-32 shrink-0 p-3 font-mono text-[11px]" style={{ borderTop: '1px solid var(--surface-border)', background: '#0b0d10', color: 'var(--text-3)' }}><div className="flex items-center gap-2 mb-2" style={{ color: 'var(--text-2)' }}><TerminalSquare size={13} /> Terminal <button onClick={() => { setActivity('AI found a missing return type and repaired src/App.tsx.'); setCode((c) => c.includes('return <ResearchEngine />') ? c.replace('return <ResearchEngine />', 'return <main aria-label="Research Engine"><ResearchEngine /></main>') : c) }} className="ml-auto px-2 py-1 rounded-md text-[10px]" style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>AI fix bug</button><button onClick={() => { setActivity('AI generated a responsive component scaffold.'); setCode((c) => c + '\nexport function StatusCard() {\n  return <section className="status-card">Ready</section>\n}\n') }} className="px-2 py-1 rounded-md text-[10px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>Generate code</button></div><div>$ npm test</div><div style={{ color: 'var(--success)' }}>{activity}</div></div>
         </main>
       </div>
     </div>
@@ -210,6 +247,7 @@ function IDE({ project, onClose }: { project: string; onClose: () => void }) {
   const [disk, setDisk] = useState('')
   const [newFile, setNewFile] = useState('')
   const [tab, setTab] = useState<'terminal' | 'git'>('terminal')
+  const [design, setDesign] = useState(false)
   const loadTree = useCallback(async () => {
     const res = await fetch(`/api/ide/tree?project=${encodeURIComponent(project)}`)
     if (res.ok) setTree((await res.json()).tree ?? [])
@@ -248,6 +286,7 @@ function IDE({ project, onClose }: { project: string; onClose: () => void }) {
   }
 
   const dirty = content !== disk
+  if (design) return <DesignMode project={project} tree={tree} onClose={() => setDesign(false)} />
 
   return (
     <div className="h-full flex flex-col relative">
@@ -259,6 +298,9 @@ function IDE({ project, onClose }: { project: string; onClose: () => void }) {
         <span className="text-[13px] font-medium">{project}</span>
         <div className="flex-1" />
         <span className="text-[11px] mr-1" style={{ color: dirty ? 'var(--warning)' : 'var(--text-3)' }}>{sel ? (dirty ? 'unsaved changes' : sel) : 'no file open'}</span>
+        <button onClick={() => setDesign(true)}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[12px] font-medium"
+          style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}><MonitorUp size={12} /> Design mode</button>
         <button onClick={save} disabled={!sel || !dirty}
           className="flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[12px] font-medium disabled:opacity-40"
           style={{ background: 'var(--primary)', color: '#fff' }}>

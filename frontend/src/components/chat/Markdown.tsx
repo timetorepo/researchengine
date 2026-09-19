@@ -32,9 +32,12 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
 }
 
 export const Markdown = memo(function Markdown({ content, streaming = false }: { content: string; streaming?: boolean }) {
+  const plainStreaming = streaming && !/[`#*_\[\]]/.test(content)
   return (
-    <div className={`md-body ${streaming ? '' : ''}`}>
-      <ReactMarkdown
+    <div className={`md-body ${streaming ? 'md-streaming' : ''}`}>
+      {plainStreaming ? (
+        <span aria-live="polite">{content.split(/(\s+)/).map((part, i) => part.trim() ? <span key={i} className="re-word-focus">{part}</span> : part)}</span>
+      ) : <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
@@ -49,7 +52,7 @@ export const Markdown = memo(function Markdown({ content, streaming = false }: {
         }}
       >
         {content}
-      </ReactMarkdown>
+      </ReactMarkdown>}
     </div>
   )
 })
