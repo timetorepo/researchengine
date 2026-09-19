@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { DEFAULT_PROFILE, withProfileDefaults } from '@/lib/profile'
+import { DEFAULT_PROFILE, migrateProfile } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
   Chat, ChatMessage, Skill, Article, Space, Settings, ConnectionLogEntry,
@@ -224,10 +224,10 @@ export const useStore = create<StoreState>()(
       merge: (persistedState, currentState) => {
         const p = (persistedState ?? {}) as Partial<StoreState> & { settings?: Partial<StoreState['settings']> }
         const mergedSettings = { ...currentState.settings, ...(p.settings ?? {}) }
-        // The profile gained nested fields over time (avatar motion, kind…);
-        // merge it explicitly so an older stored profile still renders.
-        mergedSettings.profile = withProfileDefaults(mergedSettings.profile)
-        mergedSettings.profileName = mergedSettings.profile.name || mergedSettings.profileName
+        // The profile gained nested fields over time (avatar motion, kind…) and
+        // began life as a bare `profileName`; migrate rather than overwrite.
+        mergedSettings.profile = migrateProfile(mergedSettings.profileName, mergedSettings.profile)
+        mergedSettings.profileName = mergedSettings.profile.name
         return {
           ...currentState,
           ...p,

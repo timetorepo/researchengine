@@ -64,6 +64,19 @@ export function withProfileDefaults(p?: Partial<Profile> | null): Profile {
   }
 }
 
+/**
+ * Bring a stored profile up to date.
+ *
+ * Older installs only had `settings.profileName` — no profile object at all —
+ * so that name is promoted into the profile once, and a profile that predates
+ * `avatar` gains the avatar defaults without losing anything the user set.
+ */
+export function migrateProfile(profileName: string | undefined, stored: Partial<Profile> | null | undefined): Profile {
+  const base = stored ?? {}
+  const seeded = !base.name && profileName ? { ...base, name: profileName } : base
+  return withProfileDefaults(seeded)
+}
+
 /** The string a blobatar is derived from — handle, salt, then a stable fallback. */
 export function blobatarSeed(profile: Profile): string {
   const base = (profile.handle || profile.name || 'researcher').trim().toLowerCase()

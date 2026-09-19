@@ -266,6 +266,7 @@ export function ProfileTab() {
               )
             })}
             <button onClick={() => updateAvatar({ salt: `r${Date.now().toString(36).slice(-4)}` })}
+              aria-label="Surprise me — same handle, new look"
               className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px]"
               style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
               <Dices size={13} /> Surprise me
