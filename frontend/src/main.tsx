@@ -11,6 +11,8 @@ import '@fontsource/geist-mono/400.css'
 import '@fontsource/lora/600.css'
 import 'katex/dist/katex.min.css'
 import '@/styles/globals.css'
+// Animated blobatars (the profile avatar) need their keyframes loaded once.
+import 'blobatar/motion.css'
 import App from './App'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

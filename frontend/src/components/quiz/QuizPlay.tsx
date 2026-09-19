@@ -1,3 +1,5 @@
+import { Markdown } from '@/components/chat/Markdown'
+import { normalizeStepText } from '@/lib/reader/format'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, ChevronRight, Flame } from 'lucide-react'
@@ -320,7 +322,7 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
                     <AnimatePresence>
                       {showExpl && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-white/80 text-[12.5px] leading-relaxed mt-2">
-                          {q.explanation}
+                          <Markdown content={normalizeStepText(q.explanation)} />
                           {onSeeSource && (q as any).source && (
                             <button onClick={() => onSeeSource((q as any).source)} className="block mt-2 text-[11.5px] underline underline-offset-2 text-white/90">
                               See this in the source →

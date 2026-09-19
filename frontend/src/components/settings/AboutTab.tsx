@@ -1,14 +1,118 @@
-import React, { useState } from 'react'
-import { Github, ShieldCheck, ExternalLink, Sparkles, RefreshCw, CheckCircle2 } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import {
+  Github, ShieldCheck, ExternalLink, Sparkles, RefreshCw, CheckCircle2, Heart, Scale,
+  Layers, Component, AlertTriangle, Eraser,
+} from 'lucide-react'
 import { AppLogo } from '@/components/shared/AppLogo'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Button } from '@/components/ui/heroui/Button'
+import { UserAvatar } from '@/components/shared/UserAvatar'
 
-export const APP_VERSION = '0.14.0-beta.1'
+/** Injected by Vite from package.json — never drifts from the shipped build. */
+export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev'
+/** Version + build stamp of the bundle you are looking at right now. */
+export const BUILD_ID = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'
+const REPO = 'https://github.com/timetorepo/researchengine'
+
+interface ServerWeb {
+  served: { version: string; buildId: string; builtAt: string } | null
+  source: string
+  mode?: 'checkout' | 'portable'
+}
+
+/**
+ * "Why is my self-hosted copy still showing the old thing?"
+ *
+ * The server knows two versions: the one baked into the built frontend it is
+ * serving, and the one declared by the code in the checkout. When those differ
+ * — or when the bundle in this tab is older than the one on disk — the app says
+ * so with the exact command that fixes it, instead of leaving you to guess.
+ */
+function StaleBuildCard() {
+  const ui = useUI()
+  const [web, setWeb] = useState<ServerWeb | null>(null)
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    fetch('/api/health')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.web) setWeb(d.web as ServerWeb) })
+      .catch(() => { /* a self-host without the API still renders the page */ })
+    return () => { live = false }
+  }, [])
+
+  const serverHandled = web?.served && web.served.version !== web.source
+  const browserStale = !!web?.served && web.served.version !== APP_VERSION
+  if (dismissed || (!serverHandled && !browserStale)) return null
+
+  const hardRefresh = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map((r) => r.unregister()))
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map((k) => caches.delete(k)))
+      }
+    } catch { /* best effort */ }
+    ui.toast('Caches cleared', 'Reloading the newest build…', 'success')
+    setTimeout(() => window.location.reload(), 400)
+  }
+
+  return (
+    <div className="surface p-4 mb-4" style={{ borderColor: 'color-mix(in srgb, var(--warning) 45%, var(--surface-border))' }}>
+      <div className="flex items-start gap-3">
+        <AlertTriangle size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--warning)' }} />
+        <div className="text-[12.5px] leading-relaxed flex-1" style={{ color: 'var(--text-2)' }}>
+          <b style={{ color: 'var(--text)' }}>This self-hosted copy is running an older build.</b>
+          {web?.served && browserStale && (
+            <p className="mt-1">The server offers <span className="font-mono">{web.served.version}</span> but this page is running <span className="font-mono">{APP_VERSION}</span> — your browser (or a cached service worker) is still holding the old bundle.</p>
+          )}
+          {serverHandled && (
+            <p className="mt-1">The built frontend on disk is <span className="font-mono">{web?.served?.version}</span>, while the code in this checkout is <span className="font-mono">{web?.source}</span>.</p>
+          )}
+          {web?.mode === 'portable' ? (
+            <>
+              <p className="mt-1.5">This is a portable build, so updating means replacing the folder: download the current archive from the repository’s <a href={`${REPO}/tree/main/downloads`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>downloads folder</a>, unpack it over this one, and restart the launcher.</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1.5">In the folder you cloned, run:</p>
+              <pre className="mt-1 px-2.5 py-2 rounded-[8px] text-[11.5px] overflow-x-auto" style={{ background: 'var(--elevated)', fontFamily: 'Geist Mono, ui-monospace, monospace' }}>git pull && npm install && npm run build</pre>
+              <p className="mt-1.5">…then restart the server.</p>
+            </>
+          )}
+          <p className="mt-1.5">If it still looks old, clear the cached app shell:</p>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <button onClick={hardRefresh} className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
+              <Eraser size={13} /> Clear cache &amp; reload
+            </button>
+            <button onClick={() => setDismissed(true)} className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Hide this</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The UI component libraries the interface is assembled from. */
+const UI_LIBRARIES: { name: string; href: string; author?: string; used: string }[] = [
+  { name: 'ReactBits', href: 'https://reactbits.dev', used: 'Animated counters and the magnetic buttons' },
+  { name: 'HeroUI', href: 'https://www.heroui.com', used: 'Button, Input and Switch primitives' },
+  { name: 'Aceternity UI', href: 'https://ui.aceternity.com', used: 'Aurora background, moving borders, spotlight cards, text-generate effect' },
+  { name: 'Border Beam', href: 'https://beam.jakubantalik.com', author: 'Jakub Antalik', used: 'The travelling light around the home-screen chatbox' },
+  { name: 'Orbs', href: 'https://orbs.jakubantalik.com', author: 'Jakub Antalik', used: 'The thinking indicator and streaming marker' },
+  { name: 'Blobatar', href: 'https://blobatar.dev', author: 'Alain', used: 'Your profile avatar, drawn from your handle' },
+]
+
+const RUNTIME_LIBRARIES = ['React', 'Vite', 'Tailwind CSS', 'Framer Motion', 'Zustand', 'Lucide', 'KaTeX', 'react-markdown', 'JSZip']
 
 export function AboutTab() {
   const ui = useUI()
+  const profile = useStore((s) => s.settings.profile)
   const [checking, setChecking] = useState(false)
   const [latest, setLatest] = useState<string | null>(null)
 
@@ -16,12 +120,13 @@ export function AboutTab() {
     setChecking(true)
     setLatest(null)
     try {
-      const res = await fetch('https://api.github.com/repos/timetorepo/researchengine/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+      const res = await fetch(`${REPO.replace('github.com', 'api.github.com/repos')}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } })
       if (!res.ok) throw new Error(String(res.status))
       const data = await res.json()
-      setLatest(data.tag_name ?? null)
-      if (data.tag_name && data.tag_name !== `v${APP_VERSION}`) {
-        ui.toast('Update available', `${data.tag_name} is out — you are on v${APP_VERSION}.`, 'success')
+      const tag = (data.tag_name as string | undefined) ?? null
+      setLatest(tag)
+      if (tag && tag !== `v${APP_VERSION}`) {
+        ui.toast('Update available', `${tag} is out — you are on v${APP_VERSION}.`, 'success')
       } else {
         ui.toast('Up to date', `You are running the latest release (v${APP_VERSION}).`, 'success')
       }
@@ -33,15 +138,49 @@ export function AboutTab() {
   }
 
   return (
-    <div>
+    <div className="max-w-[680px]">
+      {/* Header ------------------------------------------------------- */}
       <div className="flex items-center gap-3 mb-6">
         <AppLogo size={40} withName={false} />
         <div>
           <h2 className="text-xl font-semibold" style={{ letterSpacing: '-0.02em' }}>Research Engine</h2>
-          <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>Version {APP_VERSION} · refined · self-hosted · privacy-first</p>
+          <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
+            Version {APP_VERSION} · build {BUILD_ID.includes('+') ? BUILD_ID.split('+')[1].replace(/(\d{4})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4h') : 'local'} · self-hosted · privacy-first
+          </p>
         </div>
       </div>
 
+      {/* Stale self-hosted build? ------------------------------------ */}
+      <StaleBuildCard />
+
+      {/* Who made it -------------------------------------------------- */}
+      <div className="surface p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <Heart size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
+          <div className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <b style={{ color: 'var(--text)' }}>Made by timetorepo</b>
+              <a href={REPO} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11.5px]" style={{ color: 'var(--primary)' }}>
+                source <ExternalLink size={10} />
+              </a>
+            </div>
+            <p>
+              Research Engine is built in the open by <b style={{ color: 'var(--text)' }}>timetorepo</b> — a
+              one-person project with no company behind it, no funding, and no roadmap dictated by an
+              investor. Ideas, bug reports and pull requests all arrive through the repository and shape
+              what gets built next.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5 mt-3 pl-7">
+          {typeof profile?.name === 'string' && <UserAvatar size={30} />}
+          <div className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+            You are running this copy yourself. Settings → Profile is where your own face and handle live.
+          </div>
+        </div>
+      </div>
+
+      {/* Privacy promise --------------------------------------------- */}
       <div className="surface p-4 mb-4 flex items-start gap-3">
         <ShieldCheck size={18} style={{ color: 'var(--success)' }} className="shrink-0 mt-0.5" />
         <div className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
@@ -51,13 +190,68 @@ export function AboutTab() {
         </div>
       </div>
 
-      <div className="space-y-2 text-[12.5px]" style={{ color: 'var(--text-2)' }}>
-        <p>A self-hosted research platform with Perplexity-level answer quality — built for researchers, scientists, students, and privacy-conscious power users.</p>
-        <p>Featuring versioned Master Prompts, the AIFlowEngine optimization layer, New Tech (Replication) mode, SkillBuilder, Agent Flood orchestration, the Read &amp; Quiz studio, articles with AI images, citation management, and a fully themeable interface including the Perplexity-inspired theme.</p>
+      {/* What it is --------------------------------------------------- */}
+      <div className="surface p-4 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Component size={15} style={{ color: 'var(--primary)' }} />
+          <div className="text-[13px] font-medium">What this is</div>
+        </div>
+        <div className="space-y-2 text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          <p>A self-hosted research platform with Perplexity-level answer quality — built for researchers, scientists, students, and privacy-conscious power users.</p>
+          <p>Versioned Master Prompts, the AIFlowEngine optimization layer, New Tech (Replication) mode, SkillBuilder, Agent Flood orchestration, the Read &amp; Quiz studio with automatic step formatting, articles with AI images, citation management, and a fully themeable interface including the Perplexity-inspired theme.</p>
+        </div>
       </div>
 
-      <div className="flex gap-2 mt-5 flex-wrap">
-        <a href="https://github.com/timetorepo/researchengine" target="_blank" rel="noreferrer"
+      {/* UI components ------------------------------------------------- */}
+      <div className="surface p-4 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Layers size={15} style={{ color: 'var(--primary)' }} />
+          <div className="text-[13px] font-medium">UI components used</div>
+        </div>
+        <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
+          The interface is assembled from these libraries. Each one is credited to the people who built it.
+        </p>
+        <div className="space-y-2.5">
+          {UI_LIBRARIES.map((lib) => (
+            <div key={lib.name} className="flex items-start gap-2.5">
+              <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: 'var(--primary)' }} />
+              <div className="text-[12.5px] leading-relaxed">
+                <a href={lib.href} target="_blank" rel="noreferrer" className="font-medium inline-flex items-center gap-1" style={{ color: 'var(--text)' }}>
+                  {lib.name} <ExternalLink size={10} style={{ color: 'var(--text-3)' }} />
+                </a>
+                {lib.author && <span style={{ color: 'var(--text-3)' }}> by {lib.author}</span>}
+                <div style={{ color: 'var(--text-2)' }}>{lib.used}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 pt-3 text-[11.5px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
+          Runtime: {RUNTIME_LIBRARIES.join(', ')}.
+        </div>
+      </div>
+
+      {/* License ------------------------------------------------------- */}
+      <div className="surface p-4 mb-4 flex items-start gap-3">
+        <Scale size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
+        <div className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <b style={{ color: 'var(--text)' }}>MIT License</b>
+            <a href={`${REPO}/blob/main/LICENSE`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11.5px]" style={{ color: 'var(--primary)' }}>
+              read it <ExternalLink size={10} />
+            </a>
+          </div>
+          <p>
+            Research Engine is free and open source under the MIT License. Use it, fork it, ship it inside
+            your own product, sell it — the only requirement is that the copyright notice and permission
+            notice travel with the copy. The bundled libraries above keep their own MIT / Apache-2.0
+            licenses.
+          </p>
+        </div>
+      </div>
+
+      {/* Actions ------------------------------------------------------- */}
+      <div className="flex gap-2 flex-wrap mb-6">
+        <a href={REPO} target="_blank" rel="noreferrer"
           className="flex items-center gap-2 px-3.5 py-2 rounded-[12px] text-[13px]"
           style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
           <Github size={14} /> GitHub <ExternalLink size={11} />
@@ -75,15 +269,16 @@ export function AboutTab() {
         </Button>
       </div>
 
-      <div className="mt-6 pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
+      {/* Changelog ----------------------------------------------------- */}
+      <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>
-        <p><b>0.14.0-beta.1 — Continuity &amp; automation:</b> AIFlowEngine becomes a true streaming engine — raw bursts are buffered and re-timed into composed word-by-word prose (Off / Subtle / Standard / Cinematic), with punctuation pauses, whole-line code reveals, stall detection, and a breathing-orb thinking indicator that names the actual pipeline stage. Route-level code splitting cuts the initial bundle by 47%. A new Workflows surface chains triggers, AI steps, logic, transforms and outputs into automations that execute for real — infinite canvas, cmdk node picker, slide-over config with live node testing, run history, log and data inspector, 8 templates, and secret-scrubbed <code>.workflow.json</code> sharing. A filesystem integration writes real files into the Research Engine data directory. Plus a full product README and app-wide motion standardization.</p>
+        <p><b>0.19.0-beta.1 — Clean steps, faces and beams:</b> step-by-step and <code>:dot:</code> text is formatted by the app at display time — <code>:dot:</code> lines, “Step 2 —” runs and repeated <code>1.</code> numbering become real numbered steps and nested bullets across Read &amp; Quiz and the reading chatbox, with no extra model call. A local Humanize pass rewrites answers on-device (code left untouched, clipped rewrites flagged), the sample app and project names work first try, IDE file tabs stop duplicating, and theme gradients animate into place when you switch palettes. New: a profile editor whose avatar is a blobatar drawn from your handle, Border Beam around the home composer, Orbs for the thinking state, this About page, and an MIT license. Settings → About now fingerprints the build and names any stale self-hosted copy, with a one-click cache clear.</p>
+        <p className="mt-1.5"><b>0.14.0-beta.1 — Continuity &amp; automation:</b> AIFlowEngine becomes a true streaming engine — raw bursts buffered and re-timed into composed word-by-word prose (Off / Subtle / Standard / Cinematic), with punctuation pauses, whole-line code reveals, stall detection, and a breathing-orb thinking indicator that names the actual pipeline stage. Route-level code splitting cuts the initial bundle by 47%. A new Workflows surface chains triggers, AI steps, logic, transforms and outputs into automations that execute for real — infinite canvas, cmdk node picker, slide-over config with live node testing, run history, log and data inspector, 8 templates, and secret-scrubbed <code>.workflow.json</code> sharing. A filesystem integration writes real files into the Research Engine data directory. Plus a full product README and app-wide motion standardization.</p>
         <p className="mt-1.5"><b>0.13.0-beta.1 — Lightweight runtimes:</b> Docker is now optional. A single-process server (<code>npm start</code>) serves the API, streams and the built frontend on :3847 with automatic port picking; a portable-binary packager (<code>npm run package:binary</code>, Bun compile supported); a Tauri 2 desktop scaffold; PWA install with an offline app shell; startup profiles (eco / balanced / performance) with a live resource panel in Settings → Performance; a standard data directory at <code>~/.research-engine</code>; and an optional slim single-image Docker path with resource limits.</p>
         <p className="mt-1.5">0.12.0-beta.1 — The Refinement: versioned Master Prompts; New Tech (Replication) mode; rebuilt Read &amp; Quiz studio; premium quizzes; AI article images; Perplexity-inspired theme; command palette; ZIP export and merge-import.</p>
         <p className="mt-1.5">0.11.0-beta.1 — The working version: Agent Flood runs real parallel agents on configured models with real synthesis and live token/budget accounting; web search runs real engines and grounds answers in numbered citations; navigation hardening; error boundary.</p>
         <p className="mt-1.5">0.10.0-beta.1 — Onboarding flow, custom backgrounds (solid / image / blur / veil), UI component libraries, adaptive context pruning.</p>
         <p className="mt-1.5">0.9.0 — Agent Flood scratchpad, ResearchEngineOS Dynamic Island, citation export formats.</p>
-        <p className="mt-3">Open-source licenses: React, Vite, Tailwind CSS, Framer Motion, Zustand, Lucide, KaTeX, react-markdown, JSZip.</p>
       </div>
     </div>
   )

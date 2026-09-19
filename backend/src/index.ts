@@ -5,8 +5,10 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { resolveRuntime } from './runtime'
+import { resolveRuntime, type Runtime } from './runtime'
 import { staticHandler } from './static'
+// Pure helpers — safe to import eagerly; the route itself is wired below.
+import { sourceVersion, webBuild } from './routes/health'
 
 async function main() {
   // Resolve the runtime FIRST — db/index.ts reads DB_PATH at import time.
@@ -38,7 +40,7 @@ async function main() {
   // Log method + path only — never bodies, never keys.
   app.use('*', logger((msg) => console.log(`[re] ${msg}`)))
 
-  app.route('/api', healthRoutes)
+  app.route('/api', healthRoutes(rt.frontendDist))
   app.route('/api', resourceRoutes(rt))
   app.route('/api', fsRoutes(rt))
   app.route('/api', ideRoutes(rt))
@@ -67,10 +69,23 @@ async function main() {
     console.log(`Research Engine listening on http://${rt.host}:${info.port}`)
     console.log(`  data dir : ${rt.dataDir}`)
     console.log(`  profile  : ${rt.profile} (${rt.caps.floodWorkers} flood worker${rt.caps.floodWorkers > 1 ? 's' : ''}, ${rt.caps.concurrentStreams} concurrent stream${rt.caps.concurrentStreams > 1 ? 's' : ''})`)
-    console.log(`  frontend : ${rt.frontendDist ?? 'not found — API only (run `npm run build` in frontend/ for single-process mode)'}`)
+    console.log(`  frontend : ${rt.frontendDist ?? 'not found — API only (run `npm run build` in frontend/ for single-process mode)'}${rt.frontendDist ? webBuildNote(rt) : ''}`)
     console.log(`  database : ${rt.dbPath}`)
     if (rt.rememberedPort) console.log(`  note     : preferred port was busy — using ${info.port} (remembered in config.json)`)
   })
+}
+
+/**
+ * Print the fingerprint of the bundle being served next to the folder it came
+ * from. A copy built before the last `git pull` is the usual reason a fix
+ * "did not work" — this line makes that visible at startup instead.
+ */
+function webBuildNote(rt: Runtime): string {
+  const served = webBuild(rt.frontendDist)
+  if (!served) return ' (no build-info.json — rebuild the frontend to get a fingerprint)'
+  const source = sourceVersion()
+  const stale = source && served.version !== source ? ` — STALE, source is ${source} (run: npm run build)` : ''
+  return ` [${served.version}]${stale}`
 }
 
 // Never leave orphaned dev servers behind when the backend goes down (or is

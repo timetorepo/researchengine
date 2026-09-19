@@ -266,6 +266,130 @@ async function main() {
   const inlineSafe = localHumanize('Call `utilise(x)` to leverage nothing.')
   check('inline code is protected too', inlineSafe.includes('`utilise(x)`'), inlineSafe)
 
+  console.log('\n[6] Study formatting: steps and :dot: lines are drawn the same everywhere')
+  const { normalizeStepText, toStudyBlocks, looksStructured } = await import('../src/lib/reader/format')
+  const messy = 'Here is the method.\n1. Collect the samples\n:dot: label each tube\n:dot: keep them on ice'
+  const tidy = normalizeStepText(messy)
+  check('the :dot: marker never reaches the reader', !tidy.includes(':dot:'), tidy)
+  check('a :dot: line becomes a bullet', tidy.includes('- label each tube'))
+  check('numbered steps keep their number', /^1\. Collect the samples$/m.test(tidy))
+  const blocks = toStudyBlocks(messy)
+  check('prose and steps are separated', blocks[0].kind === 'paragraph' && blocks.some((b) => b.kind === 'steps'))
+  const stepBlock = blocks.find((b) => b.kind === 'steps')!
+  check('nested :dot: lines stay under their step', stepBlock.items!.filter((i) => i.depth > 0).length === 2)
+  const relist = toStudyBlocks('1. First\n1. Second\n1. Third')
+  check('repeated "1." is renumbered 1, 2, 3', relist[0].items!.map((i) => i.text).join('|') === 'First|Second|Third')
+  const walk = toStudyBlocks('Step 1: Prep the slide\n\nStep 2 - Stain it\n\nStep 3 — Image it')
+  check('"Step N" runs are recognised as steps', walk[0].kind === 'steps' && walk[0].items!.length === 3, JSON.stringify(walk[0]))
+  const bullets = toStudyBlocks('• one\n• two')
+  check('unicode bullets become a list', bullets[0].kind === 'bullets' && bullets[0].items!.length === 2)
+  check('fenced code is left alone', toStudyBlocks('```js\n:dot: not a bullet\n```')[0].kind === 'code')
+  check('plain prose is untouched', looksStructured('Just a sentence about cells.') === false && toStudyBlocks('Just a sentence about cells.')[0].kind === 'paragraph')
+
+  const { ReaderView } = await import('../src/components/reader/ReaderView')
+  const rc = win.document.createElement('div')
+  win.document.body.appendChild(rc)
+  const rootR = createRoot(rc)
+  rootR.render(React.createElement(MemoryRouter, null as any, React.createElement(ReaderView as any, {
+    doc: { id: 'd1', name: 'Steps', text: messy + '\n\nBack to prose.' },
+    onBack: () => {}, onQuizSection: () => {},
+  })))
+  await wait(300)
+  check('the reader draws a real ordered list', !!rc.querySelector('ol.study-steps'))
+  check('each step gets its own marker element', rc.querySelectorAll('ol.study-steps > li > .study-marker').length === 1)
+  check('nested :dot: lines are drawn as bullets', rc.querySelectorAll('ol.study-steps .study-list li').length === 2)
+  check('no raw :dot: text is left in the reader', !(rc.textContent ?? '').includes(':dot:'))
+
+  // Quiz explanations and the reading chatbox answer go through the same
+  // tidying, rendered as markdown so the markers survive it.
+  const { Markdown } = await import('../src/components/chat/Markdown')
+  const c6 = win.document.createElement('div')
+  win.document.body.appendChild(c6)
+  const root6 = createRoot(c6)
+  root6.render(React.createElement(Markdown as any, { content: normalizeStepText('1. Collect the samples\n:dot: label each tube') }))
+  await wait(200)
+  check('a quiz explanation draws a numbered list', !!c6.querySelector('ol'))
+  check('the explanation keeps its nested bullet', !!c6.querySelector('ul'))
+  check('no :dot: marker survives into the quiz', !(c6.textContent ?? '').includes(':dot:'))
+
+  console.log('\n[7] Profile: handle in, blobatar out')
+  const { DEFAULT_PROFILE, blobatarSeed, initialsOf, normalizeHandle, withProfileDefaults } = await import('../src/lib/profile')
+  check('handles are normalised to a username', normalizeHandle('  Ada Lovelace!!  ') === 'ada-lovelace')
+  check('an empty handle falls back', normalizeHandle('...') === '')
+  check('the same handle always seeds the same blobatar', blobatarSeed({ ...DEFAULT_PROFILE, handle: 'ada' }) === 'ada')
+  check('salt re-rolls the look without changing the handle', blobatarSeed({ ...DEFAULT_PROFILE, handle: 'ada', avatar: { ...DEFAULT_PROFILE.avatar, salt: 'v2' } }) === 'ada#v2')
+  check('an old stored profile gains the new avatar fields', withProfileDefaults({ name: 'Ada' } as any).avatar.kind === 'blobatar')
+  check('initials come from the display name', initialsOf({ ...DEFAULT_PROFILE, name: 'Ada Lovelace' }) === 'AL')
+
+  const { UserAvatar } = await import('../src/components/shared/UserAvatar')
+  useStore.setState((s) => ({ settings: { ...s.settings, profile: withProfileDefaults({ name: 'Ada Lovelace', handle: 'ada' }) } }) as any)
+  const c3 = win.document.createElement('div')
+  win.document.body.appendChild(c3)
+  const root3 = createRoot(c3)
+  root3.render(React.createElement(UserAvatar as any, { size: 40 }))
+  await wait(250)
+  const face = c3.querySelector('svg, img')
+  check('a blobatar is drawn for the profile', !!face)
+  check('the avatar is attributed to the handle', (c3.querySelector('[title]')?.getAttribute('title') ?? '').includes('ada'))
+  root3.render(React.createElement(UserAvatar as any, { size: 40 }))
+  await wait(60)
+  useStore.setState((s) => ({ settings: { ...s.settings, profile: withProfileDefaults({ name: 'Ada Lovelace', handle: 'ada', avatar: { ...DEFAULT_PROFILE.avatar, kind: 'initials' } }) } }) as any)
+  await wait(150)
+  check('initials mode falls back to the letter mark', (c3.textContent ?? '').includes('AL'), c3.textContent ?? '')
+
+  console.log('\n[8] Home composer wears the Border Beam')
+  const { InputBar } = await import('../src/components/input/InputBar')
+  useStore.setState((s) => ({ settings: { ...s.settings, theme: 'dark', reduceMotion: false, composerBeam: true, composerBeamVariant: 'ocean' } }) as any)
+  const c4 = win.document.createElement('div')
+  win.document.body.appendChild(c4)
+  const root4 = createRoot(c4)
+  root4.render(React.createElement(MemoryRouter, null as any, React.createElement(InputBar as any, {
+    big: true, chatId: 'home', emptyHistory: true, streaming: false, onStop: () => {},
+    mathMode: false, setMathMode: () => {}, onSend: () => {}, autoFocus: false,
+  })))
+  await wait(250)
+  check('the beam renders around the home composer', !!c4.querySelector('[data-beam]'))
+  check('the beam is masked off the text you type', !!(c4.querySelector('[data-beam]') as HTMLElement)?.style.position.includes('absolute'))
+  const beamStyle = [...win.document.querySelectorAll('style')].map((el) => el.textContent ?? '').join('\n')
+  check('the beam matches the composer radius', beamStyle.includes('border-radius: 22px'))
+  root4.render(React.createElement(MemoryRouter, null as any, React.createElement(InputBar as any, {
+    big: false, chatId: 'c1', emptyHistory: false, streaming: false, onStop: () => {},
+    mathMode: false, setMathMode: () => {}, onSend: () => {}, autoFocus: false,
+  })))
+  await wait(200)
+  check('chat composers stay plain', !c4.querySelector('[data-beam]'))
+
+  console.log('\n[9] About: credits, license and a stale-build warning')
+  useStore.setState((s) => ({ settings: { ...s.settings, reduceMotion: false } }) as any)
+  const realFetch = (globalThis as any).fetch
+  ;(globalThis as any).fetch = async (input: any) => {
+    const url = String(typeof input === 'string' ? input : input?.url ?? '')
+    if (url.includes('/api/health')) {
+      return json({ ok: true, web: { served: { version: '0.14.0-beta.1', buildId: 'x', builtAt: '2026-01-01T00:00:00Z' }, source: '0.17.1-beta.1' } })
+    }
+    return json({})
+  }
+  ;(win as any).fetch = (globalThis as any).fetch
+  const { AboutTab } = await import('../src/components/settings/AboutTab')
+  const c5 = win.document.createElement('div')
+  win.document.body.appendChild(c5)
+  const root5 = createRoot(c5)
+  root5.render(React.createElement(AboutTab as any, {}))
+  await wait(250)
+  const about = c5.textContent ?? ''
+  check('the author is credited', about.includes('timetorepo'))
+  check('ReactBits is credited', about.includes('ReactBits'))
+  check('HeroUI is credited', about.includes('HeroUI'))
+  check('Aceternity UI is credited', about.includes('Aceternity UI'))
+  check('Border Beam is credited to Jakub Antalik', about.includes('Border Beam') && about.includes('Jakub Antalik'))
+  check('Orbs is credited', about.includes('Orbs'))
+  check('the license is stated', about.includes('MIT License'))
+  check('a stale self-hosted build is called out', about.includes('older build'))
+  check('the fix is spelled out', about.includes('npm run build'))
+  check('clearing the cached shell is offered', about.includes('Clear cache'))
+  ;(globalThis as any).fetch = realFetch
+  ;(win as any).fetch = realFetch
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

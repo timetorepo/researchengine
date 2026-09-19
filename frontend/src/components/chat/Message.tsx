@@ -15,6 +15,8 @@ import { SourceStrip } from './SourceStrip'
 import { HumanizedAnswer, HumanizingIndicator, HumanizeError } from './HumanizedAnswer'
 import { humanizeText } from '@/lib/chat/humanize'
 import { nanoid } from 'nanoid'
+import { ThinkingOrb } from 'thinking-orbs'
+import { themeKind } from '@/lib/themes/meta'
 
 interface Props {
   chatId: string
@@ -33,6 +35,8 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   const [hoverSource, setHoverSource] = useState<string | null>(null)
   const humanizeAbort = useRef<AbortController | null>(null)
   const store = useStore
+  const theme = useStore((st) => st.settings.theme)
+  const reduceMotion = useStore((st) => st.settings.reduceMotion)
   const contextExhausted = !!msg.error && /(context|token|maximum|limit|length).{0,24}(window|capacity|exceed|long|limit|token)|too many tokens/i.test(msg.error)
   const forkWithSummary = () => {
     const source = store.getState().chats.find((c) => c.id === chatId)
@@ -143,7 +147,12 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
       <div className="max-w-[760px] mx-auto px-4">
         {/* Model attribution */}
         <div className="flex items-center gap-1.5 mb-2 text-[11px]" style={{ color: 'var(--text-3)' }}>
-          {streaming && msg.content !== '' && <motion.span layoutId="re-flow-orb" className="inline-flex"><span className="re-orb re-orb-sm" aria-hidden="true" /></motion.span>}
+          {streaming && msg.content !== '' && (
+            <motion.span layoutId="re-flow-orb" className="inline-flex">
+              {/* ThinkingOrb (Jakubantalik) marks the text as still arriving. */}
+              <ThinkingOrb state="composing" size={20} theme={themeKind(theme)} paused={reduceMotion} />
+            </motion.span>
+          )}
           <ProviderLogo id={msg.provider?.toLowerCase() ?? ''} size={12} />
           <span className="font-mono">{msg.model}</span>
           {msg.agentAttribution && msg.agentAttribution.length > 0 && (

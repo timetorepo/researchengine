@@ -4,8 +4,8 @@
 
 ![Research Engine screenshot](docs/screenshot.png)
 
-[![Pre-release](https://img.shields.io/badge/release-v0.14.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
-[![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey)](#license--credits)
+[![Pre-release](https://img.shields.io/badge/release-v0.19.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue)](#license--credits)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#install-research-engine)
 
 ---
@@ -27,7 +27,9 @@ What makes it different: (1) **local by architecture, not by promise** — SQLit
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6C8EEF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> | **Grounded answers** | Web search (DuckDuckGo/Bing backends), numbered source citations, per-source reading, answers that cite inline |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> | **AIFlowEngine** | Query classification, context pruning (40–70% token savings), semantic caching, and stream shaping with four pacing modes |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg> | **Workflow editor** | Node-based automation: triggers, AI steps, logic, transforms, and outputs on an infinite canvas, with run history and one-file sharing |
-| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> | **Read & Quiz studio** | Upload PDF/DOCX/TXT, a 720px study reader with highlights, AI summaries, and generated quizzes (6 question types, timer, streaks) — runs fully offline |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> | **Read & Quiz studio** | Upload PDF/DOCX/TXT, a 720px study reader with highlights, AI summaries, and generated quizzes (6 question types, timer, streaks). Step-by-step text is tidied **by the app, at display time** — `:dot:` lines, "Step 2 —" runs and repeated `1.` numbering become real numbered steps and bullets, with no extra model call — runs fully offline |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6C8EEF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg> | **Profile & blobatar** | Settings → Profile sets your name, handle and bio. The avatar is a **blobatar** generated from your handle ([blobatar.dev](https://blobatar.dev)) — same handle, same creature, on any machine — with shape, motion, expression, colour and a re-roll row. Stored locally, no account |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg> | **Interface craft** | The home chatbox wears **Border Beam** and thinking states use **Orbs**, both by [Jakub Antalik](https://jakubantalik.com); components also come from ReactBits, HeroUI and Aceternity UI. Every one is credited in Settings → About, alongside the MIT license |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> | **Agent Flood** | Point a swarm of agents at a topic; each agent researches in parallel and files findings into your notebook |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F472B6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> | **Articles & notebooks** | Long-form editor with AI blocks and Wikimedia-sourced imagery, plus a private notebook for retrieval-grounded chats |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> | **Private vault** | API keys encrypted at rest (AES-GCM with a passphrase-derived key) in your data directory — never in a browser sync service |
@@ -577,7 +579,13 @@ npm run build && npm start               # single-process verification
 
 **6. Streaming feels choppy behind a proxy.** Disable proxy buffering (`proxy_buffering off;` in nginx) and raise `proxy_read_timeout` — see the reverse-proxy examples above.
 
-**7. The PWA shows an old version.** The service worker updates on navigation; force-update it from DevTools -> Application -> Service Workers, or unregister and reinstall.
+**7. A fix is in the code but the app still shows the old behaviour.** You are almost certainly running an older build. Open **Settings -> About**: it prints the version and build stamp of the bundle in your browser, and if the server on disk is serving a different one it says so with the command to run. For a source checkout that is:
+
+```bash
+git pull && npm install && npm run build   # then restart the server
+```
+
+If the banner does not appear but the page still looks stale, press **Clear cache & reload** on that same About screen — it unregisters the PWA service worker and drops the cached app shell (a hard reload, `Cmd/Ctrl + Shift + R`, does the same).
 
 **8. Onboarding loops.** Onboarding state lives in local storage for browser installs and in the database for hosted ones; clearing site data mid-onboarding restarts it. Complete it once and it never re-appears.
 
@@ -609,6 +617,10 @@ npm run build && npm start               # single-process verification
 
 ## License & credits
 
-Copyright (c) 2026 Research Engine contributors. All rights reserved. Pre-release builds are provided for evaluation; no license is granted beyond running the software as distributed.
+MIT License — Copyright (c) 2026 timetorepo. See [LICENSE](LICENSE). Use it, fork it, ship it inside your own product, sell it; the only requirement is that the copyright notice and permission notice travel with the copy.
+
+Made by [timetorepo](https://github.com/timetorepo/researchengine), in the open, with no company behind it.
+
+Interface components come from [ReactBits](https://reactbits.dev), [HeroUI](https://www.heroui.com), [Aceternity UI](https://ui.aceternity.com), [Border Beam](https://beam.jakubantalik.com) and [Orbs](https://orbs.jakubantalik.com) by Jakub Antalik, and [Blobatar](https://blobatar.dev) by Alain — all credited inside the app under Settings → About.
 
 Built on the shoulders of excellent open source: React, Vite, Hono, Zustand, Framer Motion, esbuild, KaTeX, pdf.js, Mammoth, Lucide, better-sqlite3, and Tauri. Their licenses travel with their packages.

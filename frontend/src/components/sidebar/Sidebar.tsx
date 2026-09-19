@@ -2,13 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus,
+  Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus, UserRound,
   Trash2, Search, ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, X, Pencil, Check, Swords,
   Sun, Moon, RotateCcw, Pin, PinOff, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon,
 } from 'lucide-react'
 import { download, timeAgo } from '@/lib/utils'
 import { THEMES } from '@/lib/themes/meta'
 import { useStore } from '@/stores/useStore'
+import { UserAvatar } from '@/components/shared/UserAvatar'
+import { withProfileDefaults } from '@/lib/profile'
 import { useUI } from '@/stores/useUI'
 import type { ThemeId } from '@/types'
 import { AppLogo } from '@/components/shared/AppLogo'
@@ -476,9 +478,9 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
 /** User profile pill — avatar, name, presence dot. Popover with profile options. */
 function ProfilePill({ collapsed }: { collapsed: boolean }) {
   const name = useStore((s) => s.settings.profileName) ?? 'Researcher'
+  const handle = withProfileDefaults(useStore((s) => s.settings.profile)).handle
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(name)
-  const initials = (name || 'Researcher').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'R'
 
   return (
     <div className="relative">
@@ -488,16 +490,13 @@ function ProfilePill({ collapsed }: { collapsed: boolean }) {
         aria-label="Profile"
       >
         <span className="relative shrink-0">
-          <span className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold"
-            style={{ background: 'color-mix(in srgb, var(--primary) 22%, transparent)', color: 'var(--primary)' }}>
-            {initials}
-          </span>
+          <UserAvatar size={28} />
           <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full" style={{ background: 'var(--success)', border: '2px solid var(--bg)' }} />
         </span>
         {!collapsed && (
           <span className="text-left min-w-0">
             <span className="block text-[12px] font-medium truncate" style={{ color: 'var(--text)' }}>{name}</span>
-            <span className="block text-[9.5px]" style={{ color: 'var(--text-3)' }}>Local · private</span>
+            <span className="block text-[9.5px] truncate" style={{ color: 'var(--text-3)' }}>@{handle} · Local</span>
           </span>
         )}
       </button>
@@ -512,18 +511,40 @@ function ProfilePill({ collapsed }: { collapsed: boolean }) {
               className="absolute bottom-full left-0 mb-2 z-50 w-[240px] surface-elevated p-3"
               style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.5)' }}
             >
+              <div className="flex items-center gap-2.5 mb-3">
+                <UserAvatar size={40} />
+                <div className="min-w-0">
+                  <div className="text-[12px] font-medium truncate">{name}</div>
+                  <div className="text-[10.5px] font-mono truncate" style={{ color: 'var(--text-3)' }}>@{handle}</div>
+                </div>
+              </div>
               <div className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-3)' }}>Display name</div>
               <div className="flex gap-1.5 mb-3">
                 <input value={draft} onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { useStore.setState((s) => ({ settings: { ...s.settings, profileName: draft.trim() || 'Researcher' } })); setOpen(false) } }}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    const nextName = draft.trim() || 'Researcher'
+                    useStore.setState((s) => ({ settings: { ...s.settings, profileName: nextName, profile: withProfileDefaults({ ...s.settings.profile, name: nextName }) } }))
+                    setOpen(false)
+                  }}
                   className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[8px] text-[12px] bg-transparent outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
                 <button
-                  onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, profileName: draft.trim() || 'Researcher' } })); setOpen(false) }}
+                  onClick={() => {
+                    const nextName = draft.trim() || 'Researcher'
+                    useStore.setState((s) => ({ settings: { ...s.settings, profileName: nextName, profile: withProfileDefaults({ ...s.settings.profile, name: nextName }) } }))
+                    setOpen(false)
+                  }}
                   className="px-2.5 rounded-[8px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
                   <Check size={13} />
                 </button>
               </div>
+              <button
+                onClick={() => { setOpen(false); useUI.getState().set({ settingsOpen: true, settingsTab: 'profile' }) }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 mb-0.5 rounded-[8px] text-[12px] hover:bg-[var(--elevated)]"
+                style={{ color: 'var(--text-2)' }}>
+                <UserRound size={13} /> Edit profile &amp; avatar
+              </button>
               <button
                 onClick={() => { setOpen(false); useStore.setState((s) => ({ settings: { ...s.settings, onboarded: false } })) }}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[8px] text-[12px] hover:bg-[var(--elevated)]"

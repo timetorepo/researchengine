@@ -6,10 +6,10 @@ pure-JS portable builds: the only requirement on your machine is Node.js.
 
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.17.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.17.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
-| `research-engine-0.16.0-beta.1-win-x64.zip` | Windows 10/11 x64 | previous release |
-| `research-engine-0.16.0-beta.1-linux-x64.tar.gz` | Linux x64 | previous release |
+| `research-engine-0.19.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.19.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
+| `research-engine-0.17.0-beta.1-*` | Windows / Linux | previous release — update if you are on it: `:dot:`/step formatting, the profile editor and the fixed demo are in 0.19 |
+| `research-engine-0.16.0-beta.1-*` | Windows / Linux | older release |
 
 Verify either archive first:
 
@@ -37,7 +37,7 @@ launcher with NSSM — see the root README, install method C.
 ## Linux / macOS
 
 ```bash
-tar xzf research-engine-0.17.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.19.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ./research-engine-linux-x64/research-engine serve --port 3847
 ```
@@ -45,6 +45,15 @@ chmod +x research-engine-linux-x64/research-engine
 Then open http://127.0.0.1:3847. Data lives in `~/.research-engine`
 (override with `RESEARCH_ENGINE_DATA_DIR`). systemd / launchd service
 templates are in the root README, install method C.
+
+## Which build am I running?
+
+Every archive ships a `frontend-dist/build-info.json`, the server prints its
+version at startup, and **Settings -> About** shows it with a warning card if
+the bundle in your browser is older than the build on disk. If the app still
+behaves like an older release, you are on an older build: unpack the current
+archive over this folder (your data in `~/.research-engine` is untouched) or
+press **Clear cache & reload** on the About screen to drop a cached app shell.
 
 ## Other platforms / newer builds
 

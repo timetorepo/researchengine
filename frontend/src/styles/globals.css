@@ -921,6 +921,49 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 }
 
 /* ================================================================== */
+/* Study lists — cleanly marked steps and bullets in Read & Quiz       */
+/* The text arrives in whatever dialect the model used; the reader      */
+/* normalises it and draws its own markers so every list looks alike.   */
+/* ================================================================== */
+.study-list, .study-steps { list-style: none; margin: 1em 0; padding: 0; }
+.study-list .study-list { margin: 0.35em 0 0.15em; }
+.study-li {
+  position: relative; padding-left: 26px; margin-bottom: 0.45em;
+  line-height: inherit;
+}
+.study-li:last-child { margin-bottom: 0; }
+.study-text { display: inline; }
+
+/* Bullets: a small tilted square in the theme's accent. */
+.study-list > .study-li > .study-marker {
+  position: absolute; left: 5px; top: 0.62em;
+  width: 7px; height: 7px; border-radius: 2px;
+  background: color-mix(in srgb, var(--primary) 80%, var(--text));
+  transform: rotate(45deg);
+}
+.study-list .study-list > .study-li > .study-marker {
+  background: color-mix(in srgb, var(--secondary) 85%, var(--text));
+  width: 5px; height: 5px;
+}
+
+/* Steps: a counted badge, so a renumbered list always reads 1, 2, 3. */
+.study-steps { counter-reset: study-step var(--study-start, 0); }
+.study-steps > .study-li { counter-increment: study-step; padding-left: 32px; margin-bottom: 0.6em; }
+.study-steps > .study-li > .study-marker {
+  position: absolute; left: 0; top: 0.12em;
+  width: 22px; height: 22px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: Inter, system-ui, sans-serif; font-size: 11.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.study-steps > .study-li > .study-marker::after { content: counter(study-step); }
+/* A bullet that belongs to a step sits inside the step, indented to its text. */
+.study-steps .study-list { margin-left: 32px; }
+
+/* ================================================================== */
 /* Humanized answers (chat only)                                       */
 /* Green = the rewrite · red = the previous response                   */
 /* ================================================================== */

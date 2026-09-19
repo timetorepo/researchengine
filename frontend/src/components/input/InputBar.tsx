@@ -4,9 +4,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer, ListOrdered, ImagePlus, Plug, X, Loader2, FolderOpen, Mail, CalendarDays, HardDrive, SlidersHorizontal, Calculator, BookOpen } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import { BorderBeam } from 'border-beam'
 import { SkillPicker } from './SkillPicker'
 import { IntegrationPicker } from './IntegrationPicker'
 import { clsx } from 'clsx'
+import { themeKind } from '@/lib/themes/meta'
 
 export interface ContextRef { box: 'files' | 'drive' | 'mail' | 'calendar'; id: string; title: string }
 export interface SendOpts {
@@ -45,6 +47,14 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const taRef = useRef<HTMLTextAreaElement>(null)
   const glassMode = useStore((s) => s.settings.glassMode)
   const flowEnabled = useStore((s) => s.settings.flowEnabled)
+  // Border Beam by Jakubantalik rings the home composer. It lives on the
+  // wrapper rather than around the shell so that popovers (skills, sources)
+  // can still escape the composer box.
+  const beamOn = useStore((s) => s.settings.composerBeam !== false)
+  const beamVariant = useStore((s) => s.settings.composerBeamVariant ?? 'ocean')
+  const theme = useStore((s) => s.settings.theme)
+  const reduceMotion = useStore((s) => s.settings.reduceMotion)
+  const [focused, setFocused] = useState(false)
   const ui = useUI()
   const navigate = useNavigate()
 
@@ -127,9 +137,29 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     { id: 'replicate', label: 'Replicate', icon: Hammer, active: replicate, toggle: () => setReplicate(!replicate), title: 'New Tech — staged replication research plan' },
   ]
 
+  const beam = big && beamOn && !reduceMotion
+
   return (
     <div className={clsx('shrink-0 px-3 pb-3 pt-1', big && 'pb-6')}>
       <div className={clsx('mx-auto', big ? 'max-w-[720px]' : 'max-w-[760px]')}>
+        <div className="relative">
+        {beam && (
+          <BorderBeam
+            size="md"
+            colorVariant={beamVariant}
+            theme={themeKind(theme)}
+            borderRadius={big ? 22 : 18}
+            duration={focused ? 3.4 : 5.2}
+            brightness={focused ? 1.45 : 1.2}
+            saturation={1.25}
+            strength={focused ? 0.85 : 0.6}
+            hueRange={26}
+            aria-hidden="true"
+            style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'visible' }}
+          >
+            <span style={{ display: 'block', width: '100%', height: '100%' }} />
+          </BorderBeam>
+        )}
         <div
           className={clsx('input-shell', glassMode !== 'off' && 'glass-chat')}
           style={{
@@ -145,6 +175,8 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               value={text}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={onKeyDown}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
               placeholder={big ? 'What would you like to research today?' : 'Ask, or type / for skills, @ for sources…'}
               className="chat-input w-full bg-transparent outline-none resize-none px-4 pt-3.5 pb-1 text-[14px] leading-relaxed"
               style={{ minHeight: big ? 56 : 44 }}
@@ -291,6 +323,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               </button>
             )}
           </div>
+        </div>
         </div>
         <div className="text-center text-[10.5px] mt-2" style={{ color: 'var(--text-3)' }}>
           Responses run on your configured models. Without keys, a local demo model answers.

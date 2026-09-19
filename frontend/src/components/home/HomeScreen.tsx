@@ -120,6 +120,21 @@ export function HomeScreen() {
             otherwise the generic research prompts. */}
         <SuggestedForYou chats={recentChats} onAsk={(prompt, opts) => sendFromHome(prompt, opts)} fallback={chips} />
 
+        {/* The offline demo, reachable without a key and without going back
+            through onboarding. It never touches the network. */}
+        <div className="flex justify-center mb-6">
+          <button
+            onClick={() => {
+              localStorage.setItem('re.quiz.autodemo', '1')
+              navigate('/quiz')
+            }}
+            className="press-tap flex items-center gap-2 px-3.5 py-2 rounded-full text-[12px] transition-colors hover:bg-[var(--elevated)]"
+            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+            <BookOpen size={13} style={{ color: 'var(--primary)' }} />
+            Try the offline demo — no key needed
+          </button>
+        </div>
+
         {/* Bento grid */}
         {hasHistory ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

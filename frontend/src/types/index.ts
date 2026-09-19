@@ -292,6 +292,12 @@ export interface Settings {
   masterPromptOverrides: Record<string, string>
   themeFavorites: ThemeId[]
   profileName: string
+  /** Border Beam around the home-screen composer (by Jakubantalik). */
+  composerBeam: boolean
+  composerBeamVariant: 'colorful' | 'ocean' | 'sunset' | 'mono'
+  /** Local profile: display name, handle, bio and the generated avatar.
+   *  Typed from `@/lib/profile` so the two can never drift. */
+  profile: import('@/lib/profile').Profile
   quizAutoAdvance: boolean
   readerImages: boolean
   performanceProfile: 'eco' | 'balanced' | 'performance'

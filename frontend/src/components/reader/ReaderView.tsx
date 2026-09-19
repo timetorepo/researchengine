@@ -7,6 +7,8 @@ import { generateText } from '@/lib/chat/generate'
 import { getMaster } from '@/lib/prompts/masters'
 import { webSearch } from '@/lib/search/web'
 import type { DemoHighlight } from '@/lib/documents/demoDoc'
+import { normalizeStepText, toStudyBlocks, type StudyBlock } from '@/lib/reader/format'
+import { Markdown } from '@/components/chat/Markdown'
 
 export interface ReaderDoc {
   id: string
@@ -192,6 +194,9 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   const renderPara = (p: string, i: number) => {
     const marks = allMarks.filter((h) => p.includes(h.match))
     const isTopicMatch = dimmed && topicMarks.some((h) => p.includes(h.match))
+    // The document is tidied here, in the browser: `:dot:` lines, "Step 2 —"
+    // runs and blank-line-separated steps become real, cleanly marked lists.
+    const blocks = toStudyBlocks(p)
     return (
       <div
         key={`${version}-${i}`}
@@ -199,7 +204,7 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
         className="relative"
         style={{ marginBottom: '1.35em', opacity: dimmed && !isTopicMatch ? 0.45 : 1, transition: 'opacity 300ms' }}
       >
-        {renderWithHighlights(p, marks)}
+        <StudyFlow blocks={blocks} inline={renderWithHighlights(p, marks)} renderText={(t) => renderWithHighlights(t, marks)} />
         {images.filter((im) => im.after === i).map((im, k) => (
           <figure key={k} className="my-5">
             <img src={im.url} alt={im.caption} loading="lazy" decoding="async" className="w-full rounded-[12px]" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }} />
@@ -336,6 +341,97 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   )
 }
 
+/* ---------- study blocks: real list markup for tidied text ----------
+ * `inline` is the paragraph as it was written, so a paragraph with no list
+ * markers renders exactly as before (highlights included). */
+function StudyFlow({ blocks, inline, renderText }: {
+  blocks: StudyBlock[]
+  inline: React.ReactNode
+  renderText: (t: string) => React.ReactNode
+}) {
+  const hasList = blocks.some((b) => b.kind === 'bullets' || b.kind === 'steps')
+  // Nothing structured → the untouched paragraph, highlights and all.
+  if (!hasList) return <>{inline}</>
+
+  return (
+    <>
+      {blocks.map((b, bi) => {
+        if (b.kind === 'heading') {
+          const size = b.level === 1 ? 26 : b.level === 2 ? 21 : 17
+          return (
+            <div key={bi} role="heading" aria-level={Math.min(6, b.level ?? 2)}
+              className="font-semibold mt-5 mb-3" style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: size, letterSpacing: '-0.015em' }}>
+              {renderText(b.text ?? '')}
+            </div>
+          )
+        }
+        if (b.kind === 'quote') {
+          return (
+            <blockquote key={bi} className="my-4 pl-4"
+              style={{ borderLeft: '3px solid color-mix(in srgb, var(--primary) 45%, transparent)', color: 'var(--text-2)' }}>
+              {renderText(b.text ?? '')}
+            </blockquote>
+          )
+        }
+        if (b.kind === 'code') {
+          return <pre key={bi} className="my-4 p-3 rounded-[12px] overflow-x-auto text-[13.5px]"
+            style={{ background: 'var(--code-bg)', fontFamily: 'Geist Mono, ui-monospace, monospace' }}>{b.text}</pre>
+        }
+        if (b.kind === 'table') {
+          return <pre key={bi} className="my-4 text-[15px] overflow-x-auto" style={{ fontFamily: 'inherit' }}>{b.text}</pre>
+        }
+        if (b.kind === 'steps') {
+          return (
+            <ol key={bi} start={b.start ?? 1} className="study-steps my-4"
+              style={{ '--study-start': String((b.start ?? 1) - 1) } as React.CSSProperties}>
+              {nestItems(b.items ?? []).map((it, k) => (
+                <li key={k} className="study-li" style={it.depth ? { marginLeft: 18 } : undefined}>
+                  <span className="study-marker" aria-hidden />
+                  <span className="study-text">{renderText(it.text)}</span>
+                  {it.children.length > 0 && (
+                    <ul className="study-list">
+                      {it.children.map((c, ci) => (
+                        <li key={ci} className="study-li"><span className="study-marker" aria-hidden /><span className="study-text">{renderText(c)}</span></li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )
+        }
+        return (
+          <ul key={bi} className="study-list my-4">
+            {nestItems(b.items ?? []).map((it, k) => (
+              <li key={k} className="study-li">
+                <span className="study-marker" aria-hidden />
+                <span className="study-text">{renderText(it.text)}</span>
+                {it.children.length > 0 && (
+                  <ul className="study-list">
+                    {it.children.map((c, ci) => (
+                      <li key={ci} className="study-li"><span className="study-marker" aria-hidden /><span className="study-text">{renderText(c)}</span></li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      })}
+    </>
+  )
+}
+
+/** Flatten depth-tagged items into items-with-children for nested markup. */
+function nestItems(items: { text: string; depth: number }[]): { text: string; depth: number; children: string[] }[] {
+  const out: { text: string; depth: number; children: string[] }[] = []
+  for (const it of items) {
+    if (it.depth > 0 && out.length) out[out.length - 1].children.push(it.text)
+    else out.push({ text: it.text, depth: it.depth, children: [] })
+  }
+  return out
+}
+
 /* ---------- highlight-aware paragraph renderer ---------- */
 function renderWithHighlights(text: string, marks: Highlight[]): React.ReactNode {
   if (!marks.length) return renderBlock(text)
@@ -443,9 +539,9 @@ function ReaderChat({ docName, onAsk, onJump, onQuiz }: {
             style={{ background: 'var(--glass)', backdropFilter: 'blur(16px)', border: '1px solid var(--surface-border)', boxShadow: '0 16px 48px -16px rgba(0,0,0,0.55)' }}>
             {panel.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-                <div className="inline-block text-left text-[12.5px] leading-relaxed px-3 py-2 rounded-[12px] max-w-[92%] whitespace-pre-wrap"
+                <div className={`inline-block text-left text-[12.5px] leading-relaxed px-3 py-2 rounded-[12px] max-w-[92%] ${m.role === 'user' ? 'whitespace-pre-wrap' : ''}`}
                   style={{ background: m.role === 'user' ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'var(--surface)', color: 'var(--text)' }}>
-                  {m.text}
+                  {m.role === 'user' ? m.text : <Markdown content={normalizeStepText(m.text)} />}
                 </div>
                 {m.role === 'ai' && m.sourceIdx != null && (
                   <button onClick={() => onJump(m.sourceIdx!)} className="block text-[11px] mt-1 hover:underline" style={{ color: 'var(--primary)' }}>

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { DEFAULT_PROFILE, withProfileDefaults } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
   Chat, ChatMessage, Skill, Article, Space, Settings, ConnectionLogEntry,
@@ -78,6 +79,9 @@ const defaultSettings: Settings = {
   masterPromptOverrides: {},
   themeFavorites: ['dark', 'light', 'catppuccin-mocha'],
   profileName: 'Researcher',
+  profile: DEFAULT_PROFILE,
+  composerBeam: true,
+  composerBeamVariant: 'ocean',
   quizAutoAdvance: false,
   readerImages: true,
   performanceProfile: 'balanced',
@@ -219,10 +223,15 @@ export const useStore = create<StoreState>()(
       // wiped out by an older persisted settings object.
       merge: (persistedState, currentState) => {
         const p = (persistedState ?? {}) as Partial<StoreState> & { settings?: Partial<StoreState['settings']> }
+        const mergedSettings = { ...currentState.settings, ...(p.settings ?? {}) }
+        // The profile gained nested fields over time (avatar motion, kind…);
+        // merge it explicitly so an older stored profile still renders.
+        mergedSettings.profile = withProfileDefaults(mergedSettings.profile)
+        mergedSettings.profileName = mergedSettings.profile.name || mergedSettings.profileName
         return {
           ...currentState,
           ...p,
-          settings: { ...currentState.settings, ...(p.settings ?? {}) },
+          settings: mergedSettings,
         }
       },
     },

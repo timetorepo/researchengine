@@ -235,6 +235,33 @@ export function AppearanceTab() {
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
+        <Switch label="Composer border beam" description="Ring the home-screen chatbox with Border Beam by Jakubantalik. Brightens while you type."
+          checked={settings.composerBeam !== false} onChange={(v) => update({ composerBeam: v })} />
+
+        {/* Border Beam palette — same component, four built-in variants. */}
+        <div className="surface p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div>
+              <div className="text-[13px] font-medium mb-0.5">Beam colour</div>
+              <div className="text-[11.5px]" style={{ color: 'var(--text-2)' }}>
+                {settings.composerBeam === false ? 'The beam is off — turn it on above to see it.' : 'Shown around the composer on the home screen.'}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {(['ocean', 'colorful', 'sunset', 'mono'] as const).map((v) => (
+              <button key={v} onClick={() => update({ composerBeamVariant: v })}
+                className="py-2 rounded-[10px] text-[12px] capitalize"
+                style={{
+                  background: (settings.composerBeamVariant ?? 'ocean') === v ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'var(--elevated)',
+                  border: `1px solid ${(settings.composerBeamVariant ?? 'ocean') === v ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--surface-border)'}`,
+                  color: (settings.composerBeamVariant ?? 'ocean') === v ? 'var(--primary)' : 'var(--text-2)',
+                }}>
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Live swatches. They use the very same .grad-* classes as the cards, so
             flipping the switch (or the theme) makes the mesh travel into place
