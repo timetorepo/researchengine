@@ -484,9 +484,9 @@ export const BRIDGE_JS = String.raw`
     if (overlay && overlay.parentNode) return overlay;
     overlay = document.createElement('div');
     overlay.setAttribute('data-re-overlay', '1');
-    overlay.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;border:2px solid #6C8EEF;background:rgba(108,142,239,0.14);border-radius:4px;transition:all .12s ease;top:0;left:0;width:0;height:0;' +
-      'font:600 10px/1.2 system-ui,sans-serif;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.25)';
-    overlay.innerHTML = '<span style="position:absolute;top:-18px;left:0;background:#6C8EEF;padding:1px 5px;border-radius:4px;white-space:nowrap"></span>';
+    overlay.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;border:2px solid #3ddc84;background:rgba(61,220,132,0.14);border-radius:4px;transition:all .12s ease;top:0;left:0;width:0;height:0;' +
+      'font:600 10px/1.2 system-ui,sans-serif;color:#05170e;box-shadow:0 6px 24px rgba(0,0,0,.35)';
+    overlay.innerHTML = '<span style="position:absolute;top:-18px;left:0;background:#3ddc84;color:#05170e;padding:1px 5px;border-radius:4px;white-space:nowrap"></span>';
     (document.body || document.documentElement).appendChild(overlay);
     return overlay;
   }

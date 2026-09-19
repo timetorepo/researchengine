@@ -849,6 +849,3 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 .ide-progress { display: flex; gap: 3px; }
 .ide-progress > i { flex: 1; height: 10px; border-radius: 2px; background: color-mix(in srgb, #fff 7%, transparent); }
 .ide-progress > i.on { background: var(--ide-cyan); }
-
-/* dark tooltips for icon-only controls */
-.ide-shell [title] { position: relative; }
