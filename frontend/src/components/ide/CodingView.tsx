@@ -46,7 +46,7 @@ export function CodingView() {
   const create = async () => {
     const name = newName.trim().replace(/\s+/g, ' ')
     if (!name) { setErr('Enter a project name.'); return }
-    if (name.length > 64) { setErr('Project names can be up to 64 characters.'); return }
+    if (name.length > 128) { setErr('Project names can be up to 128 characters.'); return }
     if (/[/\\\u0000]/.test(name) || name === '.' || name === '..') {
       setErr('Project names cannot contain path separators.'); return
     }
@@ -117,7 +117,7 @@ export function CodingView() {
                 <FolderPlus size={15} style={{ color: 'var(--primary)' }} />
                 <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
                   onKeyDown={(e) => e.key === 'Enter' && create()}
-                  maxLength={64}
+                  maxLength={128}
                   placeholder="Name your project"
                   aria-label="Project name"
                   className="flex-1 px-3 py-1.5 rounded-[10px] text-[13px] outline-none"
@@ -126,8 +126,8 @@ export function CodingView() {
                 <button onClick={() => setCreating(false)} className="p-1.5 rounded-[10px]" style={{ color: 'var(--text-3)' }}><X size={14} /></button>
               </div>
               <div className="flex items-center justify-between mt-1.5 px-1">
-                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Any name up to 64 characters; path separators are not allowed</p>
-                <p className="text-[11px] tabular-nums" style={{ color: newName.length > 64 ? 'var(--danger)' : 'var(--text-3)' }}>{newName.length}/64</p>
+                <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Any name up to 128 characters; path separators are not allowed</p>
+                <p className="text-[11px] tabular-nums" style={{ color: newName.length > 64 ? 'var(--danger)' : 'var(--text-3)' }}>{newName.length}/128</p>
               </div>
               {err && <p className="text-[12px] mt-1.5" style={{ color: 'var(--danger)' }}>{err}</p>}
             </motion.div>

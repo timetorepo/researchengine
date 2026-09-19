@@ -22,6 +22,7 @@ const CompareView = React.lazy(() => import('@/components/compare/CompareView').
 const WorkflowsList = React.lazy(() => import('@/components/workflows/WorkflowsList').then((m) => ({ default: m.WorkflowsList })))
 const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor })))
 const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
+const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 import { Toasts } from '@/components/shared/Toasts'
 import { CommandPalette } from '@/components/shared/CommandPalette'
@@ -142,6 +143,7 @@ function RoutedApp() {
           <Route path="/workflows" element={<WorkflowsList />} />
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/code" element={<CodingView />} />
+          <Route path="/chats" element={<ChatsView />} />
           <Route path="/secrets" element={<SecretsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

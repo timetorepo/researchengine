@@ -2,7 +2,7 @@ import React, { memo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight,
+  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles,
 } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { useStore } from '@/stores/useStore'
@@ -30,6 +30,19 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   const [showInfo, setShowInfo] = useState(false)
   const [hoverSource, setHoverSource] = useState<string | null>(null)
   const store = useStore
+  const contextExhausted = !!msg.error && /(context|token|maximum|limit|length).{0,24}(window|capacity|exceed|long|limit|token)|too many tokens/i.test(msg.error)
+  const forkWithSummary = () => {
+    const source = store.getState().chats.find((c) => c.id === chatId)
+    if (!source) return
+    const turns = source.messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-10)
+    const compact = turns.map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.replace(/\s+/g, ' ').slice(0, 420)}`).join('\n')
+    const forkId = store.getState().newChat()
+    store.getState().renameChat(forkId, `Fork · ${source.title}`.slice(0, 80))
+    store.getState().addMessage(forkId, { id: nanoid(8), role: 'assistant', content: `## Conversation capsule\n\nThis is a simplified continuation of **${source.title}**. The earlier context was compressed because the model context window was full.\n\n${compact}`, createdAt: Date.now(), model: 'local summary', provider: 'Research Engine' })
+    store.getState().addMessage(forkId, { id: nanoid(8), role: 'user', content: 'Continue from this simplified conversation capsule. Ask me to clarify anything that was lost.', createdAt: Date.now() })
+    navigate(`/chat/${forkId}`)
+    ui.toast('Conversation forked', 'A compact context capsule was carried into a new chat.', 'success')
+  }
 
   if (msg.role === 'user') {
     return (
@@ -121,6 +134,10 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                   className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
                   Retry
                 </button>
+                {contextExhausted && <button onClick={forkWithSummary}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
+                  <Sparkles size={12} /> Simplify &amp; fork
+                </button>}
                 <button
                   onClick={() => ui.set({ settingsSheet: true, settingsTab: 'providers' })}
                   className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--danger)', color: '#fff' }}

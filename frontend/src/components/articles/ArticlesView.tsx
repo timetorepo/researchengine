@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, BookOpen, MessageSquare, Trash2 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { Article } from '@/types'
@@ -14,6 +14,11 @@ export function ArticlesView() {
   const navigate = useNavigate()
   const ui = useUI()
   const [fromChat, setFromChat] = useState(false)
+  const [removing, setRemoving] = useState<string | null>(null)
+  const removeArticle = (id: string) => {
+    setRemoving(id)
+    window.setTimeout(() => { useStore.setState((s) => ({ articles: s.articles.filter((x) => x.id !== id) })); setRemoving(null) }, 320)
+  }
 
   const createBlank = () => {
     const a: Article = {
@@ -72,12 +77,13 @@ export function ArticlesView() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <AnimatePresence mode="popLayout">
             {articles.map((a, i) => {
               const hue = hashHue(a.title)
               const words = a.blocks.reduce((n, b) => n + b.content.split(/\s+/).length, 0)
               return (
                 <motion.div key={a.id}
-                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                  layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: removing === a.id ? 0 : 1, y: removing === a.id ? -10 : 0, scale: removing === a.id ? 0.96 : 1 }} exit={{ opacity: 0, scale: 0.94, height: 0, margin: 0 }} transition={{ type: 'spring', damping: 26, stiffness: 320, delay: removing === a.id ? 0 : i * 0.04 }}
                   className="group relative rounded-[18px] overflow-hidden cursor-pointer card-hover"
                   onClick={() => navigate(`/articles/${a.id}`)}>
                   <div className="h-24 w-full" style={{ background: `linear-gradient(135deg, hsl(${hue} 45% 32%), hsl(${(hue + 40) % 360} 40% 22%))` }}>
@@ -87,7 +93,7 @@ export function ArticlesView() {
                   </div>
                   <div className="p-3.5 flex items-center justify-between" style={{ background: 'var(--surface)' }}>
                     <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{readingTime(a.blocks.map((b) => b.content).join(' '))} · {timeAgo(a.updatedAt)}</span>
-                    <button onClick={(e) => { e.stopPropagation(); useStore.setState((s) => ({ articles: s.articles.filter((x) => x.id !== a.id) })) }}
+                    <button onClick={(e) => { e.stopPropagation(); removeArticle(a.id) }}
                       className="opacity-0 group-hover:opacity-100 p-1 rounded" style={{ color: 'var(--text-3)' }} aria-label="Delete article">
                       <Trash2 size={12} />
                     </button>
@@ -95,6 +101,7 @@ export function ArticlesView() {
                 </motion.div>
               )
             })}
+            </AnimatePresence>
           </div>
         )}
       </div>
