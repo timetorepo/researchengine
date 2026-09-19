@@ -34,18 +34,23 @@ function toOpenAIMessages(system: string, messages: any[]): any[] {
       msg.content = m.content ?? ''
     }
     if (m.toolCalls?.length) {
-      msg.tool_calls = m.toolCalls.map((t: any) => ({ id: t.id, type: 'function', function: { name: t.name, arguments: typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments ?? {}) } }))
+      msg.tool_calls = m.toolCalls.map((t: any) => {
+        const out: any = { id: t.id, type: 'function', function: { name: t.name, arguments: typeof t.arguments === 'string' ? t.arguments : JSON.stringify(t.arguments ?? {}) } }
+        const sig = t.thoughtSignature ?? t.thought_signature ?? t.extraContent?.google?.thought_signature ?? t.extra_content?.google?.thought_signature
+        if (sig) out.extra_content = { google: { thought_signature: sig } }
+        return out
+      })
     }
     out.push(msg)
   }
   return out
 }
 
-function toGeminiContents(messages: any[]): any[] {
+export function toGeminiContents(messages: any[]): any[] {
   const out: any[] = []
   for (const m of messages) {
     if (m.role === 'tool') {
-      out.push({ role: 'user', parts: [{ functionResponse: { name: m.name ?? 'tool', response: { result: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) } } }] })
+      out.push({ role: 'user', parts: [{ functionResponse: { name: m.name ?? 'tool', id: m.toolCallId, response: { result: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) } } }] })
       continue
     }
     const role = m.role === 'assistant' ? 'model' : 'user'
@@ -64,7 +69,10 @@ function toGeminiContents(messages: any[]): any[] {
       for (const t of m.toolCalls) {
         let args: any = t.arguments
         if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = { input: args } } }
-        parts.push({ functionCall: { name: t.name, args: args ?? {} } })
+        const part: any = { functionCall: { name: t.name, args: args ?? {}, ...(t.id ? { id: t.id } : {}) } }
+        const sig = t.thoughtSignature ?? t.thought_signature ?? t.extraContent?.google?.thought_signature ?? t.extra_content?.google?.thought_signature
+        if (sig) part.thoughtSignature = sig
+        parts.push(part)
       }
     }
     if (parts.length) out.push({ role, parts })
@@ -137,6 +145,7 @@ chatRoutes.post('/', async (c) => {
   // browsers, node) with 403 "Authorization failed" while accepting its own
   // client UA — see HKUDS/Vibe-Trading#528. Speak the right dialect per host.
   const isNvidia = base.includes('api.nvidia.com') || kind === 'nim'
+  const isOpenRouter = base.includes('openrouter.ai')
   const browserish = {
     'user-agent': isNvidia ? 'NVIDIA-NIM-Client/1.0'
       : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
@@ -184,6 +193,7 @@ chatRoutes.post('/', async (c) => {
       'content-type': 'application/json',
       ...(key ? { authorization: `Bearer ${key}` } : {}),
       ...(isNvidia && key ? { 'x-nvidia-api-key': key } : {}),
+      ...(isOpenRouter ? { 'HTTP-Referer': 'https://researchengine.local', 'X-OpenRouter-Title': 'Research Engine' } : {}),
     }
     payload = {
       model, stream: true, max_tokens: maxTokens, temperature,

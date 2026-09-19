@@ -1,5 +1,5 @@
 export type ProviderId =
-  | 'openai' | 'anthropic' | 'groq' | 'gemini' | 'ollama' | 'nim' | 'together' | 'mistral' | 'lmstudio' | 'custom'
+  | 'openai' | 'anthropic' | 'groq' | 'gemini' | 'ollama' | 'nim' | 'openrouter' | 'together' | 'mistral' | 'lmstudio' | 'custom'
 
 export interface ProviderConfig {
   id: ProviderId

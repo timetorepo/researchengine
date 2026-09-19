@@ -33,6 +33,10 @@ async function discover(kind: string, base: string, key: string, timeout: number
         : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
       accept: 'application/json',
     }
+    if (base.includes('openrouter.ai')) {
+      headers['HTTP-Referer'] = 'https://researchengine.local'
+      headers['X-OpenRouter-Title'] = 'Research Engine'
+    }
     if (kind === 'anthropic') {
       headers['x-api-key'] = key
       headers['anthropic-version'] = '2023-06-01'

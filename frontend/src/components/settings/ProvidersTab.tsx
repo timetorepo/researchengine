@@ -162,7 +162,7 @@ export function ProvidersTab() {
                       </button>
                     </div>
                   )}
-                  {(p.kind === 'ollama' || p.id === 'custom' || p.id === 'lmstudio' || p.id === 'nim' || conf.baseUrl) && (
+                  {(p.kind === 'ollama' || p.id === 'custom' || p.id === 'lmstudio' || p.id === 'nim' || p.id === 'openrouter' || conf.baseUrl) && (
                     <input
                       value={d.url}
                       onChange={(e) => setDrafts((prev) => ({ ...prev, [p.id]: { ...d, url: e.target.value } }))}

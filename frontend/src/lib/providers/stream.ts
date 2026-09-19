@@ -19,7 +19,13 @@ export interface StreamRequest {
   tools?: any[]
 }
 
-export interface StreamToolCall { id: string; name: string; arguments: string }
+export interface StreamToolCall {
+  id: string
+  name: string
+  arguments: string
+  /** Gemini 2.5/3 encrypted reasoning signature; must round-trip verbatim. */
+  thoughtSignature?: string
+}
 
 export class ProviderError extends Error {
   constructor(public provider: string, message: string) {
@@ -164,7 +170,8 @@ export async function streamToCallback(
           if (Array.isArray(parts)) {
             for (const p of parts) {
               if (p.functionCall?.name) {
-                toolCalls.push({ id: `gmc_${++n}`, name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}) })
+                const thoughtSignature = p.thoughtSignature ?? p.thought_signature
+                toolCalls.push({ id: `gmc_${++n}`, name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}), thoughtSignature })
               } else if (typeof p?.text === 'string' && p.text) {
                 completionChars += p.text.length
                 chunk(p.text)
@@ -175,7 +182,7 @@ export async function streamToCallback(
         })
       } else {
         // OpenAI-dialect tool_calls arrive as incremental chunks keyed by index.
-        const acc = new Map<number, { id: string; name: string; args: string }>()
+        const acc = new Map<number, { id: string; name: string; args: string; thoughtSignature?: string }>()
         await readSSE(res, (json) => {
           const delta = json.choices?.[0]?.delta
           if (Array.isArray(delta?.tool_calls)) {
@@ -185,6 +192,8 @@ export async function streamToCallback(
               if (tc.id) cur.id = tc.id
               if (tc.function?.name) cur.name = tc.function.name
               if (tc.function?.arguments) cur.args += tc.function.arguments
+              const sig = tc.thoughtSignature ?? tc.thought_signature ?? tc.extra_content?.google?.thought_signature ?? tc.extraContent?.google?.thought_signature ?? tc.provider_specific_fields?.thought_signature
+              if (sig) cur.thoughtSignature = sig
               acc.set(i, cur)
             }
           }
@@ -195,7 +204,7 @@ export async function streamToCallback(
           return false
         })
         for (const cur of acc.values()) {
-          if (cur.name) toolCalls.push({ id: cur.id || `tc_${Math.random().toString(36).slice(2, 8)}`, name: cur.name, arguments: cur.args || '{}' })
+          if (cur.name) toolCalls.push({ id: cur.id || `tc_${Math.random().toString(36).slice(2, 8)}`, name: cur.name, arguments: cur.args || '{}', thoughtSignature: cur.thoughtSignature })
         }
       }
     } catch (e: any) {

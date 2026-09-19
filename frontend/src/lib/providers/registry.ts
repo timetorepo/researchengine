@@ -37,6 +37,10 @@ export const PROVIDERS: ProviderMeta[] = [
     needsKey: true, hint: 'OpenAI-compatible — use your NVIDIA API key',
   },
   {
+    id: 'openrouter', name: 'OpenRouter', kind: 'openai', baseUrl: 'https://openrouter.ai/api/v1',
+    needsKey: true, hint: 'One OpenAI-compatible key for many model providers',
+  },
+  {
     id: 'together', name: 'Together', kind: 'openai', baseUrl: 'https://api.together.xyz/v1', needsKey: true,
   },
   {
