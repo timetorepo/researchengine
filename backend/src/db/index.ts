@@ -18,7 +18,10 @@ let engine = 'memory'
 const dbPath = process.env.DB_PATH ?? './research-engine.db'
 
 try {
-  const Database = (await import('better-sqlite3')).default
+  // Indirection keeps this truly optional: TypeScript must not require the
+  // native module to exist (it is an optionalDependency and may fail to build).
+  const specifier: string = 'better-sqlite3'
+  const Database = (await import(specifier)).default
   sqlite = new Database(dbPath)
   sqlite.pragma('journal_mode = WAL')
   sqlite.exec(MIGRATION)

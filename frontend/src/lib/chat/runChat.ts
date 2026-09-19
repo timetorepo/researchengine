@@ -31,6 +31,9 @@ export interface RunOptions {
   /** Coding mode: the open project (enables ide_* tools + project context). */
   project?: string
   projectTree?: string
+  /** Design mode: a live preview of the project is on screen and the AI may
+   *  drive it (snapshot / click / assert / screenshot) through the bridge. */
+  design?: boolean
 }
 
 const activeStreams = new Map<string, AbortController>()
@@ -39,7 +42,7 @@ export const isStreamingChat = (chatId: string) => activeStreams.has(chatId)
 
 // ---- Question queue: prompts sent while the AI is busy are held here and
 // drained automatically, one at a time, when the current run completes. ----
-export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode']; extra?: Pick<RunOptions, 'attachments' | 'contextRefs' | 'project' | 'projectTree'> }
+export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode']; extra?: Pick<RunOptions, 'attachments' | 'contextRefs' | 'project' | 'projectTree' | 'design'> }
 
 export function enqueuePrompt(chatId: string, prompt: string, mode?: RunOptions['mode'], extra?: QueuedPrompt['extra']): string {
   const id = nanoid(8)
@@ -172,6 +175,14 @@ export async function runChat(opts: RunOptions): Promise<void> {
       if (tree.findings.length) recordScan('coding project tree', tree.findings)
       system += `\nProject files:\n${tree.text}`
     }
+  }
+  if (opts.design && opts.project) {
+    system += `\n\nDESIGN MODE is active: the project "${opts.project}" is running in a live preview pane and you can SEE and OPERATE the real screen with client tools.`
+      + `\n- Start by calling design_snapshot (structured page read: elements, geometry, colours, flags) and design_audit (contrast, tap targets, headings, overflow, console).`
+      + `\n- design_screenshot renders a real picture of the screen; the user sees it in the Design panel.`
+      + `\n- Exercise the UI with design_controls, design_click, design_type, design_assert and design_resize; verify with design_assert or run_ui_test instead of assuming a change worked.`
+      + `\n- Fix what you find by editing the project files (ide_read_file / ide_write_file), then design_preview action=restart and re-check.`
+      + `\n- Never claim a UI issue is fixed without a passing design_assert or run_ui_test result.`
   }
   system += mcpContextBlock()
   system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`

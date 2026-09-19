@@ -1,0 +1,233 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useSyncExternalStore } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Sparkles, X, Play, Square, Paperclip, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye } from 'lucide-react'
+import { useStore } from '@/stores/useStore'
+import { runChat, isStreamingChat, enqueuePrompt, stopStream } from '@/lib/chat/runChat'
+import { useUI } from '@/stores/useUI'
+import { Markdown } from '@/components/chat/Markdown'
+import { ToolTraceChips, ExecApproval, QuestionnaireCard } from '@/components/chat/ToolUI'
+import { attachmentTray, type TrayAttachment } from '@/lib/ide/bridge'
+import type { ChatMessage } from '@/types'
+import type { TreeNode } from './types'
+
+function useTray(): TrayAttachment[] {
+  return useSyncExternalStore(attachmentTray.subscribe, attachmentTray.get, attachmentTray.get)
+}
+
+export function chatIdFor(project: string): string {
+  const store = useStore.getState()
+  const title = `Coding · ${project}`
+  const existing = [...store.chats].reverse().find((c) => c.title === title)
+  if (existing) return existing.id
+  const id = store.newChat()
+  store.renameChat(id, title)
+  return id
+}
+
+/**
+ * The AI pair-programmer. One chat per project, shared by the code view and the
+ * Design studio, so context carries across "edit the file" and "look at the
+ * screen" without the user repeating themselves.
+ */
+export function AgentPanel({
+  project, tree, design = false, onClose, quickActions,
+}: {
+  project: string
+  tree: TreeNode[]
+  design?: boolean
+  onClose?: () => void
+  quickActions?: { label: string; prompt: string; icon?: React.ReactNode }[]
+}) {
+  const [chatId, setChatId] = useState<string | null>(null)
+  const [text, setText] = useState('')
+  const [showActions, setShowActions] = useState(true)
+  const [, force] = useState(0)
+  const endRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const tray = useTray()
+  const ui = useUI()
+  const queue = useUI((s) => s.queue[chatId ?? ''] ?? [])
+
+  useEffect(() => { setChatId(chatIdFor(project)) }, [project])
+
+  const chat = useStore((s) => s.chats.find((c) => c.id === chatId))
+  const streaming = chatId ? isStreamingChat(chatId) : false
+
+  useEffect(() => {
+    const iv = setInterval(() => { if (chatId && isStreamingChat(chatId)) force((n) => n + 1) }, 300)
+    return () => clearInterval(iv)
+  }, [chatId])
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat?.messages.length, streaming])
+
+  const treeText = useMemo(() => tree.map((n) => (n.dir ? `${n.name}/` : n.name)).join('\n'), [tree])
+
+  const send = (prompt: string, extraImages?: TrayAttachment[]) => {
+    if (!chatId || (!prompt.trim() && !extraImages?.length)) return
+    const queued = attachmentTray.take()
+    const attachments = [...(extraImages ?? []), ...queued]
+    const opts = {
+      project, projectTree: treeText, design,
+      attachments: attachments.length ? attachments : undefined,
+    }
+    if (isStreamingChat(chatId)) { enqueuePrompt(chatId, prompt.trim(), {}, opts); return }
+    void runChat({ chatId, prompt: prompt.trim() || '(see attached screenshot)', ...opts })
+  }
+
+  const attachFile = (f: File) => {
+    if (!f.type.startsWith('image/')) return
+    const r = new FileReader()
+    r.onload = () => attachmentTray.add({ type: 'image', name: f.name, dataUrl: String(r.result) })
+    r.readAsDataURL(f)
+  }
+
+  const defaultActions = design
+    ? [
+        { label: 'Audit the screen', icon: <Accessibility size={11} />, prompt: 'Run design_audit on the live preview, then design_snapshot. List the concrete UI problems you find, ranked by impact, with the exact selector for each. Do not edit files yet.' },
+        { label: 'Fix the worst issue', icon: <Wand2 size={11} />, prompt: 'Audit the live preview, pick the single most impactful UI problem, fix it in the project files, restart the preview, then verify the fix with design_assert. Show me the before/after.' },
+        { label: 'Test every button', icon: <MousePointerClick size={11} />, prompt: 'Enumerate the interactive controls with design_controls, then click every button and report which ones do nothing, throw console errors, or navigate somewhere unexpected. Summarise as a table of control → result.' },
+        { label: 'Check mobile layout', icon: <Smartphone size={11} />, prompt: 'Resize the preview to 390×844 with design_resize, then audit and snapshot. List everything that breaks at phone width and fix the worst of it.' },
+        { label: 'Review the visuals', icon: <Eye size={11} />, prompt: 'Take a design_screenshot so I can see the screen, then critique spacing, hierarchy, contrast and alignment, and propose specific changes.' },
+      ]
+    : [
+        { label: 'What should we fix?', icon: <Wand2 size={11} />, prompt: 'Interview me about what I want to fix or refine in this project. Call the ask_user tool with 3-5 focused questions you generate from the project\'s actual files and stack (do not use canned questions). After I answer, inspect the relevant files and propose a concrete plan before changing anything.' },
+        { label: 'Find bugs', icon: <Sparkles size={11} />, prompt: 'Read the project files and find real bugs, dead code and fragility. Report each with file, line and a concrete fix. Then ask me which ones to apply.' },
+        { label: 'Explain the project', icon: <Sparkles size={11} />, prompt: 'Explain how this project is structured: entry points, data flow, key files. Keep it tight and point at the files you read.' },
+      ]
+
+  const actions = quickActions ?? defaultActions
+
+  return (
+    <div className="h-full flex flex-col min-h-0" style={{ background: 'transparent' }}>
+      {/* header */}
+      <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+        <Sparkles size={13} style={{ color: 'var(--primary)' }} />
+        <span className="text-[12px] font-medium flex-1 truncate">{design ? 'Design assistant' : 'AI pair-programmer'}</span>
+        {streaming && <span className="re-orb re-orb-sm" aria-hidden />}
+        <button onClick={() => setShowActions((v) => !v)} title="Quick actions"
+          className="p-1 rounded-[6px]" style={{ color: 'var(--text-3)' }}>
+          <ChevronDown size={12} style={{ transform: showActions ? 'rotate(180deg)' : undefined, transition: 'transform 120ms' }} />
+        </button>
+        {onClose && <button onClick={onClose} className="p-1 rounded-[6px]" style={{ color: 'var(--text-3)' }}><X size={12} /></button>}
+      </div>
+
+      {/* quick actions */}
+      <AnimatePresence initial={false}>
+        {showActions && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            className="shrink-0 overflow-hidden" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+            <div className="flex flex-wrap gap-1.5 p-2">
+              {actions.map((a) => (
+                <button key={a.label} onClick={() => send(a.prompt)} disabled={!chatId}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-[10.5px] disabled:opacity-40"
+                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                  {a.icon}{a.label}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* messages */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
+        {!chat?.messages.length && (
+          <div className="text-[12px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+            {design
+              ? 'I can see the running app: layout, computed styles, console and screenshots. Ask me to audit it, test the buttons, or fix what looks wrong — I verify with real assertions.'
+              : 'I can read and edit this project, run commands (with your approval), and check git. Try “What should we fix?”'}
+          </div>
+        )}
+        {chat?.messages.map((m: ChatMessage) => (
+          <div key={m.id}>
+            {m.role === 'user' ? (
+              <div className="flex flex-col items-end gap-1">
+                {!!m.attachments?.length && (
+                  <div className="flex gap-1.5 flex-wrap justify-end">
+                    {m.attachments.map((a, i) => (
+                      <img key={i} src={a.dataUrl} alt={a.name} className="max-h-24 rounded-[8px]" style={{ border: '1px solid var(--surface-border)' }} />
+                    ))}
+                  </div>
+                )}
+                <div className="max-w-[88%] px-3 py-2 rounded-[12px] text-[12.5px] whitespace-pre-wrap"
+                  style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--text)' }}>
+                  {m.content}
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-[97%]">
+                <ToolTraceChips msg={m} />
+                <ExecApproval chatId={chat!.id} msg={m} />
+                <QuestionnaireCard chatId={chat!.id} msg={m} />
+                {m.error ? (
+                  <div className="text-[12px] p-2.5 rounded-[10px]" style={{ background: 'color-mix(in srgb, var(--danger) 10%, transparent)', color: 'var(--danger)' }}>{m.error}</div>
+                ) : (
+                  <div className="text-[12.5px]"><Markdown content={m.content} streaming={streaming && m.id === chat!.messages[chat!.messages.length - 1]?.id} /></div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+        {!!queue.length && (
+          <div className="text-[11px] px-2.5 py-1.5 rounded-[8px]" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
+            {queue.length} queued message{queue.length > 1 ? 's' : ''} — sent when the current answer finishes
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+
+      {/* attachments + composer */}
+      <div className="shrink-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
+        {!!tray.length && (
+          <div className="flex items-center gap-2 px-3 pt-2 flex-wrap">
+            {tray.map((a, i) => (
+              <span key={i} className="relative group">
+                <img src={a.dataUrl} alt={a.name} className="h-10 rounded-[6px]" style={{ border: '1px solid var(--surface-border)' }} />
+                <button onClick={() => attachmentTray.remove(i)}
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] opacity-0 group-hover:opacity-100"
+                  style={{ background: 'var(--danger)', color: '#fff' }}>×</button>
+              </span>
+            ))}
+            <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>will be sent with your message</span>
+          </div>
+        )}
+        <div className="flex items-end gap-2 px-3 py-2.5">
+          <button onClick={() => fileRef.current?.click()} title="Attach an image"
+            className="p-1.5 rounded-[8px] shrink-0" style={{ color: 'var(--text-3)' }}>
+            <Paperclip size={13} />
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) attachFile(f); e.target.value = '' }} />
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const t = text; setText(''); send(t) }
+            }}
+            rows={1}
+            placeholder={streaming ? 'Type to queue another message…' : design ? 'Ask about this screen…' : 'Ask the AI about this project…'}
+            className="flex-1 bg-transparent outline-none text-[12.5px] resize-none py-1.5 max-h-28"
+            style={{ color: 'var(--text)' }} />
+          {streaming ? (
+            <button onClick={() => chatId && stopStream(chatId)} aria-label="Stop"
+              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--danger)', color: '#fff' }}>
+              <Square size={10} />
+            </button>
+          ) : (
+            <button onClick={() => { const t = text; setText(''); send(t) }} disabled={!text.trim() && !tray.length} aria-label="Send"
+              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 disabled:opacity-40"
+              style={{ background: 'var(--primary)', color: '#fff' }}>
+              <Play size={11} />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 px-3 pb-2 text-[10px]" style={{ color: 'var(--text-3)' }}>
+          <ImageIcon size={10} /> Enter sends · Shift+Enter newline
+          <span className="flex-1" />
+          <button onClick={() => ui.toast('Model', 'Change models from the top bar', 'info')} className="hover:underline">model</button>
+        </div>
+      </div>
+    </div>
+  )
+}

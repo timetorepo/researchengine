@@ -22,8 +22,15 @@ async function main() {
   const { fsRoutes } = await import('./routes/fs')
   const { providerRoutes } = await import('./routes/providers')
   const { ideRoutes } = await import('./routes/ide')
+  const { previewRoutes } = await import('./routes/preview')
+  const { PreviewManager } = await import('./preview/manager')
   const { connectorRoutes } = await import('./routes/connectors')
   const { mcpRoutes } = await import('./routes/mcp')
+
+  // One preview manager per process: it owns the dev servers started for
+  // Coding / Design mode and the proxies the browser embeds.
+  const previews = new PreviewManager()
+  previewsForExit = previews
 
   const app = new Hono()
 
@@ -35,6 +42,7 @@ async function main() {
   app.route('/api', resourceRoutes(rt))
   app.route('/api', fsRoutes(rt))
   app.route('/api', ideRoutes(rt))
+  app.route('/api', previewRoutes(rt, previews))
   app.route('/api', connectorRoutes(rt))
   app.route('/api', mcpRoutes())
   app.route('/api/search', searchRoutes)
@@ -63,6 +71,14 @@ async function main() {
     console.log(`  database : ${rt.dbPath}`)
     if (rt.rememberedPort) console.log(`  note     : preferred port was busy — using ${info.port} (remembered in config.json)`)
   })
+}
+
+// Never leave orphaned dev servers behind when the backend goes down (or is
+// restarted by tsx watch during development).
+let previewsForExit: { stopAllSync: () => void } | null = null
+process.on('exit', () => { try { previewsForExit?.stopAllSync() } catch { /* ignore */ } })
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+  process.on(sig, () => { try { previewsForExit?.stopAllSync() } catch { /* ignore */ } ; process.exit(0) })
 }
 
 main().catch((e) => {

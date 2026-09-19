@@ -9,6 +9,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
+import { projectDirOf, projectsRootOf } from '../preview/paths'
 
 const EXEC_TIMEOUT_MS = 60_000
 const OUTPUT_CAP = 200_000
@@ -57,25 +58,16 @@ function scrubbedEnv(): Record<string, string> {
 
 export function ideRoutes(rt: Runtime) {
   const r = new Hono()
-  const projectsRoot = resolve(join(rt.dataDir, 'projects'))
+  const projectsRoot = projectsRootOf(rt.dataDir)
   mkdir(projectsRoot, { recursive: true }).catch(() => {})
 
-  const safeName = (name: string): string | null => {
-    const normalized = String(name ?? '').trim().replace(/\s+/g, ' ')
-    if (!normalized || normalized.length > 128 || normalized === '.' || normalized === '..') return null
-    if (/[\/\\\u0000]/.test(normalized)) return null
-    return normalized
-  }
-
-  const projectDir = (name: string): string | null => {
-    const n = safeName(name)
-    if (!n) return null
-    const abs = resolve(join(projectsRoot, n))
-    return abs.startsWith(projectsRoot + '/') ? abs : null
-  }
+  const projectDir = (name: string): string | null => projectDirOf(projectsRoot, name)
 
   const safeRel = (dir: string, rel: string): string | null => {
-    if (!rel || rel.startsWith('/') || rel.includes('..')) return null
+    if (!rel || rel.startsWith('/') || rel.includes('\u0000')) return null
+    // Reject genuine traversal ("..", "a/../..") without banning harmless names
+    // such as "notes..md" — the resolved path check below is the real guard.
+    if (rel.split(/[/\\]/).some((seg) => seg === '..')) return null
     const abs = resolve(join(dir, rel))
     return abs.startsWith(dir + '/') ? abs : null
   }
@@ -213,6 +205,56 @@ export function ideRoutes(rt: Runtime) {
     await mkdir(dirname(abs), { recursive: true })
     await writeFile(abs, body.content, 'utf8')
     return c.json({ ok: true })
+  })
+
+  // Delete a file (or an empty folder) inside the project.
+  r.delete('/ide/file', async (c) => {
+    const dir = projectDir(c.req.query('project') ?? '')
+    const abs = dir ? safeRel(dir, c.req.query('path') ?? '') : null
+    if (!abs) return c.json({ error: 'Path must stay inside the project.' }, 400)
+    if (!existsSync(abs)) return c.json({ error: 'File not found.' }, 404)
+    await rm(abs, { recursive: true, force: true })
+    return c.json({ ok: true })
+  })
+
+  // Text search across the project (skips heavy/ignored folders, caps results).
+  r.get('/ide/search', async (c) => {
+    const dir = projectDir(c.req.query('project') ?? '')
+    if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)
+    const q = (c.req.query('q') ?? '').trim()
+    if (q.length < 2) return c.json({ results: [], note: 'Type at least 2 characters.' })
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv', 'coverage', '.turbo', 'out'])
+    const results: { path: string; line: number; text: string; kind: 'match' | 'file' }[] = []
+    const needle = q.toLowerCase()
+    const walk = async (d: string, rel: string, depth: number): Promise<void> => {
+      if (depth > 8 || results.length >= 200) return
+      let entries
+      try { entries = await readdir(d, { withFileTypes: true }) } catch { return }
+      for (const e of entries) {
+        if (results.length >= 200) return
+        if (SKIP.has(e.name) || e.name.startsWith('.')) continue
+        const abs = join(d, e.name)
+        const rp = rel ? rel + '/' + e.name : e.name
+        if (e.isDirectory()) { await walk(abs, rp, depth + 1); continue }
+        if (/^(.*\.(png|jpg|jpeg|gif|webp|ico|woff2?|ttf|pdf|zip|gz|mp4|mp3|so|node|dylib))$/i.test(e.name)) continue
+        if (rp.toLowerCase().includes(needle) && results.length < 40) results.push({ path: rp, line: 0, text: 'file name match', kind: 'file' })
+        let text = ''
+        try {
+          const st = await stat(abs)
+          if (st.size > 512 * 1024) continue
+          text = await readFile(abs, 'utf8')
+        } catch { continue }
+        if (text.indexOf('\u0000') !== -1) continue
+        const lines = text.split('\n')
+        for (let i = 0; i < lines.length && results.length < 200; i++) {
+          const idx = lines[i].toLowerCase().indexOf(needle)
+          if (idx === -1) continue
+          results.push({ path: rp, line: i + 1, text: lines[i].trim().slice(0, 200), kind: 'match' })
+        }
+      }
+    }
+    await walk(dir, '', 0)
+    return c.json({ results, truncated: results.length >= 200 })
   })
 
   // ---------- guarded command execution ----------

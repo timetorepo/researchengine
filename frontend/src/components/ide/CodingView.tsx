@@ -1,32 +1,35 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { nanoid } from 'nanoid'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch,
-  TerminalSquare, Sparkles, Loader2, AlertTriangle, Check, X, MessageSquareText, FolderPlus, RefreshCw, Code2, ImagePlus, MonitorUp,
+  TerminalSquare, Sparkles, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,
+  Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2,
+  FolderOpen, Circle, Wand2, ListChecks, Terminal as TerminalIcon, XCircle, ExternalLink,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
-import { runChat, isStreamingChat, enqueuePrompt, stopStream } from '@/lib/chat/runChat'
-import { Markdown } from '@/components/chat/Markdown'
-import { ToolTraceChips, ExecApproval, QuestionnaireCard } from '@/components/chat/ToolUI'
+import { DesignStudio } from './DesignStudio'
+import { AgentPanel, chatIdFor } from './AgentPanel'
+import { CodeEditor } from './CodeEditor'
+import type { ProjectInfo, TreeNode, OpenFile } from './types'
+import { designSession, previewUrlFor } from '@/lib/ide/bridge'
+import { previewStatus, ensurePreviewServer } from '@/lib/ide/preview'
+import { isStreamingChat } from '@/lib/chat/runChat'
+import { SAMPLE_PROJECT } from '@/lib/ide/sample'
 import { fmt, timeAgo } from '@/lib/utils'
-import type { ChatMessage } from '@/types'
-
-interface ProjectInfo { name: string; files: number; size: number; mtime: number; git: boolean }
-interface TreeNode { name: string; path: string; dir: boolean; children?: TreeNode[] }
 
 /* ================================================================== */
-/* Project list                                                        */
+/* Coding entry — project list ⇄ workbench ⇄ design studio            */
 /* ================================================================== */
 export function CodingView() {
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null)
   const [open, setOpen] = useState<string | null>(null)
+  const [design, setDesign] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [demo, setDemo] = useState(false)
   const [newName, setNewName] = useState('')
   const [err, setErr] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [tree, setTree] = useState<TreeNode[]>([])
   const uploadRef = useRef<HTMLInputElement>(null)
   const ui = useUI()
 
@@ -38,32 +41,49 @@ export function CodingView() {
   }, [])
   useEffect(() => { void refresh() }, [refresh])
 
-  // Other surfaces (AI file writes, terminal) announce changes here.
+  // Keep the tree in sync with reality (AI edits files, terminal commands, …).
+  const loadTree = useCallback(async (project: string) => {
+    try {
+      const res = await fetch(`/api/ide/tree?project=${encodeURIComponent(project)}`)
+      if (res.ok) setTree((await res.json()).tree ?? [])
+    } catch { /* tree stays as-is */ }
+  }, [])
   useEffect(() => {
-    const h = () => void refresh()
+    if (!open) return
+    void loadTree(open)
+    const h = () => void loadTree(open)
     window.addEventListener('re:ide-changed', h)
     return () => window.removeEventListener('re:ide-changed', h)
-  }, [refresh])
+  }, [open, loadTree])
 
   const create = async () => {
     const name = newName.trim().replace(/\s+/g, ' ')
     if (!name) { setErr('Enter a project name.'); return }
     if (name.length > 128) { setErr('Project names can be up to 128 characters.'); return }
-    if (/[/\\\u0000]/.test(name) || name === '.' || name === '..') {
-      setErr('Project names cannot contain path separators.'); return
-    }
+    if (/[/\\\u0000]/.test(name) || name === '.' || name === '..') { setErr('Project names cannot contain path separators.'); return }
     setErr('')
     const res = await fetch('/api/ide/projects', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, projectName: name, files: { 'README.md': `# ${name}\n\nCreated with Research Engine Coding.\n`, 'main.py': 'print("hello")\n' } }),
+      body: JSON.stringify({ name, files: { 'README.md': `# ${name}\n\nCreated with Research Engine Coding.\n`, 'main.py': 'print("hello")\n' } }),
     })
     const j = await res.json()
     if (!res.ok) { setErr(j.error ?? 'Could not create the project.'); return }
     setCreating(false); setNewName(''); setOpen(name); void refresh()
   }
 
+  const createSample = async () => {
+    const name = 'sample-landing'
+    const res = await fetch('/api/ide/projects', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, files: SAMPLE_PROJECT }),
+    })
+    if (!res.ok) { ui.toast('Could not create the sample', (await res.json()).error ?? '', 'danger'); return }
+    setOpen(name); setDesign(true); void refresh()
+    ui.toast('Sample ready', 'Open Design mode — the AI can audit and fix this page live.', 'success')
+  }
+
   const importArchive = async (file: File) => {
-    const name = file.name.replace(/\.(zip|tar\.gz|tgz|tar)$/i, '').replace(/[^a-zA-Z0-9 _.-]/g, '')
+    const name = file.name.replace(/\.(zip|tar\.gz|tgz|tar)$/i, '').replace(/[^a-zA-Z0-9 _.-]/g, '') || 'imported'
     if (file.size > 24 * 1024 * 1024) { ui.toast('Too large', 'Project archives are capped at 24 MB.', 'warning'); return }
     const dataBase64 = await new Promise<string>((resolve) => {
       const r = new FileReader(); r.onload = () => resolve(String(r.result).split(',')[1] ?? ''); r.readAsDataURL(file)
@@ -79,25 +99,41 @@ export function CodingView() {
   }
 
   const del = async (name: string) => {
+    setConfirmDelete(null)
     await fetch(`/api/ide/projects/${encodeURIComponent(name)}`, { method: 'DELETE' })
+    if (open === name) setOpen(null)
+    ui.toast('Project deleted', name, 'info')
     void refresh()
   }
 
-  if (open) return <IDE project={open} onClose={() => { setOpen(null); void refresh() }} />
-  if (demo) return <DemoIDE onClose={() => setDemo(false)} />
+  if (open && design) {
+    return <DesignStudio project={open} tree={tree} onExit={() => setDesign(false)} />
+  }
+  if (open) {
+    return (
+      <Workbench
+        project={open}
+        tree={tree}
+        onTreeRefresh={() => loadTree(open)}
+        onBack={() => { setOpen(null); setDesign(false); void refresh() }}
+        onDesign={() => setDesign(true)}
+      />
+    )
+  }
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-[880px] mx-auto px-6 py-10">
+      <div className="max-w-[900px] mx-auto px-6 py-10">
         <div className="flex items-center gap-3 mb-1.5">
           <FolderGit2 size={22} style={{ color: 'var(--primary)' }} />
           <h1 className="text-[22px] font-semibold tracking-tight">Coding</h1>
         </div>
         <p className="text-[13px] mb-6" style={{ color: 'var(--text-2)' }}>
-          Local projects with an AI pair-programmer: edit code together, run guarded commands, use git — everything stays on this machine.
+          A real workbench for local projects: edit code, run guarded commands, use git — and switch to
+          Design mode so the AI can see the running app, test it, and fix it. Everything stays on this machine.
         </p>
 
-        <div className="flex items-center gap-2 mb-5">
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
           <button onClick={() => setCreating(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
             style={{ background: 'var(--primary)', color: '#fff' }}>
@@ -106,7 +142,12 @@ export function CodingView() {
           <button onClick={() => uploadRef.current?.click()}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
             style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}>
-            <Upload size={14} /> Upload existing (.zip / .tar.gz)
+            <Upload size={14} /> Upload .zip / .tar.gz
+          </button>
+          <button onClick={() => void createSample()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
+            style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
+            <Wand2 size={14} /> Try a sample app
           </button>
           <input ref={uploadRef} type="file" accept=".zip,.tar.gz,.tgz,.tar" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void importArchive(f); e.target.value = '' }} />
@@ -114,15 +155,12 @@ export function CodingView() {
 
         <AnimatePresence>
           {creating && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mb-5">
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-5">
               <div className="surface p-4 flex items-center gap-2">
                 <FolderPlus size={15} style={{ color: 'var(--primary)' }} />
                 <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && create()}
-                  maxLength={128}
-                  placeholder="Name your project"
-                  aria-label="Project name"
+                  onKeyDown={(e) => e.key === 'Enter' && create()} maxLength={128}
+                  placeholder="Name your project" aria-label="Project name"
                   className="flex-1 px-3 py-1.5 rounded-[10px] text-[13px] outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
                 <button onClick={create} className="px-3 py-1.5 rounded-[10px] text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Create</button>
@@ -130,7 +168,7 @@ export function CodingView() {
               </div>
               <div className="flex items-center justify-between mt-1.5 px-1">
                 <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Any name up to 128 characters; path separators are not allowed</p>
-                <p className="text-[11px] tabular-nums" style={{ color: newName.length > 64 ? 'var(--danger)' : 'var(--text-3)' }}>{newName.length}/128</p>
+                <p className="text-[11px] tabular-nums" style={{ color: 'var(--text-3)' }}>{newName.length}/128</p>
               </div>
               {err && <p className="text-[12px] mt-1.5" style={{ color: 'var(--danger)' }}>{err}</p>}
             </motion.div>
@@ -141,14 +179,17 @@ export function CodingView() {
           <div className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--text-3)' }}><Loader2 size={14} className="animate-spin" /> Loading projects…</div>
         ) : projects.length === 0 ? (
           <div className="surface p-8 text-center">
+            <Code2 size={22} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
             <p className="text-[13.5px] mb-1">No projects yet.</p>
-            <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>Create one, or upload a local project archive and let the AI fix or refine it.</p>
-            <button onClick={() => setDemo(true)} className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}><Code2 size={13} /> Preview the IDE</button>
+            <p className="text-[12px] mb-4" style={{ color: 'var(--text-3)' }}>Create one, upload an archive — or drop in the sample app to see Design mode work end to end.</p>
+            <button onClick={() => void createSample()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
+              <Wand2 size={13} /> Create the sample app
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {projects.map((p) => (
-              <div key={p.name} className="surface p-4 group relative">
+              <div key={p.name} className="surface p-4 group relative card-hover">
                 <button onClick={() => setOpen(p.name)} className="text-left w-full">
                   <div className="flex items-center gap-2 mb-1">
                     <FolderGit2 size={16} style={{ color: 'var(--primary)' }} />
@@ -157,11 +198,20 @@ export function CodingView() {
                   </div>
                   <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>{p.files} files · {fmt(p.size)} · {timeAgo(p.mtime)}</div>
                 </button>
-                <button onClick={() => del(p.name)} aria-label={`Delete ${p.name}`}
-                  className="absolute top-3 right-3 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ color: 'var(--danger)' }}>
+                <button onClick={() => setConfirmDelete(p.name)} aria-label={`Delete ${p.name}`}
+                  className="absolute top-3 right-3 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--danger)' }}>
                   <Trash2 size={13} />
                 </button>
+                {confirmDelete === p.name && (
+                  <div className="absolute inset-0 rounded-[inherit] flex flex-col items-center justify-center gap-2 p-3 text-center"
+                    style={{ background: 'color-mix(in srgb, var(--surface) 92%, transparent)', backdropFilter: 'blur(6px)' }}>
+                    <span className="text-[12px]">Delete <strong>{p.name}</strong>?</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => void del(p.name)} className="px-2.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--danger)', color: '#fff' }}>Delete</button>
+                      <button onClick={() => setConfirmDelete(null)} className="px-2.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>Keep</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -172,216 +222,450 @@ export function CodingView() {
 }
 
 /* ================================================================== */
-/* Design mode — screenshot-aware UI repair                           */
+/* Workbench                                                          */
 /* ================================================================== */
-function DesignMode({ project, tree, onClose }: { project: string; tree: TreeNode[]; onClose: () => void }) {
-  const [image, setImage] = useState<{ name: string; dataUrl: string } | null>(null)
-  const [prompt, setPrompt] = useState('Inspect this screen and suggest precise UI fixes. Ask before making destructive changes.')
-  const [chatId, setChatId] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    const title = `Design · ${project}`
-    const existing = [...useStore.getState().chats].reverse().find((c) => c.title === title)
-    const id = existing?.id ?? useStore.getState().newChat()
-    if (!existing) useStore.getState().renameChat(id, title)
-    setChatId(id)
-  }, [project])
-  const chat = useStore((s) => s.chats.find((c) => c.id === chatId))
-  const attach = (f: File) => {
-    if (!f.type.startsWith('image/')) return
-    const r = new FileReader(); r.onload = () => setImage({ name: f.name, dataUrl: String(r.result) }); r.readAsDataURL(f)
-  }
-  const send = async () => {
-    if (!chatId || !prompt.trim() || busy) return
-    setBusy(true)
-    try { await runChat({ chatId, prompt: prompt.trim(), project, projectTree: tree.map((n) => n.dir ? `${n.name}/` : n.name).join('\n'), attachments: image ? [{ type: 'image', name: image.name, dataUrl: image.dataUrl }] : undefined }) } finally { setBusy(false) }
-  }
-  return <div className="h-full flex flex-col" style={{ background: 'var(--bg)' }}>
-    <div className="h-12 shrink-0 flex items-center gap-3 px-4" style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--surface)' }}><button onClick={onClose} className="text-[12px]" style={{ color: 'var(--text-2)' }}>Back to code</button><span style={{ color: 'var(--text-3)' }}>/</span><MonitorUp size={14} style={{ color: 'var(--primary)' }} /><span className="text-[13px] font-medium">Design mode · {project}</span><span className="ml-auto text-[11px]" style={{ color: 'var(--text-3)' }}>Screenshot-aware UI repair</span></div>
-    <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-0">
-      <div className="p-5 overflow-y-auto"><div className="max-w-[900px] mx-auto"><div className="flex items-center justify-between mb-3"><div><h2 className="text-[18px] font-semibold">Screen canvas</h2><p className="text-[12px] mt-1" style={{ color: 'var(--text-2)' }}>Drop a screenshot or capture and describe what should change. The AI receives the image and this project context.</p></div><button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}><ImagePlus size={13} /> Add screen</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) attach(f); e.target.value = '' }} /></div>{image ? <div className="rounded-[16px] overflow-hidden" style={{ border: '1px solid var(--primary)', background: 'var(--surface)' }}><img src={image.dataUrl} alt="Uploaded design reference" className="max-h-[65vh] w-full object-contain" /></div> : <div onClick={() => fileRef.current?.click()} className="min-h-[55vh] rounded-[18px] flex flex-col items-center justify-center gap-3 cursor-pointer" style={{ border: '1px dashed var(--surface-border)', background: 'var(--surface)', color: 'var(--text-3)' }}><ImagePlus size={32} /><span className="text-[13px]">Drop or choose a screenshot to begin</span><span className="text-[11px]">The AI can inspect spacing, hierarchy, contrast and responsive layout.</span></div>}</div></div>
-      <aside className="min-h-0 flex flex-col" style={{ borderLeft: '1px solid var(--surface-border)', background: 'var(--surface)' }}><div className="px-4 py-3 text-[12px] font-medium" style={{ borderBottom: '1px solid var(--surface-border)' }}>Design assistant</div><div className="flex-1 overflow-y-auto p-3 space-y-3">{chat?.messages.map((m) => <div key={m.id} className={`text-[12px] leading-relaxed p-2.5 rounded-[11px] ${m.role === 'user' ? 'ml-5' : 'mr-2'}`} style={{ background: m.role === 'user' ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)' }}>{m.content}</div>)}{!chat?.messages.length && <div className="text-[12px] leading-relaxed" style={{ color: 'var(--text-3)' }}>I can compare the screenshot with the project, identify visual bugs, and use guarded IDE tools to apply approved fixes.</div>}</div><div className="p-3" style={{ borderTop: '1px solid var(--surface-border)' }}><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className="w-full resize-none p-2.5 rounded-[10px] outline-none text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text)' }} /><button onClick={() => void send()} disabled={busy || !prompt.trim()} className="mt-2 w-full py-2 rounded-[10px] text-[12px] font-medium disabled:opacity-40" style={{ background: 'var(--primary)', color: '#fff' }}>{busy ? 'Analyzing screen…' : 'Ask AI to inspect and fix'}</button></div></aside>
-    </div>
-  </div>
-}
+type Activity = 'explorer' | 'search' | 'git' | 'design'
+type PanelTab = 'terminal' | 'problems' | 'git' | 'preview'
 
-/* ================================================================== */
-/* IDE demo                                                            */
-/* ================================================================== */
-function DemoIDE({ onClose }: { onClose: () => void }) {
-  const [file, setFile] = useState('src/App.tsx')
-  const [code, setCode] = useState(`export function App() {\n  return <ResearchEngine />\n}\n`)
-  const [activity, setActivity] = useState('Demo preview: commands are disabled until you open a real project.')
-  const files = ['src/App.tsx', 'src/main.tsx', 'package.json', 'README.md']
-  return (
-    <div className="h-full flex flex-col" style={{ background: 'var(--code-bg)' }}>
-      <div className="h-12 shrink-0 flex items-center gap-3 px-4" style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
-        <button onClick={onClose} className="text-[12px]" style={{ color: 'var(--text-2)' }}>Back to projects</button>
-        <span style={{ color: 'var(--text-3)' }}>/</span><span className="text-[13px] font-medium">IDE preview</span>
-        <span className="ml-auto px-2 py-1 rounded-full text-[10px]" style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>Read-only demo</span>
-      </div>
-      <div className="flex-1 min-h-0 grid grid-cols-[210px_minmax(0,1fr)]">
-        <aside className="p-3 overflow-y-auto" style={{ borderRight: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
-          <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--text-3)' }}>Explorer</div>
-          {files.map((f) => <button key={f} onClick={() => setFile(f)} className="w-full flex items-center gap-2 px-2 py-2 rounded-[8px] text-left text-[12px] hover:bg-[var(--elevated)]" style={{ color: f === file ? 'var(--primary)' : 'var(--text-2)' }}><FileCode2 size={13} />{f}</button>)}
-          <div className="mt-5 text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--text-3)' }}>Source control</div><div className="text-[11px]" style={{ color: 'var(--text-3)' }}>No repository connected</div>
-        </aside>
-        <main className="min-w-0 flex flex-col">
-          <div className="h-10 flex items-center px-4 text-[12px]" style={{ borderBottom: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>{file}</div>
-          <textarea value={code} onChange={(e) => setCode(e.target.value)} spellCheck={false} className="flex-1 w-full resize-none p-5 outline-none font-mono text-[13px] leading-6" style={{ background: 'var(--code-bg)', color: 'var(--text)' }} aria-label="Demo code editor" />
-          <div className="h-32 shrink-0 p-3 font-mono text-[11px]" style={{ borderTop: '1px solid var(--surface-border)', background: '#0b0d10', color: 'var(--text-3)' }}><div className="flex items-center gap-2 mb-2" style={{ color: 'var(--text-2)' }}><TerminalSquare size={13} /> Terminal <button onClick={() => { setActivity('AI found a missing return type and repaired src/App.tsx.'); setCode((c) => c.includes('return <ResearchEngine />') ? c.replace('return <ResearchEngine />', 'return <main aria-label="Research Engine"><ResearchEngine /></main>') : c) }} className="ml-auto px-2 py-1 rounded-md text-[10px]" style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>AI fix bug</button><button onClick={() => { setActivity('AI generated a responsive component scaffold.'); setCode((c) => c + '\nexport function StatusCard() {\n  return <section className="status-card">Ready</section>\n}\n') }} className="px-2 py-1 rounded-md text-[10px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>Generate code</button></div><div>$ npm test</div><div style={{ color: 'var(--success)' }}>{activity}</div></div>
-        </main>
-      </div>
-    </div>
-  )
-}
-
-/* ================================================================== */
-/* IDE                                                                 */
-/* ================================================================== */
-function IDE({ project, onClose }: { project: string; onClose: () => void }) {
-  const [tree, setTree] = useState<TreeNode[]>([])
-  const [sel, setSel] = useState<string | null>(null)
-  const [content, setContent] = useState('')
-  const [disk, setDisk] = useState('')
+function Workbench({ project, tree, onTreeRefresh, onBack, onDesign }: {
+  project: string
+  tree: TreeNode[]
+  onTreeRefresh: () => void
+  onBack: () => void
+  onDesign: () => void
+}) {
+  const ui = useUI()
+  const [activity, setActivity] = useState<Activity>('explorer')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [agentOpen, setAgentOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 1180)
+  const [files, setFiles] = useState<OpenFile[]>([])
+  const [active, setActive] = useState<string | null>(null)
+  const [gotoLine, setGotoLine] = useState(0)
+  const [panel, setPanel] = useState<PanelTab>('terminal')
+  const [panelOpen, setPanelOpen] = useState(true)
   const [newFile, setNewFile] = useState('')
-  const [tab, setTab] = useState<'terminal' | 'git'>('terminal')
-  const [design, setDesign] = useState(false)
-  const loadTree = useCallback(async () => {
-    const res = await fetch(`/api/ide/tree?project=${encodeURIComponent(project)}`)
-    if (res.ok) setTree((await res.json()).tree ?? [])
-  }, [project])
-  useEffect(() => { void loadTree() }, [loadTree])
-  useEffect(() => {
-    const h = () => void loadTree()
-    window.addEventListener('re:ide-changed', h)
-    return () => window.removeEventListener('re:ide-changed', h)
-  }, [loadTree])
+  const [searchQ, setSearchQ] = useState('')
+  const [results, setResults] = useState<{ path: string; line: number; text: string }[]>([])
+  const [searching, setSearching] = useState(false)
+  const [preview, setPreview] = useState<{ running: boolean; port?: number; kind?: string; ready?: boolean; error?: string | null }>({ running: false })
+  const [starting, setStarting] = useState(false)
+  const [confirmClose, setConfirmClose] = useState<string | null>(null)
 
-  const openFile = async (path: string) => {
+  const chatId = useMemo(() => chatIdFor(project), [project])
+  const streaming = isStreamingChat(chatId)
+  const current = files.find((f) => f.path === active) ?? null
+  const dirty = !!current && current.content !== current.disk
+  const anyDirty = files.some((f) => f.content !== f.disk)
+
+  /* ---------------- files ---------------- */
+  const openFile = useCallback(async (path: string, line = 0) => {
+    setGotoLine(line)
+    const existing = files.find((f) => f.path === path)
+    if (existing) { setActive(path); return }
     const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`)
-    if (!res.ok) { useUI.getState().toast('Cannot open', (await res.json()).error ?? 'File error', 'danger'); return }
+    if (!res.ok) { ui.toast('Cannot open', (await res.json()).error ?? 'File error', 'danger'); return }
     const j = await res.json()
-    setSel(path); setContent(j.content); setDisk(j.content)
+    setFiles((f) => [...f, { path, content: j.content, disk: j.content }])
+    setActive(path)
+  }, [files, project, ui])
+
+  const closeFile = (path: string) => {
+    const f = files.find((x) => x.path === path)
+    if (f && f.content !== f.disk) { setConfirmClose(path); return }
+    doClose(path)
+  }
+  const doClose = (path: string) => {
+    setConfirmClose(null)
+    setFiles((list) => {
+      const next = list.filter((x) => x.path !== path)
+      if (active === path) setActive(next.length ? next[next.length - 1].path : null)
+      return next
+    })
   }
 
-  const save = useCallback(async () => {
-    if (!sel) return
+  const save = useCallback(async (path?: string) => {
+    const target = files.find((f) => f.path === (path ?? active))
+    if (!target || target.content === target.disk) return
     const res = await fetch('/api/ide/file', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ project, path: sel, content }),
+      body: JSON.stringify({ project, path: target.path, content: target.content }),
     })
-    if (res.ok) { setDisk(content); useUI.getState().toast('Saved', sel, 'success'); window.dispatchEvent(new CustomEvent('re:ide-changed')) }
-  }, [project, sel, content])
+    if (res.ok) {
+      setFiles((list) => list.map((f) => (f.path === target.path ? { ...f, disk: f.content } : f)))
+      ui.toast('Saved', target.path, 'success')
+      window.dispatchEvent(new CustomEvent('re:ide-changed'))
+    } else {
+      ui.toast('Save failed', (await res.json()).error ?? 'Unknown error', 'danger')
+    }
+  }, [active, files, project, ui])
 
   const addFile = async () => {
     const p = newFile.trim()
     if (!p) return
-    await fetch('/api/ide/file', {
+    const res = await fetch('/api/ide/file', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ project, path: p, content: '' }),
     })
-    setNewFile(''); void loadTree(); openFile(p)
+    if (!res.ok) { ui.toast('Could not create file', (await res.json()).error ?? '', 'danger'); return }
+    setNewFile(''); onTreeRefresh(); void openFile(p)
   }
 
-  const dirty = content !== disk
-  if (design) return <DesignMode project={project} tree={tree} onClose={() => setDesign(false)} />
+  const deleteFile = async (path: string) => {
+    await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+    doClose(path); onTreeRefresh()
+  }
+
+  /* ---------------- search ---------------- */
+  const runSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 2) { setResults([]); return }
+    setSearching(true)
+    try {
+      const res = await fetch(`/api/ide/search?project=${encodeURIComponent(project)}&q=${encodeURIComponent(q.trim())}`)
+      const j = await res.json()
+      setResults((j.results ?? []).filter((r: any) => r.line > 0))
+    } finally { setSearching(false) }
+  }, [project])
+
+  useEffect(() => {
+    const t = setTimeout(() => { if (activity === 'search') void runSearch(searchQ) }, 300)
+    return () => clearTimeout(t)
+  }, [searchQ, activity, runSearch])
+
+  /* ---------------- preview ---------------- */
+  const refreshPreview = useCallback(async () => {
+    setPreview(await previewStatus(project))
+  }, [project])
+  useEffect(() => {
+    void refreshPreview()
+    const iv = setInterval(() => { void refreshPreview() }, 5000)
+    return () => clearInterval(iv)
+  }, [refreshPreview])
+
+  const startPreview = async () => {
+    setStarting(true)
+    try {
+      const info = await ensurePreviewServer(project)
+      setPreview(info)
+      if (info.error) ui.toast('Preview failed', info.error, 'danger')
+      else { setPanel('preview'); setPanelOpen(true); void refreshPreview() }
+    } finally { setStarting(false) }
+  }
+
+  // The AI (or a design tool) can ask for the preview pane at any time: switch
+  // the workbench into Design mode, which owns the iframe and the bridge.
+  useEffect(() => {
+    designSession.onOpenRequest = (proj, done) => {
+      if (proj !== project) { done(); return }
+      onDesign()
+      done()
+    }
+    return () => { designSession.onOpenRequest = null }
+  }, [project, onDesign])
+
+  /* ---------------- keyboard ---------------- */
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod) return
+      if (e.key.toLowerCase() === 's') { e.preventDefault(); void save() }
+      if (e.key.toLowerCase() === 'b') { e.preventDefault(); setSidebarOpen((v) => !v) }
+      if (e.key.toLowerCase() === 'j') { e.preventDefault(); setPanelOpen((v) => !v) }
+      if (e.key === '`') { e.preventDefault(); setPanel('terminal'); setPanelOpen(true) }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [save])
+
+  const breadcrumb = current?.path.split('/') ?? []
+  const previewLive = preview.running && preview.ready
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* header */}
-      <div className="flex items-center gap-2 px-4 py-2 shrink-0" style={{ borderBottom: '1px solid var(--surface-border)' }}>
-        <button onClick={onClose} className="text-[12px] hover:underline" style={{ color: 'var(--text-2)' }}>Projects</button>
+    <div className="h-full flex flex-col min-h-0" style={{ background: 'var(--bg)' }}>
+      {/* ---------- title bar ---------- */}
+      <div className="shrink-0 h-11 flex items-center gap-2 px-3" style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
+        <button onClick={onBack} className="text-[12px] px-2 py-1 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}>Projects</button>
         <ChevronRight size={12} style={{ color: 'var(--text-3)' }} />
         <FolderGit2 size={14} style={{ color: 'var(--primary)' }} />
-        <span className="text-[13px] font-medium">{project}</span>
+        <span className="text-[13px] font-medium truncate max-w-[240px]">{project}</span>
         <div className="flex-1" />
-        <span className="text-[11px] mr-1" style={{ color: dirty ? 'var(--warning)' : 'var(--text-3)' }}>{sel ? (dirty ? 'unsaved changes' : sel) : 'no file open'}</span>
-        <button onClick={() => setDesign(true)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[12px] font-medium"
-          style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}><MonitorUp size={12} /> Design mode</button>
-        <button onClick={save} disabled={!sel || !dirty}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-[12px] font-medium disabled:opacity-40"
+
+        <button onClick={() => void startPreview()} disabled={starting}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium disabled:opacity-50"
+          style={{ background: previewLive ? 'color-mix(in srgb, var(--success) 16%, transparent)' : 'var(--elevated)', color: previewLive ? 'var(--success)' : 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+          {starting ? <Loader2 size={12} className="animate-spin" /> : previewLive ? <Circle size={9} fill="currentColor" /> : <Play size={12} />}
+          {previewLive ? `localhost:${preview.port}` : preview.running ? 'booting…' : 'Run'}
+        </button>
+        {previewLive && preview.port && (
+          <button onClick={() => window.open(previewUrlFor(preview.port!, designSession.token), '_blank')} title="Open preview in a new tab"
+            className="p-1.5 rounded-[8px]" style={{ background: 'var(--elevated)', color: 'var(--text-3)', border: '1px solid var(--surface-border)' }}>
+            <ExternalLink size={12} />
+          </button>
+        )}
+
+        <button onClick={onDesign}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium"
+          style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+          <MonitorUp size={12} /> Design mode
+        </button>
+        <button onClick={() => void save()} disabled={!dirty}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium disabled:opacity-40"
           style={{ background: 'var(--primary)', color: '#fff' }}>
           <Save size={12} /> Save
         </button>
       </div>
 
-      <div className="flex-1 flex min-h-0">
-        {/* file tree */}
-        <div className="w-56 shrink-0 overflow-y-auto py-2 pr-1" style={{ borderRight: '1px solid var(--surface-border)' }}>
-          <div className="px-3 pb-1.5">
-            <input value={newFile} onChange={(e) => setNewFile(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addFile()}
-              placeholder="new/file.tsx + Enter"
-              className="w-full px-2 py-1 rounded-[8px] text-[11px] outline-none"
-              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
-          </div>
-          <Tree nodes={tree} depth={0} sel={sel} onOpen={openFile} />
+      <div className="flex-1 min-h-0 flex">
+        {/* ---------- activity bar ---------- */}
+        <div className="w-11 shrink-0 flex flex-col items-center py-2 gap-1" style={{ borderRight: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
+          <ActivityBtn active={activity === 'explorer'} onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} icon={<Files size={17} />} label="Explorer" />
+          <ActivityBtn active={activity === 'search'} onClick={() => { setActivity('search'); setSidebarOpen(true) }} icon={<SearchIcon size={17} />} label="Search" />
+          <ActivityBtn active={activity === 'git'} onClick={() => { setActivity('git'); setSidebarOpen(true); setPanel('git'); setPanelOpen(true) }} icon={<GitBranch size={17} />} label="Source control" />
+          <ActivityBtn active={false} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalIcon size={17} />} label="Terminal" />
+          <ActivityBtn active={false} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={17} />} label="Problems" />
+          <div className="flex-1" />
+          <ActivityBtn active={activity === 'design'} onClick={onDesign} icon={<MonitorUp size={17} />} label="Design mode" />
+          <ActivityBtn active={agentOpen} onClick={() => setAgentOpen((v) => !v)} icon={agentOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />} label="AI assistant" />
         </div>
 
-        {/* editor */}
+        {/* ---------- side bar ---------- */}
+        {sidebarOpen && (
+          <div className="w-[248px] shrink-0 min-h-0 flex flex-col" style={{ borderRight: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--surface) 70%, var(--bg))' }}>
+            {activity === 'explorer' && (
+              <>
+                <div className="shrink-0 flex items-center gap-1 px-3 py-2">
+                  <span className="text-[10px] uppercase tracking-wider font-semibold flex-1" style={{ color: 'var(--text-3)' }}>Explorer</span>
+                  <button title="New file" onClick={() => setNewFile('src/')} className="p-1 rounded" style={{ color: 'var(--text-3)' }}><FilePlus2 size={12} /></button>
+                  <button title="Refresh" onClick={onTreeRefresh} className="p-1 rounded" style={{ color: 'var(--text-3)' }}><RefreshCw size={12} /></button>
+                </div>
+                <div className="px-2 pb-1.5">
+                  <input value={newFile} onChange={(e) => setNewFile(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && void addFile()}
+                    placeholder="new/file.tsx + Enter" aria-label="New file path"
+                    className="w-full px-2 py-1 rounded-[8px] text-[11px] outline-none"
+                    style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                </div>
+                <div className="flex-1 overflow-y-auto pb-3">
+                  <Tree nodes={tree} depth={0} sel={active} onOpen={(p) => void openFile(p)} onDelete={deleteFile} />
+                  {!tree.length && <p className="px-3 text-[11px]" style={{ color: 'var(--text-3)' }}>Empty project — create a file above.</p>}
+                </div>
+              </>
+            )}
+
+            {activity === 'search' && (
+              <>
+                <div className="shrink-0 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: 'var(--text-3)' }}>Search in project</div>
+                  <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)} autoFocus
+                    placeholder="text or file name…" aria-label="Search project"
+                    className="w-full px-2 py-1.5 rounded-[8px] text-[11.5px] outline-none"
+                    style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                </div>
+                <div className="flex-1 overflow-y-auto px-1.5">
+                  {searching && <div className="flex items-center gap-2 px-2 text-[11px]" style={{ color: 'var(--text-3)' }}><Loader2 size={11} className="animate-spin" /> searching…</div>}
+                  {!searching && searchQ.trim().length > 1 && !results.length && <p className="px-2 text-[11px]" style={{ color: 'var(--text-3)' }}>No matches.</p>}
+                  {results.map((r, i) => (
+                    <button key={i} onClick={() => void openFile(r.path, r.line)}
+                      className="w-full text-left px-2 py-1.5 rounded-[6px] mb-0.5 hover:bg-[var(--elevated)]">
+                      <span className="block text-[10.5px] font-mono truncate" style={{ color: 'var(--primary)' }}>{r.path}:{r.line}</span>
+                      <span className="block text-[10.5px] truncate" style={{ color: 'var(--text-3)' }}>{r.text}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activity === 'git' && <GitSidebar project={project} />}
+          </div>
+        )}
+
+        {/* ---------- editor column ---------- */}
         <div className="flex-1 min-w-0 flex flex-col">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); void save() } }}
-            spellCheck={false}
-            placeholder={sel ? '' : 'Open a file from the tree — or ask the AI assistant to create one.'}
-            className="flex-1 w-full p-4 bg-transparent outline-none resize-none font-mono text-[12.5px] leading-[1.55]"
-            style={{ color: 'var(--text)', caretColor: 'var(--primary)' }}
-          />
-          {/* bottom panel: terminal + git */}
-          <div className="h-52 shrink-0 flex flex-col" style={{ borderTop: '1px solid var(--surface-border)' }}>
-            <div className="flex items-center gap-1 px-2 py-1" style={{ borderBottom: '1px solid var(--surface-border)' }}>
-              <TabBtn active={tab === 'terminal'} onClick={() => setTab('terminal')} icon={<TerminalSquare size={12} />} label="Terminal" />
-              <TabBtn active={tab === 'git'} onClick={() => setTab('git')} icon={<GitBranch size={12} />} label="Git" />
-              <div className="flex-1" />
-              <span className="text-[10px] px-2" style={{ color: 'var(--text-3)' }}>commands run inside the project folder · destructive commands are blocked · mutating ones need approval</span>
+          {/* tabs */}
+          <div className="shrink-0 flex items-stretch overflow-x-auto" style={{ borderBottom: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--surface) 70%, var(--bg))' }}>
+            {files.map((f) => (
+              <div key={f.path}
+                className="group flex items-center gap-1.5 pl-3 pr-1.5 h-9 shrink-0"
+                style={{
+                  background: f.path === active ? 'var(--bg)' : 'transparent',
+                  borderRight: '1px solid var(--surface-border)',
+                  borderTop: f.path === active ? '1px solid var(--primary)' : '1px solid transparent',
+                }}>
+                <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="text-[11.5px] flex items-center gap-1.5"
+                  style={{ color: f.path === active ? 'var(--text)' : 'var(--text-3)' }}>
+                  <FileCode2 size={11} />
+                  {f.path.split('/').pop()}
+                  {f.content !== f.disk && <Circle size={6} fill="var(--warning)" style={{ color: 'var(--warning)' }} />}
+                </button>
+                <button onClick={() => closeFile(f.path)} aria-label={`Close ${f.path}`}
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--text-3)' }}>
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+            {!files.length && <div className="flex items-center px-3 h-9 text-[11.5px]" style={{ color: 'var(--text-3)' }}>No file open</div>}
+            <div className="flex-1" />
+            <div className="hidden md:flex items-center gap-1 px-2">
+              {!!breadcrumb.length && (
+                <span className="text-[10.5px] font-mono" style={{ color: 'var(--text-3)' }}>{breadcrumb.join(' › ')}</span>
+              )}
             </div>
-            {tab === 'terminal' ? <TerminalPanel project={project} /> : <GitPanel project={project} />}
+          </div>
+
+          {/* editor */}
+          {current ? (
+            <CodeEditor
+              path={current.path}
+              value={current.content}
+              gotoLine={gotoLine}
+              onChange={(v) => setFiles((list) => list.map((f) => (f.path === current.path ? { ...f, content: v } : f)))}
+              onSave={() => void save()}
+            />
+          ) : (
+            <div className="flex-1 min-h-0 flex items-center justify-center" style={{ background: 'var(--code-bg)' }}>
+              <div className="text-center">
+                <FileCode2 size={26} className="mx-auto mb-2" style={{ color: 'var(--text-3)', opacity: 0.6 }} />
+                <p className="text-[12.5px]" style={{ color: 'var(--text-3)' }}>Open a file from the explorer — or ask the AI to create one.</p>
+              </div>
+            </div>
+          )}
+
+          {/* bottom panel */}
+          <div className="shrink-0 flex flex-col" style={{ borderTop: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--surface) 70%, var(--bg))', height: panelOpen ? 220 : undefined }}>
+            <div className="flex items-center gap-1 px-2 py-1 shrink-0">
+              <PanelTabBtn active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
+              <PanelTabBtn active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
+              <PanelTabBtn active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
+              <PanelTabBtn active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
+              <div className="flex-1" />
+              <span className="text-[10px] hidden lg:block" style={{ color: 'var(--text-3)' }}>commands run inside the project folder · destructive commands are blocked · mutating ones need approval</span>
+              <button onClick={() => setPanelOpen((v) => !v)} className="p-1 rounded" style={{ color: 'var(--text-3)' }} aria-label="Toggle panel">
+                <ChevronDown size={12} style={{ transform: panelOpen ? undefined : 'rotate(180deg)' }} />
+              </button>
+            </div>
+            {panelOpen && (
+              <div className="flex-1 min-h-0">
+                {panel === 'terminal' && <TerminalPanel project={project} />}
+                {panel === 'git' && <GitPanel project={project} />}
+                {panel === 'problems' && <ProblemsPanel project={project} onDesign={onDesign} />}
+                {panel === 'preview' && <PreviewLogPanel project={project} preview={preview} onStart={() => void startPreview()} starting={starting} onDesign={onDesign} />}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* floating AI assistant */}
-        <IDEChat project={project} tree={tree} />
+        {/* ---------- AI dock ---------- */}
+        <AnimatePresence initial={false}>
+          {agentOpen && (
+            <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 384, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="shrink-0 min-h-0 overflow-hidden" style={{ borderLeft: '1px solid var(--surface-border)', background: 'var(--surface)' }}>
+              <div className="w-[384px] h-full">
+                <AgentPanel project={project} tree={tree} onClose={() => setAgentOpen(false)} />
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
-  )
-}
 
-function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return (
-    <button onClick={onClick} className="flex items-center gap-1 px-2 py-1 rounded-[8px] text-[11.5px]"
-      style={{ background: active ? 'var(--elevated)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-3)', border: '1px solid ' + (active ? 'var(--surface-border)' : 'transparent') }}>
-      {icon} {label}
-    </button>
-  )
-}
+      {/* ---------- status bar ---------- */}
+      <div className="shrink-0 h-6 flex items-center gap-3 px-3 text-[10.5px]" style={{ borderTop: '1px solid var(--surface-border)', background: 'var(--surface)', color: 'var(--text-3)' }}>
+        <button onClick={onBack} className="flex items-center gap-1 hover:underline"><FolderOpen size={10} /> {project}</button>
+        <span className="flex items-center gap-1"><GitBranch size={10} /> local</span>
+        {current && <span className="font-mono">{current.path}</span>}
+        {dirty && <span className="flex items-center gap-1" style={{ color: 'var(--warning)' }}><Circle size={6} fill="currentColor" /> unsaved</span>}
+        {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span>{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
+        <div className="flex-1" />
+        {streaming && <span className="flex items-center gap-1" style={{ color: 'var(--primary)' }}><span className="re-orb re-orb-sm" /> AI working</span>}
+        <span className="flex items-center gap-1">
+          <Circle size={6} fill={previewLive ? 'var(--success)' : 'var(--text-3)'} style={{ color: previewLive ? 'var(--success)' : 'var(--text-3)' }} />
+          {previewLive ? `preview :${preview.port}` : preview.running ? 'preview booting' : 'preview stopped'}
+        </span>
+        <span>{files.length} open</span>
+      </div>
 
-function Tree({ nodes, depth, sel, onOpen }: { nodes: TreeNode[]; depth: number; sel: string | null; onOpen: (p: string) => void }) {
-  const [openDirs, setOpenDirs] = useState<Record<string, boolean>>({})
-  return (
-    <div>
-      {nodes.map((n) => (
-        <div key={n.path}>
-          <button
-            onClick={() => n.dir ? setOpenDirs((d) => ({ ...d, [n.path]: !d[n.path] })) : onOpen(n.path)}
-            className="w-full flex items-center gap-1 px-2 py-[3px] text-left text-[11.5px] hover:bg-[var(--surface)] transition-colors"
-            style={{ paddingLeft: 8 + depth * 12, color: sel === n.path ? 'var(--primary)' : 'var(--text-2)', background: sel === n.path ? 'var(--elevated)' : undefined }}>
-            {n.dir ? (openDirs[n.path] ? <ChevronDown size={11} /> : <ChevronRight size={11} />) : <FileCode2 size={11} style={{ opacity: 0.7 }} />}
-            <span className="truncate">{n.name}</span>
-          </button>
-          {n.dir && openDirs[n.path] && n.children && <Tree nodes={n.children} depth={depth + 1} sel={sel} onOpen={onOpen} />}
+      {/* unsaved-changes guard */}
+      {confirmClose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'var(--scrim, rgba(0,0,0,.45))' }}>
+          <div className="surface-elevated p-4 max-w-[360px]">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={14} style={{ color: 'var(--warning)' }} />
+              <span className="text-[13px] font-medium">Discard unsaved changes?</span>
+            </div>
+            <p className="text-[12px] mb-3" style={{ color: 'var(--text-2)' }}><span className="font-mono">{confirmClose}</span> has edits that are not saved.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { const p = confirmClose; doClose(p) }} className="px-3 py-1.5 rounded-[8px] text-[12px]" style={{ background: 'var(--danger)', color: '#fff' }}>Discard</button>
+              <button onClick={() => { void save(confirmClose); doClose(confirmClose) }} className="px-3 py-1.5 rounded-[8px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>Save</button>
+              <button onClick={() => setConfirmClose(null)} className="px-3 py-1.5 rounded-[8px] text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>Cancel</button>
+            </div>
+          </div>
         </div>
-      ))}
+      )}
     </div>
   )
 }
 
 /* ================================================================== */
-/* Terminal (guarded)                                                  */
+/* small building blocks                                              */
+/* ================================================================== */
+function ActivityBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button onClick={onClick} title={label} aria-label={label}
+      className="relative w-9 h-9 rounded-[10px] flex items-center justify-center"
+      style={{ background: active ? 'var(--elevated)' : 'transparent', color: active ? 'var(--primary)' : 'var(--text-3)' }}>
+      {icon}
+      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: 'var(--primary)' }} />}
+    </button>
+  )
+}
+
+function PanelTabBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button onClick={onClick} className="flex items-center gap-1.5 px-2 py-1 rounded-[8px] text-[11.5px]"
+      style={{ background: active ? 'var(--elevated)' : 'transparent', color: active ? 'var(--text)' : 'var(--text-3)' }}>
+      {icon}{label}
+    </button>
+  )
+}
+
+function Tree({ nodes, depth, sel, onOpen, onDelete, onParent }: {
+  nodes: TreeNode[]; depth: number; sel: string | null
+  onOpen: (p: string) => void; onDelete?: (p: string) => void; onParent?: string
+}) {
+  const [openDirs, setOpenDirs] = useState<Record<string, boolean>>({})
+  useEffect(() => { if (depth === 0) setOpenDirs((d) => (Object.keys(d).length ? d : { src: true })) }, [depth])
+  return (
+    <div>
+      {nodes.map((n) => {
+        const dirOpen = openDirs[n.path] ?? depth === 0
+        return (
+          <div key={n.path}>
+            <div className="group flex items-center" style={{ paddingLeft: 6 + depth * 11 }}>
+              <button
+                onClick={() => n.dir ? setOpenDirs((d) => ({ ...d, [n.path]: !dirOpen })) : onOpen(n.path)}
+                className="flex-1 min-w-0 flex items-center gap-1 py-[3px] pr-1 text-left text-[11.5px] rounded-[6px] hover:bg-[var(--elevated)]"
+                style={{ color: sel === n.path ? 'var(--primary)' : 'var(--text-2)' }}>
+                {n.dir ? (dirOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />) : <FileCode2 size={11} style={{ opacity: 0.7 }} />}
+                <span className="truncate">{n.name}</span>
+              </button>
+              {!n.dir && onDelete && (
+                <button onClick={() => onDelete(n.path)} title={`Delete ${n.path}`}
+                  className="p-1 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--text-3)' }}>
+                  <Trash2 size={10} />
+                </button>
+              )}
+            </div>
+            {n.dir && dirOpen && n.children && (
+              <Tree nodes={n.children} depth={depth + 1} sel={sel} onOpen={onOpen} onDelete={onDelete} onParent={n.path} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ================================================================== */
+/* Terminal                                                           */
 /* ================================================================== */
 function TerminalPanel({ project }: { project: string }) {
   const [lines, setLines] = useState<{ kind: 'cmd' | 'out' | 'err' | 'info'; text: string }[]>([
@@ -390,12 +674,15 @@ function TerminalPanel({ project }: { project: string }) {
   const [cmd, setCmd] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<{ command: string } | null>(null)
+  const [history, setHistory] = useState<string[]>([])
+  const [histIdx, setHistIdx] = useState(-1)
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [lines])
 
   const run = async (command: string, confirmed = false) => {
     setBusy(true)
     setLines((l) => [...l, { kind: 'cmd', text: `$ ${command}` }])
+    setHistory((h) => (h[h.length - 1] === command ? h : [...h, command]))
     try {
       const res = await fetch('/api/ide/exec', {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -404,8 +691,8 @@ function TerminalPanel({ project }: { project: string }) {
       const j = await res.json()
       if (j.blocked) { setLines((l) => [...l, { kind: 'err', text: `BLOCKED: ${j.reason}` }]); return }
       if (j.requiresConfirm && !confirmed) { setConfirm({ command }); setLines((l) => [...l, { kind: 'info', text: 'This command needs your approval below.' }]); return }
-      if (j.stdout) setLines((l) => [...l, { kind: 'out', text: j.stdout.slice(0, 20000) }])
-      if (j.stderr) setLines((l) => [...l, { kind: 'err', text: j.stderr.slice(0, 8000) }])
+      if (j.stdout) setLines((l) => [...l, { kind: 'out', text: String(j.stdout).slice(0, 20000) }])
+      if (j.stderr) setLines((l) => [...l, { kind: 'err', text: String(j.stderr).slice(0, 8000) }])
       setLines((l) => [...l, { kind: 'info', text: `exit ${j.exit} · ${j.ms}ms${j.timedOut ? ' · TIMED OUT' : ''}` }])
       window.dispatchEvent(new CustomEvent('re:ide-changed'))
     } finally {
@@ -414,7 +701,7 @@ function TerminalPanel({ project }: { project: string }) {
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
+    <div className="h-full flex flex-col min-h-0">
       <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-relaxed">
         {lines.map((l, i) => (
           <div key={i} className="whitespace-pre-wrap" style={{ color: l.kind === 'cmd' ? 'var(--primary)' : l.kind === 'err' ? 'var(--danger)' : l.kind === 'info' ? 'var(--text-3)' : 'var(--text)' }}>{l.text}</div>
@@ -431,14 +718,18 @@ function TerminalPanel({ project }: { project: string }) {
         )}
         <div ref={endRef} />
       </div>
-      <div className="flex items-center gap-2 px-3 py-2" style={{ borderTop: '1px solid var(--surface-border)' }}>
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
         <span className="font-mono text-[11.5px]" style={{ color: 'var(--primary)' }}>$</span>
         <input value={cmd} onChange={(e) => setCmd(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && cmd.trim() && !busy) { const c = cmd.trim(); setCmd(''); void run(c) } }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && cmd.trim() && !busy) { const c = cmd.trim(); setCmd(''); setHistIdx(-1); void run(c) }
+            if (e.key === 'ArrowUp' && history.length) { e.preventDefault(); const i = Math.min(history.length - 1, histIdx + 1); setHistIdx(i); setCmd(history[history.length - 1 - i]) }
+            if (e.key === 'ArrowDown' && histIdx >= 0) { e.preventDefault(); const i = histIdx - 1; setHistIdx(i); setCmd(i < 0 ? '' : history[history.length - 1 - i]) }
+          }}
           disabled={busy}
           placeholder={busy ? 'running…' : 'npm test, git status, ls — Enter to run'}
-          className="flex-1 bg-transparent outline-none font-mono text-[11.5px]"
-          style={{ color: 'var(--text)' }} />
+          aria-label="Terminal command"
+          className="flex-1 bg-transparent outline-none font-mono text-[11.5px]" style={{ color: 'var(--text)' }} />
         {busy && <Loader2 size={13} className="animate-spin" style={{ color: 'var(--text-3)' }} />}
       </div>
     </div>
@@ -446,25 +737,27 @@ function TerminalPanel({ project }: { project: string }) {
 }
 
 /* ================================================================== */
-/* Git panel                                                           */
+/* Git                                                                */
 /* ================================================================== */
-function GitPanel({ project }: { project: string }) {
+function useGit(project: string) {
   const [status, setStatus] = useState('')
   const [log, setLog] = useState('')
-  const [msg, setMsg] = useState('')
-  const [busy, setBusy] = useState(false)
   const [isRepo, setIsRepo] = useState(true)
   const [out, setOut] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const refresh = useCallback(async () => {
-    const s = await fetch(`/api/ide/git?project=${encodeURIComponent(project)}&op=status`)
-    const sj = await s.json()
-    if (sj.norepo) { setIsRepo(false); return }
-    setIsRepo(true)
-    setStatus(sj.stdout ?? '')
-    const l = await fetch(`/api/ide/git?project=${encodeURIComponent(project)}&op=log`)
-    setLog((await l.json()).stdout ?? '')
+    try {
+      const s = await fetch(`/api/ide/git?project=${encodeURIComponent(project)}&op=status`)
+      const sj = await s.json()
+      if (sj.norepo) { setIsRepo(false); return }
+      setIsRepo(true)
+      setStatus(sj.stdout ?? '')
+      const l = await fetch(`/api/ide/git?project=${encodeURIComponent(project)}&op=log`)
+      setLog((await l.json()).stdout ?? '')
+    } catch { /* offline */ }
   }, [project])
+
   useEffect(() => { void refresh() }, [refresh])
   useEffect(() => {
     const h = () => void refresh()
@@ -472,32 +765,78 @@ function GitPanel({ project }: { project: string }) {
     return () => window.removeEventListener('re:ide-changed', h)
   }, [refresh])
 
-  const commit = async () => {
-    if (!msg.trim()) return
+  const git = useCallback(async (op: string, message?: string) => {
     setBusy(true)
-    const res = await fetch('/api/ide/git', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ project, op: 'commit', message: msg.trim(), confirmed: true }),
-    })
-    const j = await res.json()
-    setOut(j.stderr || j.stdout || '')
-    setMsg(''); setBusy(false); void refresh()
-  }
+    try {
+      const res = await fetch('/api/ide/git', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ project, op, message, confirmed: true }),
+      })
+      const j = await res.json()
+      setOut(j.stderr || j.stdout || j.error || '')
+      await refresh()
+      window.dispatchEvent(new CustomEvent('re:ide-changed'))
+      return j
+    } finally { setBusy(false) }
+  }, [project, refresh])
 
+  return { status, log, isRepo, out, busy, refresh, git, setOut }
+}
+
+function GitSidebar({ project }: { project: string }) {
+  const { status, isRepo, refresh, git, busy } = useGit(project)
+  const [msg, setMsg] = useState('')
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 flex items-center gap-1 px-3 py-2">
+        <span className="text-[10px] uppercase tracking-wider font-semibold flex-1" style={{ color: 'var(--text-3)' }}>Source control</span>
+        <button onClick={() => void refresh()} className="p-1 rounded" style={{ color: 'var(--text-3)' }} title="Refresh"><RefreshCw size={12} /></button>
+      </div>
+      {!isRepo ? (
+        <div className="px-3 flex flex-col gap-2">
+          <p className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Not a git repository yet.</p>
+          <button onClick={() => void git('init')} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
+            <GitBranch size={12} /> git init
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="px-3 pb-2">
+            <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={2} placeholder="Commit message…"
+              className="w-full p-2 rounded-[8px] text-[11.5px] outline-none resize-none"
+              style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+            <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }}
+              disabled={busy || !msg.trim()}
+              className="mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium disabled:opacity-40"
+              style={{ background: 'var(--primary)', color: '#fff' }}>
+              {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Commit all
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 font-mono text-[10.5px] leading-relaxed">
+            <div className="text-[10px] uppercase tracking-wider mb-1 font-sans" style={{ color: 'var(--text-3)' }}>changes</div>
+            <div className="whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>{status || 'working tree clean'}</div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function GitPanel({ project }: { project: string }) {
+  const { status, log, isRepo, out, busy, refresh, git } = useGit(project)
+  const [msg, setMsg] = useState('')
   if (!isRepo) {
     return (
-      <div className="flex-1 flex items-center justify-center gap-3">
+      <div className="h-full flex items-center justify-center gap-3">
         <span className="text-[12px]" style={{ color: 'var(--text-3)' }}>Not a git repository yet.</span>
-        <button onClick={async () => { await fetch('/api/ide/git', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project, op: 'init' }) }); void refresh() }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
+        <button onClick={() => void git('init')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
           <GitBranch size={13} /> git init
         </button>
       </div>
     )
   }
-
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-2 gap-0">
+    <div className="h-full min-h-0 grid grid-cols-2">
       <div className="overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed" style={{ borderRight: '1px solid var(--surface-border)' }}>
         <div className="text-[10px] uppercase tracking-wider mb-1 font-sans" style={{ color: 'var(--text-3)' }}>status</div>
         <div className="whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>{status || 'working tree clean'}</div>
@@ -507,8 +846,8 @@ function GitPanel({ project }: { project: string }) {
       <div className="p-3 flex flex-col gap-2">
         <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={3} placeholder="Commit message…"
           className="w-full p-2 rounded-[10px] text-[12px] outline-none resize-none"
-          style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
-        <button onClick={commit} disabled={busy || !msg.trim()}
+          style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+        <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }} disabled={busy || !msg.trim()}
           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium disabled:opacity-40"
           style={{ background: 'var(--primary)', color: '#fff' }}>
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Stage all &amp; commit
@@ -523,124 +862,106 @@ function GitPanel({ project }: { project: string }) {
 }
 
 /* ================================================================== */
-/* Floating AI assistant (morphed chatbox)                             */
+/* Problems + preview log                                             */
 /* ================================================================== */
-function IDEChat({ project, tree }: { project: string; tree: TreeNode[] }) {
-  const ui = useUI()
-  const [open, setOpen] = useState(true)
-  const [chatId, setChatId] = useState<string | null>(null)
-  const [text, setText] = useState('')
-  const [, force] = useState(0)
-  const endRef = useRef<HTMLDivElement>(null)
+function ProblemsPanel({ project, onDesign }: { project: string; onDesign: () => void }) {
+  const [findings, setFindings] = useState<{ kind: string; msg: string; sel: string }[] | null>(null)
+  const [consoleErrs, setConsoleErrs] = useState<{ level: string; text: string }[]>([])
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const store = useStore.getState()
-    const title = `Coding · ${project}`
-    const existing = [...store.chats].reverse().find((c) => c.title === title)
-    if (existing) { setChatId(existing.id); return }
-    const id = store.newChat()
-    store.renameChat(id, title)
-    setChatId(id)
+  const scan = useCallback(async () => {
+    setLoading(true)
+    try {
+      await ensurePreviewServer(project)
+      const [audit, cons] = await Promise.all([
+        designSession.call('audit', {}, 12_000),
+        designSession.call('console', {}, 8000),
+      ])
+      setFindings(audit.findings ?? [])
+      setConsoleErrs((cons.entries ?? []).filter((e: any) => e.level === 'error' || e.level === 'warn'))
+    } catch (e: any) {
+      setFindings([{ kind: 'preview', msg: `Preview not reachable: ${e?.message ?? e}`, sel: '' }])
+    } finally { setLoading(false) }
   }, [project])
 
-  const chat = useStore((s) => s.chats.find((c) => c.id === chatId))
-  const streaming = chatId ? isStreamingChat(chatId) : false
-  useEffect(() => {
-    const iv = setInterval(() => { if (chatId && isStreamingChat(chatId)) force((n) => n + 1) }, 300)
-    return () => clearInterval(iv)
-  }, [chatId])
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat?.messages.length, streaming])
-
-  const treeText = tree.map((n) => (n.dir ? `${n.name}/` : n.name)).join('\n')
-
-  const send = (prompt: string) => {
-    if (!chatId || !prompt.trim()) return
-    const opts = { project, projectTree: treeText }
-    if (isStreamingChat(chatId)) { enqueuePrompt(chatId, prompt.trim(), {}, opts); return }
-    runChat({ chatId, prompt, mode: {}, ...opts })
-  }
-
-  const askToFix = () => send(
-    `Interview me about what I want to fix or refine in this project. Call the ask_user tool with 3-5 focused questions you generate from the project's actual files and stack (do not use canned questions). After I answer, inspect the relevant files and propose a concrete plan before changing anything.`,
+  return (
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
+        <span className="text-[11px] flex-1" style={{ color: 'var(--text-3)' }}>
+          Scan the running app for layout, contrast, accessibility and console problems.
+        </span>
+        <button onClick={() => void scan()} disabled={loading}
+          className="flex items-center gap-1 px-2 py-1 rounded-[8px] text-[11px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+          {loading ? <Loader2 size={11} className="animate-spin" /> : <Bug size={11} />} scan
+        </button>
+        <button onClick={onDesign} className="flex items-center gap-1 px-2 py-1 rounded-[8px] text-[11px]" style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+          <MonitorUp size={11} /> open design mode
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 pb-2">
+        {findings === null && <p className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>Press scan to look at the running app.</p>}
+        {findings?.length === 0 && <p className="text-[11.5px]" style={{ color: 'var(--success)' }}>No problems found.</p>}
+        {findings?.map((f, i) => (
+          <div key={i} className="flex items-start gap-2 py-1 text-[11.5px]">
+            <AlertTriangle size={12} className="mt-[2px] shrink-0" style={{ color: f.kind === 'console' || f.kind === 'network' ? 'var(--danger)' : 'var(--warning)' }} />
+            <div className="min-w-0">
+              <div style={{ color: 'var(--text-2)' }}>{f.msg}</div>
+              {f.sel && <div className="font-mono text-[10px]" style={{ color: 'var(--text-3)' }}>{f.sel}</div>}
+            </div>
+          </div>
+        ))}
+        {!!consoleErrs.length && (
+          <>
+            <div className="text-[10px] uppercase tracking-wider font-semibold mt-2 mb-1" style={{ color: 'var(--text-3)' }}>console</div>
+            {consoleErrs.map((c, i) => (
+              <div key={i} className="font-mono text-[10.5px] py-0.5 break-words" style={{ color: c.level === 'error' ? 'var(--danger)' : 'var(--warning)' }}>{c.text}</div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
   )
+}
+
+function PreviewLogPanel({ project, preview, onStart, starting, onDesign }: {
+  project: string
+  preview: { running: boolean; port?: number; kind?: string; ready?: boolean }
+  onStart: () => void
+  starting: boolean
+  onDesign: () => void
+}) {
+  const [logs, setLogs] = useState<string[]>([])
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/ide/preview/logs?project=${encodeURIComponent(project)}`)
+        setLogs((await res.json()).logs ?? [])
+      } catch { /* ignore */ }
+    }
+    void load()
+    const iv = setInterval(load, 2500)
+    return () => clearInterval(iv)
+  }, [project])
 
   return (
-    <div className="absolute bottom-4 right-4 z-40 w-[380px] max-w-[calc(100vw-2rem)]">
-      <AnimatePresence>
-        {open && chat && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-            className="glass-chat flex flex-col mb-2 overflow-hidden"
-            style={{ borderRadius: 18, height: 'min(58vh, 520px)', boxShadow: '0 24px 64px -20px rgba(0,0,0,0.55)' }}>
-            <div className="flex items-center gap-2 px-4 py-2.5 shrink-0" style={{ borderBottom: '1px solid var(--surface-border)' }}>
-              <Sparkles size={14} style={{ color: 'var(--primary)' }} />
-              <span className="text-[12.5px] font-medium flex-1 truncate">AI pair-programmer · {project}</span>
-              <button onClick={askToFix} title="The AI will interview you about what to fix"
-                className="text-[10.5px] px-2 py-1 rounded-full" style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
-                What should we fix?
-              </button>
-              <button onClick={() => setOpen(false)} aria-label="Collapse assistant" className="p-1 rounded-md" style={{ color: 'var(--text-3)' }}><X size={13} /></button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-              {chat.messages.length === 0 && (
-                <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                  I can read and edit this project's files, run commands (with your approval), check git, and interview you about what to improve. Try “What should we fix?”
-                </p>
-              )}
-              {chat.messages.map((m: ChatMessage) => (
-                <div key={m.id}>
-                  {m.role === 'user' ? (
-                    <div className="ml-auto max-w-[88%] px-3 py-2 rounded-[12px] text-[12.5px] whitespace-pre-wrap"
-                      style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--text)', width: 'fit-content' }}>
-                      {m.content}
-                    </div>
-                  ) : (
-                    <div className="max-w-[95%]">
-                      <ToolTraceChips msg={m} />
-                      <ExecApproval chatId={chat.id} msg={m} />
-                      <QuestionnaireCard chatId={chat.id} msg={m} />
-                      {m.error ? (
-                        <div className="text-[12px] p-2.5 rounded-[10px]" style={{ background: 'color-mix(in srgb, var(--danger) 10%, transparent)', color: 'var(--danger)' }}>{m.error}</div>
-                      ) : (
-                        <div className="text-[12.5px]"><Markdown content={m.content} streaming={streaming && m.id === chat.messages[chat.messages.length - 1]?.id} /></div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={endRef} />
-            </div>
-
-            <div className="flex items-center gap-2 px-3 py-2.5 shrink-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
-              <input value={text} onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && text.trim()) { const t = text.trim(); setText(''); send(t) } }}
-                placeholder={streaming ? 'Type to queue another question…' : 'Ask the AI about this project…'}
-                className="flex-1 bg-transparent outline-none text-[12.5px]" style={{ color: 'var(--text)' }} />
-              {streaming ? (
-                <button onClick={() => stopStream(chat.id)} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'var(--danger)', color: '#fff' }} aria-label="Stop">
-                  <X size={12} />
-                </button>
-              ) : (
-                <button onClick={() => { if (text.trim()) { const t = text.trim(); setText(''); send(t) } }} disabled={!text.trim()}
-                  className="w-7 h-7 rounded-full flex items-center justify-center disabled:opacity-40" style={{ background: 'var(--primary)', color: '#fff' }} aria-label="Send">
-                  <Play size={11} />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {!open && (
-        <motion.button initial={{ scale: 0.9 }} animate={{ scale: 1 }}
-          onClick={() => setOpen(true)}
-          className="ml-auto flex items-center gap-2 px-3.5 py-2.5 rounded-full glass-chat"
-          style={{ boxShadow: '0 12px 32px -12px rgba(0,0,0,0.5)' }}>
-          <MessageSquareText size={14} style={{ color: 'var(--primary)' }} />
-          <span className="text-[12px] font-medium">AI assistant</span>
-        </motion.button>
-      )}
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 text-[11px]" style={{ color: 'var(--text-3)' }}>
+        <span className="flex-1">
+          {preview.running
+            ? `running (${preview.kind}) on port ${preview.port ?? '—'}${preview.ready ? '' : ' · booting'}`
+            : 'no preview running for this project'}
+        </span>
+        <button onClick={onStart} disabled={starting || preview.running} className="flex items-center gap-1 px-2 py-1 rounded-[8px] disabled:opacity-40" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+          {starting ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />} start
+        </button>
+        <button onClick={onDesign} className="flex items-center gap-1 px-2 py-1 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+          <MonitorUp size={11} /> design mode
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 pb-2 font-mono text-[10.5px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+        {logs.slice(-80).map((l, i) => <div key={i} className="whitespace-pre-wrap break-words">{l}</div>)}
+        {!logs.length && <div>no output yet — the dev server's stdout and stderr land here</div>}
+      </div>
     </div>
   )
 }
