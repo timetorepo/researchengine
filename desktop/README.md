@@ -82,28 +82,27 @@ start.
 
 ## CI
 
-The workflow definition is `desktop/ci/desktop.yml` — kept out of
-`.github/workflows/` on purpose, because the automation token that maintains
-this repository is not allowed to commit workflow files (GitHub App
-installations need the extra **Workflows** permission). Installing it is one
-command, run by anyone who has that permission:
-
-```bash
-node scripts/install-desktop-ci.mjs          # dry run: shows what it would install
-node scripts/install-desktop-ci.mjs --write  # copy into .github/workflows/ and stage it
-node scripts/install-desktop-ci.mjs --write --push   # …then commit and push
-```
-
-Once it is in place it runs on `windows-latest` and `ubuntu-22.04`:
+`.github/workflows/desktop.yml` runs on `windows-latest` and `ubuntu-22.04`:
 
 1. build the frontend, compile the sidecar (`scripts/desktop-sidecar.mjs`),
 2. run `scripts/desktop-check.mjs --run` on the runner’s platform,
 3. `tauri build --bundles nsis` (Windows) or `--bundles deb,appimage` (Linux),
 4. upload the installers as artifacts.
 
+`desktop/ci/desktop.yml` is the source of truth for that file, and
+`node scripts/install-desktop-ci.mjs --write` copies it into `.github/workflows/`
+(this exists because committing workflow files needs a GitHub App installation
+with the extra **Workflows** permission, which some automation tokens lack).
+
 Trigger it from the **Actions** tab (workflow dispatch) or by pushing a tag —
-`git tag v0.25.0-beta.1 && git push origin v0.25.0-beta.1`. Artifacts land in
-`Research Engine_<version>_x64-setup.exe` on the run page and on the release.
+`git tag v0.25.0-beta.1 && git push origin v0.25.0-beta.1`. The setup.exe lands
+on the run page as an artifact and is attached to the release for that tag.
+
+Tauri 2 does the window creation, not the config, so there is no
+`beforeDevCommand`/`beforeBuildCommand` — the shell starts the server itself and
+opens the window only once it answers. CI builds the frontend and the sidecar in
+its own steps; a build hook that silently runs from the wrong directory is a
+failure mode worth not having.
 
 ## Why a sidecar and not an embedded server?
 
