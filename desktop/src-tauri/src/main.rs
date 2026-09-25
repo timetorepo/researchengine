@@ -119,13 +119,17 @@ fn sidecar_path(app: &tauri::AppHandle) -> Option<PathBuf> {
 /// The built frontend the server should serve. In an installed app this is a
 /// bundle resource; in a checkout it is the workspace's `frontend/dist`.
 fn frontend_dist(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let looks_built = |dir: &Path| dir.join("index.html").is_file();
     let mut candidates: Vec<PathBuf> = Vec::new();
+    let mut roots: Vec<PathBuf> = Vec::new();
     if let Ok(res) = app.path().resource_dir() {
+        roots.push(res.clone());
         candidates.push(res.join("frontend-dist"));
         candidates.push(res.join("resources").join("frontend-dist"));
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
+            roots.push(dir.to_path_buf());
             candidates.push(dir.join("frontend-dist"));
         }
     }
@@ -136,7 +140,33 @@ fn frontend_dist(app: &tauri::AppHandle) -> Option<PathBuf> {
             .join("frontend")
             .join("dist"),
     );
-    candidates.into_iter().find(|p| p.join("index.html").is_file())
+    // Whatever a bundler decides to do with a directory resource, the built UI
+    // is somewhere under the install dir — so look for it instead of assuming.
+    for root in roots {
+        collect_dist_dirs(&root, 0, &mut candidates);
+    }
+    candidates.into_iter().find(|p| looks_built(p))
+}
+
+/// Depth-limited walk for `frontend-dist` folders (bundlers nest resources
+/// differently per platform; the shell should not care which one it is).
+fn collect_dist_dirs(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
+    if depth > 3 {
+        return;
+    }
+    if dir.join("index.html").is_file() && dir.file_name().map(|n| n == "frontend-dist").unwrap_or(false) {
+        out.push(dir.to_path_buf());
+    }
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_dist_dirs(&path, depth + 1, out);
+        }
+    }
 }
 
 #[cfg(windows)]
