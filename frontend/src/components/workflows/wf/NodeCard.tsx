@@ -44,9 +44,12 @@ export const NodeCard = memo(function NodeCard({
   return (
     <div
       data-wf-node={node.id}
+      data-running={running ? 'true' : 'false'}
+      data-selected={selected ? 'true' : 'false'}
+      data-error={err ? 'true' : 'false'}
       onPointerDown={(e) => onPointerDown(e, node)}
       onDoubleClick={() => onOpenConfig(node.id)}
-      className="absolute select-none"
+      className="re-node absolute select-none"
       style={{
         left: node.x, top: node.y, width: NODE_W, height: NODE_H,
         borderRadius: 16,
@@ -66,7 +69,7 @@ export const NodeCard = memo(function NodeCard({
 
       <div className="flex items-center gap-3 h-full pl-4 pr-2">
         {/* icon block */}
-        <div className="w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0"
+        <div className="re-node-icon w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0"
           style={{
             background: def.gradient
               ? 'linear-gradient(135deg, #6C8EEF 0%, #A78BFA 55%, #22D3EE 110%)'
@@ -84,8 +87,8 @@ export const NodeCard = memo(function NodeCard({
         </div>
 
         {/* status badge */}
-        {ok && <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--success) 18%, transparent)', color: 'var(--success)' }}><Check size={12} strokeWidth={3} /></span>}
-        {err && <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--danger) 18%, transparent)', color: 'var(--danger)' }}><X size={12} strokeWidth={3} /></span>}
+        {ok && <span className="re-badge-pop w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--success) 18%, transparent)', color: 'var(--success)' }}><Check size={12} strokeWidth={3} /></span>}
+        {err && <span className="re-badge-pop w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--danger) 18%, transparent)', color: 'var(--danger)' }}><X size={12} strokeWidth={3} /></span>}
 
         {/* menu */}
         <div className="relative shrink-0" ref={menuRef}>
@@ -99,7 +102,7 @@ export const NodeCard = memo(function NodeCard({
             <MoreHorizontal size={14} />
           </button>
           {menu && (
-            <div className="absolute right-0 top-7 z-30 w-40 rounded-[12px] py-1"
+            <div className="re-pop-in absolute right-0 top-7 z-30 w-40 rounded-[12px] py-1"
               style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', boxShadow: '0 12px 32px -8px rgba(0,0,0,0.5)' }}>
               <MenuItem icon={<Copy size={13} />} label="Duplicate" onClick={() => { setMenu(false); onDuplicate(node.id) }} />
               <MenuItem icon={<PowerOff size={13} />} label={disabled ? 'Enable' : 'Disable'} onClick={() => { setMenu(false); onToggleDisable(node.id) }} />
@@ -116,7 +119,7 @@ export const NodeCard = memo(function NodeCard({
         const total = def.handles!.length
         const left = ((i + 1) / (total + 1)) * NODE_W
         return (
-          <div key={h.id} className="absolute -bottom-[15px] flex flex-col items-center" style={{ left: left - 16, width: 32 }}>
+          <div key={h.id} className="re-handle absolute -bottom-[15px] flex flex-col items-center" style={{ left: left - 16, width: 32 }}>
             <div className="w-3 h-3 rounded-full border-2" style={{ background: 'var(--elevated)', borderColor: accent }} />
             <div className="text-[8.5px] font-medium mt-[1px]" style={{ color: 'var(--text-3)' }}>{h.label}</div>
           </div>

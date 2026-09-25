@@ -293,6 +293,11 @@
 * { border-color: var(--surface-border); }
 
 html, body, #root { height: 100%; }
+/* The app shell is a fixed-height frame; every view scrolls inside it. Anything
+   rendered next to the shell (an overlay that forgot to be fixed, a stray
+   element) must not be able to grow the document — that is how a duplicate
+   focus timer ended up below the fold and made the page scroll oddly. */
+#root { overflow: hidden; }
 
 body {
   margin: 0;
@@ -1305,3 +1310,329 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) {
   [data-sonner-toast] { animation-duration: 1ms !important; transition-duration: 1ms !important; }
 }
+
+
+/* ================================================================== */
+/* Icon entrance + micro-motion                                        */
+/*                                                                     */
+/* Every lucide icon fades and settles in instead of blinking into     */
+/* place, and interactive icons answer the pointer with a small lift.  */
+/* Spinners and pulses are excluded — their own animation must win —   */
+/* and the whole block stands down under reduce-motion.                */
+/* ================================================================== */
+@keyframes re-icon-in {
+  from { opacity: 0; transform: scale(0.82) translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+svg.lucide:not(.animate-spin):not(.animate-pulse):not(.animate-ping):not(.animate-bounce):not([data-static-icon]) {
+  animation: re-icon-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), color 220ms ease;
+}
+/* Interactive icons: the icon responds, not just its button. */
+button:hover > svg.lucide, [role="button"]:hover > svg.lucide, a:hover > svg.lucide {
+  transform: scale(1.09);
+}
+button:active > svg.lucide, [role="button"]:active > svg.lucide { transform: scale(0.94); }
+
+/* Groups whose icons should arrive in sequence rather than all at once. */
+.re-icon-stagger > * > svg.lucide,
+.re-icon-stagger > svg.lucide { animation-delay: calc(var(--i, 0) * 45ms); }
+.re-icon-stagger > *:nth-child(1) > svg.lucide { animation-delay: 0ms; }
+.re-icon-stagger > *:nth-child(2) > svg.lucide { animation-delay: 45ms; }
+.re-icon-stagger > *:nth-child(3) > svg.lucide { animation-delay: 90ms; }
+.re-icon-stagger > *:nth-child(4) > svg.lucide { animation-delay: 135ms; }
+.re-icon-stagger > *:nth-child(5) > svg.lucide { animation-delay: 180ms; }
+.re-icon-stagger > *:nth-child(6) > svg.lucide { animation-delay: 225ms; }
+.re-icon-stagger > *:nth-child(7) > svg.lucide { animation-delay: 270ms; }
+.re-icon-stagger > *:nth-child(8) > svg.lucide { animation-delay: 315ms; }
+.re-icon-stagger > *:nth-child(n+9) > svg.lucide { animation-delay: 360ms; }
+
+/* ================================================================== */
+/* Quiz — the card, the options, the moment of answering               */
+/*                                                                     */
+/* Structure follows the reference card: centred source pills, a big   */
+/* centred title, a hairline rule, the question, then full-width       */
+/* option rows carrying a radio ring. Interaction is the part that has */
+/* to feel alive: options rise in one after another, the ring springs  */
+/* when picked, a pointer-tracked glow follows the cursor, and the     */
+/* answer lands with a sweep, a shake or a check that pops.            */
+/* ================================================================== */
+.re-quiz-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 26px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 28px 90px -32px rgba(0, 0, 0, 0.55);
+}
+/* A hint of the accent breathing at the top edge, like a lit surface. */
+.re-quiz-card::before {
+  content: '';
+  position: absolute;
+  inset: -40% 20% auto 20%;
+  height: 60%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 26%, transparent), transparent);
+  filter: blur(30px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.re-quiz-rule { height: 1px; background: var(--surface-border); border: 0; }
+
+.re-quiz-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.re-quiz-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  text-align: left;
+  background: var(--elevated);
+  border: 2px solid transparent;
+  color: var(--text);
+  transition: background 200ms ease, border-color 200ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms ease;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The pointer-tracked glow (set --mx/--my in the component). */
+.re-quiz-option::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(140px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+  z-index: -1;
+}
+.re-quiz-option:hover::after { opacity: 1; }
+.re-quiz-option:not([data-locked="true"]):hover { transform: translateY(-1px); background: color-mix(in srgb, var(--elevated) 70%, var(--surface-border)); }
+.re-quiz-option:not([data-locked="true"]):active { transform: scale(0.99); }
+.re-quiz-option[data-state="picked"] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--elevated));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent), 0 14px 34px -18px color-mix(in srgb, var(--primary) 60%, transparent);
+}
+.re-quiz-option[data-state="correct"] {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 16%, var(--elevated));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 14%, transparent);
+}
+.re-quiz-option[data-state="wrong"] {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--elevated));
+}
+.re-quiz-option[data-state="dim"] { opacity: 0.5; }
+/* The pointer ring the reference shows: a soft outline that only appears on
+   the option the cursor is actually over. */
+.re-quiz-option[data-hovered="true"] { border-color: color-mix(in srgb, var(--primary) 55%, transparent); }
+
+.re-quiz-radio {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--text-3) 70%, transparent);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+.re-quiz-radio[data-on="true"] { border-color: var(--primary); }
+.re-quiz-radio[data-on="true"][data-tone="success"] { border-color: var(--success); }
+.re-quiz-radio[data-on="true"][data-tone="danger"] { border-color: var(--danger); }
+.re-quiz-radio i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.re-quiz-radio[data-tone="success"] i { background: var(--success); }
+.re-quiz-radio[data-tone="danger"] i { background: var(--danger); }
+
+@keyframes re-quiz-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(5px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  80% { transform: translateX(-1px); }
+}
+.re-quiz-shake { animation: re-quiz-shake 460ms cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+
+@keyframes re-quiz-sweep { from { transform: translateX(-101%); } to { transform: translateX(0); } }
+.re-quiz-sweep { animation: re-quiz-sweep 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* The progress capsule for the question you are on breathes. */
+@keyframes re-quiz-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.re-quiz-capsule-current { animation: re-quiz-pulse 1.8s ease-in-out infinite; }
+
+/* ================================================================== */
+/* Sidebar (expanded) — hover that answers                             */
+/* ================================================================== */
+.re-nav-item {
+  position: relative;
+  transition: background 220ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-nav-item:hover { background: color-mix(in srgb, var(--elevated) 80%, transparent); transform: translateX(2px); }
+.re-nav-item:hover svg.lucide { transform: scale(1.12) rotate(-3deg); }
+.re-nav-item:active { transform: translateX(2px) scale(0.99); }
+/* react-router marks the current row aria-current="page" — no extra prop */
+.re-nav-item[aria-current="page"] svg.lucide { animation: none; }
+/* The active marker: one element that slides between rows (framer layoutId),
+   lifted off the background so the row it belongs to reads as chosen. */
+.re-nav-indicator { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%, transparent); }
+
+/* Rows that reveal their actions only when you are on them. */
+.re-row-actions { opacity: 0; transform: translateX(4px); transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1); }
+.re-row:hover .re-row-actions, .re-row:focus-within .re-row-actions { opacity: 1; transform: none; }
+
+/* ================================================================== */
+/* Page transitions — the shell stays, the page arrives                */
+/*                                                                     */
+/* Navigation is wrapped in the View Transitions API where it exists   */
+/* (see hooks/useViewTransitions). The sidebar and top bar are named   */
+/* so they hold still while the page cross-fades, and the active nav   */
+/* marker carries `re-nav` so it visibly travels from the old item to  */
+/* the new one instead of blinking.                                    */
+/* ================================================================== */
+@media (min-width: 768px) {
+  .re-vt-topbar { view-transition-name: re-topbar; }
+  .re-vt-sidebar { view-transition-name: re-sidebar; }
+}
+::view-transition-old(root) { animation: re-page-out 180ms cubic-bezier(0.4, 0, 1, 1) both; }
+::view-transition-new(root) { animation: re-page-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes re-page-out { to { opacity: 0; transform: scale(0.995); } }
+@keyframes re-page-in { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: none; } }
+::view-transition-group(re-topbar), ::view-transition-group(re-sidebar) { animation: none; }
+::view-transition-old(re-topbar), ::view-transition-new(re-topbar),
+::view-transition-old(re-sidebar), ::view-transition-new(re-sidebar) { animation: none; opacity: 1; }
+
+/* ================================================================== */
+/* Workflows — cards, nodes, edges                                     */
+/* ================================================================== */
+@keyframes re-node-in {
+  from { opacity: 0; transform: scale(0.9) translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.re-node { animation: re-node-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.re-node[data-running="true"] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 12px 40px -16px color-mix(in srgb, var(--primary) 70%, transparent);
+  animation: re-node-pulse 1.4s ease-in-out infinite;
+}
+@keyframes re-node-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent), 0 10px 30px -18px color-mix(in srgb, var(--primary) 60%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 18%, transparent), 0 14px 44px -18px color-mix(in srgb, var(--primary) 80%, transparent); }
+}
+/* An edge that has carried data draws itself once. */
+@keyframes re-edge-draw { from { stroke-dashoffset: var(--len, 240); } to { stroke-dashoffset: 0; } }
+.re-edge-flow { stroke-dasharray: var(--len, 240); animation: re-edge-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.re-wf-card { transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 260ms ease, border-color 220ms ease; }
+.re-wf-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 60px -26px rgba(0, 0, 0, 0.6);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--surface-border));
+}
+.re-wf-card:hover .re-wf-icon { transform: scale(1.08) rotate(-4deg); }
+.re-wf-icon { transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  svg.lucide { animation: none !important; }
+  .re-node, .re-node[data-running="true"], .re-edge-flow, .re-quiz-shake, .re-quiz-sweep, .re-quiz-capsule-current { animation: none !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+}
+.reduce-motion svg.lucide { animation: none !important; }
+.reduce-motion .re-node[data-running="true"] { animation: none !important; }
+
+/* Node hover + connector feedback on the workflow canvas. Nodes lift a hair,
+   their icon leans in, and the connector you point at lights up — so the
+   canvas answers the pointer instead of sitting there like a diagram. */
+.re-node { transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 200ms ease; }
+.re-node:hover { transform: translateY(-1.5px); }
+.re-node:hover .re-node-icon { transform: scale(1.07) rotate(-3deg); }
+.re-node[data-running="true"] .re-node-icon { animation: re-icon-breathe 1.8s ease-in-out infinite; }
+.re-node[data-selected="true"] { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent), 0 10px 34px -14px rgba(0, 0, 0, 0.55); }
+.re-node-icon { transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+.re-handle { opacity: 0.65; transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.re-node:hover .re-handle, .re-node[data-selected="true"] .re-handle { opacity: 1; transform: translateY(1px) scale(1.12); }
+@keyframes re-icon-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes re-pop-in { from { opacity: 0; transform: scale(0.94) translateY(-4px); } to { opacity: 1; transform: none; } }
+.re-pop-in { animation: re-pop-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: top right; }
+@keyframes re-badge-pop { from { opacity: 0; transform: scale(0.5); } 60% { transform: scale(1.12); } to { opacity: 1; transform: none; } }
+.re-badge-pop { animation: re-badge-pop 340ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.re-edge-line { transition: stroke 200ms ease, stroke-width 200ms ease, filter 200ms ease; }
+.re-edge-line[data-hot="true"] { stroke-width: 2.5; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 45%, transparent)); }
+.re-edge-add { opacity: 0.35; transform: scale(0.9); transition: opacity 200ms ease, transform 240ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms ease, color 200ms ease; }
+.re-edge-add[data-hot="true"], .re-edge-add:hover, .re-edge-add:focus-visible {
+  opacity: 1; transform: scale(1.16);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--surface-border));
+  color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .re-node[data-running="true"] .re-node-icon { animation: none !important; }
+  .re-pop-in, .re-badge-pop { animation: none !important; }
+}
+.reduce-motion .re-node[data-running="true"] .re-node-icon { animation: none !important; }
+.reduce-motion .re-pop-in, .reduce-motion .re-badge-pop { animation: none !important; }
+
+/* The option's letter, sitting quietly at the row's right edge until you point
+   at it (the numeric shortcut takes its place then). */
+.re-quiz-letter {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  opacity: 0.5;
+  transition: opacity 200ms ease, transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-quiz-option[data-hovered="true"] .re-quiz-letter { opacity: 0.9; transform: translateX(1px); }
+.re-quiz-option[data-locked="true"] .re-quiz-letter { opacity: 0.35; }
+
+/* "New research" — the one button in the rail that starts something, so it gets
+   a slow sheen that crosses it on hover. */
+.re-new-research {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--primary) 80%, transparent);
+}
+.re-new-research::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 32%, color-mix(in srgb, #fff 26%, transparent) 48%, transparent 64%);
+  transform: translateX(-130%);
+  transition: transform 680ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-new-research:hover::after { transform: translateX(130%); }
+
+/* Progress capsule fill — themed by data attribute so the change is a CSS
+   colour transition between tokens rather than an interpolation of var(). */
+.re-quiz-capsule { background: var(--text-3); transition: background 240ms ease; }
+.re-quiz-capsule[data-fill="current"] { background: var(--primary); }
+.re-quiz-capsule[data-fill="ok"] { background: var(--success); }
+.re-quiz-capsule[data-fill="bad"] { background: var(--danger); }
+
+/* The "you panned away" chip on the workflow canvas — it arrives with the same
+   spring everything else uses, so it reads as the canvas handing you a hand. */
+@keyframes re-lost-in { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: none; } }
+.re-canvas-lost { animation: re-lost-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both; transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms ease; }
+.re-canvas-lost:hover { transform: translateY(-1px); box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6); }
+.re-canvas-lost:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) { .re-canvas-lost { animation: none !important; } }
+.reduce-motion .re-canvas-lost { animation: none !important; }

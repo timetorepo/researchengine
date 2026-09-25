@@ -754,6 +754,149 @@ async function main() {
     .filter((f) => /startsWith\([^)]*\+\s*'\/'/.test(readAll(f, 'utf8')))
   check('no path containment uses a hardcoded "/" any more', offenders.length === 0, offenders.join(', '))
 
+  /* ------------------------------------------------------------------ */
+  /* [16] Quiz card motion, and the stray-overlay / document-growth bug  */
+  /* ------------------------------------------------------------------ */
+  // The reported bug: after testing a workflow the page could not be
+  // scrolled back and a pomodoro timer sat at the very bottom, surviving a
+  // refresh. The cause was a second FocusPill rendered next to the shell,
+  // which grew the document past the viewport. Two invariants now guard it:
+  // one FocusPill in the whole tree, and nothing but fixed overlays beside
+  // the shell.
+  console.log('\n[16] Quiz card motion, and the stray-overlay class of bug')
+  const { readFileSync: m16readFile, readdirSync: m16readdir, statSync: m16stat } = await import('node:fs')
+  const m16cssAll = m16readFile(new URL('../src/styles/globals.css', import.meta.url), 'utf8')
+  const m16walkSrc = (dir: URL): URL[] => m16readdir(dir).flatMap((f) => {
+    const child = new URL(`${f}${m16stat(new URL(f, dir)).isDirectory() ? '/' : ''}`, dir)
+    return m16stat(new URL(f, dir)).isDirectory() ? m16walkSrc(child) : [child]
+  })
+  const m16srcFiles = m16walkSrc(new URL('../src/', import.meta.url))
+  const m16tsxLike = m16srcFiles.filter((u) => /\.(tsx|ts)$/.test(u.pathname))
+  const m16readSrc = (u: URL) => m16readFile(u, 'utf8')
+
+  const m16pillSites = m16tsxLike.filter((u) => m16readSrc(u).includes('<FocusPill'))
+  check('the focus timer is rendered in exactly one place', m16pillSites.length === 1,
+    `rendered in ${m16pillSites.length}: ${m16pillSites.map((u) => u.pathname.split('/src/')[1]).join(', ')}`)
+  check('and that place is the top bar', m16pillSites[0]?.pathname.endsWith('topbar/TopBar.tsx') === true)
+
+  const m16appSrc = m16readSrc(new URL('../src/App.tsx', import.meta.url))
+  const m16afterShell = m16appSrc.slice(m16appSrc.indexOf('</ErrorBoundary>'))
+  check('nothing that can grow the page is rendered after the shell', !m16afterShell.includes('FocusPill'))
+  check('the app frame clips overhang (#root overflow hidden)', /#root\s*\{[^}]*overflow:\s*hidden/.test(m16cssAll))
+  const m16shellSiblings = [...new Set([...m16afterShell.matchAll(/<([A-Z][A-Za-z0-9]*)/g)].map((m) => m[1]))]
+  // Every one of those has to be a fixed overlay, otherwise it lands in flow.
+  // Sonner's Toaster is fixed by the stylesheet it injects itself, not by a
+  // class in our source — so that one is proven from Sonner's own CSS.
+  const sonnerCss = m16readFile(new URL('../../node_modules/sonner/dist/styles.css', import.meta.url), 'utf8')
+  const sonnerFixed = sonnerCss.includes('position:fixed') || sonnerCss.includes('position: fixed')
+  const m16inFlow = m16shellSiblings.filter((name) => {
+    if (name === 'AppToaster') return !sonnerFixed
+    const file = m16tsxLike.find((u) => u.pathname.endsWith(`/${name}.tsx`))
+    if (!file) return false // inline fragment or already checked above
+    const body = m16readSrc(file)
+    return !(body.includes('fixed inset-0') || body.includes('fixed ') || file.pathname.endsWith('StarField.tsx'))
+  })
+  check('everything beside the shell is position:fixed', m16inFlow.length === 0, m16inFlow.join(', '))
+
+  // Class wiring: a `re-` class in JSX with no rule in the stylesheet is dead
+  // weight from an older round — exactly how the workflow motion sat unused.
+  const m16usedClasses = new Set<string>()
+  for (const u of m16tsxLike) {
+    for (const m of m16readSrc(u).matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+      const raw = (m[1] ?? m[2] ?? '').replace(/\$\{[^}]*\}/g, ' ')
+      for (const t of raw.split(/\s+/)) if (/^re-[a-z0-9-]+$/.test(t)) m16usedClasses.add(t)
+    }
+  }
+  const m16styleless = [...m16usedClasses].filter((t) => !m16cssAll.includes(`.${t}`))
+  check(`all ${m16usedClasses.size} re-* classes have a stylesheet rule`, m16styleless.length === 0, m16styleless.join(', '))
+
+  const m16nodeSrc = m16readSrc(new URL('../src/components/workflows/wf/NodeCard.tsx', import.meta.url))
+  const m16edgeSrc = m16readSrc(new URL('../src/components/workflows/wf/EdgeLayer.tsx', import.meta.url))
+  const m16listSrc = m16readSrc(new URL('../src/components/workflows/WorkflowsList.tsx', import.meta.url))
+  check('workflow nodes enter, lift, and breathe while running',
+    m16nodeSrc.includes('re-node absolute') && m16nodeSrc.includes('re-node-icon') && m16nodeSrc.includes('data-running'))
+  check('a finished node pops its tick badge', m16nodeSrc.includes('re-badge-pop') && m16cssAll.includes('.re-badge-pop'))
+  check('pointing at a connector lights it up and reveals its insert control',
+    m16edgeSrc.includes('re-edge-line') && m16edgeSrc.includes('re-edge-add') && m16edgeSrc.includes('onPointerEnter'))
+  check('the workflow list deals its cards in and animates the run state',
+    m16listSrc.includes('framer-motion') && m16listSrc.includes('re-wf-card') && m16listSrc.includes('AnimatePresence'))
+
+  const m16vtSrc = m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url))
+  const m16sideSrc = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
+  const m16topSrc = m16readSrc(new URL('../src/components/topbar/TopBar.tsx', import.meta.url))
+  check('navigation is wrapped in a view transition', m16appSrc.includes('installViewTransitions') && m16vtSrc.includes('startViewTransition'))
+  check('reduced motion skips the transition entirely', m16vtSrc.includes('prefers-reduced-motion') && m16vtSrc.includes('reduce-motion'))
+  check('the rail and the top bar are pinned across a transition', m16sideSrc.includes('re-vt-sidebar') && m16topSrc.includes('re-vt-topbar'))
+  check('the rail marks the page you are on', m16sideSrc.includes('re-nav-indicator') && m16cssAll.includes('.re-nav-indicator'))
+  check('the rail is a dock when collapsed', m16sideSrc.includes('DockRail'))
+
+  // The expanded rail, mounted for real: the rows are hoverable (no inline
+  // transparent background cancelling the stylesheet) and exactly one marker
+  // sits on the row you are on.
+  useUI.setState({ sidebarCollapsed: false })
+  const m16sd = win.document.createElement('div')
+  win.document.body.appendChild(m16sd)
+  const m16rootSd = createRoot(m16sd)
+  m16rootSd.render(React.createElement(MemoryRouter, null as any, React.createElement(Sidebar as any, {})))
+  await wait(300)
+  const m16rowsNav = m16sd.querySelectorAll('.re-nav-item')
+  check('the expanded rail is a list of rows', m16rowsNav.length >= 8, String(m16rowsNav.length))
+  check('the row you are on is the only one marked', m16sd.querySelectorAll('.re-nav-indicator').length === 1)
+  check('the marker is attached to the current row',
+    !!m16sd.querySelector('.re-nav-item[aria-current="page"] .re-nav-indicator'))
+  check('the rows can be hovered (no inline background in the way)',
+    !m16sideSrc.includes("background: isActive ? 'var(--elevated)' : 'transparent'"))
+  check('the rail spreads its icons in one after another', !!m16sd.querySelector('.re-icon-stagger'))
+  check('the rail and the top bar are named for the page transition',
+    !!m16sd.querySelector('.re-vt-sidebar'))
+  m16rootSd.unmount(); m16sd.remove()
+
+  // Mount the real quiz card and drive it like a person: click an answer, then
+  // the keyboard. This is the UI the reference image asked for, asserted on the
+  // DOM rather than on the source.
+  const { QuizPlay } = await import('../src/components/quiz/QuizPlay')
+  useStore.setState({ settings: { ...useStore.getState().settings, quizAutoAdvance: false } } as any)
+  const m16quizQs = [
+    { id: 'q1', type: 'mc', prompt: 'Which planet is the largest?', options: ['Mars', 'Jupiter', 'Venus', 'Mercury'], answer: 'Jupiter', explanation: 'Jupiter is the largest.', section: 'Solar system' },
+    { id: 'q2', type: 'tf', prompt: 'The Sun is a star.', options: ['True', 'False'], answer: 'True', explanation: 'Yes.', section: 'Stars' },
+  ]
+  const m16cq = win.document.createElement('div')
+  win.document.body.appendChild(m16cq)
+  const m16qroot = createRoot(m16cq)
+  m16qroot.render(React.createElement(QuizPlay as any, {
+    questions: m16quizQs, timed: false, onQuit: () => {}, onFinish: () => {}, title: 'Solar system quiz', source: 'sample.md',
+  }))
+  await wait(500)
+  const m16card = m16cq.querySelector('.re-quiz-card')
+  check('the quiz renders the reference card', !!m16card)
+  check('the card is headed by the quiz name', (m16card?.textContent ?? '').includes('Solar system quiz'))
+  check('and by where the questions came from', (m16card?.textContent ?? '').includes('sample.md'))
+  check('the card states the answering rule', (m16card?.textContent ?? '').includes('Choose only 1 answer:'))
+  check('the question text is in the card', (m16card?.textContent ?? '').includes('Which planet is the largest?'))
+  const m16rows = [...m16cq.querySelectorAll('.re-quiz-option')] as any[]
+  check('each option is its own row', m16rows.length === 4, `got ${m16rows.length}`)
+  check('the rows are a radiogroup', !!m16card?.querySelector('[role="radio"]'))
+  check('the rows are numbered A-D', [...m16cq.querySelectorAll('.re-quiz-letter')].map((l) => l.textContent).join('') === 'ABCD')
+
+  fire(m16rows[1], 'click')
+  await wait(500)
+  check('clicking the right row marks it correct', m16rows[1].getAttribute('data-state') === 'correct')
+  check('the correct row sweeps in', !!m16cq.querySelector('.re-quiz-sweep'))
+  check('the wrong rows are dimmed', m16rows[0].getAttribute('data-state') === 'dim')
+  check('a correct pick does not shake the row', !m16cq.querySelector('.re-quiz-shake'))
+
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: ' ' }))
+  await wait(1600)
+  check('Space moves to the next question', (m16cq.textContent ?? '').includes('The Sun is a star.'))
+  const m16rows2 = [...m16cq.querySelectorAll('.re-quiz-option')] as any[]
+  check('the true/false question shows two rows', m16rows2.length === 2, `got ${m16rows2.length}`)
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: '2' }))
+  await wait(350)
+  check('a number key answers the question', m16rows2[1].getAttribute('data-state') === 'wrong')
+  check('a wrong answer shakes that row', !!m16cq.querySelector('.re-quiz-shake'))
+  fire(m16rows2[0], 'click')
+  m16qroot.unmount()
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

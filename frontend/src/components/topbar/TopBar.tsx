@@ -57,7 +57,7 @@ export function TopBar() {
 
   return (
     <header
-      className="flex items-center gap-2 px-3 h-12 shrink-0 relative z-30"
+      className="re-vt-topbar flex items-center gap-2 px-3 h-12 shrink-0 relative z-30"
       style={{ borderBottom: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--bg) 82%, transparent)', backdropFilter: 'blur(12px)' }}
     >
       <button className="md:hidden p-2 rounded-lg hover:bg-[var(--elevated)]" aria-label="Open menu" onClick={() => ui.set({ sidebarOpenMobile: true })}>

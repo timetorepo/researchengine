@@ -31,12 +31,12 @@ import { SkillBuilderPanel } from '@/components/skills/SkillBuilderPanel'
 import { SkillRunModal } from '@/components/skills/SkillRunModal'
 import { StarField } from '@/components/easter/StarField'
 import { DiagnosticsOverlay } from '@/components/easter/DiagnosticsOverlay'
-import { FocusPill } from '@/components/shared/FocusPill'
 import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { SettingsSheet } from '@/components/settings/SettingsSheet'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
+import { installViewTransitions } from '@/hooks/useViewTransitions'
 
 /** Preload every lazy route chunk during idle time — first paint stays lean,
  *  but palette/navigation targets are warm by the time the user needs them. */
@@ -67,6 +67,10 @@ export default function App() {
   const settings = useStore((s) => s.settings)
   const notFound = useUI((s) => s.notFound)
   useRoutePreload()
+
+  // Navigation is wrapped in the View Transitions API where the browser has it:
+  // the shell stays put, the page cross-fades, the nav marker travels.
+  useEffect(() => { installViewTransitions() }, [])
 
   // Apply theme + font scale + motion prefs whenever they change
   useEffect(() => {
@@ -157,7 +161,6 @@ function RoutedApp() {
       <ShortcutsOverlay />
       <SkillBuilderPanel />
       <SkillRunModal />
-      <FocusPill />
       {starfield && <StarField />}
       <DiagnosticsOverlay />
     </>

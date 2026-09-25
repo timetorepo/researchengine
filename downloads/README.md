@@ -6,9 +6,8 @@ pure-JS portable builds: the only requirement on your machine is Node.js.
 
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.21.1-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.21.1-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
-| `research-engine-0.17.0-beta.1-*` | Windows / Linux | older release — update if you are on it: project creation could still be refused for a name there |
+| `research-engine-0.22.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.22.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
 
 Verify either archive first:
 
@@ -36,7 +35,7 @@ launcher with NSSM — see the root README, install method C.
 ## Linux / macOS
 
 ```bash
-tar xzf research-engine-0.21.1-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.22.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ./research-engine-linux-x64/research-engine serve --port 3847
 ```
@@ -54,9 +53,9 @@ Ask the launcher:
 ```
 
 ```
-Research Engine 0.19.0-beta.1  [portable]
-  built frontend : 0.17.0-beta.1 (2026-09-19T12:43:33.105Z)
-  STATUS         : STALE — the served build is 0.17.0-beta.1 but this code is 0.19.0-beta.1
+Research Engine 0.22.0-beta.1  [portable]
+  built frontend : 0.19.0-beta.1 (2026-09-24T09:12:04.881Z)
+  STATUS         : STALE — the served build is 0.19.0-beta.1 but this code is 0.22.0-beta.1
                    fix: unpack the current release archive over this folder
 ```
 

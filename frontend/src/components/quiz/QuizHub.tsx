@@ -263,6 +263,8 @@ export function QuizHub() {
       <QuizPlay
         questions={activeQuiz.questions}
         timed={timed}
+        title={activeQuiz.title}
+        source={documents.find((d) => d.id === activeQuiz.docId)?.name ?? (quizIsDemo ? 'Sample document' : undefined)}
         onQuit={() => setView('hub')}
         onSeeSource={seeSource}
         onFinish={(r) => { setLastResult(r); setView('results') }}
@@ -303,6 +305,7 @@ export function QuizHub() {
       <QuizPlay
         questions={activeQuiz.questions}
         timed={false}
+        title={activeQuiz.title}
         onQuit={() => setView('hub')}
         onSeeSource={seeSource}
         onFinish={() => setView('hub')}

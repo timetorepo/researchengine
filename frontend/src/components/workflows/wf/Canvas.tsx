@@ -1,8 +1,9 @@
 // Infinite canvas: pan (drag / space / middle mouse), zoom (ctrl-wheel, pinch),
 // dot grid, node dragging with snap, shift-marquee multi-select, minimap.
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { Workflow, WorkflowNode, WorkflowEdge, NodeRunStatus } from '@/lib/workflows/types'
 import { NODE_W } from '@/lib/workflows/types'
+import { LocateFixed } from 'lucide-react'
 import { NodeCard, NODE_H } from './NodeCard'
 import { EdgeLayer } from './EdgeLayer'
 
@@ -52,17 +53,19 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(props, ref
     return { x: (cx - rect.left - v.x) / v.scale, y: (cy - rect.top - v.y) / v.scale }
   }, [])
 
+  const fitView = useCallback(() => {
+    const el = outerRef.current
+    if (!el || wf.nodes.length === 0) return
+    const xs = wf.nodes.map((n) => n.x), ys = wf.nodes.map((n) => n.y)
+    const minX = Math.min(...xs) - 80, minY = Math.min(...ys) - 80
+    const maxX = Math.max(...xs) + NODE_W + 80, maxY = Math.max(...ys) + NODE_H + 120
+    const w = maxX - minX, h = maxY - minY
+    const scale = Math.min(1.15, (el.clientWidth - 80) / w, (el.clientHeight - 80) / h)
+    setView({ scale: Math.max(0.2, scale), x: (el.clientWidth - w * scale) / 2 - minX * scale, y: (el.clientHeight - h * scale) / 2 - minY * scale })
+  }, [wf.nodes])
+
   useImperativeHandle(ref, () => ({
-    fitView: () => {
-      const el = outerRef.current
-      if (!el || wf.nodes.length === 0) return
-      const xs = wf.nodes.map((n) => n.x), ys = wf.nodes.map((n) => n.y)
-      const minX = Math.min(...xs) - 80, minY = Math.min(...ys) - 80
-      const maxX = Math.max(...xs) + NODE_W + 80, maxY = Math.max(...ys) + NODE_H + 120
-      const w = maxX - minX, h = maxY - minY
-      const scale = Math.min(1.15, (el.clientWidth - 80) / w, (el.clientHeight - 80) / h)
-      setView({ scale: Math.max(0.2, scale), x: (el.clientWidth - w * scale) / 2 - minX * scale, y: (el.clientHeight - h * scale) / 2 - minY * scale })
-    },
+    fitView,
     zoomBy: (f: number) => {
       const el = outerRef.current
       if (!el) return
@@ -193,6 +196,31 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(props, ref
     return { minX, minY, s, W, H, vw, vh, vx, vy }
   })()
 
+  // Have you panned away from the workflow? A plain wheel pans this canvas
+  // (there is no page to scroll inside the editor), so it is possible to lose
+  // the nodes entirely and conclude the page is stuck. Say so, and offer the
+  // way back. This is the "I can't scroll back to see the full workflow" case.
+  const [box, setBox] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const el = outerRef.current
+    if (!el) return
+    setBox({ w: el.clientWidth, h: el.clientHeight })
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setBox({ w: el.clientWidth, h: el.clientHeight }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const lost = useMemo(() => {
+    if (wf.nodes.length === 0 || !box.w || !box.h) return false
+    const xs = wf.nodes.map((n) => n.x), ys = wf.nodes.map((n) => n.y)
+    const sx = (Math.min(...xs)) * view.scale + view.x
+    const sy = (Math.min(...ys)) * view.scale + view.y
+    const ex = (Math.max(...xs) + NODE_W) * view.scale + view.x
+    const ey = (Math.max(...ys) + NODE_H) * view.scale + view.y
+    const m = 80
+    return !(ex > m && ey > m && sx < box.w - m && sy < box.h - m)
+  }, [wf.nodes, box, view])
+
   return (
     <div
       ref={outerRef}
@@ -233,6 +261,18 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(props, ref
           }} />
         )}
       </div>
+
+      {/* Lost off-canvas: one click brings the workflow back into view. */}
+      {lost && (
+        <button
+          onClick={(e) => { e.stopPropagation(); fitView() }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="re-canvas-lost absolute right-3 top-3 z-20 flex items-center gap-1.5 px-3 py-2 rounded-[11px] text-[12.5px] font-medium"
+          style={{ background: 'var(--elevated)', border: '1px solid color-mix(in srgb, var(--primary) 40%, var(--surface-border))', color: 'var(--text-1)', boxShadow: '0 8px 26px -12px rgba(0,0,0,0.5)' }}
+        >
+          <LocateFixed size={13} style={{ color: 'var(--primary)' }} /> Back to the workflow
+        </button>
+      )}
 
       {/* minimap */}
       {mm && (

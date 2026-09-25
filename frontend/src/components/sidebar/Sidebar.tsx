@@ -77,7 +77,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   const width = collapsed ? 60 : 264
 
   const body = (
-    <div className={clsx('h-full flex flex-col', floating && 'h-full rounded-2xl overflow-hidden')}
+    <div className={clsx('re-vt-sidebar h-full flex flex-col', floating && 'h-full rounded-2xl overflow-hidden')}
       style={{
         width,
         background: floating ? 'var(--glass)' : undefined,
@@ -137,7 +137,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
           <div className="px-3 mt-1">
             <button
               onClick={() => { const id = useStore.getState().newChat(spaceFilter ?? undefined); closeMobile(); navigate(`/chat/${id}`) }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-[14px] text-[13px] font-medium transition-colors"
+              className="re-new-research w-full flex items-center gap-2 px-3 py-2 rounded-[14px] text-[13px] font-medium transition-all duration-200 hover:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)] hover:-translate-y-px active:translate-y-0"
               style={{ background: 'var(--primary)', color: '#fff' }}
             >
               <Plus size={16} strokeWidth={2} /> New research
@@ -158,22 +158,39 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             </div>
           </div>
 
-          {/* Nav */}
-          <nav className="px-3 mt-3 flex flex-col gap-0.5">
+          {/* Nav. Hover lifts the row, grows its icon and slides the label; the
+              active marker carries `re-nav-indicator`, so navigating animates it
+              from the item you left to the item you arrived at. */}
+          <nav className="px-3 mt-3 flex flex-col gap-0.5 re-icon-stagger">
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
                 to={n.to}
                 end={n.end}
                 onClick={closeMobile}
-                className="flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] transition-colors"
+                className="re-nav-item group flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] overflow-hidden"
                 style={({ isActive }) => ({
                   color: isActive ? 'var(--text)' : 'var(--text-2)',
-                  background: isActive ? 'var(--elevated)' : 'transparent',
+                  // Only the active row sets a background inline — a transparent
+                  // inline value would win over the stylesheet's hover wash.
+                  background: isActive ? 'var(--elevated)' : undefined,
                 })}
               >
-                <n.icon size={17} strokeWidth={1.5} />
-                {n.label}
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.span
+                        layoutId="re-nav-marker"
+                        transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+                        className="re-nav-indicator absolute w-[3px] rounded-full"
+                        style={{ left: 0, top: '50%', marginTop: -9, height: 18, background: 'var(--primary)' }}
+                        aria-hidden
+                      />
+                    )}
+                    <n.icon size={17} strokeWidth={1.5} className="transition-transform" />
+                    <span className="group-hover:translate-x-0.5 transition-transform duration-200">{n.label}</span>
+                  </>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -346,7 +363,7 @@ function DockItem({ index, label, active = false, onClick, children, tone }: {
             boxShadow: pointed ? '0 8px 22px -10px rgba(0,0,0,0.55)' : 'none',
           }}
         >
-          {active && <span className="absolute left-[-5px] top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full" style={{ background: 'var(--primary)' }} />}
+          {active && <span className="re-nav-indicator absolute left-[-5px] top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full" style={{ background: 'var(--primary)' }} />}
           {children}
         </button>
 

@@ -2,7 +2,7 @@ import { Markdown } from '@/components/chat/Markdown'
 import { normalizeStepText } from '@/lib/reader/format'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, ChevronRight, Flame } from 'lucide-react'
+import { X, ChevronRight, Flame, Check, Sparkles, Timer as TimerIcon, BookOpen } from 'lucide-react'
 import type { QuizQuestion } from '@/types'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -18,12 +18,16 @@ export interface PlayResult {
   msPerQuestion: Record<string, number>
 }
 
-export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
+export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource, title, source }: {
   questions: QuizQuestion[]
   timed: boolean
   onQuit: () => void
   onFinish: (r: PlayResult) => void
   onSeeSource?: (needle: string) => void
+  /** The quiz's own name, shown at the top of the card. */
+  title?: string
+  /** Where the questions came from — rendered as a pill beside the title. */
+  source?: string
 }) {
   const autoAdvance = useStore((s) => s.settings.quizAutoAdvance)
   // Tell the shell what this is, so a running focus timer can say "Quiz"
@@ -115,16 +119,28 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
     setIdx((i) => i + 1)
   }
 
-  // Space/Enter advances after reveal
+  // Keyboard, the way a quiz should behave: 1-6 answers, Space/Enter advances.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!revealed) return
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); next() }
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const target = e.target as HTMLElement | null
+      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return
+      if (revealed) {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); next() }
+        return
+      }
+      const n = Number(e.key)
+      const opts = q.options ?? (q.type === 'tf' ? ['True', 'False'] : [])
+      if (Number.isInteger(n) && n >= 1 && n <= opts.length && (q.type === 'mc' || q.type === 'tf')) {
+        e.preventDefault()
+        setPicked(opts[n - 1])
+        reveal(opts[n - 1])
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revealed, idx, answers, correct])
+  }, [revealed, idx, answers, correct, q])
 
   useEffect(() => {
     if (revealed && autoAdvance) { const t = setTimeout(next, 1400); return () => clearTimeout(t) }
@@ -134,30 +150,58 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
   const options = useMemo(() => q.options ?? (q.type === 'tf' ? ['True', 'False'] : []), [q])
   const timePct = timeLimit ? timeLeft / timeLimit : 1
 
+  // Arriving questions are dealt in (rise + a touch of yaw), leaving ones slide
+  // away — cheap on the compositor and unmistakably a *movement*.
   const variants = {
-    enter: (d: number) => ({ x: d * 80, opacity: 0, scale: 0.97 }),
-    center: { x: 0, opacity: 1, scale: 1 },
-    exit: (d: number) => ({ x: -d * 80, opacity: 0, scale: 0.97 }),
+    enter: (d: number) => ({ x: d * 70, opacity: 0, scale: 0.97, rotateY: d * -6, filter: 'blur(6px)' }),
+    center: { x: 0, opacity: 1, scale: 1, rotateY: 0, filter: 'blur(0px)' },
+    exit: (d: number) => ({ x: -d * 70, opacity: 0, scale: 0.97, rotateY: d * 6, filter: 'blur(6px)' }),
   }
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
-      {/* Segmented progress */}
+      {/* Progress capsules + streak */}
       <div className="shrink-0 px-5 pt-4 pb-2">
-        <div className="max-w-[760px] mx-auto">
+        <div className="max-w-[720px] mx-auto">
           <div className="flex items-center gap-2 mb-3">
             <button onClick={onQuit} aria-label="Quit quiz" className="p-1.5 rounded-full hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}><X size={15} /></button>
             <div className="flex-1 flex gap-1">
-              {questions.map((qq, i) => (
-                <div key={qq.id} className="h-1.5 flex-1 rounded-full overflow-hidden" style={{ background: 'var(--elevated)' }}>
-                  <div className="h-full rounded-full transition-all duration-300"
-                    style={{
-                      width: correct[qq.id] === undefined ? (i === idx ? '45%' : '0%') : '100%',
-                      background: correct[qq.id] === undefined ? 'var(--text-3)' : correct[qq.id] ? 'var(--success)' : 'var(--danger)',
-                    }} />
-                </div>
-              ))}
+              {questions.map((qq, i) => {
+                const answered = correct[qq.id] !== undefined
+                const current = i === idx && !answered
+                return (
+                  <div key={qq.id} className="h-1.5 flex-1 rounded-full overflow-hidden" style={{ background: 'var(--elevated)' }}>
+                    {/* Width springs; the colour is a CSS transition between
+                        theme tokens (framer cannot interpolate var()) — so an
+                        answered pill settles into green or red on its own. */}
+                    <motion.div className={`re-quiz-capsule h-full rounded-full ${current ? 're-quiz-capsule-current' : ''}`}
+                      data-fill={answered ? (correct[qq.id] ? 'ok' : 'bad') : current ? 'current' : 'idle'}
+                      initial={false}
+                      animate={{ width: answered ? '100%' : current ? '45%' : '0%' }}
+                      transition={{ type: 'spring', damping: 24, stiffness: 260 }} />
+                  </div>
+                )
+              })}
             </div>
+            {/* Countdown — a ring you can read at a glance, with the type of
+                quiz beside it so the card says what it is asking of you. */}
+            {timed && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                className="relative w-8 h-8 shrink-0 grid place-items-center"
+                title="Time left on this question"
+              >
+                <svg viewBox="0 0 36 36" width="32" height="32" className="absolute inset-0">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--elevated)" strokeWidth="3" />
+                  <circle cx="18" cy="18" r="15.5" fill="none"
+                    stroke={timePct > 0.3 ? 'var(--primary)' : timePct > 0.15 ? 'var(--warning)' : 'var(--danger)'}
+                    strokeWidth="3" strokeLinecap="round"
+                    strokeDasharray={`${Math.max(0, timePct) * 97.4} 97.4`} transform="rotate(-90 18 18)"
+                    className={timePct <= 0.15 ? 'animate-pulse' : ''} data-static-icon />
+                </svg>
+                <span className="text-[10.5px] font-bold tabular-nums">{Math.ceil(timeLeft)}</span>
+              </motion.span>
+            )}
             {/* streak pill */}
             <motion.div
               animate={thump ? { scale: [1, 1.35, 0.92, 1.15, 1], rotate: [0, -6, 5, -3, 0] } : { scale: 1 }}
@@ -179,99 +223,106 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
             custom={dir}
             variants={variants} initial="enter" animate="center" exit="exit"
             transition={spring}
-            className="w-full max-w-[760px] rounded-[24px] p-6 sm:p-8 mt-2 grad-quiz"
-            style={{ boxShadow: '0 24px 80px -24px rgba(0,0,0,0.5)' }}
+            className="re-quiz-card w-full max-w-[720px] p-6 sm:p-7 mt-2"
+            style={{ transformPerspective: 1200 }}
           >
-            <div className="flex items-center gap-3 mb-5">
-              {/* question number + timer ring */}
-              <span className="relative w-11 h-11 shrink-0">
-                <svg viewBox="0 0 44 44" width="44" height="44" className="absolute inset-0">
-                  <circle cx="22" cy="22" r="19" fill="rgba(0,0,0,0.25)" stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" />
-                  {timed && (
-                    <circle cx="22" cy="22" r="19" fill="none"
-                      stroke={timePct > 0.3 ? '#fff' : timePct > 0.15 ? 'var(--warning)' : 'var(--danger)'}
-                      strokeWidth="2.5" strokeLinecap="round"
-                      strokeDasharray={`${timePct * 119.4} 119.4`} transform="rotate(-90 22 22)"
-                      className={timePct <= 0.15 ? 'animate-pulse' : ''} />
-                  )}
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-white text-[13px] font-bold">
-                  {timed ? Math.ceil(timeLeft) : idx + 1}
+            {/* Card header, as in the reference: centred source pills, a big
+                centred title, then a hairline rule. */}
+            <motion.div
+              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-col items-center text-center"
+            >
+              <div className="flex items-center gap-2 mb-3 flex-wrap justify-center">
+                {source && (
+                  <span className="re-quiz-badge" style={{ background: 'color-mix(in srgb, var(--primary) 18%, transparent)', color: 'var(--primary)' }}>
+                    <BookOpen size={12} strokeWidth={2} /> {source}
+                  </span>
+                )}
+                <span className="re-quiz-badge" style={{ background: 'color-mix(in srgb, var(--secondary) 18%, transparent)', color: 'var(--secondary)' }}>
+                  <Sparkles size={12} strokeWidth={2} /> {questions.length} question{questions.length === 1 ? '' : 's'}
                 </span>
-              </span>
-              <div className="flex-1">
-                <div className="text-white/70 text-[10.5px] font-semibold uppercase tracking-wider">
-                  Question {idx + 1} of {questions.length} · {q.type === 'mc' ? 'Multiple choice' : q.type === 'tf' ? 'True or false' : q.type === 'fill' ? 'Fill in the blank' : q.type === 'ordering' ? 'Reorder' : q.type === 'matching' ? 'Matching' : 'Short answer'}
-                </div>
+                {timed && (
+                  <span className="re-quiz-badge tabular-nums" style={{ background: 'color-mix(in srgb, var(--warning) 18%, transparent)', color: 'var(--warning)' }}>
+                    <TimerIcon size={12} strokeWidth={2} /> Timed
+                  </span>
+                )}
               </div>
-            </div>
+              <h1 className="text-[24px] sm:text-[27px] font-semibold leading-tight" style={{ letterSpacing: '-0.025em' }}>
+                {title?.trim() || 'Quiz'}
+              </h1>
+              <hr className="re-quiz-rule w-full mt-5" />
+            </motion.div>
 
-            <h2 className="text-white text-[19px] sm:text-[22px] font-semibold leading-snug mb-6" style={{ letterSpacing: '-0.01em' }}>
+            {/* Question */}
+            <motion.h2
+              key={`prompt-${q.id}`}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.06, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="text-[17px] sm:text-[19px] font-semibold leading-snug mt-5 mb-1.5"
+              style={{ letterSpacing: '-0.01em' }}
+            >
               {q.prompt}
-            </h2>
+            </motion.h2>
+            <motion.p
+              key={`hint-${q.id}`}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+              className="text-[12.5px] mb-4"
+              style={{ color: 'var(--text-3)' }}
+            >
+              {q.type === 'mc' ? 'Choose only 1 answer:' : q.type === 'tf' ? 'True or false:' : q.type === 'fill' ? 'Fill in the blank:' : q.type === 'ordering' ? 'Put these in the right order:' : q.type === 'matching' ? 'Match each term to its statement:' : 'Type your answer:'}
+            </motion.p>
 
             {/* Answer area */}
             {(q.type === 'mc' || q.type === 'tf') ? (
-              <div className={`grid gap-2.5 ${q.type === 'tf' ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
+              <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Answers">
                 {options.map((opt, i) => {
                   const isPicked = picked === opt
                   const isAnswer = opt === q.answer
-                  const state = !revealed ? 'idle' : isAnswer ? 'correct' : isPicked ? 'wrong' : 'dim'
+                  const state = !revealed ? (isPicked ? 'picked' : 'idle') : isAnswer ? 'correct' : isPicked ? 'wrong' : 'dim'
                   return (
-                    <motion.button
+                    <QuizOption
                       key={opt}
-                      whileHover={!revealed ? { scale: 1.04, y: -2 } : undefined}
-                      whileTap={!revealed ? { scale: 0.98 } : undefined}
-                      onClick={(e) => { if (revealed) return; setPicked(opt); reveal(opt, e.currentTarget) }}
-                      animate={
-                        state === 'wrong' ? { x: [0, -4, 4, -4, 4, -4, 0] } :
-                        state === 'correct' && revealed ? { scale: [1, 1.03, 1] } : {}
-                      }
-                      transition={state === 'wrong' ? { duration: 0.4 } : { duration: 0.5 }}
-                      className="relative overflow-hidden text-left px-4 py-3.5 rounded-[16px] min-h-[64px] flex items-center gap-3"
-                      style={{
-                        background:
-                          state === 'correct' ? 'rgba(52,211,153,0.9)' :
-                          state === 'wrong' ? 'rgba(248,113,113,0.85)' :
-                          `linear-gradient(135deg, rgba(255,255,255,${0.14 + (i % 2) * 0.05}), rgba(255,255,255,${0.05 + (i % 2) * 0.04}))`,
-                        border: '1px solid rgba(255,255,255,0.22)',
-                        opacity: state === 'dim' ? 0.5 : 1,
-                      }}
-                    >
-                      {state === 'correct' && (
-                        <motion.span className="absolute inset-0" style={{ background: 'rgba(52,211,153,0.95)' }}
-                          initial={{ x: '-100%' }} animate={{ x: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} />
-                      )}
-                      <span className="relative w-7 h-7 rounded-[9px] flex items-center justify-center text-[12px] font-bold shrink-0"
-                        style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>
-                        {q.type === 'tf' ? (i === 0 ? 'T' : 'F') : LETTERS[i]}
-                      </span>
-                      <span className="relative text-white text-[14px] font-medium leading-snug">{opt}</span>
-                    </motion.button>
+                      index={i}
+                      label={opt}
+                      letter={q.type === 'tf' ? (i === 0 ? 'T' : 'F') : LETTERS[i]}
+                      state={state}
+                      locked={revealed}
+                      revealDelay={i * 0.05}
+                      onPick={(el) => { setPicked(opt); reveal(opt, el) }}
+                    />
                   )
                 })}
               </div>
             ) : q.type === 'ordering' ? (
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2.5">
                 {order.map((o, i) => {
                   const correctPos = (q.correctOrder ?? []).indexOf(o)
                   const good = revealed && correctPos === i
                   const bad = revealed && correctPos !== i
                   return (
                     <motion.div key={o} layout transition={spring}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-[14px]"
+                      className="flex items-center gap-3 px-3.5 py-3 rounded-[16px]"
+                      data-state={good ? 'correct' : bad ? 'wrong' : 'idle'}
                       style={{
-                        background: good ? 'rgba(52,211,153,0.9)' : bad ? 'rgba(248,113,113,0.85)' : 'rgba(255,255,255,0.13)',
-                        border: '1px solid rgba(255,255,255,0.22)',
+                        background: good ? 'color-mix(in srgb, var(--success) 16%, var(--elevated))'
+                          : bad ? 'color-mix(in srgb, var(--danger) 14%, var(--elevated))'
+                          : 'var(--elevated)',
+                        border: `2px solid ${good ? 'var(--success)' : bad ? 'var(--danger)' : 'transparent'}`,
                       }}>
-                      <span className="w-6 h-6 rounded-[8px] flex items-center justify-center text-[11px] font-bold shrink-0" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>{i + 1}</span>
-                      <span className="flex-1 text-[12.5px] text-white leading-snug">{o}</span>
+                      <span className="w-6 h-6 rounded-[8px] grid place-items-center text-[11.5px] font-bold shrink-0"
+                        style={{ background: 'color-mix(in srgb, var(--primary) 18%, transparent)', color: 'var(--primary)' }}>{i + 1}</span>
+                      <span className="flex-1 text-[13.5px] leading-snug">{o}</span>
                       {!revealed && (
-                        <span className="flex flex-col">
-                          <button aria-label="Move up" disabled={i === 0} onClick={() => setOrder((ord) => { const n = [...ord]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n })}
-                            className="text-white/70 disabled:opacity-25 leading-none text-[13px] px-1">▲</button>
-                          <button aria-label="Move down" disabled={i === order.length - 1} onClick={() => setOrder((ord) => { const n = [...ord]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; return n })}
-                            className="text-white/70 disabled:opacity-25 leading-none text-[13px] px-1">▼</button>
+                        <span className="flex flex-col gap-0.5">
+                          <button aria-label="Move up" disabled={i === 0}
+                            onClick={() => setOrder((ord) => { const n = [...ord]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n })}
+                            className="w-6 h-5 rounded-[6px] grid place-items-center disabled:opacity-25 hover:bg-[var(--surface)]"
+                            style={{ color: 'var(--text-2)' }}>▲</button>
+                          <button aria-label="Move down" disabled={i === order.length - 1}
+                            onClick={() => setOrder((ord) => { const n = [...ord]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; return n })}
+                            className="w-6 h-5 rounded-[6px] grid place-items-center disabled:opacity-25 hover:bg-[var(--surface)]"
+                            style={{ color: 'var(--text-2)' }}>▼</button>
                         </span>
                       )}
                     </motion.div>
@@ -279,8 +330,8 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
                 })}
                 {!revealed && (
                   <button onClick={() => reveal(order.join(' | '))}
-                    className="w-full py-2.5 rounded-[14px] text-[13px] font-semibold text-white"
-                    style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.25)' }}>
+                    className="w-full py-3 rounded-[16px] text-[13.5px] font-semibold"
+                    style={{ background: 'var(--primary)', color: '#fff' }}>
                     Check order
                   </button>
                 )}
@@ -300,12 +351,12 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
                   onKeyDown={(e) => { if (e.key === 'Enter' && typed.trim()) reveal(typed) }}
                   disabled={revealed}
                   placeholder={q.type === 'fill' ? 'Type the missing word…' : 'Your answer…'}
-                  className="flex-1 px-4 py-3 rounded-[14px] text-[14px] outline-none"
-                  style={{ background: 'rgba(255,255,255,0.16)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}
+                  className="flex-1 px-4 py-3 rounded-[16px] text-[14px] outline-none transition-shadow focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_16%,transparent)]"
+                  style={{ background: 'var(--elevated)', color: 'var(--text)', border: '2px solid transparent' }}
                 />
                 <button onClick={() => typed.trim() && reveal(typed)} disabled={revealed || !typed.trim()}
-                  className="px-5 rounded-[14px] text-[13px] font-semibold text-white disabled:opacity-40"
-                  style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.25)' }}>
+                  className="px-5 rounded-[16px] text-[13.5px] font-semibold disabled:opacity-40"
+                  style={{ background: 'var(--primary)', color: '#fff' }}>
                   Check
                 </button>
               </div>
@@ -315,23 +366,39 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
             <AnimatePresence>
               {revealed && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 300 }}
                   className="overflow-hidden">
-                  <div className="mt-5 rounded-[14px] px-4 py-3.5" style={{ background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(255,255,255,0.14)' }}>
-                    <div className="flex items-center gap-2 text-white text-[13px] font-semibold">
-                      {correct[q.id] ? 'Correct.' : 'Not quite.'}
-                      <button onClick={() => setShowExpl((s) => !s)} className="ml-auto text-[11.5px] font-normal underline underline-offset-2 text-white/70">
+                  <div className="mt-5 rounded-[18px] px-4 py-3.5"
+                    style={{
+                      background: correct[q.id] ? 'color-mix(in srgb, var(--success) 10%, var(--elevated))' : 'color-mix(in srgb, var(--danger) 9%, var(--elevated))',
+                      border: `1px solid ${correct[q.id] ? 'color-mix(in srgb, var(--success) 40%, transparent)' : 'color-mix(in srgb, var(--danger) 35%, transparent)'}`,
+                    }}>
+                    <div className="flex items-center gap-2 text-[13.5px] font-semibold">
+                      <motion.span
+                        initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', damping: 14, stiffness: 420 }}
+                        className="flex items-center gap-1.5"
+                        style={{ color: correct[q.id] ? 'var(--success)' : 'var(--danger)' }}
+                      >
+                        {correct[q.id] ? <Check size={15} strokeWidth={3} /> : <X size={15} strokeWidth={3} />}
+                        {correct[q.id] ? 'Correct.' : 'Not quite.'}
+                      </motion.span>
+                      <button onClick={() => setShowExpl((s) => !s)} className="ml-auto text-[11.5px] font-normal underline underline-offset-2" style={{ color: 'var(--text-2)' }}>
                         {showExpl ? 'Hide explanation' : 'Why?'}
                       </button>
                     </div>
                     {!correct[q.id] && (
-                      <div className="text-white/85 text-[12.5px] mt-1.5">Accepted answer: <b>{q.answer}</b></div>
+                      <div className="text-[12.5px] mt-1.5" style={{ color: 'var(--text-2)' }}>
+                        Accepted answer: <b style={{ color: 'var(--text)' }}>{q.answer}</b>
+                      </div>
                     )}
                     <AnimatePresence>
                       {showExpl && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-white/80 text-[12.5px] leading-relaxed mt-2">
+                        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                          className="text-[12.5px] leading-relaxed mt-2" style={{ color: 'var(--text-2)' }}>
                           <Markdown content={normalizeStepText(q.explanation)} />
                           {onSeeSource && (q as any).source && (
-                            <button onClick={() => onSeeSource((q as any).source)} className="block mt-2 text-[11.5px] underline underline-offset-2 text-white/90">
+                            <button onClick={() => onSeeSource((q as any).source)} className="block mt-2 text-[11.5px] underline underline-offset-2" style={{ color: 'var(--primary)' }}>
                               See this in the source →
                             </button>
                           )}
@@ -346,22 +413,147 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
         </AnimatePresence>
       </div>
 
-      {/* Next */}
-      <div className="shrink-0 flex justify-end px-6 pb-5">
+      {/* Next — rises out of the card once the answer has landed, so the only
+          thing you can do next is the thing you want to do next. */}
+      <div className="shrink-0 flex justify-center pb-6 pt-3">
         <AnimatePresence>
           {revealed && (
             <motion.button
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              initial={{ opacity: 0, y: 14, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 340 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={next}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold"
-              style={{ background: 'var(--primary)', color: '#fff' }}>
-              {idx + 1 >= questions.length ? 'See results' : 'Next'} <ChevronRight size={14} />
-              <kbd className="text-[9.5px] px-1 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.2)' }}>Space</kbd>
+              className="flex items-center gap-2 px-6 py-3 rounded-full text-[13.5px] font-semibold"
+              style={{ background: 'var(--primary)', color: '#fff', boxShadow: '0 14px 40px -16px color-mix(in srgb, var(--primary) 80%, transparent)' }}>
+              {idx + 1 >= questions.length ? 'See results' : 'Next'} <ChevronRight size={15} />
+              <kbd className="text-[9.5px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.22)' }}>Space</kbd>
             </motion.button>
           )}
         </AnimatePresence>
       </div>
     </div>
+  )
+}
+
+/* ---------- One answer row: the card in the reference image ---------- */
+type OptionState = 'idle' | 'picked' | 'correct' | 'wrong' | 'dim'
+
+function QuizOption({ index, label, letter, state, locked, revealDelay, onPick }: {
+  index: number
+  label: string
+  letter: string
+  state: OptionState
+  locked: boolean
+  revealDelay: number
+  onPick: (el: HTMLElement) => void
+}) {
+  const ref = React.useRef<HTMLButtonElement>(null)
+  const [hovered, setHovered] = React.useState(false)
+  const [shake, setShake] = React.useState(false)
+  const on = state === 'picked' || state === 'correct' || state === 'wrong'
+  const tone = state === 'correct' ? 'success' : state === 'wrong' ? 'danger' : 'primary'
+
+  React.useEffect(() => {
+    if (state !== 'wrong') return
+    setShake(true)
+    const t = window.setTimeout(() => setShake(false), 500)
+    return () => window.clearTimeout(t)
+  }, [state])
+
+  // The pointer-tracked glow: the CSS reads --mx/--my, so the highlight follows
+  // the cursor the way the reference card's selected option does.
+  const track = (e: React.MouseEvent) => {
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`)
+    el.style.setProperty('--my', `${e.clientY - r.top}px`)
+  }
+
+  return (
+    <motion.button
+      ref={ref}
+      type="button"
+      role="radio"
+      aria-checked={on}
+      aria-label={label}
+      data-state={state}
+      data-locked={locked ? 'true' : 'false'}
+      data-hovered={hovered && !locked ? 'true' : 'false'}
+      disabled={locked}
+      onClick={() => { if (!locked) onPick(ref.current as HTMLElement) }}
+      onMouseMove={track}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      // Arrival: each row rises in just after the one above it.
+      initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ delay: index * 0.055 + 0.12, type: 'spring', damping: 26, stiffness: 320 }}
+      className={`re-quiz-option ${shake ? 're-quiz-shake' : ''}`}
+    >
+      {/* The answer landing: a sweep of colour across the row, then the tick. */}
+      {state === 'correct' && (
+        <span className="re-quiz-sweep absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(90deg, transparent, color-mix(in srgb, var(--success) 26%, transparent))' }} />
+      )}
+
+      <span className="re-quiz-radio" data-on={on ? 'true' : 'false'} data-tone={tone} aria-hidden>
+        <AnimatePresence initial={false}>
+          {on && (
+            <motion.i
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: 'spring', damping: 18, stiffness: 500 }}
+            />
+          )}
+        </AnimatePresence>
+      </span>
+
+      <span className="relative flex-1 text-[14.5px] leading-snug">{label}</span>
+
+      {/* State badge — springs in only for the answer and the mistake. */}
+      <AnimatePresence>
+        {state === 'correct' && (
+          <motion.span
+            initial={{ scale: 0, rotate: -18, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            transition={{ delay: revealDelay + 0.1, type: 'spring', damping: 14, stiffness: 460 }}
+            className="shrink-0 w-6 h-6 rounded-full grid place-items-center"
+            style={{ background: 'var(--success)', color: '#fff' }}
+          >
+            <Check size={14} strokeWidth={3} />
+          </motion.span>
+        )}
+        {state === 'wrong' && (
+          <motion.span
+            initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 16, stiffness: 460 }}
+            className="shrink-0 w-6 h-6 rounded-full grid place-items-center"
+            style={{ background: 'var(--danger)', color: '#fff' }}
+          >
+            <X size={14} strokeWidth={3} />
+          </motion.span>
+        )}
+      </AnimatePresence>
+
+      {/* Right edge: the option's letter while you read, swapped for the number
+          key that picks it once you point at the row. */}
+      {!locked && hovered ? (
+        <motion.kbd
+          initial={{ opacity: 0, x: 4 }} animate={{ opacity: 1, x: 0 }}
+          className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-[6px] hidden sm:block"
+          style={{ background: 'var(--surface)', color: 'var(--text-3)', border: '1px solid var(--surface-border)' }}
+        >
+          {index + 1}
+        </motion.kbd>
+      ) : (
+        <span className="re-quiz-letter shrink-0 hidden sm:block" aria-hidden>{letter}</span>
+      )}
+    </motion.button>
   )
 }
 
@@ -377,54 +569,65 @@ function MatchingBoard({ q, revealed, matches, selLeft, onPickLeft, onPickRight,
   canCheck: boolean
 }) {
   const pairs = q.pairs ?? []
-  const rights = useMemo(() => pairs.map((p) => p.right).sort(() => Math.random() - 0.5), [q.id])
-  const chosenRight = new Set(Object.values(matches))
+  const rights = React.useMemo(() => [...pairs.map((p) => p.right)].sort(() => Math.random() - 0.5), [q.id])
+
   return (
     <div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          {pairs.map((p) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="flex flex-col gap-2.5">
+          {pairs.map((p, i) => {
             const chosen = matches[p.left]
             const good = revealed && chosen === p.right
             const bad = revealed && chosen && chosen !== p.right
+            const active = selLeft === p.left
             return (
-              <button key={p.left} onClick={() => onPickLeft(p.left)}
-                className="w-full px-3 py-2.5 rounded-[14px] text-[12.5px] font-medium text-left transition-all"
+              <motion.button key={p.left} onClick={() => onPickLeft(p.left)}
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05, type: 'spring', damping: 26, stiffness: 320 }}
+                whileTap={{ scale: 0.985 }}
+                className="w-full px-3.5 py-3 rounded-[16px] text-[13px] font-medium text-left"
                 style={{
-                  background: good ? 'rgba(52,211,153,0.9)' : bad ? 'rgba(248,113,113,0.85)' : selLeft === p.left ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.14)',
-                  border: `1.5px solid ${selLeft === p.left ? '#fff' : 'rgba(255,255,255,0.22)'}`,
-                  color: '#fff',
+                  background: good ? 'color-mix(in srgb, var(--success) 16%, var(--elevated))'
+                    : bad ? 'color-mix(in srgb, var(--danger) 14%, var(--elevated))'
+                    : active ? 'color-mix(in srgb, var(--primary) 14%, var(--elevated))' : 'var(--elevated)',
+                  border: `2px solid ${active ? 'var(--primary)' : good ? 'var(--success)' : bad ? 'var(--danger)' : 'transparent'}`,
+                  color: 'var(--text)',
                 }}>
                 {p.left}
-                {chosen && <span className="block text-[10.5px] opacity-80 mt-0.5">→ {chosen.slice(0, 28)}{chosen.length > 28 ? '…' : ''}</span>}
-              </button>
+                {chosen && <span className="block text-[10.5px] mt-0.5" style={{ color: 'var(--text-3)' }}>→ {chosen.slice(0, 30)}{chosen.length > 30 ? '…' : ''}</span>}
+              </motion.button>
             )
           })}
         </div>
-        <div className="space-y-2">
-          {rights.map((r) => {
-            const taken = chosenRight.has(r)
+        <div className="flex flex-col gap-2.5">
+          {rights.map((r, i) => {
+            const taken = Object.values(matches).includes(r)
             const owner = pairs.find((p) => matches[p.left] === r)?.left
-            const good = revealed && owner && pairs.find((p) => p.left === owner)?.right === r
-            const bad = revealed && owner && pairs.find((p) => p.left === owner)?.right !== r
+            const good = revealed && !!owner && pairs.find((p) => p.left === owner)?.right === r
+            const bad = revealed && !!owner && pairs.find((p) => p.left === owner)?.right !== r
             return (
-              <button key={r} onClick={() => onPickRight(r)} disabled={revealed}
-                className="w-full px-3 py-2.5 rounded-[14px] text-[11.5px] text-left leading-snug transition-all"
+              <motion.button key={r} onClick={() => onPickRight(r)} disabled={revealed}
+                initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 + 0.06, type: 'spring', damping: 26, stiffness: 320 }}
+                whileTap={{ scale: 0.985 }}
+                className="w-full px-3.5 py-3 rounded-[16px] text-[12px] text-left leading-snug"
                 style={{
-                  background: good ? 'rgba(52,211,153,0.9)' : bad ? 'rgba(248,113,113,0.85)' : taken ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.14)',
-                  border: '1px solid rgba(255,255,255,0.22)',
-                  color: taken && !revealed ? 'rgba(255,255,255,0.45)' : '#fff',
+                  background: good ? 'color-mix(in srgb, var(--success) 16%, var(--elevated))'
+                    : bad ? 'color-mix(in srgb, var(--danger) 14%, var(--elevated))'
+                    : taken ? 'var(--surface)' : 'var(--elevated)',
+                  border: `2px solid ${good ? 'var(--success)' : bad ? 'var(--danger)' : 'transparent'}`,
+                  color: taken && !revealed ? 'var(--text-3)' : 'var(--text)',
                 }}>
                 {r}
-              </button>
+              </motion.button>
             )
           })}
         </div>
       </div>
       {!revealed && (
         <button onClick={onCheck} disabled={!canCheck}
-          className="w-full mt-3 py-2.5 rounded-[14px] text-[13px] font-semibold text-white disabled:opacity-40"
-          style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.25)' }}>
+          className="w-full mt-3 py-3 rounded-[16px] text-[13.5px] font-semibold disabled:opacity-40"
+          style={{ background: 'var(--primary)', color: '#fff' }}>
           Check matches
         </button>
       )}
