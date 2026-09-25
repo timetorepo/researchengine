@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { ArrowLeft, Send, Sparkles, Image as ImageIcon, X, GraduationCap, MessageSquareText, Minimize2, Maximize2 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -80,7 +81,8 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
     const idx = originalParas.findIndex((p) => p.includes(initialNeedle))
     if (idx >= 0) {
       setHighlights((h) => [...h, { match: initialNeedle, tier: 'fact', reason: 'The passage your quiz answer came from.' }])
-      setTimeout(() => paraRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250)
+      // Centre the paragraph inside the reader's own scroller — never the page.
+      setTimeout(() => scrollChildIntoView(scrollRef.current, paraRefs.current[idx], { block: 'center', smooth: true }), 250)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNeedle])
@@ -268,7 +270,7 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   }
 
   const jumpTo = (idx: number) => {
-    paraRefs.current[idx]?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' })
+    scrollChildIntoView(scrollRef.current, paraRefs.current[idx], { block: 'center', smooth: !reduceMotion })
     setFlashIdx(idx)
     window.setTimeout(() => setFlashIdx((i) => (i === idx ? null : i)), 1100)
   }

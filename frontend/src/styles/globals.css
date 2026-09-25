@@ -1636,3 +1636,299 @@ button:active > svg.lucide, [role="button"]:active > svg.lucide { transform: sca
 .re-canvas-lost:active { transform: scale(0.97); }
 @media (prefers-reduced-motion: reduce) { .re-canvas-lost { animation: none !important; } }
 .reduce-motion .re-canvas-lost { animation: none !important; }
+
+/* ------------------------------------------------------------------ */
+/* Design mode — the preview gets the room it deserves                 */
+/* ------------------------------------------------------------------ */
+/* The device frame is scaled with `transform`, so its layout box stays its
+   natural size: the shell has to collapse to the scaled box or the pane
+   scrolls around a screen that is visually tiny. */
+.re-preview-shell { display: flex; will-change: transform; transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* The divider between the running app and the inspector: a hairline that grows
+   a grab area on hover, the way a desktop IDE does it. */
+.re-split-handle {
+  position: relative;
+  width: 5px;
+  margin: 0 -2px;
+  cursor: col-resize;
+  flex: none;
+  z-index: 5;
+  background: transparent;
+  transition: background 160ms ease;
+}
+.re-split-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 2px;
+  border-radius: 999px;
+  background: var(--ide-border);
+  transition: background 160ms ease, inset 160ms ease;
+}
+.re-split-handle:hover::after, .re-split-handle:active::after {
+  inset: 0 1px;
+  background: var(--ide-accent);
+}
+@media (prefers-reduced-motion: reduce) { .re-preview-shell { transition: none; } }
+
+/* ================================================================== */
+/* Coding mode — the Cursor × Windsurf chrome                          */
+/*                                                                     */
+/* The IDE has its own tokens (--ide-*) so it follows the app theme:   */
+/* every surface below is a mix of those tokens, never a fixed colour. */
+/* ================================================================== */
+
+/* ---- activity rail ---- */
+.re-rail-badge {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--ide-accent);
+  color: var(--ide-bg, #0b0d12);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--ide-panel);
+}
+
+/* ---- the dock's tab strip ---- */
+.re-dock-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 5px 6px 0;
+  border-bottom: 1px solid var(--ide-border);
+  background: color-mix(in srgb, var(--ide-panel) 88%, var(--ide-bg));
+}
+.re-dock-tabs > button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px 7px;
+  border-radius: 8px 8px 0 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ide-faint);
+  transition: color 180ms ease, background 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-dock-tabs > button:hover { color: var(--ide-dim); background: var(--ide-hover); }
+.re-dock-tabs > button[data-active="true"] { color: var(--ide-text); background: var(--ide-active); }
+.re-dock-tabs > button[data-active="true"]::after {
+  content: '';
+  position: absolute;
+  left: 8px; right: 8px; bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--ide-accent);
+  animation: re-tab-underline 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes re-tab-underline { from { transform: scaleX(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+.re-tab-count {
+  min-width: 15px; height: 15px; padding: 0 4px;
+  border-radius: 999px; font-size: 9.5px; line-height: 15px; text-align: center;
+  background: var(--ide-hover); color: var(--ide-dim);
+}
+.re-tab-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--ide-warn, var(--warning)); }
+.re-tab-dot[data-live="true"] { background: var(--ide-accent); animation: re-dot-pulse 1.6s ease-in-out infinite; }
+@keyframes re-dot-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ide-accent) 60%, transparent); } 50% { box-shadow: 0 0 0 4px transparent; } }
+
+/* ---- live activity ---- */
+.re-timeline { display: flex; flex-direction: column; padding: 4px 0; }
+.re-timeline-live {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px 8px; font-size: 10.5px; letter-spacing: 0.02em; text-transform: uppercase;
+  color: var(--ide-accent);
+}
+.re-pulse-dot {
+  width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+  animation: re-dot-pulse 1.5s ease-in-out infinite;
+}
+.re-act-row {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; padding: 5px 12px; text-align: left;
+  font-size: 11.5px; color: var(--ide-dim);
+  border-left: 2px solid transparent;
+  transition: background 160ms ease, border-color 200ms ease, color 160ms ease;
+}
+button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(--ide-accent); color: var(--ide-text); }
+.re-act-icon { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
+.re-act-verb { font-weight: 600; color: var(--ide-text); margin-right: 5px; }
+.re-act-path {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ide-accent);
+  text-decoration: underline dotted color-mix(in srgb, var(--ide-accent) 40%, transparent);
+}
+.re-act-detail { margin-left: 5px; font-size: 10.5px; color: var(--ide-faint); }
+.re-act-clock { margin-left: auto; font-size: 9.5px; color: var(--ide-faint); }
+.re-act-count {
+  margin-left: auto; padding: 0 6px; border-radius: 999px; font-size: 9.5px;
+  background: var(--ide-hover); color: var(--ide-dim);
+}
+.re-composer-activity {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 6px 4px;
+  border-top: 1px solid var(--ide-border);
+}
+.re-composer-activity .re-act-row { padding: 5px 6px; }
+
+/* ---- agent pool ---- */
+.re-task {
+  margin: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--ide-border);
+  background: color-mix(in srgb, var(--ide-bg) 55%, transparent);
+  overflow: hidden;
+  transition: border-color 220ms ease, box-shadow 240ms ease;
+}
+.re-task[data-status="running"] { border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ide-accent) 10%, transparent); }
+.re-task[data-status="conflict"] { border-color: color-mix(in srgb, var(--ide-warn, var(--warning)) 45%, var(--ide-border)); }
+.re-task[data-status="merged"] { border-color: color-mix(in srgb, var(--ide-ok, var(--success)) 40%, var(--ide-border)); }
+.re-task-head { display: flex; align-items: center; gap: 6px; padding: 8px 9px 6px; }
+.re-task-dot { width: 7px; height: 7px; border-radius: 999px; flex: none; }
+.re-task-dot[data-live="true"] { animation: re-dot-pulse 1.5s ease-in-out infinite; }
+.re-task-title { display: block; font-size: 12px; font-weight: 600; color: var(--ide-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-task-id { font-family: var(--font-mono); font-size: 9.5px; color: var(--ide-faint); }
+.re-task-claim { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 9px 6px; }
+.re-filechip {
+  font-family: var(--font-mono); font-size: 9.5px;
+  padding: 2px 6px; border-radius: 6px;
+  background: var(--ide-hover); color: var(--ide-dim);
+  border: 1px solid var(--ide-border);
+}
+.re-task-activity { border-top: 1px solid var(--ide-border); padding: 3px 0; }
+.re-task-changes { border-top: 1px solid var(--ide-border); }
+.re-task-changes-head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 6px 9px; font-size: 11px; color: var(--ide-dim);
+}
+.re-task-changes-head:hover { background: var(--ide-hover); }
+.re-diff-count { font-family: var(--font-mono); font-size: 10px; padding: 0 3px; border-radius: 4px; }
+.re-diff-count.add { color: var(--ide-ok, var(--success)); background: color-mix(in srgb, var(--ide-ok, var(--success)) 14%, transparent); }
+.re-diff-count.del { color: var(--ide-danger, var(--danger)); background: color-mix(in srgb, var(--ide-danger, var(--danger)) 14%, transparent); }
+.re-file-row { display: flex; align-items: center; gap: 6px; padding: 3px 9px; font-size: 11px; }
+.re-file-row:hover { background: var(--ide-hover); }
+.re-file-toggle {
+  width: 15px; height: 15px; border-radius: 4px; flex: none;
+  display: grid; place-items: center;
+  border: 1px solid var(--ide-border-strong, var(--ide-border));
+  color: transparent;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.re-file-toggle[data-on="true"] {
+  background: color-mix(in srgb, var(--ide-ok, var(--success)) 22%, transparent);
+  border-color: color-mix(in srgb, var(--ide-ok, var(--success)) 55%, transparent);
+  color: var(--ide-ok, var(--success));
+}
+.re-file-name {
+  flex: 1; min-width: 0; text-align: left;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ide-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.re-file-name:hover { color: var(--ide-accent); }
+.re-file-kind { margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ide-faint); }
+.re-task-actions { display: flex; align-items: center; gap: 5px; padding: 7px 9px; border-top: 1px solid var(--ide-border); }
+.re-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 500;
+  background: var(--ide-hover); color: var(--ide-dim);
+  border: 1px solid var(--ide-border);
+}
+.re-chip[data-tone="cloud"] { color: var(--ide-accent); border-color: color-mix(in srgb, var(--ide-accent) 40%, transparent); }
+.re-chip[data-tone="local"] { color: var(--ide-dim); }
+.re-chip[data-tone="run"] { color: var(--ide-accent); border-color: color-mix(in srgb, var(--ide-accent) 40%, transparent); }
+.re-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--ide-hover); }
+.re-seg > button {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 6px; font-size: 10.5px; color: var(--ide-faint);
+  transition: background 180ms ease, color 180ms ease;
+}
+.re-seg > button[data-active="true"] { background: var(--ide-active); color: var(--ide-accent); }
+
+/* ---- slash menu ---- */
+.re-slash {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--ide-border-strong, var(--ide-border));
+  background: var(--ide-elevated, var(--ide-panel));
+  box-shadow: 0 22px 60px -22px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+.re-slash-head {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ide-faint);
+  border-bottom: 1px solid var(--ide-border);
+}
+.re-slash-head kbd {
+  font-family: var(--font-mono); font-size: 9px;
+  padding: 1px 4px; border-radius: 4px;
+  background: var(--ide-hover); color: var(--ide-dim);
+}
+.re-slash-list { max-height: 320px; overflow-y: auto; padding: 4px; }
+.re-slash-item {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  text-align: left;
+  transition: background 150ms ease;
+}
+.re-slash-item[data-active="true"] { background: var(--ide-active); }
+.re-slash-name { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--ide-accent); }
+.re-slash-sum { font-size: 11px; color: var(--ide-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-slash-src {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 2px 6px; border-radius: 999px;
+  background: var(--ide-hover); color: var(--ide-faint);
+}
+.re-slash-src[data-src="claude"] { color: #C08A5A; }
+.re-slash-src[data-src="codex"] { color: #7FB08A; }
+.re-slash-src[data-src="devin"] { color: #7FA6D0; }
+.re-slash-src[data-src="cursor"] { color: #B49AD8; }
+
+/* ---- command palette ---- */
+.re-palette-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-top: 12vh;
+  background: color-mix(in srgb, #000 40%, transparent);
+  backdrop-filter: blur(3px);
+}
+.re-palette {
+  width: 100%; max-width: 620px;
+  border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--ide-border-strong, var(--ide-border));
+  background: var(--ide-elevated, var(--ide-panel));
+  box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.7);
+}
+.re-palette-input { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--ide-border); }
+.re-palette-input kbd { font-family: var(--font-mono); font-size: 9.5px; padding: 2px 5px; border-radius: 5px; background: var(--ide-hover); color: var(--ide-faint); }
+.re-palette-list { max-height: 52vh; overflow-y: auto; padding: 5px; }
+.re-palette-item {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 8px 10px; border-radius: 9px; text-align: left;
+  transition: background 140ms ease;
+}
+.re-palette-item[data-active="true"] { background: var(--ide-active); }
+.re-palette-icon { display: grid; place-items: center; width: 18px; color: var(--ide-faint); }
+.re-palette-label { font-size: 12px; color: var(--ide-text); flex: none; }
+.re-palette-detail { flex: 1; min-width: 0; font-size: 11px; color: var(--ide-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-palette-kind { margin-left: auto; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ide-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .re-dock-tabs > button[data-active="true"]::after,
+  .re-pulse-dot, .re-tab-dot[data-live="true"], .re-task-dot[data-live="true"] { animation: none !important; }
+}
+.reduce-motion .re-dock-tabs > button[data-active="true"]::after,
+.reduce-motion .re-pulse-dot, .reduce-motion .re-tab-dot[data-live="true"] { animation: none !important; }

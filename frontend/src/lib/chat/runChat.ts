@@ -31,6 +31,8 @@ export interface RunOptions {
   contextRefs?: { box: 'files' | 'drive' | 'mail' | 'calendar'; id: string; title: string }[]
   /** Coding mode: the open project (enables ide_* tools + project context). */
   project?: string
+  /** Parallel agent: run this turn inside that agent's private working copy. */
+  agent?: string
   projectTree?: string
   /** Design mode: a live preview of the project is on screen and the AI may
    *  drive it (snapshot / click / assert / screenshot) through the bridge. */
@@ -328,7 +330,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
       if (shieldedSystem.findings.length) recordScan(`system context → ${providerMeta!.name}`, shieldedSystem.findings)
 
       // ---- tool-calling loop (questionnaire, connectors, search, IDE, MCP) ----
-      const toolCtx: ToolContext = { chatId, asstId, project: opts.project, projectTree: opts.projectTree }
+      const toolCtx: ToolContext = { chatId, asstId, project: opts.project, projectTree: opts.projectTree, agent: opts.agent }
       const specs = toolSpecs(toolCtx)
       const toolsAllowed = kind === 'openai' || kind === 'gemini' || kind === 'anthropic'
       const MAX_TOOL_ROUNDS = 4

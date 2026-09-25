@@ -18,6 +18,44 @@ export interface ToolContext {
   project?: string
   /** IDE files summary injected so the model knows what it can touch. */
   projectTree?: string
+  /**
+   * Parallel agent id. When set, every file and command tool works inside that
+   * agent's private copy of the project instead of the shared folder, which is
+   * what keeps two agents running at once from writing the same file.
+   */
+  agent?: string
+}
+
+/** The scope suffix every IDE call carries: `&agent=<id>` or nothing. */
+const scope = (ctx: ToolContext) => (ctx.agent ? `&agent=${encodeURIComponent(ctx.agent)}` : '')
+
+/**
+ * Live activity, for the "what is the AI doing right now" timeline. Every IDE
+ * tool call emits one of these; the Coding surface turns them into the cards
+ * beside the editor (read → edit → run), and the agents store keeps them per
+ * task so a background agent still has a story when you come back to it.
+ */
+export interface IdeActivity {
+  /** Stable id for lists that animate entries (assigned by the consumer). */
+  id?: string
+  agent?: string | null
+  project?: string | null
+  kind: 'read' | 'list' | 'write' | 'run' | 'search' | 'error'
+  path?: string
+  /** Optional 1-based line to jump to when the path is opened. */
+  line?: number
+  command?: string
+  added?: number
+  removed?: number
+  created?: boolean
+  bytes?: number
+  note?: string
+  at: number
+}
+
+function emitActivity(a: Omit<IdeActivity, 'at'>) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('re:agent-activity', { detail: { ...a, at: Date.now() } }))
 }
 
 interface ToolDef {
@@ -183,8 +221,13 @@ export const TOOLS: ToolDef[] = [
     parameters: { type: 'object', properties: {} },
     needsProject: true,
     run: async (_args, ctx) => {
-      const res = await fetch(`/api/ide/tree?project=${encodeURIComponent(ctx.project!)}`)
-      return await asText(res)
+      const res = await fetch(`/api/ide/tree?project=${encodeURIComponent(ctx.project!)}${scope(ctx)}`)
+      const out = await asText(res)
+      try {
+        const n = (JSON.parse(out) as any).tree?.length ?? 0
+        emitActivity({ agent: ctx.agent ?? null, project: ctx.project, kind: 'list', note: `listed ${n} top-level entries` })
+      } catch { /* not JSON: nothing to report */ }
+      return out
     },
   },
   {
@@ -193,8 +236,11 @@ export const TOOLS: ToolDef[] = [
     parameters: { type: 'object', properties: { path: STR }, required: ['path'] },
     needsProject: true,
     run: async (args, ctx) => {
-      const res = await fetch(`/api/ide/file?project=${encodeURIComponent(ctx.project!)}&path=${encodeURIComponent(String(args?.path ?? ''))}`)
-      return await asText(res)
+      const path = String(args?.path ?? '')
+      const res = await fetch(`/api/ide/file?project=${encodeURIComponent(ctx.project!)}&path=${encodeURIComponent(path)}${scope(ctx)}`)
+      const out = await asText(res)
+      emitActivity({ agent: ctx.agent ?? null, project: ctx.project, kind: 'read', path, bytes: out.length, note: 'read' })
+      return out
     },
   },
   {
@@ -207,12 +253,17 @@ export const TOOLS: ToolDef[] = [
     },
     needsProject: true,
     run: async (args, ctx) => {
+      const path = String(args?.path ?? '')
+      const content = String(args?.content ?? '')
       const res = await fetch('/api/ide/file', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ project: ctx.project, path: String(args?.path ?? ''), content: String(args?.content ?? '') }),
+        body: JSON.stringify({ project: ctx.project, path, content, agent: ctx.agent }),
       })
       const out = await asText(res)
-      window.dispatchEvent(new CustomEvent('re:ide-changed', { detail: { project: ctx.project } }))
+      let added = 0, removed = 0, created = false
+      try { const j = JSON.parse(out) as any; added = j.added ?? 0; removed = j.removed ?? 0; created = !!j.created } catch { added = content.split('\n').length }
+      emitActivity({ agent: ctx.agent ?? null, project: ctx.project, kind: 'write', path, added, removed, created, bytes: content.length })
+      window.dispatchEvent(new CustomEvent('re:ide-changed', { detail: { project: ctx.project, agent: ctx.agent } }))
       return out
     },
   },
@@ -232,7 +283,7 @@ export const TOOLS: ToolDef[] = [
       // for anything mutating) — then we ask the human.
       let res = await fetch('/api/ide/exec', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ project: ctx.project, command }),
+        body: JSON.stringify({ project: ctx.project, command, agent: ctx.agent }),
       })
       let out: any = await res.json()
       if (out.blocked) return `BLOCKED by safety rules: ${out.reason}`
@@ -242,10 +293,11 @@ export const TOOLS: ToolDef[] = [
         if (!approved) return 'The user declined to run this command. Ask how they want to proceed instead.'
         res = await fetch('/api/ide/exec', {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ project: ctx.project, command, confirmed: true }),
+          body: JSON.stringify({ project: ctx.project, command, confirmed: true, agent: ctx.agent }),
         })
         out = await res.json()
       }
+      emitActivity({ agent: ctx.agent ?? null, project: ctx.project, kind: 'run', command, note: `exit ${out.exit ?? '?'}` })
       return JSON.stringify({ exit: out.exit, timedOut: out.timedOut, stdout: (out.stdout ?? '').slice(0, 6000), stderr: (out.stderr ?? '').slice(0, 2000) })
     },
   },

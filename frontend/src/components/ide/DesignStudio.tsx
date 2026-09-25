@@ -31,6 +31,51 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
   const [device, setDevice] = useState<DeviceId>('fill')
   const [size, setSize] = useState({ w: 1440, h: 900 })
   const [zoom, setZoom] = useState(1)
+  // Sizing that adapts to the window instead of shrinking to a stamp: the
+  // device frame is fitted to the pane it is standing in, the inspector can be
+  // dragged or dropped, and "focus" gives the screen the whole workbench.
+  const [pane, setPane] = useState({ w: 0, h: 0 })
+  const [inspectorW, setInspectorW] = useState(() => {
+    const saved = Number(typeof localStorage !== 'undefined' ? localStorage.getItem('re.design.inspectorW') : 0)
+    return saved >= 300 && saved <= 720 ? saved : 380
+  })
+  const [focusPreview, setFocusPreview] = useState(false)
+  const previewPaneRef = useRef<HTMLDivElement>(null)
+  const sizeRef = useRef({ w: 0, h: 0 }); sizeRef.current = { w: size.w, h: size.h }
+  useEffect(() => {
+    const el = previewPaneRef.current
+    if (!el) return
+    const measure = () => setPane({ w: el.clientWidth, h: el.clientHeight })
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [focusPreview, inspectorW])
+  // How much the device frame has to shrink to sit inside the pane. Zoom is a
+  // multiplier on top of that, so 100% always means "as large as fits".
+  const fit = device === 'fill' || !pane.w || !pane.h
+    ? 1
+    : Math.min(1, (pane.w - 32) / Math.max(1, size.w), (pane.h - 32) / Math.max(1, size.h))
+  const scale = Math.max(0.1, zoom * fit)
+  const pct = Math.round(scale * 100)
+  useEffect(() => {
+    try { localStorage.setItem('re.design.inspectorW', String(inspectorW)) } catch { /* private mode */ }
+  }, [inspectorW])
+
+  /** Drag the divider between the screen and the inspector. */
+  const startSplit = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = inspectorW
+    const move = (ev: PointerEvent) => setInspectorW(Math.max(300, Math.min(720, startW + (startX - ev.clientX))))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   const [tab, setTab] = useState<Tab>('assistant')
   const [picking, setPicking] = useState(false)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
@@ -321,9 +366,19 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                 </>
               )}
               <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))} aria-label="Zoom"
-                className="ide-input" style={{ width: 70, padding: '4px 6px' }}>
-                {[0.5, 0.75, 1, 1.25].map((z) => <option key={z} value={z}>{Math.round(z * 100)}%</option>)}
+                className="ide-input" style={{ width: 88, padding: '4px 6px' }}>
+                {[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => (
+                  <option key={z} value={z}>{z === 1 ? `Fit · ${pct}%` : `${Math.round(z * 100)}%`}</option>
+                ))}
               </select>
+              <button onClick={() => setZoom(1)} title="Fit the frame to the pane" className="ide-icon-btn" style={{ width: 24, height: 24 }}>
+                <Maximize2 size={11} />
+              </button>
+              <button onClick={() => setFocusPreview((v) => !v)}
+                title={focusPreview ? 'Show the inspector again' : 'Give the screen the whole workbench'}
+                className={focusPreview ? 'ide-btn primary' : 'ide-btn outlined'} style={{ height: 24 }}>
+                <Maximize2 size={11} /> {focusPreview ? 'Exit focus' : 'Focus'}
+              </button>
             </div>
 
             <button onClick={() => void togglePick()} title="Pick an element from the screen"
@@ -340,7 +395,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           </div>
 
           {/* the screen */}
-          <div className="flex-1 min-h-0 overflow-auto p-4 grid place-items-center" style={{ background: 'var(--ide-bg)' }}>
+          <div ref={previewPaneRef} data-preview-pane className="flex-1 min-h-0 overflow-auto p-4 grid place-items-center" style={{ background: 'var(--ide-bg)' }}>
             {!port ? (
               <div className="max-w-[420px] text-center flex flex-col items-center gap-3 py-10">
                 <MonitorUp size={30} style={{ color: 'var(--ide-faint)' }} />
@@ -354,13 +409,11 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                 </button>
               </div>
             ) : (
-              <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', transition: 'transform 120ms ease' }}>
+              <div className="re-preview-shell" style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
                 <div className="rounded-[12px] overflow-hidden"
                   style={{
-                    width: device === 'fill' ? '100%' : size.w,
-                    height: device === 'fill' ? '100%' : size.h,
-                    minWidth: device === 'fill' ? 480 : undefined,
-                    maxWidth: '100%',
+                    width: device === 'fill' ? Math.max(320, pane.w - 32) : size.w,
+                    height: device === 'fill' ? Math.max(240, pane.h - 32) : size.h,
                     border: '1px solid var(--ide-border-strong)',
                     boxShadow: 'var(--ide-shadow)',
                     background: '#fff',
@@ -372,8 +425,8 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                     title={`Preview of ${project}`}
                     onLoad={() => { designSession.attach(frameRef.current); setBanner('') }}
                     style={{
-                      width: device === 'fill' ? '100%' : size.w,
-                      height: device === 'fill' ? '100%' : size.h,
+                      width: '100%',
+                      height: '100%',
                       border: 0,
                       background: '#fff',
                     }}
@@ -383,6 +436,14 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
               </div>
             )}
           </div>
+
+          {device !== 'fill' && (
+            <div className="shrink-0 flex items-center gap-2 px-3 py-1 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
+              <span className="tabular-nums">{size.w}×{size.h} device frame · shown at {pct}%</span>
+              <div className="flex-1" />
+              <span>drag the divider to resize · Focus hides the inspector</span>
+            </div>
+          )}
 
           {/* findings strip */}
           <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
@@ -401,7 +462,14 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
 
         {/* ---- right rail (the AI docks out to a pill in full screen) ---- */}
         {!focus && (
-        <aside className="w-[430px] shrink-0 min-h-0 flex flex-col" style={{ borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+        <>
+        {!focusPreview && (
+          <div onPointerDown={startSplit} onDoubleClick={() => setInspectorW((w) => (w > 380 ? 380 : 560))}
+            className="re-split-handle" role="separator" aria-orientation="vertical" aria-label="Resize the preview"
+            title="Drag to resize · double-click to toggle" />
+        )}
+        <aside className="shrink-0 min-h-0 flex flex-col"
+          style={{ width: focusPreview ? 0 : inspectorW, display: focusPreview ? 'none' : undefined, borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
           <div className="shrink-0 flex items-center gap-0.5 px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <RailTab active={tab === 'assistant'} onClick={() => setTab('assistant')} icon={<Sparkles size={12} />} label="Assistant" />
             <RailTab active={tab === 'inspect'} onClick={() => setTab('inspect')} icon={<Search size={12} />} label="Inspect" badge={snapshot?.elements.length} />
@@ -546,6 +614,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             )}
           </div>
         </aside>
+        </>
         )}
 
         {focus && <AIFloat project={project} tree={tree} design />}

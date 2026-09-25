@@ -37,6 +37,8 @@ import { SettingsSheet } from '@/components/settings/SettingsSheet'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 import { installViewTransitions } from '@/hooks/useViewTransitions'
+import { installFramePin } from '@/lib/dom/scroll'
+import { wireAgentActivity } from '@/lib/ide/agents'
 
 /** Preload every lazy route chunk during idle time — first paint stays lean,
  *  but palette/navigation targets are warm by the time the user needs them. */
@@ -105,6 +107,15 @@ function RoutedApp() {
   const starfield = useUI((s) => s.starfield)
   const location = useLocation()
   useGlobalShortcuts()
+
+  // The app frame is a fixed, non-scrolling box. Anything that scrolls it — a
+  // stray scrollIntoView from a list, the browser revealing a focused input —
+  // leaves the whole UI parked off-centre and the user cannot scroll it back,
+  // because `overflow: hidden` ignores the wheel. Put it back, always.
+  useEffect(() => installFramePin(), [])
+
+  // Agent tasks and the chat share one activity feed (coding mode only).
+  useEffect(() => { wireAgentActivity() }, [])
 
   // Transient overlays must never survive navigation: any leftover full-screen
   // scrim would silently swallow every click until a refresh. Close them all

@@ -13,6 +13,10 @@ import {
   projectDirOf, projectDirFor, isInternalEntry, projectsRootOf,
   isStrictlyWithinDir, normalizeProjectName,
 } from '../preview/paths'
+import {
+  forkTree, mergeTree, changesIn, readBase, worktreePathFor, agentIdOk,
+  lineDelta, describeChanges,
+} from '../preview/worktree'
 
 const EXEC_TIMEOUT_MS = 60_000
 const OUTPUT_CAP = 200_000
@@ -65,6 +69,35 @@ export function ideRoutes(rt: Runtime) {
   mkdir(projectsRoot, { recursive: true }).catch(() => {})
 
   const projectDir = (name: string): string | null => projectDirOf(projectsRoot, name)
+
+  // ---------- parallel agents: one working copy each ----------
+  // Agents never edit the same folder as each other (or as you): every one of
+  // them gets a private copy under <data>/worktrees/<project>/<agent>, and its
+  // work comes back through a checked merge. `agent` is optional on every file
+  // route so the same endpoint serves both worlds.
+  const worktreesRoot = join(rt.dataDir, 'worktrees')
+  mkdir(worktreesRoot, { recursive: true }).catch(() => {})
+  const worktreeDir = (project: string, agent: string): string | null => {
+    const name = projectDirOf(projectsRoot, project)
+    if (!name) return null
+    const dir = worktreePathFor(worktreesRoot, project, agent, (p) => projectDir(p) !== null)
+    if (!dir) return null
+    // Belt and braces: the resolved path must sit inside the worktrees root.
+    return isStrictlyWithinDir(worktreesRoot, dir) ? dir : null
+  }
+  /** The folder a request works in: the agent's copy when one is named. */
+  const scopedDir = (project: string, agent?: string | null): string | null => {
+    if (agent) {
+      const wt = worktreeDir(project, agent)
+      if (!wt || !existsSync(wt)) return null
+      return wt
+    }
+    return projectDir(project)
+  }
+  const agentParam = (c: any, key = 'agent'): string | null => {
+    const v = c.req.query(key) ?? null
+    return v && agentIdOk(v) ? v : null
+  }
 
   /** Existing folder that matches `name` case-insensitively (any platform). */
   const existingFor = async (name: string): Promise<string | null> => {
@@ -248,7 +281,7 @@ export function ideRoutes(rt: Runtime) {
 
   // ---------- files ----------
   r.get('/ide/tree', async (c) => {
-    const dir = projectDir(c.req.query('project') ?? '')
+    const dir = scopedDir(c.req.query('project') ?? '', agentParam(c))
     if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)
     type Node = { name: string; path: string; dir: boolean; children?: Node[] }
     const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv'])
@@ -268,7 +301,7 @@ export function ideRoutes(rt: Runtime) {
   })
 
   r.get('/ide/file', async (c) => {
-    const dir = projectDir(c.req.query('project') ?? '')
+    const dir = scopedDir(c.req.query('project') ?? '', agentParam(c))
     const abs = dir ? safeRel(dir, c.req.query('path') ?? '') : null
     if (!abs) return c.json({ error: 'Path must stay inside the project.' }, 400)
     try {
@@ -281,20 +314,26 @@ export function ideRoutes(rt: Runtime) {
   })
 
   r.post('/ide/file', async (c) => {
-    let body: { project?: string; path?: string; content?: string }
+    let body: { project?: string; path?: string; content?: string; agent?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    const dir = projectDir(body.project ?? '')
+    const dir = scopedDir(body.project ?? '', body.agent && agentIdOk(body.agent) ? body.agent : null)
     const abs = dir ? safeRel(dir, body.path ?? '') : null
     if (!abs) return c.json({ error: 'Path must stay inside the project.' }, 400)
     if (typeof body.content !== 'string' || body.content.length > 1_000_000) return c.json({ error: 'Content missing or over 1 MB.' }, 413)
     await mkdir(dirname(abs), { recursive: true })
+    // Report what changed, so the UI can show "+12 −3" next to the file the
+    // moment the AI touches it (this is the visibility Cursor is famous for).
+    let before = ''
+    let created = true
+    try { before = await readFile(abs, 'utf8'); created = false } catch { before = '' }
     await writeFile(abs, body.content, 'utf8')
-    return c.json({ ok: true })
+    const delta = created ? { added: body.content.split('\n').length, removed: 0 } : lineDelta(before, body.content)
+    return c.json({ ok: true, created, added: delta.added, removed: delta.removed, bytes: body.content.length })
   })
 
   // Delete a file (or an empty folder) inside the project.
   r.delete('/ide/file', async (c) => {
-    const dir = projectDir(c.req.query('project') ?? '')
+    const dir = scopedDir(c.req.query('project') ?? '', agentParam(c))
     const abs = dir ? safeRel(dir, c.req.query('path') ?? '') : null
     if (!abs) return c.json({ error: 'Path must stay inside the project.' }, 400)
     if (!existsSync(abs)) return c.json({ error: 'File not found.' }, 404)
@@ -304,7 +343,7 @@ export function ideRoutes(rt: Runtime) {
 
   // Text search across the project (skips heavy/ignored folders, caps results).
   r.get('/ide/search', async (c) => {
-    const dir = projectDir(c.req.query('project') ?? '')
+    const dir = scopedDir(c.req.query('project') ?? '', agentParam(c))
     if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)
     const q = (c.req.query('q') ?? '').trim()
     if (q.length < 2) return c.json({ results: [], note: 'Type at least 2 characters.' })
@@ -347,9 +386,9 @@ export function ideRoutes(rt: Runtime) {
   // user. Dangerous commands are refused outright; guarded ones require an
   // explicit confirm flag that the UI only sets after the user approves.
   r.post('/ide/exec', async (c) => {
-    let body: { project?: string; command?: string; confirmed?: boolean; timeoutMs?: number }
+    let body: { project?: string; command?: string; confirmed?: boolean; timeoutMs?: number; agent?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    const dir = projectDir(body.project ?? '')
+    const dir = scopedDir(body.project ?? '', body.agent && agentIdOk(body.agent) ? body.agent : null)
     const command = (body.command ?? '').trim()
     if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)
     if (!command || command.length > 2000) return c.json({ error: 'Empty or oversized command.' }, 400)
@@ -370,8 +409,85 @@ export function ideRoutes(rt: Runtime) {
       child.on('close', (code) => { clearTimeout(to); res({ exit: code, stdout, stderr, timedOut }) })
       child.on('error', (e) => { clearTimeout(to); res({ exit: -1, stdout, stderr: String(e), timedOut }) })
     })
-    console.log(`[re] ide exec [${body.project}] exit=${out.exit} ${command.slice(0, 100)}`)
+    console.log(`[re] ide exec [${body.project}${body.agent ? ` · agent ${body.agent}` : ''}] exit=${out.exit} ${command.slice(0, 100)}`)
     return c.json({ ...out, ms: Date.now() - t0, stdout: out.stdout.slice(0, OUTPUT_CAP), stderr: out.stderr.slice(0, OUTPUT_CAP), truncated: out.stdout.length >= OUTPUT_CAP || out.stderr.length >= OUTPUT_CAP })
+  })
+
+  // ---------- parallel agents (Codex-style, without the collisions) ----------
+  // fork → work → review → merge. Each agent gets its own copy of the project,
+  // so two agents running at once cannot write the same file; the merge is the
+  // only place they meet, and it refuses to clobber anything you changed.
+  r.post('/ide/agents/fork', async (c) => {
+    let body: { project?: string; agent?: string }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const project = body.project ?? ''
+    const agent = body.agent ?? ''
+    if (!agentIdOk(agent)) return c.json({ error: 'Agent id must be 3-40 chars of a-z, 0-9 or -.' }, 400)
+    const src = projectDir(project)
+    const dest = worktreeDir(project, agent)
+    if (!src || !existsSync(src)) return c.json({ error: 'Project not found.' }, 404)
+    if (!dest) return c.json({ error: 'Could not allocate a working copy.' }, 400)
+    try {
+      const fork = await forkTree(src, dest)
+      return c.json({ ok: true, agent, worktree: dest, files: fork.files, bytes: fork.bytes, skipped: fork.skipped.length })
+    } catch (e: any) {
+      return c.json({ error: `Could not fork the project: ${String(e?.message ?? e)}` }, 500)
+    }
+  })
+
+  r.get('/ide/agents/changes', async (c) => {
+    const project = c.req.query('project') ?? ''
+    const agent = c.req.query('agent') ?? ''
+    const dest = worktreeDir(project, agent)
+    if (!dest || !existsSync(dest)) return c.json({ error: 'No working copy for that agent.' }, 404)
+    const changes = await changesIn(dest)
+    const src = projectDir(project)
+    const base = await readBase(dest)
+    // Line counts for the review pane: base content vs the agent's version.
+    const files = []
+    for (const change of changes.slice(0, 200)) {
+      let added = 0, removed = 0, before = ''
+      try { before = src && base[change.path] ? await readFile(join(src, change.path), 'utf8') : '' } catch { before = '' }
+      try {
+        const after = await readFile(join(dest, change.path), 'utf8')
+        if (change.kind === 'deleted') { removed = before.split('\n').length }
+        else {
+          const d = lineDelta(before, after)
+          added = d.added; removed = d.removed
+        }
+      } catch { /* binary */ }
+      files.push({ ...change, added, removed, base: before.slice(0, 400_000) })
+    }
+    return c.json({ changes: files, summary: describeChanges(changes), skipped: changes.length - files.length })
+  })
+
+  r.post('/ide/agents/merge', async (c) => {
+    let body: { project?: string; agent?: string; files?: string[] }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const dest = worktreeDir(body.project ?? '', body.agent ?? '')
+    const src = projectDir(body.project ?? '')
+    if (!dest || !existsSync(dest)) return c.json({ error: 'No working copy for that agent.' }, 404)
+    if (!src || !existsSync(src)) return c.json({ error: 'Project not found.' }, 404)
+    const only = Array.isArray(body.files) ? body.files.filter((f) => typeof f === 'string' && !f.includes('..')) : undefined
+    const result = await mergeTree({ worktreeDir: dest, projectDir: src, only })
+    console.log(`[re] agent merge [${body.project} · ${body.agent}] ${result.merged.length} merged, ${result.conflicts.length} conflicted`)
+    return c.json({
+      ok: true,
+      merged: result.merged,
+      conflicts: result.conflicts,
+      unchanged: result.unchanged.length,
+      missing: result.missing,
+      summary: `${result.merged.length} file${result.merged.length === 1 ? '' : 's'} merged${result.conflicts.length ? `, ${result.conflicts.length} conflict(s) kept aside` : ''}`,
+    })
+  })
+
+  r.post('/ide/agents/discard', async (c) => {
+    let body: { project?: string; agent?: string }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const dest = worktreeDir(body.project ?? '', body.agent ?? '')
+    if (!dest) return c.json({ error: 'Unknown agent.' }, 400)
+    await rm(dest, { recursive: true, force: true })
+    return c.json({ ok: true })
   })
 
   // Git passthrough — only git subcommands on a safe list, always inside the project.

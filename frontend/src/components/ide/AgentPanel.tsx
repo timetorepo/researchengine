@@ -14,6 +14,21 @@ import { ToolTraceChips, ExecApproval, QuestionnaireCard } from '@/components/ch
 import { attachmentTray, type TrayAttachment } from '@/lib/ide/bridge'
 import type { ChatMessage } from '@/types'
 import type { TreeNode } from './types'
+import { scrollToEnd } from '@/lib/dom/scroll'
+import { SlashMenu } from './SlashMenu'
+import { ActivityRow } from './AgentTimeline'
+import { SLASH_COMMANDS, isCommandDraft, parseCommand, expandCommand } from '@/lib/ide/commands'
+import { subscribeActivity, useAgents } from '@/lib/ide/agents'
+import type { IdeActivity } from '@/lib/chat/tools'
+
+/**
+ * Devin's handoff needs to know which side a provider is on: the model servers
+ * on this machine (Ollama, LM Studio, a local OpenAI-compatible box) versus
+ * everything that leaves the device. `/handoff` moves a session between them,
+ * so the distinction is a rule, not a label.
+ */
+const isLocalProvider = (p: (typeof PROVIDERS)[number]) =>
+  p.kind === 'ollama' || /(^|\/\/)(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/.test(p.baseUrl)
 
 function useTray(): TrayAttachment[] {
   return useSyncExternalStore(attachmentTray.subscribe, attachmentTray.get, attachmentTray.get)
@@ -82,8 +97,18 @@ export function AgentPanel({
   const [modelOpen, setModelOpen] = useState(false)
   const [modelQuery, setModelQuery] = useState('')
   const [, force] = useState(0)
-  const endRef = useRef<HTMLDivElement>(null)
+  // Devin's handoff: which side this session runs on. `local` keeps everything
+  // on this machine; `cloud` moves the task to an API model.
+  const [handoff, setHandoff] = useState<'local' | 'cloud'>('local')
+  const [slashOpen, setSlashOpen] = useState(false)
+  // A handoff can arrive from the palette or the status bar before the model
+  // list is known, so it is remembered and applied here — where it can still
+  // pick a model that actually exists on that side.
+  const pendingHandoff = useRef<null | 'local' | 'cloud'>(null)
+  const [activity, setActivity] = useState<IdeActivity[]>([])
+  const listRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const tray = useTray()
   const ui = useUI()
   const queue = useUI((s) => s.queue[chatId ?? ''] ?? [])
@@ -104,6 +129,36 @@ export function AgentPanel({
 
   const activeIntent = INTENTS.find((i) => i.id === intent) ?? INTENTS[0]
   const activeModelLabel = modelRef ? modelRef.split(':')[1] : (defaultModelName || 'default model')
+
+  // The models that actually exist on each side, key-first: a handoff should
+  // land on something that works, not on an empty provider.
+  const sideRefs = useMemo(() => {
+    const build = (local: boolean) => PROVIDERS
+      .filter((p) => isLocalProvider(p) === local && settings.providers[p.id]?.enabled !== false && (settings.providerModels[p.id] ?? []).length)
+      .sort((a, b) => Number(!!settings.providers[b.id]?.apiKey) - Number(!!settings.providers[a.id]?.apiKey))
+      .flatMap((p) => (settings.providerModels[p.id] ?? []).slice(0, 12).map((m) => ({ ref: `${p.id}:${m}`, label: `${m} · ${p.name}` })))
+    return { local: build(true), cloud: build(false) }
+  }, [settings.providers, settings.providerModels])
+
+  /** Move the session to the other side, and to a model that exists there. */
+  const applyHandoff = (to: 'local' | 'cloud') => {
+    setHandoff(to)
+    const pool = sideRefs[to]
+    if (!pool.some((m) => m.ref === modelRef)) setModelRef(pool[0]?.ref ?? '')
+    ui.toast(
+      to === 'cloud' ? 'Handed off to the cloud' : 'Back on this machine',
+      pool.length
+        ? `This session now runs on ${pool[0].label}.`
+        : `No model is configured on the ${to} side yet — anything you send will use the default model.`,
+      to === 'cloud' ? 'info' : 'success',
+    )
+  }
+  useEffect(() => {
+    if (!pendingHandoff.current) return
+    applyHandoff(pendingHandoff.current)
+    pendingHandoff.current = null
+  }, [sideRefs])
+
   const streaming = chatId ? isStreamingChat(chatId) : false
 
   useEffect(() => {
@@ -111,7 +166,38 @@ export function AgentPanel({
     return () => clearInterval(iv)
   }, [chatId])
 
-  useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth' }) }, [chat?.messages.length, streaming])
+  // Scroll the transcript itself, never the page: an unscoped scrollIntoView
+  // walks up and scrolls the app frame (`overflow: hidden` boxes are scrollable
+  // by script but not by the user, which is how the IDE opened at the bottom).
+  useEffect(() => { scrollToEnd(listRef.current, { smooth: true }) }, [chat?.messages.length, streaming])
+
+  // Everything the AI touches in this session, live — the same feed the agent
+  // pool reads, so a chat turn and a background agent tell the same story.
+  // The command palette and the status bar can push a command in here; a
+  // handoff can flip which side the session runs on.
+  useEffect(() => {
+    const onCommand = (e: Event) => {
+      const id = (e as CustomEvent).detail?.id as string | undefined
+      const cmd = SLASH_COMMANDS.find((c) => c.id === id)
+      if (!cmd) return
+      setText(cmd.prompt)
+      if (cmd.cloud) applyHandoff('cloud')
+      textareaRef.current?.focus()
+    }
+    const onHandoff = (e: Event) => { pendingHandoff.current = (e as CustomEvent).detail?.to === 'cloud' ? 'cloud' : 'local' }
+    window.addEventListener('re:ide-command', onCommand)
+    window.addEventListener('re:ide-handoff', onHandoff)
+    return () => {
+      window.removeEventListener('re:ide-command', onCommand)
+      window.removeEventListener('re:ide-handoff', onHandoff)
+    }
+  }, [])
+
+  useEffect(() => subscribeActivity((line) => {
+    if (line.agent) return
+    if (line.project && line.project !== project) return
+    setActivity((list) => [...list.slice(-60), { ...line, id: `${line.at}-${line.kind}-${line.path ?? line.command ?? ''}` }])
+  }), [project])
 
   const treeText = useMemo(() => tree.map((n) => (n.dir ? `${n.name}/` : n.name)).join('\n'), [tree])
 
@@ -158,7 +244,18 @@ export function AgentPanel({
       {/* header */}
       <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--ide-border)' }}>
         <Sparkles size={13} style={{ color: 'var(--ide-accent)' }} />
-        <span className="text-[12px] font-medium flex-1 truncate">{design ? 'Design assistant' : 'AI pair-programmer'}</span>
+        <span className="text-[12px] font-medium truncate">{design ? 'Design assistant' : 'AI pair-programmer'}</span>
+        <span className="flex-1" />
+        <button
+          onClick={() => applyHandoff(handoff === 'local' ? 'cloud' : 'local')}
+          className="re-chip"
+          data-tone={handoff}
+          title={handoff === 'local'
+            ? `On this machine (${activeModelLabel}). Click to hand the task to a cloud model.`
+            : `On a cloud model (${activeModelLabel}). Click to bring the task back to a local model.`}
+        >
+          {handoff === 'local' ? <Cpu size={9} /> : <Globe size={9} />} {handoff}
+        </button>
         {streaming
           ? <span className="ide-badge accent"><span className="re-orb re-orb-sm" aria-hidden /> thinking</span>
           : <span className="ide-badge">{design ? 'sees the screen' : 'ready'}</span>}
@@ -187,7 +284,7 @@ export function AgentPanel({
       </AnimatePresence>
 
       {/* messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
+      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
         {!chat?.messages.length && (
           <div className="text-[12px] leading-relaxed" style={{ color: 'var(--ide-dim)' }}>
             {design
@@ -229,7 +326,7 @@ export function AgentPanel({
             {queue.length} queued message{queue.length > 1 ? 's' : ''} — sent when the current answer finishes
           </div>
         )}
-        <div ref={endRef} />
+
       </div>
 
       {/* attachments + composer */}
@@ -328,12 +425,55 @@ export function AgentPanel({
           <span className="text-[10px] truncate" style={{ color: 'var(--text-3)' }}>{activeIntent.hint}</span>
         </div>
 
-        <div className="ide-composer p-2">
+        {activity.length > 0 && (
+          <div className="re-composer-activity" title="What the AI just did">
+            <ActivityRow line={activity[activity.length - 1]} compact />
+            <span className="re-act-count">{activity.length}</span>
+          </div>
+        )}
+
+        <div className="ide-composer p-2 relative">
+          <AnimatePresence>
+            {slashOpen && (
+              <div className="absolute left-2 right-2 bottom-[calc(100%-6px)] z-30">
+                <SlashMenu
+                  query={text}
+                  onClose={() => setSlashOpen(false)}
+                  onPick={(c) => { setText(c.prompt); setSlashOpen(false); if (c.cloud) applyHandoff('cloud') }}
+                />
+              </div>
+            )}
+          </AnimatePresence>
           <textarea
+            ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => { const v = e.target.value; setText(v); setSlashOpen(isCommandDraft(v)) }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const t = text; setText(''); send(t) }
+              if (slashOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) return
+              if (e.key === 'Escape' && slashOpen) { e.preventDefault(); setSlashOpen(false); return }
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                const t = text
+                setText(''); setSlashOpen(false)
+                // A slash command routes itself: agents run in their own copy,
+                // /handoff just moves the session, and the cloud ones switch
+                // the model before the turn is sent.
+                const parsed = parseCommand(t)
+                if (parsed?.command.cloud) applyHandoff('cloud')
+                if (parsed?.command.asAgent) {
+                  void useAgents.getState().spawn({
+                    title: parsed.command.label.replace('/', '') + (parsed.arg ? ` · ${parsed.arg.slice(0, 32)}` : ''),
+                    prompt: expandCommand(parsed.command, parsed.arg),
+                    project,
+                    claim: [],
+                    handoff: parsed.command.cloud ? 'cloud' : 'local',
+                    design,
+                  })
+                  ui.toast('Agent spawned', 'It is working in its own copy of the project — see the Agents panel to merge.', 'success')
+                  return
+                }
+                send(parsed ? expandCommand(parsed.command, parsed.arg) : t)
+              }
             }}
             rows={2}
             placeholder={streaming ? 'Type to queue another message…' : design ? 'Ask about this screen…' : 'Ask the AI about this project…'}

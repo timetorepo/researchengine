@@ -5,12 +5,18 @@ import {
   TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,
   Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2,
   FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink,
+  Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { DesignStudio } from './DesignStudio'
 import { AgentPanel, chatIdFor } from './AgentPanel'
 import { AIFloat, FocusButton } from './AIFloat'
+import { AgentsDock } from './AgentsDock'
+import { AgentTimeline } from './AgentTimeline'
+import { IDECommandPalette, ideActions, type PaletteAction } from './IDECommandPalette'
+import { useAgents, subscribeActivity, wireAgentActivity } from '@/lib/ide/agents'
+import type { IdeActivity } from '@/lib/chat/tools'
 import { CodeEditor } from './CodeEditor'
 import type { ProjectInfo, TreeNode, OpenFile } from './types'
 import { designSession, previewUrlFor } from '@/lib/ide/bridge'
@@ -20,10 +26,21 @@ import { SAMPLE_PROJECT } from '@/lib/ide/sample'
 import { createProjectRobust, postJson } from '@/lib/ide/create'
 import { normalizeProjectName } from '@/lib/ide/names'
 import { fmt, timeAgo } from '@/lib/utils'
+import { scrollToEnd, scrollChildIntoView } from '@/lib/dom/scroll'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
 /* ================================================================== */
+/**
+ * The chat a task belongs to lives on its own route, and the IDE sits inside
+ * the app's HashRouter — so this is a hash move, not a router hook. That also
+ * keeps Workbench mountable on its own (tests, previews) with no Router above
+ * it.
+ */
+function openAgentChat(chatId: string) {
+  window.location.hash = `#/chat/${chatId}`
+}
+
 export function CodingView() {
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null)
   const [open, setOpen] = useState<string | null>(null)
@@ -287,6 +304,53 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   const [results, setResults] = useState<{ path: string; line: number; text: string }[]>([])
   const [searching, setSearching] = useState(false)
   const [preview, setPreview] = useState<{ running: boolean; port?: number; kind?: string; ready?: boolean; error?: string | null }>({ running: false })
+  // The right dock is a workspace of its own now: the chat, the parallel agent
+  // pool, and a live "what did the AI just touch" feed.
+  const [dockTab, setDockTab] = useState<'ai' | 'agents' | 'activity'>('ai')
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [sessionActivity, setSessionActivity] = useState<IdeActivity[]>([])
+  const agentTasks = useAgents((st) => st.tasks.filter((t) => t.project === project))
+  const agentRunning = agentTasks.filter((t) => t.status === 'running' || t.status === 'forking').length
+  const agentReady = agentTasks.filter((t) => t.status === 'ready' || t.status === 'conflict').length
+
+  // Agent tasks keep their tool calls; the chat's own calls land here too, so
+  // the Activity tab covers "what has the AI done to this project".
+  useEffect(() => { wireAgentActivity() }, [])
+  useEffect(() => subscribeActivity((line) => {
+    if (line.agent) return
+    if (line.project && line.project !== project) return
+    setSessionActivity((list) => [...list.slice(-80), { ...line, id: `${line.at}-${line.kind}-${line.path ?? line.command ?? ''}` }])
+  }), [project])
+
+  // ⌘K on the IDE, the way every editor does it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen((v) => !v) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const allFiles = useMemo(() => {
+    const out: string[] = []
+    const walk = (nodes: TreeNode[]) => { for (const n of nodes) { if (n.dir) walk(n.children ?? []); else out.push(n.path) } }
+    walk(tree)
+    return out
+  }, [tree])
+
+  // Actions for ⌘K. Cheap to build, so it is made per render rather than
+  // memoised (which would have to capture `save` before it is defined).
+  const paletteActions = (): PaletteAction[] => ideActions({
+    onDesign,
+    onTerminal: () => { setPanel('terminal'); setPanelOpen(true) },
+    onProblems: () => { setPanel('problems'); setPanelOpen(true) },
+    onGit: () => { setPanel('git'); setPanelOpen(true) },
+    onSave: () => void save(),
+    onSpawnAgent: () => { setDockTab('agents'); setAgentOpen(true) },
+    onHandoffCloud: () => { setDockTab('agents'); setAgentOpen(true) },
+    onHandoffLocal: () => { setDockTab('ai'); setAgentOpen(true); window.dispatchEvent(new CustomEvent('re:ide-handoff', { detail: { to: 'local' } })) },
+    onTogglePanel: () => setPanelOpen((v) => !v),
+  })
   const [starting, setStarting] = useState(false)
   const [confirmClose, setConfirmClose] = useState<string | null>(null)
   // Full-screen (focus) mode: the canvas fills the window and the assistant
@@ -460,11 +524,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  const tabStripRef = useRef<HTMLDivElement>(null)
+
   // Keep the active tab in view — a tab opened by the AI used to land offscreen.
+  // Only the tab strip moves; the app frame must never scroll for this.
   useEffect(() => {
     if (!active) return
     const el = document.querySelector(`[data-tab="${CSS.escape(active)}"]`)
-    el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    scrollChildIntoView(tabStripRef.current, el as HTMLElement | null, { block: 'nearest' })
   }, [active, files.length])
 
   /* ---------------- rename (inline, from the title bar) ---------------- */
@@ -622,7 +689,17 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           <ActivityBtn active={false} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={17} />} label="Problems" />
           <div className="flex-1" />
           <ActivityBtn active={activity === 'design'} onClick={onDesign} icon={<MonitorUp size={17} />} label="Design mode" />
-          <ActivityBtn active={agentOpen} onClick={() => setAgentOpen((v) => !v)} icon={agentOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />} label="AI assistant" />
+          <ActivityBtn
+            active={agentOpen && dockTab === 'agents'}
+            badge={agentRunning || agentReady || undefined}
+            onClick={() => { setDockTab('agents'); setAgentOpen(true) }}
+            icon={<Bot size={17} />} label={`Agents${agentRunning ? ` · ${agentRunning} running` : ''}`} />
+          <ActivityBtn
+            active={agentOpen && dockTab === 'activity'}
+            onClick={() => { setDockTab('activity'); setAgentOpen(true) }}
+            icon={<ActivityIcon size={17} />} label="What the AI did" />
+          <ActivityBtn active={false} onClick={() => setPaletteOpen(true)} icon={<CommandIcon size={17} />} label="Commands (⌘K)" />
+          <ActivityBtn active={agentOpen && dockTab === 'ai'} onClick={() => { setDockTab('ai'); setAgentOpen((v) => !v) }} icon={agentOpen && dockTab === 'ai' ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />} label="AI assistant" />
         </div>
         )}
 
@@ -678,6 +755,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         <div className="flex-1 min-w-0 flex flex-col">
           {/* tabs */}
           <div
+            ref={tabStripRef}
             className="shrink-0 flex items-stretch overflow-x-auto ide-tabstrip"
             style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}
             onWheel={(e) => { if (e.deltaY) e.currentTarget.scrollLeft += e.deltaY }}
@@ -772,11 +850,49 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         {!focus && (
         <AnimatePresence initial={false}>
           {agentOpen && (
-            <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 384, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
+            <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 428, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="shrink-0 min-h-0 overflow-hidden" style={{ borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
-              <div className="w-[384px] h-full">
-                <AgentPanel project={project} tree={tree} onClose={() => setAgentOpen(false)} />
+              className="shrink-0 min-h-0 overflow-hidden flex flex-col" style={{ borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+              <div className="w-[428px] h-full flex flex-col min-h-0">
+                {/* The dock's own tab strip: the chat, the agent pool, and the
+                    live record of what the AI touched. */}
+                <div className="re-dock-tabs" role="tablist" aria-label="Assistant workspace">
+                  <button role="tab" aria-selected={dockTab === 'ai'} data-active={dockTab === 'ai'} onClick={() => setDockTab('ai')}>
+                    <Sparkles size={11} /> AI
+                  </button>
+                  <button role="tab" aria-selected={dockTab === 'agents'} data-active={dockTab === 'agents'} onClick={() => setDockTab('agents')}>
+                    <Bot size={11} /> Agents
+                    {agentRunning > 0 && <span className="re-tab-dot" data-live="true" />}
+                    {!agentRunning && agentReady > 0 && <span className="re-tab-dot" />}
+                  </button>
+                  <button role="tab" aria-selected={dockTab === 'activity'} data-active={dockTab === 'activity'} onClick={() => setDockTab('activity')}>
+                    <ActivityIcon size={11} /> Activity
+                    {sessionActivity.length > 0 && <span className="re-tab-count">{sessionActivity.length}</span>}
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0">
+                  {dockTab === 'ai' && <AgentPanel project={project} tree={tree} onClose={() => setAgentOpen(false)} />}
+                  {dockTab === 'agents' && (
+                    <AgentsDock project={project} onOpenFile={(p) => void openFile(p)}
+                      onOpenChat={openAgentChat} />
+                  )}
+                  {dockTab === 'activity' && (
+                    <div className="h-full flex flex-col min-h-0">
+                      <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--ide-border)' }}>
+                        <ActivityIcon size={13} style={{ color: 'var(--ide-accent)' }} />
+                        <span className="text-[12px] font-medium flex-1">What the AI did</span>
+                        {streaming && <span className="ide-badge accent"><span className="re-orb re-orb-sm" aria-hidden /> live</span>}
+                        <button onClick={() => setSessionActivity([])} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Clear">
+                          <X size={11} />
+                        </button>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto">
+                        <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
+                          empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.aside>
           )}
@@ -793,6 +909,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         {dirty && <span className="flex items-center gap-1" style={{ color: 'var(--ide-warn)' }}><Circle size={6} fill="currentColor" /> unsaved</span>}
         {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span>{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
         <div className="flex-1" />
+        <button onClick={() => { setDockTab('agents'); setAgentOpen(true) }} className="flex items-center gap-1 hover:text-[var(--ide-dim)]"
+          style={{ color: agentRunning ? 'var(--ide-accent)' : agentReady ? 'var(--ide-warn)' : undefined }}>
+          <Bot size={10} />
+          {agentRunning ? `${agentRunning} agent${agentRunning === 1 ? '' : 's'} working` : agentReady ? `${agentReady} ready to merge` : 'agents idle'}
+        </button>
+        <button onClick={() => setPaletteOpen(true)} className="flex items-center gap-1 hover:text-[var(--ide-dim)]" title="Command palette">
+          <CommandIcon size={10} /> ⌘K
+        </button>
         {streaming && <span className="flex items-center gap-1" style={{ color: 'var(--ide-accent)' }}><span className="re-orb re-orb-sm" /> AI working</span>}
         <span className="flex items-center gap-1" style={{ color: previewLive ? 'var(--ide-accent)' : undefined }}>
           <Circle size={6} fill="currentColor" />
@@ -801,6 +925,15 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         <span>{files.length} open</span>
       </div>
       )}
+
+      <IDECommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        files={allFiles}
+        actions={paletteActions()}
+        onOpenFile={(p) => void openFile(p)}
+        onCommand={(id) => { setDockTab('ai'); setAgentOpen(true); setTimeout(() => window.dispatchEvent(new CustomEvent('re:ide-command', { detail: { id } })), 60) }}
+      />
 
       {/* unsaved-changes guard */}
       {confirmClose && (
@@ -826,13 +959,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
 /* ================================================================== */
 /* small building blocks                                              */
 /* ================================================================== */
-function ActivityBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function ActivityBtn({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
   return (
     <button onClick={onClick} title={label} aria-label={label}
       className="relative w-9 h-9 rounded-[8px] flex items-center justify-center transition-colors"
       style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
       {icon}
       {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: 'var(--ide-accent)' }} />}
+      {badge ? <span className="re-rail-badge">{badge > 9 ? '9+' : badge}</span> : null}
     </button>
   )
 }
@@ -895,8 +1029,9 @@ function TerminalPanel({ project }: { project: string }) {
   const [confirm, setConfirm] = useState<{ command: string } | null>(null)
   const [history, setHistory] = useState<string[]>([])
   const [histIdx, setHistIdx] = useState(-1)
-  const endRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { endRef.current?.scrollIntoView?.({ behavior: 'smooth' }) }, [lines])
+  const logRef = useRef<HTMLDivElement>(null)
+  // Scroll the terminal's own viewport (see lib/dom/scroll for why).
+  useEffect(() => { scrollToEnd(logRef.current, { smooth: true }) }, [lines])
 
   const run = async (command: string, confirmed = false) => {
     setBusy(true)
@@ -921,7 +1056,7 @@ function TerminalPanel({ project }: { project: string }) {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)' }}>
+      <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)' }} ref={logRef}>
         {lines.map((l, i) => (
           <div key={i} className="whitespace-pre-wrap" style={{ color: l.kind === 'cmd' ? 'var(--ide-accent)' : l.kind === 'err' ? 'var(--ide-danger)' : l.kind === 'info' ? 'var(--ide-faint)' : 'var(--ide-text)' }}>{l.text}</div>
         ))}
@@ -937,7 +1072,7 @@ function TerminalPanel({ project }: { project: string }) {
             </button>
           </div>
         )}
-        <div ref={endRef} />
+
       </div>
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ borderTop: '1px solid var(--ide-border)' }}>
         <span className="font-mono text-[11.5px]" style={{ color: 'var(--ide-accent)' }}>$</span>

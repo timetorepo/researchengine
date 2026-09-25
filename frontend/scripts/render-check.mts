@@ -897,6 +897,336 @@ async function main() {
   fire(m16rows2[0], 'click')
   m16qroot.unmount()
 
+  /* ------------------------------------------------------------------ */
+  console.log('\n[17] The frame opens at the top (the "it loaded the bottom" bug)')
+  // A bare scrollIntoView() walks EVERY scrollable ancestor — including the
+  // app frame, which is clipped rather than scrolled — so the window can be
+  // parked at the bottom with no way back. lib/dom/scroll.ts owns the scoped
+  // replacements; nothing else may call the browser one.
+  const { readdirSync: fs17readdir, readFileSync: fs17read, statSync: fs17stat } = await import('node:fs')
+  const fs17walk = (dir: URL): URL[] => fs17readdir(dir).flatMap((f) => {
+    const child = new URL(f, dir)
+    return fs17stat(child).isDirectory() ? fs17walk(new URL(`${f}/`, dir)) : (/\.tsx?$/.test(child.pathname) ? [child] : [])
+  })
+  const fs17files = fs17walk(new URL('../src/', import.meta.url))
+  const fs17raw = fs17files.filter((u) => !u.pathname.endsWith('lib/dom/scroll.ts') && fs17read(u).includes('scrollIntoView('))
+  check('no component calls the browser scrollIntoView', fs17raw.length === 0,
+    fs17raw.map((u) => u.pathname.split('/src/')[1]).join(', '))
+
+  const fs17tops = () => [
+    win.document.documentElement.scrollTop,
+    win.document.body.scrollTop,
+    (win.document.getElementById('root') as any)?.scrollTop ?? 0,
+  ]
+  const fs17root = win.document.getElementById('root') as any
+  fs17root.scrollTop = 240
+  win.document.documentElement.scrollTop = 240
+  win.document.body.scrollTop = 240
+  const { installFramePin } = await import('../src/lib/dom/scroll')
+  const fs17unpin = installFramePin()
+  win.dispatchEvent(new win.Event('scroll'))
+  await wait(80)
+  check('the frame pin puts a stray scroll back at the top', fs17tops().every((v) => v === 0), JSON.stringify(fs17tops()))
+
+  // Opening the coding IDE — the exact path the user hit — must not move it.
+  const fs17spy: string[] = []
+  win.HTMLElement.prototype.scrollIntoView = function (this: any) { fs17spy.push(this.className || this.tagName) }
+  const c19 = win.document.createElement('div')
+  win.document.body.appendChild(c19)
+  const r19 = createRoot(c19)
+  r19.render(React.createElement(MemoryRouter, null as any, React.createElement(CodingView)))
+  await wait(600)
+  const c19card = [...c19.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('demo'))
+  fire(c19card)
+  await wait(700)
+  for (const name of ['App.tsx', 'package.json', 'README.md']) {
+    const b = [...c19.querySelectorAll('button')].filter((x) => (x.textContent ?? '').trim() === name)[0]
+    fire(b)
+    await wait(200)
+  }
+  check('opening the coding IDE never calls scrollIntoView', fs17spy.length === 0, `calls=${fs17spy.length} ${fs17spy.slice(0, 3).join(', ')}`)
+  check('and the frame is still at the top', fs17tops().every((v) => v === 0), JSON.stringify(fs17tops()))
+  fs17root.scrollTop = 300
+  win.dispatchEvent(new win.Event('scroll'))
+  check('the pin survives a later stray scroll', fs17root.scrollTop === 0, String(fs17root.scrollTop))
+  fs17unpin()
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[18] Design mode: the screen fits the pane, the divider drags')
+  const { DesignStudio } = await import('../src/components/ide/DesignStudio')
+  const c18 = win.document.createElement('div')
+  win.document.body.appendChild(c18)
+  const r18 = createRoot(c18)
+  r18.render(React.createElement(DesignStudio as any, { project: 'demo', tree: TREE, onExit: () => {} }))
+  await wait(700)
+  const shell18 = () => c18.querySelector('.re-preview-shell') as any
+  check('the device frame renders in a shell of its own', !!shell18())
+  const laptop = [...c18.querySelectorAll('button')].find((b) => (b.getAttribute('title') ?? '').startsWith('Laptop'))
+  check('device presets are offered', !!laptop)
+  fire(laptop)
+  await wait(250)
+  // jsdom lays nothing out, so the pane is told how big a real window would be
+  const pane18 = c18.querySelector('[data-preview-pane]') as any
+  check('the preview pane is measurable', !!pane18)
+  Object.defineProperty(pane18, 'clientWidth', { configurable: true, value: 900 })
+  Object.defineProperty(pane18, 'clientHeight', { configurable: true, value: 600 })
+  const focusBtn18 = () => [...c18.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim().startsWith('Focus'))
+  fire(focusBtn18())
+  await wait(200)
+  fire([...c18.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim().startsWith('Exit focus')))
+  await wait(250)
+  const zoom18 = c18.querySelector('select[aria-label="Zoom"]') as any
+  check('the zoom control says what the frame is really showing', (zoom18?.textContent ?? '').includes('Fit · 68%'), zoom18?.textContent)
+  check('a 1280-wide frame is scaled down to fit the pane', (shell18()?.style.transform ?? '').includes('scale(0.678'), shell18()?.style.transform)
+  const setSelect18 = (el: any, value: string) => {
+    // A <select> is not an <input>; its own prototype holds the setter.
+    Object.getOwnPropertyDescriptor(win.HTMLSelectElement.prototype, 'value')!.set!.call(el, value)
+    el.dispatchEvent(new win.Event('change', { bubbles: true }))
+  }
+  setSelect18(zoom18, '1.5')
+  await wait(200)
+  check('zooming multiplies on top of the fit', (shell18()?.style.transform ?? '').includes('scale(1.017'), shell18()?.style.transform)
+  fire([...c18.querySelectorAll('button')].find((b) => (b.getAttribute('title') ?? '').startsWith('Fit the frame')))
+  await wait(200)
+  check('fit snaps back to "as large as fits"', (shell18()?.style.transform ?? '').includes('scale(0.678'), shell18()?.style.transform)
+
+  const handle18 = c18.querySelector('.re-split-handle') as any
+  check('the preview has a draggable divider', !!handle18 && handle18.getAttribute('role') === 'separator')
+  const aside18 = () => [...c18.querySelectorAll('aside')].find((a: any) => (a.textContent ?? '').includes('Assistant')) as any
+  check('the inspector starts at 380px', (aside18()?.style.width ?? '') === '380px', aside18()?.style.width)
+  fire(handle18, 'pointerdown', { clientX: 500 })
+  win.dispatchEvent(new win.MouseEvent('pointermove', { clientX: 100, bubbles: true }))
+  await wait(120)
+  check('dragging left widens the inspector', (aside18()?.style.width ?? '') === '720px', aside18()?.style.width)
+  win.dispatchEvent(new win.MouseEvent('pointermove', { clientX: 900, bubbles: true }))
+  await wait(120)
+  check('and it never shrinks past its floor', (aside18()?.style.width ?? '') === '300px', aside18()?.style.width)
+  win.dispatchEvent(new win.MouseEvent('pointerup', { bubbles: true }))
+  await wait(120)
+  check('the chosen width is remembered next time', storage.get('re.design.inspectorW') === '300', storage.get('re.design.inspectorW'))
+  fire(focusBtn18())
+  await wait(250)
+  check('focus gives the screen the whole workbench', (aside18()?.style.display ?? '') === 'none')
+  check('and the divider goes with it', !c18.querySelector('.re-split-handle'))
+  fire([...c18.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim().startsWith('Exit focus')))
+  await wait(250)
+  check('and the inspector comes back', (aside18()?.style.display ?? '') !== 'none')
+  r18.unmount()
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[19] The IDE is Cursor × Devin: commands, agents, live activity')
+  const { SLASH_COMMANDS, matchCommands, parseCommand, expandCommand } = await import('../src/lib/ide/commands')
+  const cmd = (id: string) => SLASH_COMMANDS.find((c) => c.id === id)
+  check('the Claude Code commands are in the box', !!cmd('ultrareview') && !!cmd('godmode'))
+  check('/ultrareview demands real evidence', expandCommand(cmd('ultrareview')!, 'src').includes('file:line'))
+  check('and forbids invented line numbers', expandCommand(cmd('ultrareview')!, 'src').includes('Do not invent line numbers'))
+  check('the Devin handoff is in the box', !!cmd('handoff') && cmd('handoff')!.cloud === true)
+  check('Codex-style parallel runs are in the box', SLASH_COMMANDS.filter((c) => c.asAgent).length >= 2)
+  check('the Cursor-style inline edit is in the box', !!cmd('inline') && cmd('inline')!.review === true)
+  check('every command names its origin', SLASH_COMMANDS.every((c) => ['claude', 'codex', 'devin', 'cursor'].includes(c.source)))
+  check('typing /go filters to godmode first', matchCommands('/go')[0]?.id === 'godmode', matchCommands('/go')[0]?.id)
+  check('an unknown slash is not a command', parseCommand('/nope') === null)
+  check('the argument is folded into the prompt', expandCommand(cmd('fix')!, 'login is broken').includes('login is broken'))
+  check('a bare command still reads as a sentence', expandCommand(cmd('inline')!, '').includes('the current project'))
+
+  // The dock
+  const tab19 = (label: string) => [...c19.querySelectorAll('[role="tab"]')].find((t) => (t.textContent ?? '').includes(label))
+  check('the dock has AI, Agents and Activity tabs', !!tab19('AI') && !!tab19('Agents') && !!tab19('Activity'))
+  fire(tab19('Agents'))
+  await wait(350)
+  check('the agent pool offers to start another agent', (c19.textContent ?? '').includes('Start another agent'))
+  check('and promises it a working copy of its own', (c19.textContent ?? '').includes('own working copy'))
+  fire(tab19('Activity'))
+  await wait(350)
+  check('the Activity tab says what the AI did', (c19.textContent ?? '').includes('What the AI did'))
+  fire(tab19('AI'))
+  await wait(350)
+
+  // ⌘K, the way every editor does it
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'k', metaKey: true }))
+  await wait(300)
+  const pal19 = c19.querySelector('.re-palette') as any
+  check('⌘K opens the command palette', !!pal19)
+  const palInput = pal19?.querySelector('input') as any
+  nativeValue(palInput, '/ultra')
+  await wait(250)
+  check('it finds a slash command by name', (pal19?.textContent ?? '').includes('/ultrareview'), (pal19?.textContent ?? '').slice(0, 160))
+  check('and says whose workflow it came from', (pal19?.textContent ?? '').includes('Claude Code'))
+  nativeValue(palInput, 'design')
+  await wait(250)
+  check('it searches actions too', (pal19?.textContent ?? '').includes('Design mode'))
+  nativeValue(palInput, 'App.tsx')
+  await wait(250)
+  check('and opens files', (pal19?.textContent ?? '').includes('src/App.tsx'))
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape' }))
+  await wait(200)
+  check('escape closes it', !c19.querySelector('.re-palette'))
+
+  // The composer's "/" menu
+  const composer19 = [...c19.querySelectorAll('textarea')].find((t) => (t.getAttribute('placeholder') ?? '').includes('project')) as any
+  check('the composer waits for a message', !!composer19)
+  nativeValue(composer19, '/')
+  await wait(350)
+  const menu19 = () => c19.querySelector('.re-slash') as any
+  check('typing / opens the command menu', !!menu19())
+  check('the menu mixes all four vendors', ['/godmode', '/handoff', '/inline'].every((l) => (menu19()?.textContent ?? '').includes(l)), (menu19()?.textContent ?? '').slice(0, 200))
+  check('and labels where each one came from', (menu19()?.textContent ?? '').includes('Devin'), (menu19()?.textContent ?? '').slice(0, 200))
+  nativeValue(composer19, '/hand')
+  await wait(350)
+  check('typing narrows the menu down', (menu19()?.textContent ?? '').includes('/handoff') && !(menu19()?.textContent ?? '').includes('/godmode'))
+  fire([...c19.querySelectorAll('.re-slash-item')][0])
+  await wait(400)
+  check('picking a command writes the whole instruction in', /Continue this task/i.test(composer19.value ?? ''), String(composer19.value).slice(0, 90))
+  check('and a cloud command hands the session to the cloud', !!c19.querySelector('.re-chip[data-tone="cloud"]'))
+
+  // A handoff is only real if it moves the session to a model on that side.
+  useStore.setState((st) => ({
+    settings: {
+      ...st.settings,
+      providers: { ...st.settings.providers, ollama: { ...(st.settings.providers.ollama ?? {}), enabled: true }, openai: { ...(st.settings.providers.openai ?? {}), enabled: true } },
+      providerModels: { ...st.settings.providerModels, ollama: ['llama3.2'], openai: ['gpt-4o-mini'] },
+    },
+  }) as any)
+  // The session is on the cloud by now (the /handoff command moved it there).
+  await wait(300)   // let the panel re-render with the models that now exist
+  const sideChip = () => c19.querySelector('.re-chip[data-tone="cloud"], .re-chip[data-tone="local"]') as any
+  fire(sideChip())
+  await wait(400)
+  check('coming back picks a model on this machine', (c19.textContent ?? '').includes('llama3.2'), (c19.textContent ?? '').slice(0, 80))
+  check('and the chip names that side', (sideChip()?.getAttribute('data-tone') ?? '') === 'local', sideChip()?.getAttribute('data-tone'))
+  fire(sideChip())
+  await wait(400)
+  check('handing off again picks a cloud model', (c19.textContent ?? '').includes('gpt-4o-mini'), (c19.textContent ?? '').slice(0, 80))
+
+  // The agent lifecycle, against a stub backend
+  const { useAgents } = await import('../src/lib/ide/agents')
+  const fork19: any[] = []
+  const base19 = (globalThis as any).fetch
+  const route19 = async (input: any, init?: any) => {
+    const url = String(typeof input === 'string' ? input : input?.url ?? '')
+    if (url.includes('/api/ide/agents/fork')) {
+      try { fork19.push(JSON.parse(init?.body ?? '{}')) } catch { /* ignore */ }
+      return json({ ok: true, agent: 'agent-abc123', worktree: '/tmp/w', files: 2, bytes: 40, skipped: 0 })
+    }
+    if (url.includes('/api/ide/agents/changes')) {
+      return json({ changes: [{ path: 'src/App.tsx', kind: 'modified', added: 4, removed: 1, base: 'x' }], summary: '1 file — 1 edited', skipped: 0 })
+    }
+    if (url.includes('/api/ide/agents/merge')) return json({ ok: true, merged: ['src/App.tsx'], conflicts: [], unchanged: [], missing: [], summary: '1 file merged' })
+    if (url.includes('/api/ide/agents/discard')) return json({ ok: true })
+    return base19(input, init)
+  }
+  ;(globalThis as any).fetch = route19
+  ;(win as any).fetch = route19
+
+  const task19 = await useAgents.getState().spawn({
+    title: 'fix login redirect', prompt: 'Fix the login redirect.', project: 'demo', claim: ['src/App.tsx'], handoff: 'local',
+  })
+  await wait(400)
+  const t19 = useAgents.getState().tasks.find((t) => t.id === task19)
+  check('an agent forks its own copy', !!t19 && t19.status !== 'forking', t19?.status)
+  check('the fork names exactly one agent', fork19.length === 1 && /^agent-[a-z0-9-]{3,}$/.test(fork19[0].agent), JSON.stringify(fork19[0]))
+  check('and names the project it forks', fork19[0]?.project === 'demo')
+  check('the agent stays on the side the user chose', t19?.handoff === 'local')
+  fire(tab19('Agents'))
+  await wait(350)
+  check('the pool shows the work in progress', (c19.textContent ?? '').includes('fix login redirect'))
+  check('and marks which file it claimed', (c19.textContent ?? '').includes('src/App.tsx'))
+
+  // Every tool call inside that agent must carry the agent scope — that is
+  // what keeps two agents from touching the same file.
+  const { executeTool } = await import('../src/lib/chat/tools')
+  const calls19: string[] = []
+  const base19b = (globalThis as any).fetch
+  const spy19 = async (input: any, init?: any) => {
+    const url = String(typeof input === 'string' ? input : input?.url ?? '')
+    calls19.push(url)
+    if (url.includes('/api/ide/file')) return json({ content: 'export const x = 1\n' })
+    return base19b(input, init)
+  }
+  ;(globalThis as any).fetch = spy19
+  ;(win as any).fetch = spy19
+  await executeTool(
+    { id: 't1', name: 'ide_read_file', arguments: { path: 'src/App.tsx' } },
+    { chatId: t19!.chatId, asstId: 'a1', project: 'demo', agent: task19! },
+    () => {},
+  )
+  check('an agent only ever reads its own copy', calls19.some((u) => u.includes(`agent=${task19}`)), calls19.slice(0, 2).join(' '))
+  ;(globalThis as any).fetch = route19
+  ;(win as any).fetch = route19
+
+  win.dispatchEvent(new win.CustomEvent('re:agent-activity', {
+    detail: { agent: task19, project: 'demo', kind: 'write', path: 'src/App.tsx', added: 4, removed: 1, created: false, at: Date.now() },
+  }))
+  await wait(300)
+  const live19 = useAgents.getState().tasks.find((t) => t.id === task19)!
+  check('the live feed records what the agent touched', live19.activity.some((a) => a.path === 'src/App.tsx' && a.added === 4), JSON.stringify(live19.activity.at(-1) ?? {}))
+  check('and the pool says it in plain words', /src\/App\.tsx/.test(c19.textContent ?? ''))
+  check('reading a file is reported as reading', (() => {
+    win.dispatchEvent(new win.CustomEvent('re:agent-activity', { detail: { agent: task19, project: 'demo', kind: 'read', path: 'src/main.tsx', at: Date.now() } }))
+    const t = useAgents.getState().tasks.find((x) => x.id === task19)!
+    return t.activity.some((a) => a.kind === 'read' && a.path === 'src/main.tsx')
+  })())
+
+  // The run is fire-and-forget (it keeps going while you browse elsewhere), so
+  // put the task in the state the UI shows once the model has finished, then
+  // check the review pane the human actually merges from.
+  useAgents.getState().setStatus(task19!, 'ready', { finishedAt: Date.now() })
+  await useAgents.getState().refreshChanges(task19!)
+  await wait(350)
+  const review19 = useAgents.getState().tasks.find((t) => t.id === task19)!
+  check('the review lists the file the agent changed', review19.changes[0]?.path === 'src/App.tsx' && review19.changes[0]?.accepted === true, JSON.stringify(review19.changes))
+  fire(tab19('Agents'))
+  await wait(300)
+  check('a finished agent says it is ready to merge', (c19.textContent ?? '').includes('ready to merge'))
+  check('the merge button counts what would land', (c19.textContent ?? '').includes('Merge 1/1'), (c19.textContent ?? '').slice(0, 200))
+  useAgents.getState().toggleAccepted(task19!, 'src/App.tsx')
+  await wait(250)
+  check('a file can be left out of the merge', useAgents.getState().tasks.find((t) => t.id === task19)!.changes[0].accepted === false)
+  useAgents.getState().toggleAccepted(task19!, 'src/App.tsx')
+  const merged19 = await useAgents.getState().merge(task19!)
+  await wait(250)
+  check('merging reports what actually landed', merged19.ok && merged19.summary.includes('1 file merged'), merged19.summary)
+  await useAgents.getState().discard(task19!)
+  await wait(250)
+  check('the working copy can be thrown away', useAgents.getState().tasks.find((t) => t.id === task19)!.status === 'discarded')
+  r19.unmount()
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[20] The quiz answers by keyboard, key 1-6 and Space')
+  const { QuizPlay: QuizPlay20 } = await import('../src/components/quiz/QuizPlay')
+  useStore.setState({ settings: { ...useStore.getState().settings, quizAutoAdvance: false } } as any)
+  const c20 = win.document.createElement('div')
+  win.document.body.appendChild(c20)
+  const r20 = createRoot(c20)
+  r20.render(React.createElement(QuizPlay20 as any, {
+    questions: [
+      { id: 'k1', type: 'mc', prompt: 'Which planet is the largest?', options: ['Mars', 'Jupiter', 'Venus', 'Mercury'], answer: 'Jupiter', explanation: 'Jupiter is the largest.', section: 'Solar system' },
+      { id: 'k2', type: 'tf', prompt: 'The Sun is a star.', options: ['True', 'False'], answer: 'True', explanation: 'Yes.', section: 'Stars' },
+    ],
+    timed: false, onQuit: () => {}, onFinish: () => {}, title: 'Solar system quiz', source: 'sample.md',
+  }))
+  await wait(500)
+  const rows20 = () => [...c20.querySelectorAll('.re-quiz-option')] as any[]
+  check('the question starts unanswered', rows20().every((r: any) => r.getAttribute('data-state') === 'idle'), JSON.stringify(rows20().map((r: any) => r.getAttribute('data-state'))))
+  const answered = () => rows20().some((r: any) => ['correct', 'wrong'].includes(r.getAttribute('data-state') ?? ''))
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: '1' }))
+  await wait(400)
+  check('pressing a number answers with that row', answered())
+  check('and the correct row is the one marked correct', rows20()[1].getAttribute('data-state') === 'correct', JSON.stringify(rows20().map((r: any) => r.getAttribute('data-state'))))
+  check('the wrong row the user picked is marked wrong', rows20()[0].getAttribute('data-state') === 'wrong')
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: '3' }))
+  await wait(250)
+  check('the answer cannot be changed after it is revealed', rows20()[2].getAttribute('data-state') === 'dim', rows20()[2].getAttribute('data-state'))
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: ' ' }))
+  await wait(1700)
+  check('Space moves to the next question', (c20.textContent ?? '').includes('The Sun is a star.'), (c20.textContent ?? '').slice(0, 80))
+  const rows20b = () => [...c20.querySelectorAll('.re-quiz-option')] as any[]
+  check('a true/false question offers exactly two rows', rows20b().length === 2, String(rows20b().length))
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: '1' }))
+  await wait(400)
+  check('the same keys work on the next question', rows20b()[0].getAttribute('data-state') === 'correct', rows20b()[0].getAttribute('data-state'))
+  r20.unmount()
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)
