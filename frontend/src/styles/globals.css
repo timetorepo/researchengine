@@ -1236,20 +1236,30 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   color: var(--text-2) !important;
   margin-top: 2px !important;
 }
-.re-sonner-icon {
+/* Sonner marks the icon slot with [data-icon]; the classNames hook is kept too
+   so the styling survives a change to either. */
+.re-sonner-icon,
+[data-sonner-toast] [data-icon] {
   margin-top: 2px !important;   /* the old mt-0.5 */
   flex-shrink: 0 !important;
+  height: auto !important;
 }
-.re-sonner-icon svg { width: 16px !important; height: 16px !important; }
+.re-sonner-icon svg,
+[data-sonner-toast] [data-icon] svg {
+  width: 16px !important;
+  height: 16px !important;
+}
 
 /* Tone: the icon, and nothing else. */
-.re-toast-info .re-sonner-icon svg { color: var(--primary); }
-.re-toast-success .re-sonner-icon svg { color: var(--success); }
-.re-toast-warning .re-sonner-icon svg { color: var(--warning); }
-.re-toast-danger .re-sonner-icon svg { color: var(--danger); }
+.re-toast-info .re-sonner-icon svg, [data-sonner-toast].re-toast-info [data-icon] svg { color: var(--primary); }
+.re-toast-success .re-sonner-icon svg, [data-sonner-toast].re-toast-success [data-icon] svg { color: var(--success); }
+.re-toast-warning .re-sonner-icon svg, [data-sonner-toast].re-toast-warning [data-icon] svg { color: var(--warning); }
+.re-toast-danger .re-sonner-icon svg, [data-sonner-toast].re-toast-danger [data-icon] svg { color: var(--danger); }
 
-/* The dismiss: a quiet little X in the corner, as before — not a button. */
-.re-sonner-close {
+/* The dismiss: a quiet little X in the corner, as before — not a button.
+   (Sonner also marks it [data-close-button]; both hooks are styled.) */
+.re-sonner-close,
+[data-sonner-toast] [data-close-button] {
   top: 8px !important;
   right: 8px !important;
   left: auto !important;
@@ -1262,8 +1272,10 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   color: var(--text-3) !important;
   opacity: 0.85;
 }
-.re-sonner-close:hover { color: var(--text) !important; opacity: 1; background: var(--elevated) !important; }
-.re-sonner-close svg { width: 13px !important; height: 13px !important; }
+.re-sonner-close:hover,
+[data-sonner-toast] [data-close-button]:hover { color: var(--text) !important; opacity: 1; background: var(--elevated) !important; }
+.re-sonner-close svg,
+[data-sonner-toast] [data-close-button] svg { width: 13px !important; height: 13px !important; }
 .re-sonner-action { font-size: 12px !important; }
 
 /* Glass mode, mirrored from .glass-chat so a toast matches the chatbox.

@@ -613,7 +613,10 @@ async function main() {
   check('the toast wears the app palette', !!toastEl, 'no .re-toast')
   check('it is the old glass surface, blurred', !!toastEl
     && readFileSync('../frontend/src/styles/globals.css', 'utf8').includes('backdrop-filter: blur(24px) saturate(1.4) !important'))
-  check('the tone rides on the icon, not a repainted card', readFileSync('../frontend/src/styles/globals.css', 'utf8').includes('.re-toast-success .re-sonner-icon svg'))
+  const tcss = readFileSync('../frontend/src/styles/globals.css', 'utf8')
+  check('the tone rides on the icon, not a repainted card', tcss.includes('.re-toast-success .re-sonner-icon svg')
+    && tcss.includes('[data-sonner-toast].re-toast-success [data-icon] svg'))
+  check('the icon is 16px, aligned to the first line', /\[data-icon\] svg \{[^}]*width: 16px/.test(tcss))
   check('no left colour bar (the old toast had none)', !readFileSync('../frontend/src/styles/globals.css', 'utf8').includes('border-left-width: 3px'))
   check('liquid/blur glass modes are mirrored for toasts', /data-glass="liquid"\] \.re-sonner-toast/.test(readFileSync('../frontend/src/styles/globals.css', 'utf8')))
   // Sonner stacks its toasts with position: absolute; a glass mode must never
@@ -624,7 +627,7 @@ async function main() {
     .replace(/\/\*[\s\S]*?\*\//g, '')   // ignore the comments, look at the rules
   check('the toast surface never touches positioning', !/position:/.test(toastBlock), toastBlock.slice(0, 60))
   check('the toaster is told which icons to draw', readFileSync('../frontend/src/components/shared/AppToaster.tsx', 'utf8').includes('icons={ICONS}'))
-  check('and the close button is a quiet X', toastCss.includes('.re-sonner-close svg { width: 13px'))
+  check('and the close button is a quiet X', /\[data-close-button\] svg \{[^}]*width: 13px/.test(tcss), tcss.slice(tcss.indexOf('[data-close-button] svg'), tcss.indexOf('[data-close-button] svg') + 60))
   check('dismissing it through Sonner clears the queue', (() => {
     const before = uiStore.getState().toasts.length
     uiStore.getState().dismissToast(uiStore.getState().toasts.at(-1)!.id)
