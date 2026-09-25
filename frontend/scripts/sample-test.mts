@@ -133,6 +133,24 @@ async function main() {
   const reloaded = await (await fetch(`http://127.0.0.1:${port}/styles.css`)).text()
   check('the preview serves the fixed stylesheet', /padding: 12px 18px/.test(reloaded), reloaded.slice(0, 80))
 
+  console.log('\n[5] Creating a project can never be refused for its name')
+  // The bug report this exists for: a create that came back as "no usable
+  // characters left" from a client that had no name to send.
+  const invented = await api<any>('/api/ide/projects', { name: '', unique: true, fallback: 'sample-app', files: { 'a.txt': 'hi' } })
+  check('an empty name still creates a project', invented.ok === true, JSON.stringify(invented))
+  check('the invented name is reported back', typeof invented.name === 'string' && invented.name.length > 0, invented.name)
+  check('an empty name is marked as invented', invented.invented === true)
+  const inventedFile = await (await fetch(`${API}/api/ide/file?project=${encodeURIComponent(invented.name)}&path=a.txt`)).json() as any
+  check('the files land in the invented project', inventedFile.content === 'hi', JSON.stringify(inventedFile).slice(0, 120))
+  await api(`/api/ide/projects/${encodeURIComponent(invented.name)}`, undefined, 'DELETE').catch(() => null)
+
+  const noNameAtAll = await api<any>('/api/ide/projects', { files: { 'b.txt': 'yo' } })
+  check('a request with no name field at all also works', noNameAtAll.ok === true && !!noNameAtAll.name, JSON.stringify(noNameAtAll))
+  await api(`/api/ide/projects/${encodeURIComponent(noNameAtAll.name)}`, undefined, 'DELETE').catch(() => null)
+
+  const collision = await api<any>('/api/ide/projects', { name: PROJECT, files: {}, unique: true })
+  check('a taken name is free-named instead of refused', collision.ok === true && collision.name !== PROJECT, JSON.stringify(collision))
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed\n`)
   try { win.close() } catch { /* ignore */ }
   await api(`/api/ide/projects/${PROJECT}`, undefined, 'DELETE').catch(() => null)

@@ -921,6 +921,68 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
 }
 
 /* ================================================================== */
+/* Reading mode — motion with a purpose                                */
+/* Everything here is one-shot (entrance, ink, flash) so a long        */
+/* document never re-animates while you are reading it, and the whole  */
+/* block is disabled under reduce-motion.                              */
+/* ================================================================== */
+@keyframes re-ink-swipe {
+  from { background-size: 0% 100%; }
+  to   { background-size: 100% 100%; }
+}
+@keyframes re-flash {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); }
+  40%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 12%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* The highlight washing in, like a marker being drawn. */
+.re-mark { background-repeat: no-repeat; transition: background-color 200ms ease; }
+.re-mark-ink { animation: re-ink-swipe 480ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* A paragraph you jumped to pulses once so the eye finds it. */
+.re-para-flash { animation: re-flash 1000ms ease-out; border-radius: 8px; }
+
+/* The paragraph you just marked keeps a whisper of colour for a moment, so the
+   new highlight has somewhere to land instead of appearing out of nowhere. */
+.re-para-fresh { position: relative; }
+.re-para-fresh::before {
+  content: '';
+  position: absolute;
+  inset: -6px -10px;
+  border-radius: 10px;
+  background: var(--primary);
+  opacity: 0;
+  pointer-events: none;
+  animation: re-fresh-fade 700ms ease-out both;
+}
+@keyframes re-fresh-fade { from { opacity: 0.10; } to { opacity: 0; } }
+
+/* Paragraphs carry no transform once settled — transform on text harms
+   subpixel rendering, so it is cleared by the entrance animation itself. */
+.re-para { will-change: opacity, transform; }
+.re-para:hover { }
+
+/* Figures fade up as they arrive. */
+.re-figure { animation: re-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes re-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.995); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The progress rail glides instead of stepping. */
+.re-rail { transition: height 180ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+.reduce-motion .re-mark-ink,
+.reduce-motion .re-para-flash,
+.reduce-motion .re-para-fresh::before,
+.reduce-motion .re-figure { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .re-mark-ink, .re-para-flash, .re-para-fresh::before, .re-figure { animation: none; }
+  .re-rail { transition: none; }
+}
+
+/* ================================================================== */
 /* Study lists — cleanly marked steps and bullets in Read & Quiz       */
 /* The text arrives in whatever dialect the model used; the reader      */
 /* normalises it and draws its own markers so every list looks alike.   */

@@ -10,6 +10,7 @@ import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
 import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
+import { CODING_RULES } from '@/lib/ide/coding-rules'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 import { providerById } from '@/lib/providers/registry'
 import { streamDemo, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
@@ -172,6 +173,10 @@ export async function runChat(opts: RunOptions): Promise<void> {
   // ---- Coding-mode + MCP + privacy context ----
   if (opts.project) {
     system += `\n\nYou are in Coding mode inside the local project "${opts.project}". You can inspect and edit its files (ide_list_files, ide_read_file, ide_write_file), run commands with ide_run_command (the user approves each one), and use ide_git for git. Work carefully: prefer small, correct edits; explain what you changed.`
+    // House rules: the difference between an assistant that is useful in a
+    // codebase and one that confidently invents things. Loaded from the module
+    // so the skill picker and this prompt can never drift apart.
+    system += `\n\n${CODING_RULES}`
     if (opts.projectTree) {
       const tree = shieldOutbound(opts.projectTree.slice(0, 4000))
       if (tree.findings.length) recordScan('coding project tree', tree.findings)

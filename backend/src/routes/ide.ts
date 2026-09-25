@@ -119,16 +119,24 @@ export function ideRoutes(rt: Runtime) {
   })
 
   r.post('/ide/projects', async (c) => {
-    let body: { name?: string; files?: Record<string, string>; unique?: boolean }
+    let body: { name?: string; files?: Record<string, string>; unique?: boolean; fallback?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    const target = projectDirFor(projectsRoot, String(body.name ?? (body as any).projectName ?? ''))
+    let target = projectDirFor(projectsRoot, String(body.name ?? (body as any).projectName ?? ''))
+    // Creating a project is never refused for its name. An empty, missing or
+    // unusable name (an old client sending `name: ""`, a name made only of
+    // characters no filesystem can store) is invented here instead of argued
+    // about — `fallback` lets the caller suggest what to call it.
+    let invented = false
     if (!target) {
-      return c.json({ error: 'That name has no usable characters left. Try letters, numbers or a dash.', code: 'bad_name' }, 400)
+      invented = true
+      const fallback = String(body.fallback ?? 'untitled-project')
+      target = projectDirFor(projectsRoot, fallback) ?? projectDirFor(projectsRoot, 'untitled-project')!
     }
     // `unique` is what the sample button uses: never dead-end on a collision.
-    const name = body.unique ? await freeName(target.name) : target.name
-    const dir = body.unique ? projectDir(name)! : target.dir
-    const existing = await existingFor(name)
+    const wantsUnique = !!body.unique || invented
+    const name = wantsUnique ? await freeName(target.name) : target.name
+    const dir = wantsUnique ? projectDir(name)! : target.dir
+    const existing = wantsUnique ? null : await existingFor(name)
     if (existing) {
       return c.json({
         error: `A project called “${existing}” already exists.`,
@@ -144,7 +152,9 @@ export function ideRoutes(rt: Runtime) {
       await writeFile(abs, content, 'utf8')
       written++
     }
-    return c.json({ ok: true, name, renamed: name !== target.name, files: written })
+    // `invented` = the request had no usable name, so one was made up here;
+    // `renamed` = the name was kept but freed up with a numeric suffix.
+    return c.json({ ok: true, name, renamed: name !== target.name, invented, files: written })
   })
 
   r.delete('/ide/projects/:name', async (c) => {
@@ -161,15 +171,19 @@ export function ideRoutes(rt: Runtime) {
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
     const fromDir = projectDir(body.from ?? body.project ?? '')
     if (!fromDir || !existsSync(fromDir)) return c.json({ error: 'Project not found.' }, 404)
+    // Renaming is never refused either: a name with no letters or digits to
+    // build from (or one the filesystem cannot store) means "keep what it is
+    // called" rather than an error dialog in the title bar.
+    const currentName = await existingFor(String(body.from ?? body.project ?? ''))
     const target = projectDirFor(projectsRoot, body.to ?? '')
     if (!target) {
-      return c.json({ error: 'That name has no usable characters left. Try letters, numbers or a dash.', code: 'bad_name' }, 400)
+      return c.json({ ok: true, name: currentName, unchanged: true, kept: true, code: 'bad_name' })
     }
     const toName = target.name
     const toDir = target.dir
     if (toDir === fromDir) return c.json({ ok: true, name: toName, unchanged: true })
     // Renaming "demo" to "Demo" is not a collision — it is the same folder.
-    const fromName = await existingFor(String(body.from ?? body.project ?? ''))
+    const fromName = currentName
     const sameTarget = !!fromName && fromName.toLowerCase() === toName.toLowerCase()
     const taken = await existingFor(toName)
     if (taken && !sameTarget) {
@@ -188,11 +202,11 @@ export function ideRoutes(rt: Runtime) {
   r.post('/ide/import', async (c) => {
     let body: { name?: string; fileName?: string; dataBase64?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    const target = projectDirFor(projectsRoot, body.name ?? '')
-    if (!target) return c.json({ error: 'Invalid project name.', code: 'bad_name' }, 400)
-    const taken = await existingFor(target.name)
-    if (taken) return c.json({ error: `A project called “${taken}” already exists.`, code: 'exists', existing: taken }, 409)
-    const dir = target.dir
+    // Same rule as creating: an unusable name (usually a filename that is all
+    // punctuation) is invented here, never used to refuse the import.
+    const wanted = projectDirFor(projectsRoot, body.name ?? '') ?? projectDirFor(projectsRoot, 'imported-project')!
+    const name = await freeName(wanted.name)
+    const dir = name === wanted.name ? wanted.dir : projectDirFor(projectsRoot, name)!.dir
     const buf = Buffer.from(body.dataBase64 ?? '', 'base64')
     if (!buf.length || buf.length > IMPORT_CAP) return c.json({ error: 'Archive missing or larger than 24 MB.' }, 413)
     const fn = (body.fileName ?? 'project.zip').toLowerCase()
@@ -218,7 +232,7 @@ export function ideRoutes(rt: Runtime) {
         await rm(inner, { force: true })
       }
       await rename(tmp, dir)
-      return c.json({ ok: true, name: target.name, renamed: target.changed })
+      return c.json({ ok: true, name, renamed: name !== wanted.name })
     } catch (e: any) {
       await rm(tmp, { recursive: true, force: true }).catch(() => {})
       return c.json({ error: String(e?.message ?? e) }, 500)

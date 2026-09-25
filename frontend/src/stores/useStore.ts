@@ -228,10 +228,24 @@ export const useStore = create<StoreState>()(
         // began life as a bare `profileName`; migrate rather than overwrite.
         mergedSettings.profile = migrateProfile(mergedSettings.profileName, mergedSettings.profile)
         mergedSettings.profileName = mergedSettings.profile.name
+        // Built-in skills come from the code, custom ones from the user's own
+        // file. Seeding them into a persisted store would freeze whatever the
+        // built-in list looked like on the day the user first ran the app, so
+        // the library is re-synced on every load and custom skills are kept.
+        const persistedSkills = Array.isArray(p.skills) ? p.skills : []
+        const customSkills = persistedSkills.filter((sk) => !sk.builtin)
+        const customisedBuiltin = new Map(
+          persistedSkills.filter((sk) => sk.builtin && sk.promptTemplate && !builtinSkills.some((b) => b.id === sk.id)).map((sk) => [sk.id, sk]),
+        )
+        const library = [
+          ...builtinSkills.map((b) => customisedBuiltin.get(b.id) ?? b),
+          ...customisedBuiltin.values(),
+        ]
         return {
           ...currentState,
           ...p,
           settings: mergedSettings,
+          skills: [...library, ...customSkills],
         }
       },
     },

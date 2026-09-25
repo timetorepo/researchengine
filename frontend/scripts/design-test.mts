@@ -12,7 +12,10 @@
 import { JSDOM } from 'jsdom'
 
 const API = process.env.RE_API ?? 'http://localhost:8787'
-const PROJECT = process.env.RE_PROJECT ?? 'sample-landing'
+// Its own project, so the fixture below is always the thing under test —
+// pointing this at a real project (the old default, `sample-landing`) made the
+// assertions depend on whatever that project happened to contain.
+const PROJECT = process.env.RE_PROJECT ?? 'design-test-fixture'
 
 let passed = 0
 let failed = 0
@@ -62,12 +65,18 @@ function makeHost(win: any) {
 async function main() {
   console.log(`\n[1] preview API — project "${PROJECT}"`)
 
-  // Make sure the sample project exists (idempotent).
+  // Create the fixture (idempotent), then overwrite it every run so a previous
+  // run's edits — or a half-written fixture — can never make this pass or fail
+  // by accident.
   const list = await api<{ projects: { name: string }[] }>('/api/ide/projects')
-  if (!list.projects.some((p) => p.name === PROJECT)) {
-    console.log(`  … creating ${PROJECT} through the API`)
-    await api('/api/ide/projects', {
+  // The server may free the name up if something already holds it; everything
+  // below — preview, edits, cleanup — must use the name it actually created.
+  let projectName = list.projects.find((p) => p.name === PROJECT)?.name ?? PROJECT
+  {
+    if (!list.projects.some((p) => p.name === PROJECT)) console.log(`  … creating ${PROJECT} through the API`)
+    const created = await api<any>('/api/ide/projects', {
       name: PROJECT,
+      unique: true,
       files: {
         'index.html': `<!doctype html><html lang="en"><head><title>Design test</title></head><body>
   <h1>Design test</h1><main>
@@ -79,9 +88,10 @@ async function main() {
 })`,
       },
     })
+    if (created?.name) projectName = created.name
   }
 
-  const started = await api<any>('/api/ide/preview/start', { project: PROJECT })
+  const started = await api<any>('/api/ide/preview/start', { project: projectName })
   check('preview starts', !!started.ok && started.ready === true, JSON.stringify(started.error ?? started))
   check('preview classifies the stack', typeof started.kind === 'string' && started.kind.length > 0, String(started.kind))
   const port: number = started.port

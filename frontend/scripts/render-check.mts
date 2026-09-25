@@ -433,6 +433,116 @@ async function main() {
   ;(globalThis as any).fetch = realFetch
   ;(win as any).fetch = realFetch
 
+  console.log('\n[9b] Reading mode: the selection paints itself, and it moves')
+  useStore.setState((s) => ({ settings: { ...s.settings, reduceMotion: false } }) as any)
+  const rc2 = win.document.createElement('div')
+  win.document.body.appendChild(rc2)
+  const rootR2 = createRoot(rc2)
+  rootR2.render(React.createElement(MemoryRouter, null as any, React.createElement(ReaderView as any, {
+    doc: {
+      id: 'd2', name: 'Motion',
+      text: 'Photosynthesis converts light into chemical energy in plants.\n\nThe reaction splits water and releases oxygen as a by-product.',
+    },
+    onBack: () => {}, onQuizSection: () => {},
+  })))
+  await wait(300)
+  check('paragraphs are animated containers', rc2.querySelectorAll('.re-para').length >= 2)
+  check('the progress rail is animated', !!rc2.querySelector('.re-rail'))
+
+  // Select a phrase inside the first paragraph the way a reader would.
+  const para = rc2.querySelector('.re-para')!
+  const textNode = [...para.querySelectorAll('*')].map((el) => [...el.childNodes].find((n) => n.nodeType === 3 && (n.textContent ?? '').length > 20))
+    .find(Boolean) as any ?? [...para.childNodes].find((n) => n.nodeType === 3 && (n.textContent ?? '').length > 20)
+  check('the paragraph has selectable text', !!textNode)
+  const range = win.document.createRange()
+  range.setStart(textNode, 0)
+  range.setEnd(textNode, 20)
+  const selection = win.getSelection()!
+  selection.removeAllRanges()
+  selection.addRange(range)
+  win.document.dispatchEvent(new win.MouseEvent('mouseup', { bubbles: true }))
+  await wait(250)
+  const painted = rc2.querySelector('mark.re-mark')
+  check('selecting paints the highlight immediately', !!painted, 'no mark painted')
+  check('the highlight carries the ink animation', !!rc2.querySelector('mark.re-mark-ink'))
+  const confirmBtn = [...rc2.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Highlight')
+  check('no confirmation button is needed', !confirmBtn)
+  const chip = rc2.textContent ?? ''
+  check('the chip offers the next steps', chip.includes('Highlighted') && chip.includes('Undo') && chip.includes('Quiz this'), chip.slice(0, 120))
+  const undo = [...rc2.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Undo')
+  fire(undo)
+  await wait(200)
+  check('undo removes the highlight again', !rc2.querySelector('mark.re-mark'))
+
+  console.log('\n[10] Creating a project cannot be refused')
+  const { createProjectRobust, nextFreeName, isNameProblem, postJson } = await import('../src/lib/ide/create')
+  check('a taken name gets the next free one', nextFreeName('demo', ['demo']) === 'demo-2')
+  check('the next free name respects the whole list', nextFreeName('demo', ['demo', 'demo-2', 'demo-3']) === 'demo-4')
+  check('an empty base still yields a name', nextFreeName('', []) === 'untitled-project')
+  check('a 409 reads as a name problem', isNameProblem(409, { error: 'taken' }))
+  check('a name complaint reads as a name problem', isNameProblem(400, { error: 'That name has no usable characters left.' }))
+  check('a 500 does not', !isNameProblem(500, { error: 'boom' }))
+
+  const okPayloads: any[] = []
+  const okPost = async (_u: string, payload: any) => { okPayloads.push(payload); return { status: 200, body: { ok: true, name: payload.name } } }
+  const first = await createProjectRobust(okPost, { name: 'demo', fallback: 'sample-app', files: { 'a.txt': 'x' }, taken: [], unique: true })
+  check('a good create needs one request', first.ok && first.attempts === 1 && first.name === 'demo')
+  check('the request carries the files', !!okPayloads[0]?.files?.['a.txt'])
+
+  // The exact failure the user hit: the server refuses the name.
+  const seen: string[] = []
+  const flakyPost = async (_u: string, payload: any) => {
+    seen.push(payload.name)
+    if (seen.length === 1) return { status: 400, body: { error: 'That name has no usable characters left. Try letters, numbers or a dash.' } }
+    return { status: 200, body: { ok: true, name: payload.name } }
+  }
+  const recovered = await createProjectRobust(flakyPost, { name: 'sample-landing', fallback: 'sample-app', files: {}, taken: ['sample-landing'] })
+  check('a refused name is retried with a fresh one', recovered.ok && recovered.attempts === 2, JSON.stringify(recovered))
+  check('the retry avoids the name already on disk', seen[1] === 'sample-landing-2', seen.join(' → '))
+
+  const inventedPost = async (_u: string, payload: any) => ({ status: 200, body: { ok: true, name: payload.fallback, invented: true } })
+  const invented = await createProjectRobust(inventedPost, { name: '', fallback: 'sample-app', files: {}, taken: [] })
+  check('an empty name is accepted and named by the server', invented.ok && invented.name === 'sample-app' && invented.invented === true)
+
+  const deadPost = async () => { throw new Error('ECONNREFUSED') }
+  const dead = await createProjectRobust(deadPost, { name: 'demo', fallback: 'x', files: {}, taken: [] })
+  check('an unreachable server says so', !dead.ok && /could not reach the server/.test(String(dead.error)), String(dead.error))
+
+  // The real request shape is exercised against the live API elsewhere, but the
+  // fetch-shaped adapter is pure enough to check here.
+  check('the fetch adapter is exported for the real path', typeof postJson === 'function')
+
+  console.log('\n[11] House rules and design skills ship with the app')
+  const { CODING_RULES } = await import('../src/lib/ide/coding-rules')
+  check('coding rules forbid invented APIs', /only use apis, imports, props/i.test(CODING_RULES))
+  check('coding rules forbid filler code', /no todos, no "implement later"/i.test(CODING_RULES))
+  check('coding rules carry a numeric design bar', /4\.5:1/.test(CODING_RULES) && /4px base/.test(CODING_RULES))
+  check('coding rules demand proof', /verify/i.test(CODING_RULES) && /unverified claim/i.test(CODING_RULES))
+  check('the coding prompt actually includes them', readFileSync('../frontend/src/lib/chat/runChat.ts', 'utf8').includes('CODING_RULES'))
+  const { builtinSkills, SKILL_CATEGORIES } = await import('../src/lib/skills/builtins')
+  const design = builtinSkills.find((sk) => sk.id === 'sk-design-pass')!
+  const zero = builtinSkills.find((sk) => sk.id === 'sk-zero-hallucination')!
+  const filler = builtinSkills.find((sk) => sk.id === 'sk-no-filler')!
+  check('the UI/UX design skill exists', !!design && design.category === 'Design')
+  check('the design skill demands a self-score', /score your own result/i.test(design.promptTemplate))
+  check('the design skill names real numbers', /4\.5:1/.test(design.promptTemplate) && /44px/.test(design.promptTemplate))
+  check('the zero-hallucination skill exists', !!zero && zero.category === 'Code')
+  check('it forbids invented test results', /never state a test result/i.test(zero.promptTemplate))
+  check('it asks for uncertainties explicitly', /uncertainty list/i.test(zero.promptTemplate))
+  check('the no-filler skill exists', !!filler && filler.category === 'Code')
+  check('it forbids placeholders', /no todos/i.test(filler.promptTemplate))
+  check('it makes the model review its own diff', /checklist against your own diff/i.test(filler.promptTemplate))
+  check('Design is a pickable category', SKILL_CATEGORIES.includes('Design'))
+  check('every built-in skill has a category that exists', builtinSkills.every((sk) => SKILL_CATEGORIES.includes(sk.category)), builtinSkills.map((sk) => sk.category).join(','))
+  check('every built-in skill has params with names', builtinSkills.every((sk) => sk.params.every((pm) => !!pm.name)))
+  check('every built-in skill references a param it declares or none at all', builtinSkills.every((sk) => {
+    const used = [...sk.promptTemplate.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])
+    return used.every((u) => sk.params.some((pm) => pm.name === u))
+  }), builtinSkills.filter((sk) => {
+    const used = [...sk.promptTemplate.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])
+    return !used.every((u) => sk.params.some((pm) => pm.name === u))
+  }).map((sk) => sk.id).join(','))
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

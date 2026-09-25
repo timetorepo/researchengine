@@ -116,7 +116,14 @@ async function main() {
 
   console.log('\n[7] Skills + squads + encryption')
   const skills = useStore.getState().skills
-  check('7 builtin skills', skills.filter((s) => s.builtin).length === 7)
+  const builtins = skills.filter((s) => s.builtin)
+  check('the built-in skill library is loaded', builtins.length >= 10, String(builtins.length))
+  // The three quality skills are the point — an install that persisted an older
+  // library must still receive them on load.
+  check('the design pass skill is present', builtins.some((s) => s.id === 'sk-design-pass'))
+  check('the zero-hallucination skill is present', builtins.some((s) => s.id === 'sk-zero-hallucination'))
+  check('the no-filler skill is present', builtins.some((s) => s.id === 'sk-no-filler'))
+  check('every built-in carries a prompt template', builtins.every((s) => (s.promptTemplate ?? '').length > 80))
   check('squads present', useStore.getState().squads.length >= 3)
   const { encryptWithPassphrase, decryptWithPassphrase } = await import('../src/lib/crypto/vault')
   const enc = await encryptWithPassphrase('sk-test-123', 'passphrase')

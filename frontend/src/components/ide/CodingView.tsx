@@ -17,6 +17,7 @@ import { designSession, previewUrlFor } from '@/lib/ide/bridge'
 import { previewStatus, ensurePreviewServer } from '@/lib/ide/preview'
 import { isStreamingChat } from '@/lib/chat/runChat'
 import { SAMPLE_PROJECT } from '@/lib/ide/sample'
+import { createProjectRobust, postJson } from '@/lib/ide/create'
 import { normalizeProjectName } from '@/lib/ide/names'
 import { fmt, timeAgo } from '@/lib/utils'
 
@@ -60,52 +61,50 @@ export function CodingView() {
 
   /** Live preview of the folder name the user will actually get. */
   const nameCheck = normalizeProjectName(newName)
+  const [sampleBusy, setSampleBusy] = useState(false)
 
   const create = async () => {
     const check = nameCheck
     // A blank name — or one made only of characters no filesystem can store —
     // is not an error to argue about: we name the project and open it. The
-    // `unique` flag makes the server pick the next free folder, so this path
-    // cannot collide either.
-    const auto = !check.name
+    // helper retries with a client-chosen name if the server dislikes this one.
     const requested = check.name || 'untitled-project'
     setErr('')
-    const res = await fetch('/api/ide/projects', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: requested,
-        unique: auto || undefined,
-        files: {
-          'README.md': `# ${requested}\n\nCreated with Research Engine Coding.\n`,
-          'main.py': 'print("hello")\n',
-        },
-      }),
+    const outcome = await createProjectRobust(postJson, {
+      name: requested,
+      fallback: 'untitled-project',
+      files: {
+        'README.md': `# ${requested}\n\nCreated with Research Engine Coding.\n`,
+        'main.py': 'print("hello")\n',
+      },
+      taken: projects?.map((p) => p.name) ?? [],
+      unique: true,
     })
-    const j = await res.json()
-    if (res.status === 409) {
-      // Not a dead end: the name is taken, so open what is already there.
-      const existing = j.existing ?? requested
-      setCreating(false); setNewName(''); setErr('')
-      setOpen(existing); void refresh()
-      ui.toast('That project already exists', `Opening “${existing}” instead.`, 'info')
-      return
-    }
-    if (!res.ok) { setErr(j.error ?? 'Could not create the project.'); return }
-    const finalName = j.name ?? requested
+    if (!outcome.ok) { setErr(outcome.error ?? 'Could not create the project.'); return }
+    const finalName = outcome.name ?? requested
     setCreating(false); setNewName(''); setOpen(finalName); void refresh()
-    if (auto) ui.toast('Project created', `Named it “${finalName}” — click the title to rename it.`, 'success')
-    else if (j.renamed || finalName !== requested) ui.toast('Project created', `Saved in a folder named “${finalName}”.`, 'success')
+    if (!check.name) ui.toast('Project created', `Named it “${finalName}” — click the title to rename it.`, 'success')
+    else if (outcome.renamed || finalName !== requested) ui.toast('Project created', `Saved in a folder named “${finalName}”.`, 'success')
   }
 
   /** The sample button must always work — the server picks the next free name. */
   const createSample = async () => {
-    const res = await fetch('/api/ide/projects', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'sample-landing', files: SAMPLE_PROJECT, unique: true }),
+    setSampleBusy(true)
+    // Two chances, then a name chosen here, so an older server (or one that
+    // dislikes the name for any reason) still ends with a working project.
+    const outcome = await createProjectRobust(postJson, {
+      name: 'sample-landing',
+      fallback: 'sample-app',
+      files: SAMPLE_PROJECT,
+      taken: projects?.map((p) => p.name) ?? [],
+      unique: true,
     })
-    const j = await res.json().catch(() => ({}))
-    if (!res.ok) { ui.toast('Could not create the sample', j.error ?? 'Unknown error', 'danger'); return }
-    const name = j.name ?? 'sample-landing'
+    setSampleBusy(false)
+    if (!outcome.ok) {
+      ui.toast('Could not create the sample', `${outcome.error ?? 'Unknown error'} — send this from Settings → About → Diagnostics if it keeps happening.`, 'danger')
+      return
+    }
+    const name = outcome.name ?? 'sample-landing'
     setOpen(name); setDesign(true); void refresh()
     ui.toast('Sample ready', `${name} — Design mode is opening; the AI can audit and fix this page live.`, 'success')
   }
@@ -174,10 +173,10 @@ export function CodingView() {
             style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}>
             <Upload size={14} /> Upload .zip / .tar.gz
           </button>
-          <button onClick={() => void createSample()}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
+          <button onClick={() => void createSample()} disabled={sampleBusy}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium disabled:opacity-60"
             style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
-            <Wand2 size={14} /> Try a sample app
+            {sampleBusy ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} {sampleBusy ? 'Building the sample…' : 'Try a sample app'}
           </button>
           <input ref={uploadRef} type="file" accept=".zip,.tar.gz,.tgz,.tar" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void importArchive(f); e.target.value = '' }} />
@@ -217,8 +216,8 @@ export function CodingView() {
             <Code2 size={22} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
             <p className="text-[13.5px] mb-1">No projects yet.</p>
             <p className="text-[12px] mb-4" style={{ color: 'var(--text-3)' }}>Create one, upload an archive — or drop in the sample app to see Design mode work end to end.</p>
-            <button onClick={() => void createSample()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
-              <Wand2 size={13} /> Create the sample app
+            <button onClick={() => void createSample()} disabled={sampleBusy} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium disabled:opacity-60" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
+              {sampleBusy ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />} {sampleBusy ? 'Building the sample…' : 'Create the sample app'}
             </button>
           </div>
         ) : (
@@ -479,12 +478,19 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
       })
       const j = await res.json()
       if (!res.ok) { ui.toast('Rename failed', j.error ?? 'Unknown error', 'danger'); return }
+      // The server names the project: it keeps the old name when the new one has
+      // nothing a folder can be made of, and frees up a taken one.
+      const finalName = j.name ?? next
+      if (j.kept || finalName === project) {
+        ui.toast('Name kept', `“${next}” has no letters or numbers — the project is still called ${project}.`, 'info')
+        return
+      }
       // Keep the conversation attached to the renamed project.
       const store = useStore.getState()
       const oldChat = [...store.chats].reverse().find((c) => c.title === `Coding · ${project}`)
-      if (oldChat) store.renameChat(oldChat.id, `Coding · ${next}`)
-      onRenamed(next)
-      ui.toast('Project renamed', `${project} → ${next}`, 'success')
+      if (oldChat) store.renameChat(oldChat.id, `Coding · ${finalName}`)
+      onRenamed(finalName)
+      ui.toast('Project renamed', `${project} → ${finalName}`, 'success')
     } catch (e: any) {
       ui.toast('Rename failed', String(e?.message ?? e), 'danger')
     }
