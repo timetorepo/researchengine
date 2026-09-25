@@ -1,16 +1,25 @@
 /**
- * Which chunk a URL needs — and getting it before we move.
+ * Route chunks: prefetched ahead of time, never in the way.
  *
  * Every screen except Home is a `React.lazy` chunk, so the first visit to a
- * route has to fetch a file. Navigating *into* that fetch is what made a tap
- * feel broken: the router swapped in the Suspense skeleton, the View
- * Transitions API froze the old frame as a snapshot on top, and for the length
- * of the transition the page was inert — the "it glitches and then lets me in"
- * the user reported.
+ * route fetches a file. Two mistakes were made trying to hide that from the
+ * user, and both were worse than the fetch:
  *
- * The fix is to know the chunk up front: a navigation waits for the module
- * (milliseconds when warm, one import when cold) *while the current page stays
- * live and clickable*, and only then swaps. Nothing to freeze, nothing inert.
+ *   1. Navigation waited for the chunk. A click then did nothing at all until
+ *      an import resolved — and if it never resolved, the click never
+ *      navigated (the "i click a page and it automatically doesn't load").
+ *   2. Because the push was deferred, a *late* import could land after a newer
+ *      click and drag you to the page you had already moved on from (the
+ *      "i go to another page, it goes to that page not the page i selected").
+ *
+ * The rules now:
+ *
+ *   • Navigation is synchronous. A click always moves, in the same tick.
+ *   • Prefetching is a background hint. It can never gate, delay or reorder a
+ *     navigation, and its result is only used to mark a chunk "warm".
+ *   • Warmth is what buys polish: hovering a row starts the import, and a
+ *     navigation into a warm route is the only one the View Transitions layer
+ *     is allowed to animate (so a transition never starts over a skeleton).
  */
 import { useUI } from '@/stores/useUI'
 
@@ -36,6 +45,11 @@ const ROUTES: { test: (path: string) => boolean; load: Loader }[] = [
   { test: (p) => p.startsWith('/secrets'), load: () => import('@/components/easter/SecretsRoute') },
 ]
 
+/** Chunks already resolved in this session — a Set, so warmth is O(1). */
+const warm = new Set<string>()
+/** Imports in flight, so hovering twice does not start two fetches. */
+const inflight = new Map<string, Promise<void>>()
+
 /** The router path inside a location: hash routing, so `#/quiz` → `/quiz`. */
 export function routePathOf(href: string): string {
   const hash = href.includes('#') ? href.slice(href.indexOf('#') + 1) : href
@@ -47,47 +61,58 @@ export function loaderFor(path: string): Loader | null {
   return ROUTES.find((r) => r.test(path))?.load ?? null
 }
 
-/**
- * Fetch the chunk a path needs. Resolves immediately when it is already in the
- * module registry — which is the normal case, because React.lazy's own import
- * and this one resolve to the same module.
- */
-export async function preloadRoute(path: string): Promise<void> {
-  const load = loaderFor(path)
-  if (!load) return
-  try {
-    await load()
-  } catch {
-    // A chunk that will not load must not swallow the navigation: let the
-    // route render and let Suspense show its own skeleton / error.
-  }
+/** True when this route's chunk is already in the module registry. */
+export function isWarm(path: string): boolean {
+  if (!loaderFor(path)) return true // Home and the redirect need nothing
+  return warm.has(path)
 }
 
 /**
- * Navigate with the chunk already in hand.
- *
- * Sets a "loading" flag for the shell's progress hairline so a cold route is
- * visibly being fetched (the click was heard), then pushes — by which time the
- * lazy component resolves without ever suspending.
+ * Start fetching a route's chunk in the background. Safe to call on hover, on
+ * focus, or while a page is already rendering — it never touches the router.
  */
-export async function navigateReady(args: {
-  href: string
-  push: (href: string) => void
-  clear?: () => void
-}): Promise<void> {
-  const path = routePathOf(args.href)
+export function prefetchRoute(path: string): Promise<void> {
   const load = loaderFor(path)
-  if (load) {
-    const ui = useUI.getState()
-    const needsFetch = true // the module registry tells us nothing cheaply; importing is a no-op when warm
-    if (needsFetch) ui.set({ routeLoading: path })
-    await preloadRoute(path)
+  if (!load) return Promise.resolve()
+  if (warm.has(path)) return Promise.resolve()
+  const started = inflight.get(path)
+  if (started) return started
+  const p = load()
+    .then(() => { warm.add(path) })
+    .catch(() => { /* the route will show Suspense's own fallback and retry */ })
+    .finally(() => { inflight.delete(path) })
+  inflight.set(path, p)
+  return p
+}
+
+/** Fetch the chunk and resolve when it is actually in hand (tests, warmers). */
+export async function preloadRoute(path: string): Promise<void> {
+  await prefetchRoute(path)
+}
+
+/**
+ * Navigate — synchronously, always.
+ *
+ * The push happens in the same tick as the click; the chunk fetch is kicked off
+ * beside it only to drive the hairline (Suspense renders the page the moment
+ * the module lands). Because the push is synchronous, an older navigation can
+ * never overwrite a newer one.
+ */
+export function navigateNow(args: { href: string; push: (href: string) => void }): void {
+  const path = routePathOf(args.href)
+  const ui = useUI.getState()
+  if (!isWarm(path)) {
+    ui.set({ routeLoading: path })
+    void prefetchRoute(path).then(() => {
+      if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
+    })
+    // Safety net: a chunk that never arrives must not leave the hairline up.
+    setTimeout(() => {
+      if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
+    }, 4000)
   }
   args.push(args.href)
-  args.clear?.()
-  // The shell clears it when the new location renders; this is the safety net
-  // for a navigation that never produces one (same route, aborted).
-  setTimeout(() => {
-    if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
-  }, 1200)
 }
+
+/** Kept for callers written against the earlier name — same synchronous move. */
+export const navigateReady = navigateNow

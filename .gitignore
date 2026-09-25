@@ -9,3 +9,9 @@ desktop/src-tauri/target/
 .env
 .DS_Store
 .vite/
+
+# Desktop sidecar binaries — 80 MB per platform, rebuilt by
+# `node scripts/desktop-sidecar.mjs` (and by CI before bundling).
+desktop/src-tauri/binaries/*
+!desktop/src-tauri/binaries/README.txt
+!desktop/src-tauri/binaries/.gitkeep

@@ -16,7 +16,7 @@ import { useUI } from '@/stores/useUI'
 import type { ThemeId } from '@/types'
 import { AppLogo } from '@/components/shared/AppLogo'
 import { useVirtualList } from '@/hooks/useVirtualList'
-import { navigateReady } from '@/lib/routes/registry'
+import { prefetchRoute, routePathOf, navigateNow } from '@/lib/routes/registry'
 import { clsx } from 'clsx'
 
 const NAV = [
@@ -50,6 +50,10 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   // cold page is visibly "yours" instead of a click that seemed to do nothing.
   const routeLoading = useUI((s) => s.routeLoading)
   const pendingFor = (to: string) => routeLoading === to
+  // Warming a chunk on hover is what makes the click instant *and* lets the
+  // view transition run (transitions only animate between pages that are both
+  // ready). A hint, never a requirement.
+  const warm = (to: string) => { void prefetchRoute(routePathOf(`#${to}`)) }
 
   // Close the mobile drawer whenever the route changes (covers every nav action),
   // and when the viewport grows past the drawer breakpoint. Without this the
@@ -127,7 +131,8 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             const active = n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to)
             return (
               <DockItem key={n.to} index={i + 2} label={n.label} active={active} pending={pendingFor(n.to)}
-                onClick={() => { closeMobile(); void navigateReady({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) }) }}>
+                onHover={() => warm(n.to)}
+                onClick={() => { closeMobile(); navigateNow({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) }) }}>
                 <n.icon size={18} strokeWidth={1.5} />
               </DockItem>
             )
@@ -180,12 +185,15 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
                 key={n.to}
                 to={n.to}
                 end={n.end}
+                onMouseEnter={() => warm(n.to)}
+                onFocus={() => warm(n.to)}
                 onClick={(e) => {
                   closeMobile()
-                  // Let the chunk arrive first — the page you are on stays
-                  // clickable while it does.
+                  // The move happens now, in this tick. The chunk is usually
+                  // already warm from the hover; if it is not, the shell shows
+                  // its skeleton and the hairline — never a blocked click.
                   e.preventDefault()
-                  void navigateReady({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) })
+                  navigateNow({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) })
                 }}
                 data-pending={pendingFor(n.to) ? 'true' : 'false'}
                 aria-busy={pendingFor(n.to) || undefined}
@@ -351,13 +359,15 @@ function DockRail({ children }: { children: React.ReactNode }) {
   )
 }
 
-function DockItem({ index, label, active = false, pending = false, onClick, children, tone }: {
+function DockItem({ index, label, active = false, pending = false, onClick, onHover, children, tone }: {
   index: number
   label: string
   active?: boolean
   /** Its route chunk is loading right now. */
   pending?: boolean
   onClick: () => void
+  /** Warm the route while the pointer is here. */
+  onHover?: () => void
   children: React.ReactNode
   tone?: string
 }) {
@@ -386,7 +396,7 @@ function DockItem({ index, label, active = false, pending = false, onClick, chil
     <div
       className="re-dock-item relative flex justify-center"
       style={{ zIndex: pointed ? 6 : 1 }}
-      onMouseEnter={() => ctx?.setHovered(index)}
+      onMouseEnter={() => { ctx?.setHovered(index); onHover?.() }}
       onFocus={() => ctx?.setHovered(index)}
       onBlur={() => ctx?.setHovered(null)}
     >

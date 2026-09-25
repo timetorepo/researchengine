@@ -1,7 +1,7 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "0.24.0-beta.1",
+  "version": "0.25.0-beta.1",
   "type": "module",
   "description": "A self-hosted, privacy-first research platform. Docker is optional \u2014 see README run modes.",
   "workspaces": [
@@ -17,7 +17,9 @@
     "smoke": "npm run smoke --workspace frontend",
     "desktop:dev": "npm run tauri:dev --prefix desktop",
     "desktop:build": "npm run tauri:build --prefix desktop",
-    "package:binary": "node scripts/package-binary.mjs"
+    "package:binary": "node scripts/package-binary.mjs",
+    "desktop:sidecar": "node scripts/desktop-sidecar.mjs",
+    "desktop:check": "node scripts/desktop-check.mjs --run"
   },
   "engines": {
     "node": ">=20"

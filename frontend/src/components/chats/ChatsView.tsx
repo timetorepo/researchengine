@@ -4,7 +4,7 @@ import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, 
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
 import { timeAgo } from '@/lib/utils'
-import { navigateReady } from '@/lib/routes/registry'
+import { navigateNow } from '@/lib/routes/registry'
 
 type Kind = 'all' | 'research' | 'coding'
 
@@ -42,7 +42,7 @@ export function ChatsView() {
   }
   const open = (id: string) => {
     useStore.getState().setActiveChat(id)
-    void navigateReady({ href: `#/chat/${id}`, push: (href) => navigate(href.replace(/^#/, '')) })
+    navigateNow({ href: `#/chat/${id}`, push: (href) => navigate(href.replace(/^#/, '')) })
   }
 
   const tabs: { id: Kind; label: string; n: number }[] = [

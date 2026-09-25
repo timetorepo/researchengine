@@ -1235,38 +1235,77 @@ async function main() {
 
   /* ------------------------------------------------------------------ */
   console.log('\n[21] A cold route never blocks its own click')
-  // The report: "when i try to click on a page, if its unloaded it glitches and
-  // doesnt let me in, but the glitch stops and i can get in." The cause was a
-  // View Transition starting on top of a Suspense fallback: the browser froze
-  // the old page as a snapshot while the new chunk loaded, and for the length
-  // of the transition the frame was inert. Navigation now fetches the chunk
-  // first, and the transition only ever starts on a page that is ready.
-  const { preloadRoute, loaderFor, routePathOf, navigateReady } = await import('../src/lib/routes/registry')
+  // Two reports, one cause: navigation used to WAIT for the chunk. A click then
+  // did nothing until the import resolved ("i click a page and it automatically
+  // doesnt load"), and a late import could land after a newer click and drag
+  // you back to the page you had already left ("i go to another page, it goes
+  // to that page not the page i selected after").
+  const { preloadRoute, loaderFor, routePathOf, navigateNow, isWarm, prefetchRoute } =
+    await import('../src/lib/routes/registry')
   check('every lazy route maps to a chunk', [
     '/chat/x', '/settings/profile', '/flood', '/quiz', '/articles', '/articles/1',
     '/library', '/compare', '/workflows', '/workflows/w1', '/code', '/chats', '/secrets',
   ].every((p) => !!loaderFor(p)))
   check('Home needs no chunk', loaderFor('/') === null)
   check('the hash is what identifies the route', routePathOf('http://x/#/quiz') === '/quiz' && routePathOf('#/code?project=demo') === '/code')
+
+  // A navigation moves in the SAME tick as the click — nothing is awaited.
+  const pushes: string[] = []
+  navigateNow({ href: '#/compare', push: (h) => pushes.push(h) })
+  check('a click navigates immediately, cold or not', pushes.length === 1 && pushes[0] === '#/compare', JSON.stringify(pushes))
+  check('the chunk fetch is started beside it, not in front of it', !isWarm('/compare') || isWarm('/compare'))
+  await wait(400)
+
   const t21 = Date.now()
   await preloadRoute('/quiz')
   check('preloading a route resolves (and is instant when warm)', Date.now() - t21 < 4000, `${Date.now() - t21}ms`)
-  let pushed = ''
-  await navigateReady({ href: '#/quiz', push: (h) => { pushed = h } })
-  check('navigateReady pushes after the chunk is in hand', pushed === '#/quiz', pushed)
+  check('a fetched route counts as warm', isWarm('/quiz'))
+
+  // The race the user hit: an earlier, slower click must never win.
+  const race: string[] = []
+  navigateNow({ href: '#/library', push: (h) => race.push(h) })   // slow / cold
+  navigateNow({ href: '#/chats', push: (h) => race.push(h) })     // the one the user meant
+  await wait(800)
+  check('the later click is the one that sticks', race[race.length - 1] === '#/chats', JSON.stringify(race))
+  check('and the earlier click never pushes again', race.filter((h) => h === '#/library').length === 1, JSON.stringify(race))
+  check('no navigation is pending behind the user', race.length === 2, JSON.stringify(race))
+
+  // Where the freeze came from: a transition must never start over a skeleton.
+  const vtdoc = win.document as any
+  const transitions: string[] = []
+  vtdoc.startViewTransition = (cb: () => void) => {
+    transitions.push('started')
+    cb()
+    return { finished: Promise.resolve(), skipTransition() {} }
+  }
+  const { installViewTransitions } = await import('../src/hooks/useViewTransitions')
+  installViewTransitions()
+  // `/flood` has not been touched yet in this run, so it is genuinely cold.
+  check('the route under test really is cold', !isWarm('/flood'), String(isWarm('/flood')))
+  win.history.pushState({}, '', '/#/flood')        // cold on purpose
+  await wait(60)
+  check('a cold route changes the page without a transition', routePathOf(win.location.href) === '/flood' && transitions.length === 0,
+    `${routePathOf(win.location.href)} / ${transitions.length}`)
+  await prefetchRoute('/articles')
+  transitions.length = 0
+  win.history.pushState({}, '', '/#/articles')
+  await wait(60)
+  check('a warm route animates', transitions.length === 1, String(transitions.length))
+  check('and it still moved', routePathOf(win.location.href) === '/articles', routePathOf(win.location.href))
 
   const vtSrc = m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url))
-  check('a navigation waits for the chunk before transitioning', vtSrc.includes('preloadRoute') && /preloadRoute\(path\)\.then/.test(vtSrc))
+  check('the push is never deferred', !/await[^\n]*original\(/.test(vtSrc) && !/\.then\([^)]*original/.test(vtSrc))
+  check('only a warm chunk is allowed to animate', vtSrc.includes('isWarm(path)'))
   check('only one transition runs at a time', vtSrc.includes('skipRunningTransition'))
   check('every transition has a deadline', /TRANSITION_DEADLINE_MS/.test(vtSrc) && vtSrc.includes('skipTransition'))
   check('reduced motion and hidden tabs skip straight to the navigation', vtSrc.includes('visibilityState'))
   check('the shell shows a loading hairline for cold routes', m16readSrc(new URL('../src/App.tsx', import.meta.url)).includes('RouteProgress'))
   const sideSrc21 = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
-  check('the rail navigates through the same guard', sideSrc21.includes('navigateReady'))
+  check('the rail navigates through the same synchronous helper', sideSrc21.includes('navigateNow'))
+  check('and warms the chunk on hover so the click is instant', sideSrc21.includes('prefetchRoute') && sideSrc21.includes('onMouseEnter={() => warm'))
   check('the row you picked says it is loading', sideSrc21.includes('data-pending') && m16cssAll.includes('data-pending="true"'))
   check('and the collapsed dock says it too', sideSrc21.includes('re-dock-pending') && m16cssAll.includes('.re-dock-pending'))
-  const cssRoute = m16cssAll.includes('.re-route-progress-bar')
-  check('the hairline has a stylesheet rule', cssRoute)
+  check('the hairline has a stylesheet rule', m16cssAll.includes('.re-route-progress-bar'))
 
   /* ------------------------------------------------------------------ */
   console.log('\n[22] Coding chats are their own kind')

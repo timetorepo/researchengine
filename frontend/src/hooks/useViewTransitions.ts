@@ -1,38 +1,30 @@
 import { flushSync } from 'react-dom'
-import { loaderFor, preloadRoute, routePathOf } from '@/lib/routes/registry'
+import { isWarm, loaderFor, prefetchRoute, routePathOf } from '@/lib/routes/registry'
 import { useUI } from '@/stores/useUI'
 
 /**
- * Navigation that moves — and never gets in the way.
+ * Navigation that moves — and can never get in the way.
  *
- * React Router navigates by pushing history and re-rendering. That is instant
- * but silent: the page you leave and the page you arrive at are simply swapped,
- * and nothing about the interface acknowledges that you went *back* rather than
- * forward.
+ * React Router navigates by pushing history and re-rendering: instant, but
+ * silent. The View Transitions API (Chrome/Edge 111+, Safari 18+) lets the
+ * browser snapshot the old frame, snapshot the new one, and animate between
+ * them, which gives the app: the page cross-fading and rising instead of
+ * cutting, the sidebar and top bar standing still (they are named in
+ * globals.css), and the active nav marker travelling between rows.
  *
- * The View Transitions API (Chrome/Edge 111+, Safari 18+) lets the browser
- * snapshot the old frame, snapshot the new one, and animate between them. We
- * wrap the router's own history calls, which is enough to get:
+ * Rules that keep this safe, after two rounds of it misbehaving:
  *
- *   • the page cross-fading and rising instead of cutting,
- *   • the sidebar and top bar *staying put* (they are named, see globals.css),
- *   • the active nav marker travelling from the old item to the new one.
+ *   1. The push is synchronous. A navigation never waits for anything, so a
+ *      click always moves and an older click can never win a race with a newer
+ *      one.
+ *   2. A transition only runs when the destination chunk is ALREADY in hand.
+ *      Animating into a Suspense skeleton is what froze the frame over an inert
+ *      page; hovering a nav row prefetches, so in practice it is warm by then.
+ *   3. Only one transition at a time, and every transition has a deadline —
+ *      `skipTransition()` ends it and the app carries on.
  *
- * Three rules keep this from ever becoming a trap (the "I click a page and it
- * glitches, then finally lets me in" report):
- *
- *   1. The destination chunk is fetched FIRST, while the current page is still
- *      live and clickable. A transition never starts on top of a Suspense
- *      fallback, so there is no inert frozen frame to wait out.
- *   2. Only one transition runs at a time. A second navigation skips the first
- *      instead of stacking, because a stacked transition is what leaves the
- *      old snapshot painted over an unresponsive page.
- *   3. Every transition has a deadline. If the browser never finishes (a busy
- *      frame, a background tab), `skipTransition()` ends it and the app carries
- *      on — the same state a browser without the API would be in.
- *
- * Everything degrades to a plain navigation when the API is missing, when the
- * user asked for reduced motion, or if the browser throws.
+ * When any of that cannot be guaranteed the router simply navigates: no
+ * animation is worth a page that does not load.
  */
 
 let installed = false
@@ -58,7 +50,6 @@ function startTransition(doc: VTDocument, update: () => void) {
   try {
     const t = doc.startViewTransition!(update)
     active = t
-    // Rule 3: a transition may never outlive this deadline.
     const timer = setTimeout(() => {
       if (active === t) { try { t.skipTransition?.() } catch { /* already gone */ } ; active = null }
     }, TRANSITION_DEADLINE_MS)
@@ -80,46 +71,34 @@ export function installViewTransitions() {
     const original = history[method].bind(history)
     history[method] = ((...args: Parameters<History['pushState']>) => {
       const doc = document as VTDocument
-      const url = String(args[2] ?? '')
-      const path = routePathOf(url)
+      const path = routePathOf(String(args[2] ?? ''))
       const load = loaderFor(path)
 
-      if (!doc.startViewTransition || prefersReduced() || doc.visibilityState === 'hidden') {
-        // No transition: still make sure the chunk is coming. Suspense handles
-        // it, and the old page stays interactive until React swaps.
-        if (load) {
-          useUI.setState({ routeLoading: path })
-          void preloadRoute(path).then(() => {
-            if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
-          })
-        }
-        return original(...args)
+      // A cold chunk is fetched beside the navigation, never in front of it:
+      // this keeps the hairline honest and warms the route for next time.
+      if (load && !isWarm(path)) {
+        useUI.setState({ routeLoading: path })
+        void prefetchRoute(path).then(() => {
+          if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
+        })
       }
 
-      if (!load) {
-        startTransition(doc, () => {
-          try { flushSync(() => original(...args)) } catch { original(...args) }
-        })
+      const canAnimate =
+        !!doc.startViewTransition &&
+        !prefersReduced() &&
+        doc.visibilityState !== 'hidden' &&
+        // Rule 2: never animate into a page that is still a skeleton.
+        isWarm(path)
+
+      if (!canAnimate) {
+        original(...args)
         return
       }
-
-      // Rule 1: the chunk first — the current page keeps working meanwhile.
-      useUI.setState({ routeLoading: path })
-      void preloadRoute(path).then(() => {
-        if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
-        // The user may have navigated again while the chunk was loading.
-        if (routePathOf(window.location.href) !== routePathOf(currentHref())) return
-        startTransition(doc, () => {
-          try { flushSync(() => original(...args)) } catch { original(...args) }
-        })
+      startTransition(doc, () => {
+        try { flushSync(() => original(...args)) } catch { original(...args) }
       })
     }) as History['pushState']
   }
-}
-
-/** The router's current location (hash included), for stale-checking. */
-function currentHref() {
-  return typeof window === 'undefined' ? '' : window.location.href
 }
 
 /**
