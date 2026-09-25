@@ -94,6 +94,12 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   }
   useEffect(() => { onScroll() }, [paras])
 
+  // Read mode is an activity too — the focus timer should say "Reading" here.
+  useEffect(() => {
+    useUI.getState().setActivity({ kind: 'reading', label: 'Reading' })
+    return () => { if (useUI.getState().activity.kind === 'reading') useUI.getState().setActivity({ kind: 'idle' }) }
+  }, [])
+
   // ---- highlighting: selection paints the mark itself ----
   // Selecting text used to leave a button to press. Now the mark is drawn the
   // moment the selection is released (and "ink" is animated on), with a small

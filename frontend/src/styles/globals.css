@@ -1146,3 +1146,97 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   .ios-press:active, .ios-lift:hover { transform: none; }
   .ide-btn:active:not(:disabled), .ide-icon-btn:active:not(:disabled), .ide-chip:active:not(:disabled) { transform: none; }
 }
+
+/* ================================================================== */
+/* The dock — collapsed sidebar                                        */
+/* Modeled on the macOS dock and Cult UI's Dock component: the icon    */
+/* under the pointer swells, its neighbours lean away to make room,    */
+/* and its name appears beside it. The movement lives in framer-motion */
+/* (springs), this is only the surface treatment.                      */
+/* ================================================================== */
+.re-dock {
+  position: relative;
+  gap: 2px;
+  /* The rail is 60px wide; the labels fly out of it, so nothing may clip. */
+  overflow: visible;
+}
+.re-dock-item { will-change: transform; }
+.re-dock-label {
+  /* Above the page content, never in the way of the pointer. */
+  z-index: 20;
+  pointer-events: none;
+  backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--glass);
+  border: 1px solid var(--surface-border);
+}
+/* A quiet shelf edge, so the rail reads as a surface rather than a gap. */
+.re-dock::before {
+  content: '';
+  position: absolute;
+  left: 6px; right: 6px; top: 4px; bottom: 6px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--elevated) 40%, transparent);
+  opacity: 0;
+  transition: opacity 220ms var(--ease-ios, ease-out);
+  pointer-events: none;
+}
+.re-dock:hover::before { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Without motion the dock still has to work: no lean, no swell. */
+  .re-dock-item { transform: none !important; }
+}
+.reduce-motion .re-dock-item { transform: none !important; }
+
+/* ================================================================== */
+/* Toasts — Sonner (emilkowalski)                                      */
+/* Sonner ships its own look; these rules make it wear the app's       */
+/* palette instead of a second design language. Every value comes from */
+/* the same tokens as the rest of the UI, so all 20+ themes match.     */
+/* ================================================================== */
+.re-sonner-toast {
+  background: var(--glass) !important;
+  border: 1px solid var(--surface-border) !important;
+  color: var(--text) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 16px 44px -16px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(18px) saturate(1.4);
+  padding: 12px 14px !important;
+  gap: 10px !important;
+}
+.re-sonner-title {
+  font-size: 13px !important;
+  font-weight: 550 !important;
+  line-height: 1.25 !important;
+  color: var(--text) !important;
+}
+.re-sonner-desc {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: var(--text-2) !important;
+  margin-top: 2px !important;
+}
+.re-sonner-close {
+  background: var(--elevated) !important;
+  border: 1px solid var(--surface-border) !important;
+  color: var(--text-3) !important;
+}
+.re-sonner-close:hover { color: var(--text) !important; }
+/* Tone is carried by a left edge + the icon, never by repainting the whole
+   card — that is what keeps success/warning readable in every theme. */
+.re-toast { border-left-width: 3px !important; }
+.re-toast-info { border-left-color: var(--primary) !important; }
+.re-toast-success { border-left-color: var(--success) !important; }
+.re-toast-warning { border-left-color: var(--warning) !important; }
+.re-toast-danger { border-left-color: var(--danger) !important; }
+.re-toast-info .re-sonner-icon svg { color: var(--primary); }
+.re-toast-success .re-sonner-icon svg { color: var(--success); }
+.re-toast-warning .re-sonner-icon svg { color: var(--warning); }
+.re-toast-danger .re-sonner-icon svg { color: var(--danger); }
+
+/* Reduce-motion: arrive, do not animate. Sonner's stacking physics are the
+   point of the library, so they stay — only the entrance/exit is flattened. */
+.re-toast-static [data-sonner-toast] { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast] { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}

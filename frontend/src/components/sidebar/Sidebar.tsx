@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -39,11 +39,8 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   const location = useLocation()
   const chats = useStore((s) => s.chats)
   const spaces = useStore((s) => s.spaces)
-  const integrations = useStore((s) => s.integrations)
   const [spaceFilter, setSpaceFilter] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-
-  const anyIntegration = Object.values(integrations).some((i) => i.connected)
 
   // Close the mobile drawer whenever the route changes (covers every nav action),
   // and when the viewport grows past the drawer breakpoint. Without this the
@@ -106,19 +103,34 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
       </div>
 
       {collapsed ? (
-        <div className="flex flex-col items-center gap-1 mt-2">
-          <IconBtn label="Expand" onClick={() => ui.toggleSidebar()}><PanelLeftOpen size={18} strokeWidth={1.5} /></IconBtn>
-          <IconBtn label="New chat" onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}><Plus size={18} strokeWidth={1.5} /></IconBtn>
-          <div className="w-6 my-1" style={{ borderTop: '1px solid var(--surface-border)' }} />
-          {NAV.map((n) => {
+        <DockRail>
+          <DockItem index={0} label="Expand sidebar" onClick={() => ui.toggleSidebar()}>
+            <PanelLeftOpen size={18} strokeWidth={1.5} />
+          </DockItem>
+          <DockItem index={1} label="New research" onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}>
+            <Plus size={18} strokeWidth={1.5} />
+          </DockItem>
+          <DockDivider />
+          {NAV.map((n, i) => {
             const active = n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to)
             return (
-              <IconBtn key={n.to} label={n.label} active={active} onClick={() => { closeMobile(); navigate(n.to) }}>
+              <DockItem key={n.to} index={i + 2} label={n.label} active={active} onClick={() => { closeMobile(); navigate(n.to) }}>
                 <n.icon size={18} strokeWidth={1.5} />
-              </IconBtn>
+              </DockItem>
             )
           })}
-        </div>
+          <DockSpacer />
+          <DockDivider />
+          <DockItem index={NAV.length + 2} label="Theme" onClick={() => useUI.setState({ settingsOpen: true, settingsTab: 'appearance' })}>
+            <DockThemeIcon />
+          </DockItem>
+          <DockItem index={NAV.length + 3} label="Settings" onClick={() => useUI.setState({ settingsSheet: true })}>
+            <Settings size={18} strokeWidth={1.5} />
+          </DockItem>
+          <DockItem index={NAV.length + 4} label="Profile" onClick={() => useUI.setState({ settingsOpen: true, settingsTab: 'profile' })}>
+            <UserAvatar size={22} />
+          </DockItem>
+        </DockRail>
       ) : (
         <>
           {/* New chat */}
@@ -215,13 +227,16 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
         </>
       )}
 
-      {/* Footer — bottom-to-top: profile pill, privacy shield, settings, theme toggle */}
-      <div className={clsx('px-2 py-2 space-y-0.5', collapsed && 'flex flex-col items-center')} style={{ borderTop: '1px solid var(--surface-border)' }}>
-        <ThemeQuickToggle collapsed={collapsed} />
-        <SettingsLauncher collapsed={collapsed} />
-        <PrivacyShield compact={collapsed} amber={anyIntegration} />
-        <ProfilePill collapsed={collapsed} />
-      </div>
+      {/* Footer (expanded rail only — the collapsed rail is one dock).
+          The privacy shield moved to the top bar: it reports on the whole app,
+          so it should not be hidden when the sidebar is. */}
+      {!collapsed && (
+        <div className="px-2 py-2 space-y-0.5" style={{ borderTop: '1px solid var(--surface-border)' }}>
+          <ThemeQuickToggle collapsed={false} />
+          <SettingsLauncher collapsed={false} />
+          <ProfilePill collapsed={false} />
+        </div>
+      )}
     </div>
   )
 
@@ -250,6 +265,127 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
       </AnimatePresence>
     </>
   )
+}
+
+/* ------------------------------------------------------------------ */
+/* The dock                                                            */
+/*                                                                     */
+/* When the sidebar is collapsed it stops being a list of links and    */
+/* becomes a dock: point at an icon and it swells, its neighbours lean */
+/* away to make room, and the name appears beside it. Same gesture as  */
+/* the macOS dock / Cult UI's Dock component, vertical, and driven by  */
+/* hover state rather than pointer geometry so it behaves identically  */
+/* under a mouse, a trackpad or a touch has no hover to give.          */
+/* ------------------------------------------------------------------ */
+
+interface DockCtxValue { hovered: number | null; setHovered: (i: number | null) => void }
+const DockCtx = createContext<DockCtxValue | null>(null)
+
+/** Scale and lean for an item `d` places away from the pointed-at one. */
+export function dockMetrics(d: number | null) {
+  if (d === null) return { scale: 1, lean: 0, dim: false }
+  if (d === 0) return { scale: 1.6, lean: 0, dim: false }
+  if (d === 1) return { scale: 1.26, lean: 8, dim: false }
+  if (d === 2) return { scale: 1.08, lean: 3, dim: false }
+  return { scale: 1, lean: 0, dim: true }
+}
+
+function DockRail({ children }: { children: React.ReactNode }) {
+  const [hovered, setHovered] = useState<number | null>(null)
+  return (
+    <DockCtx.Provider value={{ hovered, setHovered }}>
+      <div
+        className="re-dock flex-1 min-h-0 flex flex-col items-center pt-1 pb-2"
+        onMouseLeave={() => setHovered(null)}
+        data-dock="true"
+      >
+        {children}
+      </div>
+    </DockCtx.Provider>
+  )
+}
+
+function DockItem({ index, label, active = false, onClick, children, tone }: {
+  index: number
+  label: string
+  active?: boolean
+  onClick: () => void
+  children: React.ReactNode
+  tone?: string
+}) {
+  const ctx = useContext(DockCtx)
+  const hovered = ctx?.hovered ?? null
+  const d = hovered === null ? null : Math.abs(index - hovered)
+  const { scale, lean } = dockMetrics(d)
+  const pointed = hovered === index
+  const dir = hovered === null ? 0 : Math.sign(index - hovered)
+  const color = tone ?? (active ? 'var(--primary)' : 'var(--text-2)')
+
+  return (
+    <div
+      className="re-dock-item relative flex justify-center"
+      style={{ zIndex: pointed ? 6 : 1 }}
+      onMouseEnter={() => ctx?.setHovered(index)}
+      onFocus={() => ctx?.setHovered(index)}
+      onBlur={() => ctx?.setHovered(null)}
+    >
+      <motion.div
+        animate={{ scale, y: dir * lean }}
+        transition={{ type: 'spring', damping: 20, stiffness: 420, mass: 0.6 }}
+        className="relative"
+      >
+        <button
+          onClick={onClick}
+          aria-label={label}
+          title={label}
+          aria-current={active ? 'page' : undefined}
+          className="relative flex items-center justify-center w-9 h-9 rounded-[11px] transition-colors"
+          style={{
+            color,
+            background: active ? 'var(--elevated)' : pointed ? 'var(--elevated)' : 'transparent',
+            boxShadow: pointed ? '0 8px 22px -10px rgba(0,0,0,0.55)' : 'none',
+          }}
+        >
+          {active && <span className="absolute left-[-5px] top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full" style={{ background: 'var(--primary)' }} />}
+          {children}
+        </button>
+
+        {/* The name, only for the icon under the pointer. */}
+        <AnimatePresence>
+          {pointed && (
+            <motion.span
+              initial={{ opacity: 0, x: -8, scale: 0.94 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -8, scale: 0.94 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 400 }}
+              className="re-dock-label pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 whitespace-nowrap px-2.5 py-1 rounded-[9px] text-[11.5px] font-medium surface-elevated"
+              style={{ color: 'var(--text)', boxShadow: '0 10px 28px -12px rgba(0,0,0,0.5)' }}
+            >
+              {label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  )
+}
+
+/** A hairline between dock groups, indented like the macOS dock's dividers. */
+function DockDivider() {
+  return <div className="w-6 my-1.5 shrink-0" style={{ borderTop: '1px solid var(--surface-border)' }} />
+}
+
+/** Sun/moon for the dock, independent of the expanded footer's control. */
+function DockThemeIcon() {
+  const theme = useStore((s) => s.settings.theme)
+  const isDark = THEMES.find((t) => t.id === theme)?.kind !== 'light'
+  return isDark ? <Moon size={18} strokeWidth={1.5} /> : <Sun size={18} strokeWidth={1.5} />
+}
+
+/** Bottom padding that makes the collapsed rail feel like a shelf rather than
+ *  a column that ran out of room. */
+function DockSpacer() {
+  return <div className="flex-1 min-h-2" />
 }
 
 function IconBtn({ children, label, onClick, active = false }: { children: React.ReactNode; label: string; onClick: () => void; active?: boolean }) {

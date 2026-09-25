@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { notify, hasToastSink } from '@/lib/notify'
 
 export type IslandState =
   | { kind: 'idle' }
@@ -9,6 +10,13 @@ export type IslandState =
   | { kind: 'skill'; name: string }
 
 interface Toast { id: string; title: string; body?: string; tone: 'info' | 'success' | 'warning' | 'danger' }
+
+/** What the user is doing right now, as the shell sees it. Views set this on
+ *  mount and clear it on unmount, so the focus timer can say "Quiz" (or
+ *  "Coding") instead of a bare clock — a running timer with no context is one
+ *  more thing to wonder about. */
+export type ActivityKind = 'idle' | 'quiz' | 'coding' | 'reading' | 'chat' | 'flood' | 'articles' | 'workflows'
+export interface Activity { kind: ActivityKind; label?: string; detail?: string }
 
 export interface FlowPipelineState {
   chatId: string
@@ -47,8 +55,11 @@ interface UIState {
   vaultPrompt: boolean
   /** Questions queued while the AI is busy answering the current one. Not persisted. */
   queue: Record<string, { id: string; prompt: string; mode?: Record<string, unknown>; extra?: Record<string, unknown> }[]>
+  /** The surface the user is on, for the focus timer's context label. */
+  activity: Activity
 
   set: (patch: Partial<UIState>) => void
+  setActivity: (activity: Activity) => void
   toggleSidebar: () => void
   toast: (title: string, body?: string, tone?: Toast['tone']) => void
   clearNotices: () => void
@@ -100,9 +111,14 @@ export const useUI = create<UIState>((set, get) => ({
   pendingQuizFile: null,
   vaultPrompt: false,
   queue: {},
+  activity: { kind: 'idle' },
 
   set: (patch) => set(patch),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  // Views claim the activity; the last one to mount owns the label, and an
+  // unmount only clears it if it is still the one that set it (so a route
+  // change that mounts the next view first does not blank the label).
+  setActivity: (activity) => set((s) => (s.activity === activity ? s : { activity })),
 
   toast: (title, body, tone = 'info') => {
     const id = `t${++toastN}`
@@ -114,7 +130,11 @@ export const useUI = create<UIState>((set, get) => ({
       saveNotices(notices)
       return { toasts: [...s.toasts, { id, title, body, tone }], notices }
     })
-    setTimeout(() => get().dismissToast(id), 4200)
+    // The mounted host (Sonner) owns the lifetime — that is what gives us
+    // hover-to-pause and swipe-to-dismiss. Without a host (tests, first paint)
+    // the store still cleans up after itself.
+    notify({ id, title, body, tone })
+    if (!hasToastSink()) setTimeout(() => get().dismissToast(id), 4200)
   },
   clearNotices: () => { saveNotices([]); set({ notices: [] }) },
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),

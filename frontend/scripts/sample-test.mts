@@ -151,6 +151,33 @@ async function main() {
   const collision = await api<any>('/api/ide/projects', { name: PROJECT, files: {}, unique: true })
   check('a taken name is free-named instead of refused', collision.ok === true && collision.name !== PROJECT, JSON.stringify(collision))
 
+  console.log('\n[6] The Settings → Developer test bench (same code the app runs)')
+  const { createProjectRobust, postJson } = await import('../src/lib/ide/create')
+  // In the browser these are same-origin relative fetches; the harness needs an
+  // absolute host, so it wraps the very same post adapter rather than replacing it.
+  const benchPost = async (url: string, payload: unknown) => postJson(`${API}${url}`, payload)
+  const existing = ((await (await fetch(`${API}/api/ide/projects`)).json()) as any).projects.map((p: any) => p.name)
+  // Exactly what "Test: create the sample app" sends.
+  const benchSample = await createProjectRobust(benchPost, {
+    name: 'sample-landing', fallback: 'sample-app', files: SAMPLE_PROJECT, taken: existing, unique: true,
+  })
+  check('the bench can create the sample', benchSample.ok === true, JSON.stringify(benchSample))
+  check('the bench reports the folder it used', typeof benchSample.name === 'string' && benchSample.name.length > 0, String(benchSample.name))
+  check('the bench names the attempt count', benchSample.attempts >= 1)
+  if (benchSample.ok && benchSample.name && benchSample.name !== PROJECT) {
+    const files = await (await fetch(`${API}/api/ide/file?project=${encodeURIComponent(benchSample.name)}&path=index.html`)).json() as any
+    check('the bench-created sample is a real project', /Northwind|<!doctype/i.test(files.content ?? ''), String(files.content ?? '').slice(0, 60))
+    check('the bench cleans up after itself', await fetch(`${API}/api/ide/projects/${encodeURIComponent(benchSample.name)}`, { method: 'DELETE' }).then((r) => r.ok))
+  } else if (benchSample.name) {
+    check('the bench reused an existing sample instead of failing', benchSample.ok === true)
+  }
+
+  const benchProject = await createProjectRobust(benchPost, {
+    name: 'dev-test-bench', fallback: 'dev-test', files: { 'README.md': '# dev-test-bench\n' }, taken: existing, unique: true,
+  })
+  check('the bench can create an ordinary project', benchProject.ok === true, JSON.stringify(benchProject))
+  if (benchProject.name) await fetch(`${API}/api/ide/projects/${encodeURIComponent(benchProject.name)}`, { method: 'DELETE' }).catch(() => null)
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed\n`)
   try { win.close() } catch { /* ignore */ }
   await api(`/api/ide/projects/${PROJECT}`, undefined, 'DELETE').catch(() => null)

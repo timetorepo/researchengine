@@ -101,7 +101,11 @@ export function CodingView() {
     })
     setSampleBusy(false)
     if (!outcome.ok) {
-      ui.toast('Could not create the sample', `${outcome.error ?? 'Unknown error'} — send this from Settings → About → Diagnostics if it keeps happening.`, 'danger')
+      ui.toast(
+        'Could not create the sample',
+        `${outcome.error ?? 'Unknown error'} — Settings → Developer → “Test: create the sample app” shows exactly what the server said.`,
+        'danger',
+      )
       return
     }
     const name = outcome.name ?? 'sample-landing'
@@ -495,6 +499,12 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
       ui.toast('Rename failed', String(e?.message ?? e), 'danger')
     }
   }
+
+  // The shell reads this: the focus timer says "Coding" while a project is open.
+  useEffect(() => {
+    useUI.getState().setActivity({ kind: 'coding', label: 'Coding', detail: project })
+    return () => { if (useUI.getState().activity.kind === 'coding') useUI.getState().setActivity({ kind: 'idle' }) }
+  }, [project])
 
   /* ---------------- preview ---------------- */
   const refreshPreview = useCallback(async () => {

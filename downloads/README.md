@@ -6,9 +6,8 @@ pure-JS portable builds: the only requirement on your machine is Node.js.
 
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.20.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.20.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
-| `research-engine-0.19.0-beta.1-*` | Windows / Linux | previous release |
+| `research-engine-0.21.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.21.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
 | `research-engine-0.17.0-beta.1-*` | Windows / Linux | older release — update if you are on it: project creation could still be refused for a name there |
 
 Verify either archive first:
@@ -37,7 +36,7 @@ launcher with NSSM — see the root README, install method C.
 ## Linux / macOS
 
 ```bash
-tar xzf research-engine-0.20.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.21.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ./research-engine-linux-x64/research-engine serve --port 3847
 ```

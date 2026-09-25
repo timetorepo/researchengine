@@ -24,7 +24,7 @@ const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowE
 const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
 const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
-import { Toasts } from '@/components/shared/Toasts'
+import { AppToaster } from '@/components/shared/AppToaster'
 import { CommandPalette } from '@/components/shared/CommandPalette'
 import { ShortcutsOverlay } from '@/components/shared/ShortcutsOverlay'
 import { SkillBuilderPanel } from '@/components/skills/SkillBuilderPanel'
@@ -80,7 +80,7 @@ export default function App() {
     return (
       <>
         <Onboarding />
-        <Toasts />
+        <AppToaster />
       </>
     )
   }
@@ -150,7 +150,7 @@ function RoutedApp() {
         </Suspense>
       </Shell>
       </ErrorBoundary>
-      <Toasts />
+      <AppToaster />
       <SettingsSheet />
       <VaultUnlock />
       <CommandPalette />

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X, ChevronRight, Flame } from 'lucide-react'
 import type { QuizQuestion } from '@/types'
 import { useStore } from '@/stores/useStore'
+import { useUI } from '@/stores/useUI'
 import { burstConfetti } from '@/lib/quiz/confetti'
 
 const LETTERS = ['A', 'B', 'C', 'D']
@@ -25,6 +26,12 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource }: {
   onSeeSource?: (needle: string) => void
 }) {
   const autoAdvance = useStore((s) => s.settings.quizAutoAdvance)
+  // Tell the shell what this is, so a running focus timer can say "Quiz"
+  // instead of a bare clock.
+  useEffect(() => {
+    useUI.getState().setActivity({ kind: 'quiz', label: 'Quiz' })
+    return () => { if (useUI.getState().activity.kind === 'quiz') useUI.getState().setActivity({ kind: 'idle' }) }
+  }, [])
   const [idx, setIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [correct, setCorrect] = useState<Record<string, boolean>>({})

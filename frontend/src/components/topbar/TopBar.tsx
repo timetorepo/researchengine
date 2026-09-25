@@ -8,6 +8,9 @@ import { PROVIDERS } from '@/lib/providers/registry'
 import { refreshAllModels, refreshProviderModels } from '@/lib/providers/refresh'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
+import { FocusPill } from '@/components/shared/FocusPill'
+import { APP_VERSION, BUILD_ID } from '@/components/settings/AboutTab'
+import { PrivacyShield } from '@/components/sidebar/Sidebar'
 import { fmt } from '@/lib/utils'
 
 export function TopBar() {
@@ -15,6 +18,8 @@ export function TopBar() {
   const ui = useUI()
   const settings = useStore((s) => s.settings)
   const saved = useStore((s) => s.tokensSavedSession)
+  const integrations = useStore((s) => s.integrations)
+  const anyIntegration = Object.values(integrations).some((i) => i.connected)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [modelQuery, setModelQuery] = useState('')
   const pickRef = useRef<HTMLDivElement>(null)
@@ -178,6 +183,27 @@ export function TopBar() {
       </span>
 
       <div className="flex-1" />
+
+      {/* Developer Mode: which build you are actually looking at. The first
+          question behind any "the fix did not work" is a stale bundle. */}
+      {settings.developerMode && (
+        <span
+          className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono"
+          style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}
+          title={`Build ${BUILD_ID}`}
+        >
+          <span className="w-1 h-1 rounded-full" style={{ background: 'var(--warning)' }} />
+          {APP_VERSION}
+        </span>
+      )}
+
+      {/* Privacy shield — moved up here from the sidebar footer so the state of
+          the shield (and the one-tap way into what it is doing) is visible from
+          every screen, not just when the sidebar is open. */}
+      <PrivacyShield compact amber={anyIntegration} />
+
+      {/* Focus timer — same idea: it belongs to the shell, not the sidebar. */}
+      <FocusPill />
 
       {/* Flow savings counter */}
       <div

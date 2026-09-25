@@ -4,7 +4,7 @@
 
 ![Research Engine screenshot](docs/screenshot.png)
 
-[![Pre-release](https://img.shields.io/badge/release-v0.20.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Pre-release](https://img.shields.io/badge/release-v0.21.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license--credits)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#install-research-engine)
 
@@ -28,6 +28,8 @@ What makes it different: (1) **local by architecture, not by promise** — SQLit
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> | **AIFlowEngine** | Query classification, context pruning (40–70% token savings), semantic caching, and stream shaping with four pacing modes |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg> | **Workflow editor** | Node-based automation: triggers, AI steps, logic, transforms, and outputs on an infinite canvas, with run history and one-file sharing |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> | **Read & Quiz studio** | Upload PDF/DOCX/TXT, a 720px study reader with highlights, AI summaries, and generated quizzes (6 question types, timer, streaks). Step-by-step text is tidied **by the app, at display time** — `:dot:` lines, "Step 2 —" runs and repeated `1.` numbering become real numbered steps and bullets, with no extra model call. Selecting text **paints the highlight immediately** (the mark animates on like a marker; a chip offers *quiz this passage* or *undo*), paragraphs settle in as pages, jumps pulse the destination, and all of it stands down under reduce-motion. Runs fully offline |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> | **Focus timer that knows the context** | A pill in the top bar that **morphs into a rounded block**: time left, a progress bar, pause/play/skip/reset — and a label saying what it is timing (*Quiz*, *Coding*, *Reading*), because a bare countdown tells you nothing. Pairs with focus sessions and the Dynamic Island |
+| <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 9h6v6H9z"/></svg> | **A dock, and toasts that live** | The collapsed sidebar becomes a **dock** — icons swell under the pointer, neighbours lean away, names fly out. Toasts are drawn by **Sonner**: hover pauses them, they stack and collapse, you can swipe them away, and they wear the app's palette in every theme |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg> | **Skills that hold a standard** | Three built-ins ship with the app: **UI/UX design pass** (hierarchy, a 4px spacing rhythm, contrast ≥ 4.5:1, every interactive state, 150–300ms motion, and a self-score that must clear 8/10 per axis), **Zero-hallucination pass** (verify every API, path and version against the real project; never invent a test result; end with an uncertainty list) and **No-filler implementation** (complete code only — no TODOs, stubs, dead branches or placeholder data — with a line-by-line review of its own diff) |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6C8EEF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg> | **Profile & blobatar** | Settings → Profile sets your name, handle and bio. The avatar is a **blobatar** generated from your handle ([blobatar.dev](https://blobatar.dev)) — same handle, same creature, on any machine — with shape, motion, expression, colour and a re-roll row. Stored locally, no account |
 | <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg> | **Interface craft** | The home chatbox wears **Border Beam** and thinking states use **Orbs**, both by [Jakub Antalik](https://jakubantalik.com); components also come from ReactBits, HeroUI and Aceternity UI. Every one is credited in Settings → About, alongside the MIT license |
@@ -580,9 +582,11 @@ npm run build && npm start               # single-process verification
 
 **6. Streaming feels choppy behind a proxy.** Disable proxy buffering (`proxy_buffering off;` in nginx) and raise `proxy_read_timeout` — see the reverse-proxy examples above.
 
-**7. "That name has no usable characters left" when creating a project or the sample.** Fixed in 0.20 — creation can no longer be refused for a name. An empty or unusable name is named for you (`untitled-project`), a taken name becomes `name-2`, and the sample button retries with a free name before it ever shows an error. If you still see this message, you are running an older build: check with `./research-engine version` (below).
+**7. Something is broken and the toast is gone.** Settings → **Developer** → *Test: create a project* / *Test: create the sample app* runs the real create path, prints the request, the HTTP status, the response body and the duration, then deletes what it made. **Copy report** puts all of it on the clipboard. Developer Mode also adds a build fingerprint to the top bar so you can tell at a glance whether the bundle in front of you is the one you just built.
 
-**8. A fix is in the code but the app still shows the old behaviour.** You are almost certainly running an older build. Ask the launcher first:
+**8. "That name has no usable characters left" when creating a project or the sample.** Fixed in 0.20 — creation can no longer be refused for a name. An empty or unusable name is named for you (`untitled-project`), a taken name becomes `name-2`, and the sample button retries with a free name before it ever shows an error. If you still see this message, you are running an older build: check with `./research-engine version` (below).
+
+**9. A fix is in the code but the app still shows the old behaviour.** You are almost certainly running an older build. Ask the launcher first:
 
 ```bash
 ./research-engine version      # prints the version being served and whether it matches this code
@@ -596,11 +600,11 @@ git pull && npm install && npm run build   # then restart the server
 
 If the banner does not appear but the page still looks stale, press **Clear cache & reload** on that same About screen — it unregisters the PWA service worker and drops the cached app shell (a hard reload, `Cmd/Ctrl + Shift + R`, does the same).
 
-**9. Onboarding loops.** Onboarding state lives in local storage for browser installs and in the database for hosted ones; clearing site data mid-onboarding restarts it. Complete it once and it never re-appears.
+**10. Onboarding loops.** Onboarding state lives in local storage for browser installs and in the database for hosted ones; clearing site data mid-onboarding restarts it. Complete it once and it never re-appears.
 
-**10. Memory grows during long sessions.** Switch to the `eco` profile, disable High-memory mode, and keep AIFlowEngine on Efficient — context capsules keep prompt size bounded, and history hydrates on demand.
+**11. Memory grows during long sessions.** Switch to the `eco` profile, disable High-memory mode, and keep AIFlowEngine on Efficient — context capsules keep prompt size bounded, and history hydrates on demand.
 
-**11. Docker container restarts immediately.** Check `docker logs research-engine`; the usual cause is a volume permission mismatch — the image runs as a non-root user and needs write access to `/data`.
+**12. Docker container restarts immediately.** Check `docker logs research-engine`; the usual cause is a volume permission mismatch — the image runs as a non-root user and needs write access to `/data`.
 
 ---
 

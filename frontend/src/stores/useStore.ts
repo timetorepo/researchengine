@@ -94,6 +94,7 @@ const defaultSettings: Settings = {
   glassMode: 'off',
   flowBoost: true,
   mcpServers: [],
+  developerMode: false,
 }
 
 const initialSpaces: Space[] = [

@@ -314,6 +314,9 @@ export interface Settings {
   /** AIFlowEngine speed booster applied to API model output. */
   flowBoost: boolean
   mcpServers: McpServerConfig[]
+  /** Developer Mode: build fingerprint in the top bar, the create-project test
+   *  bench in Settings, and request-level detail in error toasts. */
+  developerMode: boolean
 }
 
 export interface McpServerConfig {
