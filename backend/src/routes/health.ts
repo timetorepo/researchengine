@@ -16,6 +16,15 @@ export function healthRoutes(frontendDist?: string | null) {
       db: dbStats(),
       // Frontend fingerprint, so the UI can warn about a stale self-hosted copy.
       web: { served: webBuild(frontendDist), source: sourceVersion(), mode: installMode() },
+      // Which OS and Node this server actually runs on. Platform-specific bugs
+      // (a Windows path separator, a missing POSIX binary) are invisible until
+      // someone names the platform, so the diagnostics report carries it.
+      runtime: {
+        platform: process.platform,
+        arch: process.arch,
+        node: process.version,
+        pathSep: process.platform === 'win32' ? '\\' : '/',
+      },
     }),
   )
   return app

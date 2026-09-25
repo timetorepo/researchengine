@@ -9,7 +9,10 @@ import { spawn, spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
-import { projectDirOf, projectDirFor, isInternalEntry, projectsRootOf } from '../preview/paths'
+import {
+  projectDirOf, projectDirFor, isInternalEntry, projectsRootOf,
+  isStrictlyWithinDir, normalizeProjectName,
+} from '../preview/paths'
 
 const EXEC_TIMEOUT_MS = 60_000
 const OUTPUT_CAP = 200_000
@@ -88,7 +91,9 @@ export function ideRoutes(rt: Runtime) {
     // such as "notes..md" — the resolved path check below is the real guard.
     if (rel.split(/[/\\]/).some((seg) => seg === '..')) return null
     const abs = resolve(join(dir, rel))
-    return abs.startsWith(dir + '/') ? abs : null
+    // Separator-aware: on Windows `abs` is `C:\…\demo\a.txt` and `dir` is
+    // `C:\…\demo`, so a hardcoded "/" here rejected every file in the project.
+    return isStrictlyWithinDir(dir, abs) ? abs : null
   }
 
   // ---------- projects ----------
@@ -121,21 +126,23 @@ export function ideRoutes(rt: Runtime) {
   r.post('/ide/projects', async (c) => {
     let body: { name?: string; files?: Record<string, string>; unique?: boolean; fallback?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
-    let target = projectDirFor(projectsRoot, String(body.name ?? (body as any).projectName ?? ''))
     // Creating a project is never refused for its name. An empty, missing or
     // unusable name (an old client sending `name: ""`, a name made only of
     // characters no filesystem can store) is invented here instead of argued
     // about — `fallback` lets the caller suggest what to call it.
-    let invented = false
-    if (!target) {
-      invented = true
-      const fallback = String(body.fallback ?? 'untitled-project')
-      target = projectDirFor(projectsRoot, fallback) ?? projectDirFor(projectsRoot, 'untitled-project')!
-    }
+    //
+    // The name normalises to a single path segment and is joined to the root
+    // directly, so this route never depends on a path helper returning a value:
+    // a null there used to become "500 Cannot read properties of null
+    // (reading 'name')" instead of a project.
+    const requested = normalizeProjectName(String(body.name ?? (body as any).projectName ?? ''))
+    const invented = !requested
+    const fallbackName = normalizeProjectName(String(body.fallback ?? ''))
+    const base = (requested ?? fallbackName ?? { name: 'untitled-project' }).name
     // `unique` is what the sample button uses: never dead-end on a collision.
     const wantsUnique = !!body.unique || invented
-    const name = wantsUnique ? await freeName(target.name) : target.name
-    const dir = wantsUnique ? projectDir(name)! : target.dir
+    const name = wantsUnique ? await freeName(base) : base
+    const dir = join(projectsRoot, name)
     const existing = wantsUnique ? null : await existingFor(name)
     if (existing) {
       return c.json({
@@ -154,7 +161,7 @@ export function ideRoutes(rt: Runtime) {
     }
     // `invented` = the request had no usable name, so one was made up here;
     // `renamed` = the name was kept but freed up with a numeric suffix.
-    return c.json({ ok: true, name, renamed: name !== target.name, invented, files: written })
+    return c.json({ ok: true, name, renamed: name !== base, invented, files: written })
   })
 
   r.delete('/ide/projects/:name', async (c) => {

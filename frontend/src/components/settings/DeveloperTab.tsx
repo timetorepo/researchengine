@@ -31,6 +31,16 @@ interface RunResult {
   raw: string
 }
 
+/** What the browser is running on — the first thing a platform-specific bug
+ *  report needs (this is how a Windows path separator was found). */
+export function platformLabel(): string {
+  const nav = navigator as any
+  const plat = nav.userAgentData?.platform ?? nav.platform ?? 'unknown'
+  const ua = nav.userAgent ?? ''
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser'
+  return `${plat} · ${browser}`
+}
+
 async function projectsOnDisk(): Promise<string[]> {
   try {
     const res = await fetch('/api/ide/projects')
@@ -61,11 +71,16 @@ export function DeveloperTab() {
     const name = kind === 'sample' ? `sample-landing` : `dev-test-${stamp}`
     const fallback = kind === 'sample' ? 'sample-app' : 'dev-test'
     const files = kind === 'sample' ? SAMPLE_PROJECT : { 'README.md': `# ${name}\n\nCreated by the Settings → Developer test.\n` }
-    const payload = { name, fallback, files: Object.keys(files), taken, unique: true }
+    // What is *shown* mirrors what is sent: the same file map, with sizes in
+    // place of the contents so the report stays readable.
+    const shownFiles = Object.fromEntries(
+      Object.entries(files).map(([f, c]) => [f, `${c.length} B`]),
+    )
     const steps: Step[] = [
       { label: 'POST', value: '/api/ide/projects' },
-      { label: 'Request', value: JSON.stringify({ ...payload, files: payload.files.slice(0, 6).concat(Object.keys(files).length > 6 ? ['…'] : []) }) },
+      { label: 'Payload', value: JSON.stringify({ name, fallback, unique: true, files: shownFiles }) },
       { label: 'Projects already on disk', value: taken.length ? taken.join(', ') : '(none)', tone: 'dim' },
+      { label: 'This machine', value: `${platformLabel()} · backend ${health?.runtime?.platform ?? '?'}/${health?.runtime?.arch ?? '?'}`, tone: 'dim' },
     ]
     let outcome
     const t0 = performance.now()
@@ -94,11 +109,16 @@ export function DeveloperTab() {
     }
 
     const summary = outcome.ok
-      ? kind === 'sample' ? 'The sample app can be created.' : 'A project can be created.'
-      : 'This is the failure to report.'
+      ? kind === 'sample' ? 'PASSED — the sample app can be created.' : 'PASSED — a project can be created.'
+      : 'FAILED — send this report (Copy report)'
     const res: RunResult = {
       kind, ok: !!outcome.ok, when: Date.now(), ms, summary, steps,
-      raw: JSON.stringify({ kind, name, fallback, attempts: outcome.attempts, ok: outcome.ok, error: outcome.error, ms }, null, 2),
+      raw: JSON.stringify({
+        kind, name, fallback, attempts: outcome.attempts, ok: outcome.ok, error: outcome.error, ms,
+        browser: platformLabel(),
+        server: health?.runtime ? `${health.runtime.platform}/${health.runtime.arch} node ${health.runtime.node}` : 'unknown',
+        mode: health?.web?.mode ?? 'unknown',
+      }, null, 2),
     }
     setResult(res)
     // Also into the notice trail, so Settings → About → Notices keeps it.
@@ -192,8 +212,10 @@ export function DeveloperTab() {
           <Row label="App version" value={APP_VERSION} />
           <Row label="Build id" value={BUILD_ID} />
           <Row label="Served bundle" value={served ? `${served.version} (${served.builtAt ?? 'unknown build time'})` : '—'} />
-          <Row label="Source on disk" value={source?.version ?? '—'} />
+          <Row label="Source on disk" value={source?.version ?? '— (portable build has no source tree)'} />
           <Row label="Install mode" value={health?.web?.mode ?? '—'} />
+          <Row label="Server platform" value={health?.runtime ? `${health.runtime.platform}/${health.runtime.arch} · node ${health.runtime.node}` : '—'} />
+          <Row label="This browser" value={platformLabel()} />
           <Row label="Backend" value={health?.ok ? 'reachable' : health?.error ?? 'checking…'} tone={health?.ok ? 'ok' : 'bad'} />
           <Row label="Data directory" value={health?.db?.dir ?? health?.db?.path ?? 'see server log'} />
         </div>
@@ -237,8 +259,10 @@ function buildReport(result: RunResult | null, health: any): string {
     `app version : ${APP_VERSION}`,
     `build id    : ${BUILD_ID}`,
     `served      : ${health?.web?.served?.version ?? '?'} (${health?.web?.served?.builtAt ?? '?'})`,
-    `source      : ${health?.web?.source?.version ?? '?'}`,
+    `source      : ${health?.web?.source?.version ?? '— (portable build has no source tree)'}`,
     `mode        : ${health?.web?.mode ?? '?'}`,
+    `browser     : ${platformLabel()}`,
+    `server      : ${health?.runtime ? `${health.runtime.platform}/${health.runtime.arch} · node ${health.runtime.node}` : '?'}`,
     '',
   ]
   if (!result) lines.push('(no test run yet)')

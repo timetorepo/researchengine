@@ -17,8 +17,9 @@ import { createConnection } from 'node:net'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, readFileSync, statSync, createReadStream } from 'node:fs'
 import { readFile, readdir, stat } from 'node:fs/promises'
-import { join, extname, normalize } from 'node:path'
+import { join, extname, normalize, delimiter } from 'node:path'
 import { BRIDGE_JS } from './bridge'
+import { isWithinDir } from './paths'
 
 export interface PreviewSession {
   project: string
@@ -117,8 +118,12 @@ async function planFor(dir: string): Promise<Plan | null> {
   if (cra && (deps['react-scripts'] || scripts.start?.includes('react-scripts'))) {
     return { kind: 'cra', command: 'react-scripts start (PORT=<p>)', bin: cra, args: () => ['start'], env: { PORT: '<p>', HOST: '0.0.0.0', BROWSER: 'none', DANGEROUSLY_DISABLE_HOST_CHECK: 'true' }, needsPort: true }
   }
-  if (has('manage.py')) {
-    return { kind: 'django', command: 'python3 manage.py runserver 0.0.0.0:<p>', bin: 'python3', args: (p) => ['manage.py', 'runserver', `0.0.0.0:${p}`, '--noreload'], needsPort: true }
+  // Python is not on the same name on every OS: `python3` does not exist on
+  // Windows, where it is `python` or the `py` launcher. Without this, a Django
+  // or Flask project simply refused to preview there.
+  const python = pythonBin()
+  if (has('manage.py') && python) {
+    return { kind: 'django', command: `${python} manage.py runserver 0.0.0.0:<p>`, bin: python, args: (p) => ['manage.py', 'runserver', `0.0.0.0:${p}`, '--noreload'], needsPort: true }
   }
   if (scripts.dev && has('package.json')) {
     return { kind: 'npm-dev', command: 'npm run dev -- --port <p>', bin: 'npm', args: (p) => ['run', 'dev', '--', '--port', String(p), '--host'], env: { PORT: '<p>' }, needsPort: true }
@@ -137,9 +142,9 @@ async function planFor(dir: string): Promise<Plan | null> {
       } as Plan & { staticRoot: string }
     }
   }
-  if (has('requirements.txt') || has('pyproject.toml')) {
+  if ((has('requirements.txt') || has('pyproject.toml')) && python) {
     const entry = (await readdir(dir)).find((f) => f === 'app.py' || f === 'main.py')
-    if (entry) return { kind: 'flask', command: `python3 ${entry}`, bin: 'python3', args: () => [entry], env: { PORT: '<p>', FLASK_RUN_PORT: '<p>' }, needsPort: true }
+    if (entry) return { kind: 'flask', command: `${python} ${entry}`, bin: python, args: () => [entry], env: { PORT: '<p>', FLASK_RUN_PORT: '<p>' }, needsPort: true }
   }
   return null
 }
@@ -240,6 +245,40 @@ function createProxy(session: PreviewSession, upstream: () => number | null): Pr
   })
 }
 
+/** Extensions a command can carry on Windows (`.exe`, `.cmd`, …). */
+const PATH_EXTS = process.platform === 'win32'
+  ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean)
+  : ['']
+
+/**
+ * Resolve a command name against PATH the way a shell would, without spawning
+ * anything. Returns the first match, or null when the tool is not installed —
+ * which is the honest answer, and lets a caller choose a fallback plan instead
+ * of failing later.
+ */
+export function findOnPath(name: string): string | null {
+  const dirs = (process.env.PATH ?? '').split(delimiter).filter(Boolean)
+  for (const d of dirs) {
+    if (process.platform !== 'win32') {
+      const full = join(d, name)
+      if (existsSync(full)) return full
+    } else {
+      for (const ext of PATH_EXTS) {
+        const full = join(d, name + ext)
+        if (existsSync(full)) return full
+      }
+      const bare = join(d, name)
+      if (existsSync(bare)) return bare
+    }
+  }
+  return null
+}
+
+/** The Python interpreter under whatever name this OS uses. */
+export function pythonBin(): string | null {
+  return findOnPath('python3') ?? findOnPath('python') ?? findOnPath('py')
+}
+
 /** Serve a project folder directly (no dev server needed). */
 function serveStatic(session: PreviewSession, req: IncomingMessage, res: ServerResponse) {
   const root = session.staticRoot
@@ -249,7 +288,9 @@ function serveStatic(session: PreviewSession, req: IncomingMessage, res: ServerR
   const safe = normalize(rel).replace(/^(\.\.[/\\])+/, '').replace(/^\/+/, '')
   let file = join(root, safe)
   try {
-    if (!file.startsWith(root)) throw new Error('escape')
+    // Separator-aware: a bare `startsWith(root)` also accepted a sibling folder
+    // whose name merely begins with the root's ("/a/projects2" for "/a/projects").
+    if (!isWithinDir(root, file)) throw new Error('escape')
     if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html')
     if (!existsSync(file)) {
       // SPA fallback

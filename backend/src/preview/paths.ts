@@ -1,7 +1,7 @@
 // Shared project-path helpers. Both the IDE routes and the preview/dev-server
 // manager must agree on where a project lives and what counts as a safe name,
 // so the rules live here and nowhere else.
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 
 export function projectsRootOf(dataDir: string): string {
   return resolve(join(dataDir, 'projects'))
@@ -62,6 +62,45 @@ export function normalizeProjectName(raw: string): ProjectName | null {
   return { name: n, changed: n !== original.trim().replace(/\s+/g, ' ') }
 }
 
+/* ------------------------------------------------------------------ */
+/* Path containment                                                    */
+/*                                                                     */
+/* The check that decides whether a path is inside a folder has to work */
+/* on Windows, where a resolved path is `C:\\…\\projects\\demo` and the */
+/* root is `C:\\…\\projects`. Comparing with a hardcoded "/" made        */
+/* `abs.startsWith(root + '/')` false for EVERY project on Windows, so  */
+/* the IDE could not open, create or preview anything there — the       */
+/* create route then fell through to a null dereference and answered    */
+/* "500 Cannot read properties of null (reading 'name')".              */
+/*                                                                     */
+/* `relative()` is the platform-correct test; the normalised-prefix     */
+/* fallback covers a path built with the *other* platform's separator   */
+/* (a Windows path checked on POSIX, or the reverse) and keeps the      */
+/* whole thing unit-testable without a Windows machine.                 */
+/* ------------------------------------------------------------------ */
+
+/** Trailing separators dropped and separators unified, so `/a/b/` === `/a/b`
+ *  and `C:\\a\\b` === `C:/a/b`. Lower-cased on Windows, where the filesystem
+ *  itself is case-insensitive. */
+function normPath(p: string): string {
+  const unified = p.replace(/[\\/]+/g, '/').replace(/\/+$/, '')
+  return process.platform === 'win32' ? unified.toLowerCase() : unified
+}
+
+/** True when `child` is `parent` or sits inside it. */
+export function isWithinDir(parent: string, child: string): boolean {
+  if (normPath(parent) === normPath(child)) return true
+  const rel = relative(parent, child)
+  if (rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)) return true
+  return normPath(child).startsWith(normPath(parent) + '/')
+}
+
+/** True only when `child` sits *inside* `parent` — a project is never the
+ *  projects root, and a file is never the folder it lives in. */
+export function isStrictlyWithinDir(parent: string, child: string): boolean {
+  return normPath(parent) !== normPath(child) && isWithinDir(parent, child)
+}
+
 /** Back-compat wrapper: the normalised name, or null when unusable. */
 export function safeProjectName(name: string): string | null {
   return normalizeProjectName(name)?.name ?? null
@@ -72,7 +111,7 @@ export function projectDirOf(projectsRoot: string, name: string): string | null 
   const n = safeProjectName(name)
   if (!n) return null
   const abs = resolve(join(projectsRoot, n))
-  return abs.startsWith(projectsRoot + '/') ? abs : null
+  return isStrictlyWithinDir(projectsRoot, abs) ? abs : null
 }
 
 /** Absolute directory + the (possibly normalised) name that produced it. */
@@ -80,6 +119,6 @@ export function projectDirFor(projectsRoot: string, name: string): ({ dir: strin
   const normalized = normalizeProjectName(name)
   if (!normalized) return null
   const abs = resolve(join(projectsRoot, normalized.name))
-  if (!abs.startsWith(projectsRoot + '/')) return null
+  if (!isStrictlyWithinDir(projectsRoot, abs)) return null
   return { dir: abs, ...normalized }
 }

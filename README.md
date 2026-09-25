@@ -4,7 +4,7 @@
 
 ![Research Engine screenshot](docs/screenshot.png)
 
-[![Pre-release](https://img.shields.io/badge/release-v0.21.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Pre-release](https://img.shields.io/badge/release-v0.21.1--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license--credits)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#install-research-engine)
 
@@ -582,11 +582,13 @@ npm run build && npm start               # single-process verification
 
 **6. Streaming feels choppy behind a proxy.** Disable proxy buffering (`proxy_buffering off;` in nginx) and raise `proxy_read_timeout` — see the reverse-proxy examples above.
 
-**7. Something is broken and the toast is gone.** Settings → **Developer** → *Test: create a project* / *Test: create the sample app* runs the real create path, prints the request, the HTTP status, the response body and the duration, then deletes what it made. **Copy report** puts all of it on the clipboard. Developer Mode also adds a build fingerprint to the top bar so you can tell at a glance whether the bundle in front of you is the one you just built.
+**7. Windows: "500 Cannot read properties of null (reading 'name')" when creating a project.** Fixed in 0.21.1. Every project path was validated with a POSIX `/` separator, which never matches a Windows path — so on Windows the IDE considered every project folder invalid. Update to 0.21.1 and project creation, the sample app, the file tree and the preview all work. `./research-engine version` tells you which build you have.
 
-**8. "That name has no usable characters left" when creating a project or the sample.** Fixed in 0.20 — creation can no longer be refused for a name. An empty or unusable name is named for you (`untitled-project`), a taken name becomes `name-2`, and the sample button retries with a free name before it ever shows an error. If you still see this message, you are running an older build: check with `./research-engine version` (below).
+**8. Something is broken and the toast is gone.** Settings → **Developer** → *Test: create a project* / *Test: create the sample app* runs the real create path, prints the request, the HTTP status, the response body and the duration, then deletes what it made. **Copy report** puts all of it on the clipboard. Developer Mode also adds a build fingerprint to the top bar so you can tell at a glance whether the bundle in front of you is the one you just built.
 
-**9. A fix is in the code but the app still shows the old behaviour.** You are almost certainly running an older build. Ask the launcher first:
+**9. "That name has no usable characters left" when creating a project or the sample.** Fixed in 0.20 — creation can no longer be refused for a name. An empty or unusable name is named for you (`untitled-project`), a taken name becomes `name-2`, and the sample button retries with a free name before it ever shows an error. If you still see this message, you are running an older build: check with `./research-engine version` (below).
+
+**10. A fix is in the code but the app still shows the old behaviour.** You are almost certainly running an older build. Ask the launcher first:
 
 ```bash
 ./research-engine version      # prints the version being served and whether it matches this code
@@ -600,11 +602,11 @@ git pull && npm install && npm run build   # then restart the server
 
 If the banner does not appear but the page still looks stale, press **Clear cache & reload** on that same About screen — it unregisters the PWA service worker and drops the cached app shell (a hard reload, `Cmd/Ctrl + Shift + R`, does the same).
 
-**10. Onboarding loops.** Onboarding state lives in local storage for browser installs and in the database for hosted ones; clearing site data mid-onboarding restarts it. Complete it once and it never re-appears.
+**11. Onboarding loops.** Onboarding state lives in local storage for browser installs and in the database for hosted ones; clearing site data mid-onboarding restarts it. Complete it once and it never re-appears.
 
-**11. Memory grows during long sessions.** Switch to the `eco` profile, disable High-memory mode, and keep AIFlowEngine on Efficient — context capsules keep prompt size bounded, and history hydrates on demand.
+**12. Memory grows during long sessions.** Switch to the `eco` profile, disable High-memory mode, and keep AIFlowEngine on Efficient — context capsules keep prompt size bounded, and history hydrates on demand.
 
-**12. Docker container restarts immediately.** Check `docker logs research-engine`; the usual cause is a volume permission mismatch — the image runs as a non-root user and needs write access to `/data`.
+**13. Docker container restarts immediately.** Check `docker logs research-engine`; the usual cause is a volume permission mismatch — the image runs as a non-root user and needs write access to `/data`.
 
 ---
 

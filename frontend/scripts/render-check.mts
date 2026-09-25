@@ -714,6 +714,46 @@ async function main() {
   check('developer mode puts a build chip in the top bar', readFileSync('../frontend/src/components/topbar/TopBar.tsx', 'utf8').includes('settings.developerMode'))
   rootDv.unmount(); dv.remove()
 
+
+  console.log('\n[15] Project paths work on Windows (the "reading \'name\'" 500)')
+  const paths = await import('../../backend/src/preview/paths')
+  const winRoot = 'C:\\Users\\dnishh\\.research-engine\\projects'
+  // On Windows a resolved project path is `C:\...\projects\demo`; the old check
+  // compared it to `C:\...\projects/` and every project came back null, so the
+  // create route crashed on a null deref instead of creating anything.
+  const winDemo = paths.projectDirFor(winRoot, 'dev-test-k63x')
+  check('a Windows project path resolves', !!winDemo, JSON.stringify(winDemo))
+  check('and points inside the projects root', !!winDemo && /dev-test-k63x$/.test(winDemo.dir), String(winDemo?.dir))
+  check('projectDirOf agrees', !!paths.projectDirOf(winRoot, 'sample-landing'))
+  check('an invented name resolves on Windows too', !!paths.projectDirFor(winRoot, 'untitled-project'))
+  check('a spacey name still resolves', !!paths.projectDirFor(winRoot, 'My Project #2 (draft)'))
+
+  // Containment, both separator styles, including the sibling-prefix trap.
+  check('containment: inside (POSIX)', paths.isStrictlyWithinDir('/a/projects', '/a/projects/x'))
+  check('containment: inside (Windows)', paths.isStrictlyWithinDir(winRoot, `${winRoot}\\x`))
+  check('containment: inside (mixed separators)', paths.isStrictlyWithinDir(winRoot, `${winRoot}/x`))
+  check('containment: the root itself is not a project', !paths.isStrictlyWithinDir('/a/projects', '/a/projects'))
+  check('containment: a sibling prefix is not inside', !paths.isStrictlyWithinDir('/a/projects', '/a/projects2/x'))
+  check('containment: a sibling prefix is not inside (Windows)', !paths.isStrictlyWithinDir(winRoot, 'C:\\Users\\dnishh\\.research-engine\\projects2\\x'))
+  check('containment: traversal is out', !paths.isStrictlyWithinDir('/a/projects', '/a/other'))
+  check('containment: equal is fine when allowed', paths.isWithinDir('/a/files', '/a/files'))
+  check("containment: case-insensitive on Windows' rules are irrelevant here", paths.isStrictlyWithinDir('/a/projects', '/a/projects/Sub/Dir'))
+
+  // The class of bug, not just this instance: no path containment may use a
+  // hardcoded POSIX separator anywhere in the backend again.
+  const { readdirSync, readFileSync: readAll, statSync: statOf } = await import('node:fs')
+  const scan = (dir: string): string[] => readdirSync(dir).flatMap((f) => {
+    const full = `${dir}/${f}`
+    if (statOf(full).isDirectory()) return scan(full)
+    return full.endsWith('.ts') ? [full] : []
+  })
+  // paths.ts is the one file allowed to do separator work — it is where the
+  // normalised comparison lives.
+  const offenders = scan('../backend/src')
+    .filter((f) => !f.endsWith('preview/paths.ts'))
+    .filter((f) => /startsWith\([^)]*\+\s*'\/'/.test(readAll(f, 'utf8')))
+  check('no path containment uses a hardcoded "/" any more', offenders.length === 0, offenders.join(', '))
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)
