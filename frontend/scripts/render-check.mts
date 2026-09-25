@@ -617,6 +617,33 @@ async function main() {
   })())
   setToastSink(null)
 
+  console.log('\n[12b] Pressing "Try a sample app" really creates it')
+  const samplePosts: any[] = []
+  const sampleFetchPrev = (globalThis as any).fetch
+  ;(globalThis as any).fetch = async (input: any, init?: any) => {
+    const url = String(typeof input === 'string' ? input : input?.url ?? '')
+    if (url.includes('/api/ide/projects') && (init?.method ?? 'GET') === 'POST') {
+      try { samplePosts.push(JSON.parse(String(init.body))) } catch { samplePosts.push(String(init.body)) }
+      return json({ ok: true, name: 'sample-landing-2', renamed: true, invented: false, files: 5 })
+    }
+    return sampleFetchPrev(input, init)
+  }
+  const cv = win.document.createElement('div')
+  win.document.body.appendChild(cv)
+  const rootCv = createRoot(cv)
+  rootCv.render(React.createElement(MemoryRouter, null as any, React.createElement(CodingView as any, {})))
+  await wait(350)
+  const sampleBtn = [...cv.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('Try a sample app')) as any
+  check('the sample button is on screen', !!sampleBtn)
+  fire(sampleBtn)
+  await wait(450)
+  check('it posts the sample files', samplePosts.length >= 1 && Object.keys(samplePosts[0]?.files ?? {}).length >= 5, JSON.stringify(Object.keys(samplePosts[0]?.files ?? {})))
+  check('it asks for a free name', samplePosts[0]?.unique === true)
+  check('it carries a fallback name', typeof samplePosts[0]?.fallback === 'string' && samplePosts[0].fallback.length > 0)
+  check('a renamed success is accepted, not treated as failure', (cv.textContent ?? '').includes('sample-landing-2') || (uiStore.getState().notices.at(-1)?.title ?? '').includes('sample'), String(uiStore.getState().notices.at(-1)?.title))
+  rootCv.unmount(); cv.remove()
+  ;(globalThis as any).fetch = sampleFetchPrev
+
   console.log('\n[13] The focus timer says what it is timing')
   const { FocusPill, fmtTime } = await import('../src/components/shared/FocusPill')
   check('the clock formats as m:ss', fmtTime(605) === '10:05' && fmtTime(0) === '0:00')
