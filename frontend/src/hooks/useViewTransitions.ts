@@ -1,7 +1,9 @@
 import { flushSync } from 'react-dom'
+import { loaderFor, preloadRoute, routePathOf } from '@/lib/routes/registry'
+import { useUI } from '@/stores/useUI'
 
 /**
- * Navigation that moves.
+ * Navigation that moves — and never gets in the way.
  *
  * React Router navigates by pushing history and re-rendering. That is instant
  * but silent: the page you leave and the page you arrive at are simply swapped,
@@ -16,18 +18,59 @@ import { flushSync } from 'react-dom'
  *   • the sidebar and top bar *staying put* (they are named, see globals.css),
  *   • the active nav marker travelling from the old item to the new one.
  *
- * React 18 renders asynchronously, so the DOM update has to be forced to
- * complete inside the transition's callback — that is what `flushSync` is for.
+ * Three rules keep this from ever becoming a trap (the "I click a page and it
+ * glitches, then finally lets me in" report):
+ *
+ *   1. The destination chunk is fetched FIRST, while the current page is still
+ *      live and clickable. A transition never starts on top of a Suspense
+ *      fallback, so there is no inert frozen frame to wait out.
+ *   2. Only one transition runs at a time. A second navigation skips the first
+ *      instead of stacking, because a stacked transition is what leaves the
+ *      old snapshot painted over an unresponsive page.
+ *   3. Every transition has a deadline. If the browser never finishes (a busy
+ *      frame, a background tab), `skipTransition()` ends it and the app carries
+ *      on — the same state a browser without the API would be in.
+ *
  * Everything degrades to a plain navigation when the API is missing, when the
  * user asked for reduced motion, or if the browser throws.
  */
 
 let installed = false
+let active: { skipTransition?: () => void; finished?: Promise<void> } | null = null
+/** How long a transition may hold the frame before we cut it short. */
+const TRANSITION_DEADLINE_MS = 600
 
 const prefersReduced = () =>
   typeof document !== 'undefined' &&
   (document.documentElement.classList.contains('reduce-motion') ||
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+
+type VTDocument = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void>; skipTransition?: () => void } }
+
+/** End any transition still running, so the next one starts from a clean frame. */
+export function skipRunningTransition() {
+  try { active?.skipTransition?.() } catch { /* nothing to skip */ }
+  active = null
+}
+
+function startTransition(doc: VTDocument, update: () => void) {
+  skipRunningTransition()
+  try {
+    const t = doc.startViewTransition!(update)
+    active = t
+    // Rule 3: a transition may never outlive this deadline.
+    const timer = setTimeout(() => {
+      if (active === t) { try { t.skipTransition?.() } catch { /* already gone */ } ; active = null }
+    }, TRANSITION_DEADLINE_MS)
+    t.finished?.finally(() => {
+      clearTimeout(timer)
+      if (active === t) active = null
+    })
+  } catch {
+    active = null
+    update()
+  }
+}
 
 export function installViewTransitions() {
   if (installed || typeof window === 'undefined' || typeof document === 'undefined') return
@@ -36,24 +79,47 @@ export function installViewTransitions() {
   for (const method of ['pushState', 'replaceState'] as const) {
     const original = history[method].bind(history)
     history[method] = ((...args: Parameters<History['pushState']>) => {
-      const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }
-      if (!doc.startViewTransition || prefersReduced()) return original(...args)
-      try {
-        doc.startViewTransition(() => {
-          try {
-            flushSync(() => original(...args))
-          } catch {
-            // flushSync cannot run from inside a React lifecycle — the router
-            // still gets its update, just without the synchronous flush.
-            original(...args)
-          }
-        })
-      } catch {
-        // A transition that refuses to start must never block navigation.
-        original(...args)
+      const doc = document as VTDocument
+      const url = String(args[2] ?? '')
+      const path = routePathOf(url)
+      const load = loaderFor(path)
+
+      if (!doc.startViewTransition || prefersReduced() || doc.visibilityState === 'hidden') {
+        // No transition: still make sure the chunk is coming. Suspense handles
+        // it, and the old page stays interactive until React swaps.
+        if (load) {
+          useUI.setState({ routeLoading: path })
+          void preloadRoute(path).then(() => {
+            if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
+          })
+        }
+        return original(...args)
       }
+
+      if (!load) {
+        startTransition(doc, () => {
+          try { flushSync(() => original(...args)) } catch { original(...args) }
+        })
+        return
+      }
+
+      // Rule 1: the chunk first — the current page keeps working meanwhile.
+      useUI.setState({ routeLoading: path })
+      void preloadRoute(path).then(() => {
+        if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
+        // The user may have navigated again while the chunk was loading.
+        if (routePathOf(window.location.href) !== routePathOf(currentHref())) return
+        startTransition(doc, () => {
+          try { flushSync(() => original(...args)) } catch { original(...args) }
+        })
+      })
     }) as History['pushState']
   }
+}
+
+/** The router's current location (hash included), for stale-checking. */
+function currentHref() {
+  return typeof window === 'undefined' ? '' : window.location.href
 }
 
 /**

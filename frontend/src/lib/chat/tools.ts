@@ -608,6 +608,51 @@ export const TOOLS: ToolDef[] = [
       return out.text ?? 'No result.'
     },
   },
+
+  /* ---------- ResearchEngine-only: turn this chat into a coding chat ---------- */
+  {
+    name: 'start_coding_mode',
+    description: [
+      'Open this conversation in Coding mode as a coding chat.',
+      'CALL THIS whenever the user asks for code work in a research chat — "build me an app", "write a script", "fix this project", "make a website", "refactor this" — or when you are about to write real files rather than explain something.',
+      'It creates (or reuses) a project, moves this conversation into it, and switches the window to the coding workspace, where you get the file, command and preview tools. Do not describe the switch; make the call, then continue the work inside the workspace it returns.',
+      'This tool exists only in ResearchEngine — it is a client-side action, not a request to any provider.',
+    ].join(' '),
+    parameters: {
+      type: 'object',
+      properties: {
+        project: opt('string', 'Project name to create or reuse, e.g. "portfolio-site". Letters, digits, spaces, dash and underscore. If you omit it, one is derived from the chat title.'),
+        reason: opt('string', 'One short sentence for the user explaining why coding mode is the right surface'),
+        stack: opt('string', 'Optional starting point hint, e.g. "static html", "vite react", "python script"'),
+      },
+    },
+    run: async (args, ctx) => {
+      // Imported lazily: this pulls in the IDE's project helper, and research
+      // chats should not pay for it until the model actually asks.
+      const { promoteChatToCoding } = await import('@/lib/ide/promote')
+      const outcome = await promoteChatToCoding({
+        chatId: ctx.chatId,
+        project: args?.project ? String(args.project) : undefined,
+        reason: args?.reason ? String(args.reason) : undefined,
+        stack: args?.stack ? String(args.stack) : undefined,
+      })
+      emitActivity({ agent: null, project: outcome.project, kind: 'write', note: `opened coding mode · ${outcome.project}` })
+      // The transcript shows the receipt, so a switch that happens while the
+      // user is reading is never a mystery.
+      try {
+        useStore.getState().updateMessage(ctx.chatId, ctx.asstId, {
+          promotedTo: { project: outcome.project, reason: args?.reason ? String(args.reason) : undefined },
+        })
+      } catch { /* the move itself already happened */ }
+      return JSON.stringify({
+        ok: true,
+        project: outcome.project,
+        chatId: outcome.chatId,
+        url: outcome.url,
+        message: `A coding chat for "${outcome.project}" is open and this conversation moved into it. Continue the work there — the project is empty unless you reuse an existing one, so start by listing its files.`,
+      })
+    },
+  },
 ]
 
 /** OpenAI-style tool specs for the provider payload. */

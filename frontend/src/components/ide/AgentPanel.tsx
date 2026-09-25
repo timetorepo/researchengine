@@ -65,14 +65,26 @@ export const INTENTS = [
 
 type IntentId = typeof INTENTS[number]['id']
 
+/**
+ * The coding conversation for a project.
+ *
+ * Coding chats are `kind: 'coding'` so research history stays clean. The first
+ * lookup also adopts chats created before the field existed (they were named
+ * `Coding · <project>`), which is why the title check is still here.
+ */
 export function chatIdFor(project: string): string {
   const store = useStore.getState()
   const title = `Coding · ${project}`
-  const existing = [...store.chats].reverse().find((c) => c.title === title)
-  if (existing) return existing.id
-  const id = store.newChat()
-  store.renameChat(id, title)
-  return id
+  const existing =
+    store.chats.find((c) => c.kind === 'coding' && c.settings?.project === project) ??
+    [...store.chats].reverse().find((c) => c.title === title)
+  if (existing) {
+    if (existing.kind !== 'coding' || existing.settings?.project !== project) {
+      store.setChatKind(existing.id, 'coding', project)
+    }
+    return existing.id
+  }
+  return store.newCodingChat(project)
 }
 
 /**

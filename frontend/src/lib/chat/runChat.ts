@@ -193,6 +193,12 @@ export async function runChat(opts: RunOptions): Promise<void> {
       + `\n- Fix what you find by editing the project files (ide_read_file / ide_write_file), then design_preview action=restart and re-check.`
       + `\n- Never claim a UI issue is fixed without a passing design_assert or run_ui_test result.`
   }
+  if (!opts.project && !opts.design) {
+    // A research chat that turns into code work should move, not muddle along
+    // without file tools. The switch is one client-side tool call — the user's
+    // transcript comes with them.
+    system += `\n\nIf the user asks for code rather than an explanation — build me an app, write a script, make a website, fix this project, refactor that — call the start_coding_mode tool FIRST with a short project name and one line for the user, then do the work inside the coding workspace it opens. Do not ask permission to switch, and do not try to write files from a research chat: the file tools only exist there. Explaining code, answering questions about code, and reviewing a snippet do NOT need the switch.`
+  }
   if (opts.preamble) system += `\n\n${opts.preamble}`
   system += mcpContextBlock()
   system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`

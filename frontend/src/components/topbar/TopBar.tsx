@@ -46,8 +46,7 @@ export function TopBar() {
 
   const openProviders = () => {
     setPickerOpen(false)
-    ui.set({ settingsOpen: true, settingsTab: 'providers' })
-    navigate('/settings')
+    ui.openSettings('providers')
   }
 
   const refresh = async () => {

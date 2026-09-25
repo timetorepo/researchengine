@@ -60,6 +60,11 @@ export interface ChatMessage {
   /** Command awaiting explicit user approval (Coding mode safety). */
   pendingExec?: { toolCallId: string; command: string; reason?: string }
   /**
+   * This answer switched the conversation into Coding mode (`start_coding_mode`).
+   * Carries the project it opened so the transcript can offer the workspace.
+   */
+  promotedTo?: { project: string; reason?: string }
+  /**
    * Humanized rewrite of `content` (Chat only — never Coding). `content` is
    * always kept: it is the "previous response" shown in red on hover.
    */
@@ -97,6 +102,15 @@ export interface Chat {
   pinned?: boolean
   parentId?: string        // branch origin chat
   branchMessageId?: string // message branched from
+  /**
+   * Coding chats are a different kind of conversation: they carry a project,
+   * they drive the IDE tools, and they should not be mixed into research
+   * history. `settings.project` is the project they were opened against (the
+   * coding panel keeps one chat per project); chats the AI converts keep their
+   * own name so the work can move between projects later.
+   */
+  kind?: 'research' | 'coding'
+  settings?: { project?: string }
   messages: ChatMessage[]
 }
 

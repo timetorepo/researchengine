@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Wrench, CheckCircle2, XCircle, ShieldAlert, TerminalSquare, ClipboardList, Send, Check, X } from 'lucide-react'
+import { Wrench, CheckCircle2, XCircle, ShieldAlert, TerminalSquare, ClipboardList, Send, Check, X, Code as CodeIcon } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { submitQuestionnaire, resolveExec } from '@/lib/chat/tools'
 
@@ -22,6 +22,42 @@ export function ToolTraceChips({ msg }: { msg: ChatMessage }) {
         </span>
       ))}
     </div>
+  )
+}
+
+/* ---------- research chat → coding chat ---------- */
+
+/**
+ * The moment a research conversation becomes a coding one.
+ *
+ * The AI calls `start_coding_mode` (a client-side tool that only exists in this
+ * app) and the transcript moves into a project with the IDE tools. This card is
+ * the receipt: it says what happened and offers the workspace again, because
+ * the automatic switch also happens by itself.
+ */
+export function CodingModeCard({ project, reason }: { project?: string; reason?: string }) {
+  if (!project) return null
+  return (
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+      className="p-3.5 rounded-[14px] mb-3 flex items-start gap-3"
+      style={{ background: 'color-mix(in srgb, var(--primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--primary) 32%, transparent)' }}>
+      <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
+        style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+        <CodeIcon size={15} strokeWidth={1.6} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[12.5px] font-medium mb-0.5">This chat is now a coding chat</div>
+        <p className="text-[11.5px] mb-2" style={{ color: 'var(--text-2)' }}>
+          {reason || `It works inside the project “${project}” and can read files, edit them and run commands there.`}
+        </p>
+        <button
+          onClick={() => { window.location.hash = `#/code?project=${encodeURIComponent(project)}` }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium"
+          style={{ background: 'var(--primary)', color: '#fff' }}>
+          <CodeIcon size={12} /> Open the coding workspace
+        </button>
+      </div>
+    </motion.div>
   )
 }
 

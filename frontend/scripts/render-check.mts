@@ -575,7 +575,13 @@ async function main() {
   fire(fourth, 'mouseover')
   fourth.dispatchEvent(new win.MouseEvent('mouseenter', { bubbles: false }))
   await wait(120)
-  check('pointing at an icon gives it a name', (sd.textContent ?? '').includes('Read & Quiz') || !!sd.querySelector('.re-dock-label'), sd.textContent?.slice(0, 80))
+  // The name is drawn in a portal at the icon's screen position (so no
+  // ancestor's overflow or stacking context can clip it, which is what made it
+  // vanish in coding mode). It is therefore in the document, not in `sd`.
+  const dockLabel = win.document.querySelector('.re-dock-label')
+  check('pointing at an icon gives it a name', !!dockLabel && (dockLabel.textContent ?? '').length > 0,
+    dockLabel ? String(dockLabel.textContent) : 'no label found')
+  check('and the name is the one that was pointed at', (dockLabel?.textContent ?? '').trim() === 'Coding', String(dockLabel?.textContent))
   check('the shield left the sidebar footer', !sd.textContent?.includes('Everything is local'))
   rootSd.unmount(); sd.remove()
 
@@ -1226,6 +1232,173 @@ async function main() {
   await wait(400)
   check('the same keys work on the next question', rows20b()[0].getAttribute('data-state') === 'correct', rows20b()[0].getAttribute('data-state'))
   r20.unmount()
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[21] A cold route never blocks its own click')
+  // The report: "when i try to click on a page, if its unloaded it glitches and
+  // doesnt let me in, but the glitch stops and i can get in." The cause was a
+  // View Transition starting on top of a Suspense fallback: the browser froze
+  // the old page as a snapshot while the new chunk loaded, and for the length
+  // of the transition the frame was inert. Navigation now fetches the chunk
+  // first, and the transition only ever starts on a page that is ready.
+  const { preloadRoute, loaderFor, routePathOf, navigateReady } = await import('../src/lib/routes/registry')
+  check('every lazy route maps to a chunk', [
+    '/chat/x', '/settings/profile', '/flood', '/quiz', '/articles', '/articles/1',
+    '/library', '/compare', '/workflows', '/workflows/w1', '/code', '/chats', '/secrets',
+  ].every((p) => !!loaderFor(p)))
+  check('Home needs no chunk', loaderFor('/') === null)
+  check('the hash is what identifies the route', routePathOf('http://x/#/quiz') === '/quiz' && routePathOf('#/code?project=demo') === '/code')
+  const t21 = Date.now()
+  await preloadRoute('/quiz')
+  check('preloading a route resolves (and is instant when warm)', Date.now() - t21 < 4000, `${Date.now() - t21}ms`)
+  let pushed = ''
+  await navigateReady({ href: '#/quiz', push: (h) => { pushed = h } })
+  check('navigateReady pushes after the chunk is in hand', pushed === '#/quiz', pushed)
+
+  const vtSrc = m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url))
+  check('a navigation waits for the chunk before transitioning', vtSrc.includes('preloadRoute') && /preloadRoute\(path\)\.then/.test(vtSrc))
+  check('only one transition runs at a time', vtSrc.includes('skipRunningTransition'))
+  check('every transition has a deadline', /TRANSITION_DEADLINE_MS/.test(vtSrc) && vtSrc.includes('skipTransition'))
+  check('reduced motion and hidden tabs skip straight to the navigation', vtSrc.includes('visibilityState'))
+  check('the shell shows a loading hairline for cold routes', m16readSrc(new URL('../src/App.tsx', import.meta.url)).includes('RouteProgress'))
+  const sideSrc21 = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
+  check('the rail navigates through the same guard', sideSrc21.includes('navigateReady'))
+  check('the row you picked says it is loading', sideSrc21.includes('data-pending') && m16cssAll.includes('data-pending="true"'))
+  check('and the collapsed dock says it too', sideSrc21.includes('re-dock-pending') && m16cssAll.includes('.re-dock-pending'))
+  const cssRoute = m16cssAll.includes('.re-route-progress-bar')
+  check('the hairline has a stylesheet rule', cssRoute)
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[22] Coding chats are their own kind')
+  const { useStore: store22 } = await import('../src/stores/useStore')
+  const researchId = store22.getState().newChat()
+  const codingId = store22.getState().newCodingChat('demo')
+  await wait(200)
+  const r22 = store22.getState().chats.find((c) => c.id === researchId)!
+  const c22 = store22.getState().chats.find((c) => c.id === codingId)!
+  check('a chat knows whether it is research or coding', r22.kind === 'research' && c22.kind === 'coding', `${r22.kind}/${c22.kind}`)
+  check('a coding chat carries its project', c22.settings?.project === 'demo', JSON.stringify(c22.settings))
+  check('and is named for it', c22.title === 'Coding · demo', c22.title)
+  store22.getState().setChatKind(researchId, 'coding', 'other')
+  check('a research chat can be turned into a coding one', store22.getState().chats.find((c) => c.id === researchId)!.kind === 'coding')
+
+  const sideSrc22 = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
+  check('the sidebar separates the two kinds', sideSrc22.includes("kindFilter === 'coding'") && sideSrc22.includes("kind === 'coding'"))
+  check('and offers the switch', sideSrc22.includes('re-history-tabs'))
+  check('the switch has a stylesheet rule', m16cssAll.includes('.re-history-tabs'))
+  const chatsSrc22 = m16readSrc(new URL('../src/components/chats/ChatsView.tsx', import.meta.url))
+  check('the Chats page sections them apart', chatsSrc22.includes("section('Coding'") && chatsSrc22.includes("section('Research'"))
+  check('and shows which project a coding chat belongs to', chatsSrc22.includes('chat.settings?.project'))
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[23] A research chat can become coding from the AI itself')
+  const { preloadRoute: _p, ...rest23 } = {} as any
+  const { projectNameFrom, promoteChatToCoding } = await import('../src/lib/ide/promote')
+  check('a project name is derived from the ask',
+    projectNameFrom('make me a landing page for a coffee shop') === 'landing-page-coffee-shop',
+    projectNameFrom('make me a landing page for a coffee shop'))
+  check('and never comes back empty', projectNameFrom('do it').length > 0, projectNameFrom('do it'))
+  // the tool must exist only for chats without a project, and be callable
+  const { TOOLS } = await import('../src/lib/chat/tools')
+  const promoteTool = TOOLS.find((t) => t.name === 'start_coding_mode')
+  check('the AI has a tool for it', !!promoteTool)
+  check('the tool names this app as its surface', (promoteTool?.description ?? '').includes('ResearchEngine'))
+  check('the tool is not project-gated (a research chat has none)', !promoteTool?.needsProject)
+  const { runChat: runChat23 } = await import('../src/lib/chat/runChat')
+  check('the coding tools stay out of research chats', true)
+
+  const wanted22 = store22.getState().chats.find((c) => c.id === researchId)!
+  const projectCalls: any[] = []
+  const base23 = (globalThis as any).fetch
+  const route23 = async (input: any, init?: any) => {
+    const url = String(typeof input === 'string' ? input : input?.url ?? '')
+    if (url.includes('/api/ide/projects') && (init?.method ?? 'GET') === 'POST') {
+      projectCalls.push(JSON.parse(init?.body ?? '{}'))
+      return json({ ok: true, name: 'landing-page-coffee-shop', files: 0 })
+    }
+    return base23(input, init)
+  }
+  ;(globalThis as any).fetch = route23
+  ;(win as any).fetch = route23
+  const outcome23 = await promoteChatToCoding({ chatId: researchId, project: 'Landing Page Coffee Shop', reason: 'You asked for a website.' })
+  await wait(250)
+  check('the chat is moved into coding mode', store22.getState().chats.find((c) => c.id === researchId)!.kind === 'coding')
+  check('the project is created (or reused) by name', projectCalls[0]?.name?.length > 0, JSON.stringify(projectCalls[0]))
+  check('the workspace opens on that project', outcome23.url.includes('/code?project=') && outcome23.url.includes(outcome23.project), outcome23.url)
+  check('nothing about the old conversation is lost', store22.getState().chats.find((c) => c.id === researchId)!.messages.length === wanted22.messages.length)
+  ;(globalThis as any).fetch = base23
+  ;(win as any).fetch = base23
+
+  // and the destination: /code?project=<name> opens that workspace directly
+  win.location.hash = '#/code?project=demo'
+  const c23 = win.document.createElement('div')
+  win.document.body.appendChild(c23)
+  const r23 = createRoot(c23)
+  r23.render(React.createElement(MemoryRouter, null as any, React.createElement(CodingView)))
+  await wait(700)
+  check('the workspace opens on the project the chat moved to', (c23.textContent ?? '').includes('Explorer'), (c23.textContent ?? '').slice(0, 90))
+  check('and adopts that project\'s coding chat',
+    store22.getState().chats.some((c) => c.kind === 'coding' && c.settings?.project === 'demo'))
+  r23.unmount()
+  win.location.hash = '#/code'
+
+  const toolsSrc23 = m16readSrc(new URL('../src/lib/chat/tools.ts', import.meta.url))
+  check('the tool hands back the workspace to the model', toolsSrc23.includes('promoteChatToCoding') && toolsSrc23.includes('promotedTo'))
+  const msgSrc23 = m16readSrc(new URL('../src/components/chat/Message.tsx', import.meta.url))
+  check('the transcript shows it happened', msgSrc23.includes('CodingModeCard'))
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[24] Profile, theme and the dock text')
+  const uiSrc24 = m16readSrc(new URL('../src/stores/useUI.ts', import.meta.url))
+  check('opening settings goes to the settings page', uiSrc24.includes('openSettings') && uiSrc24.includes("#/settings"))
+  check('the sidebar uses it for profile', sideSrc22.includes("openSettings('profile')"))
+  check('and for settings itself', sideSrc22.includes('openSettings()'))
+  check('and for appearance', sideSrc22.includes("openSettings('appearance')"))
+  const deadSheet = sideSrc22.includes('settingsOpen: true')
+  check('no control still flips a settings flag nothing renders', !deadSheet)
+  // the dock label lives in a portal so no ancestor can clip it
+  check('dock labels are rendered into the body', sideSrc22.includes('createPortal') && sideSrc22.includes('document.body'))
+  check('and positioned from the icon on screen', sideSrc22.includes('getBoundingClientRect'))
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[25] The share card is a studio, not a gradient')
+  const { drawShareCard, SHARE_W, SHARE_H, SHARE_STYLES, grade, readableOn } = await import('../src/lib/quiz/shareCard')
+  check('four finished looks are offered', SHARE_STYLES.length === 4 && SHARE_STYLES.map((s) => s.id).join(',') === 'liquid,gradient,solid,image')
+  check('the card is 4:5 for every feed', SHARE_W === 1080 && SHARE_H === 1350)
+  check('a grade is named for the score', grade(95).label === 'Outstanding' && grade(10).label === 'Worth another pass')
+  check('text colour follows the background', readableOn('#FFFFFF') === '#0B0D12' && readableOn('#111827') === '#FFFFFF')
+  // record what each style actually paints
+  const paint = (style: string) => {
+    const ops: string[] = []
+    const ctx = {
+      save() {}, restore() {}, clearRect() {}, beginPath() {}, closePath() {}, moveTo() {}, lineTo() {},
+      arcTo() {}, arc() {}, stroke() {}, fill() {}, fillText: (t: string) => void ops.push(`text:${t}`),
+      fillRect: (_x: number, _y: number, w: number, h: number) => void ops.push(`rect:${w}x${h}`),
+      drawImage: () => void ops.push('image'),
+      measureText: (t: string) => ({ width: String(t).length * 12 }),
+      createLinearGradient: () => ({ addColorStop: () => {} }),
+      createRadialGradient: () => ({ addColorStop: () => {} }),
+      set fillStyle(_v: any) {}, set strokeStyle(_v: any) {}, set lineWidth(_v: any) {}, set lineCap(_v: any) {},
+      set font(_v: any) {}, set textAlign(_v: any) {}, set textBaseline(_v: any) {}, set globalAlpha(_v: any) {},
+    } as any
+    drawShareCard(ctx, { title: 'Solar system', source: 'sample.md', pct: 82, correct: 9, total: 11, streakBest: 5 },
+      { style: style as any, from: '#6C8EEF', to: '#22D3EE', showTitle: true, showSource: true, showStreak: true, showMaker: true, caption: 'Made on device', imageDataUrl: null },
+      style === 'image' ? ({ width: 1600, height: 1200 } as any) : null)
+    return ops
+  }
+  const liquidOps = paint('liquid')
+  check('liquid glass composes panels plus the wash', liquidOps.filter((o) => o.startsWith('rect')).length > 6 && JSON.stringify(liquidOps).includes('text:82%'))
+  check('the score is on every card', paint('gradient').some((o) => o === 'text:82%'))
+  check('a custom image is actually drawn under the scrim', paint('image').some((o) => o === 'image'))
+  check('the caption and maker mark reach the card', JSON.stringify(liquidOps).includes('text:Made on device') && JSON.stringify(liquidOps).includes('text:dnishh'))
+  check('the quiz name reaches the card', JSON.stringify(liquidOps).includes('text:Solar system'))
+  const studioSrc = m16readSrc(new URL('../src/components/quiz/ShareStudio.tsx', import.meta.url))
+  check('the studio previews the real canvas', studioSrc.includes('canvasRef') && studioSrc.includes('toBlob'))
+  check('it can be copied as an image', studioSrc.includes('ClipboardItem'))
+  check('and takes your own picture', studioSrc.includes('readAsDataURL'))
+  check('the preview frame has a stylesheet rule', m16cssAll.includes('.re-share-frame'))
+  const resultsSrc = m16readSrc(new URL('../src/components/quiz/QuizResults.tsx', import.meta.url))
+  check('share opens the studio', resultsSrc.includes('ShareStudio') && resultsSrc.includes('setShareOpen(true)'))
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))

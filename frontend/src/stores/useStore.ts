@@ -35,6 +35,10 @@ interface StoreState {
   // actions
   set: (fn: (s: StoreState) => Partial<StoreState>) => void
   newChat: (spaceId?: string) => string
+  /** A coding conversation, kept out of research history by `kind`. */
+  newCodingChat: (project: string) => string
+  /** Turn an existing chat into a coding chat (or back). */
+  setChatKind: (id: string, kind: 'research' | 'coding', project?: string) => void
   deleteChat: (id: string) => void
   renameChat: (id: string, title: string) => void
   addMessage: (chatId: string, msg: ChatMessage) => void
@@ -129,11 +133,27 @@ export const useStore = create<StoreState>()(
         const id = nanoid(10)
         const chat: Chat = {
           id, title: 'New research', createdAt: Date.now(), updatedAt: Date.now(),
-          spaceId, messages: [],
+          spaceId, messages: [], kind: 'research',
         }
         set((s) => ({ chats: [chat, ...s.chats], activeChatId: id }))
         return id
       },
+
+      newCodingChat: (project) => {
+        const id = nanoid(10)
+        const chat: Chat = {
+          id, title: `Coding · ${project}`, createdAt: Date.now(), updatedAt: Date.now(),
+          messages: [], kind: 'coding', settings: { project },
+        }
+        set((s) => ({ chats: [chat, ...s.chats], activeChatId: id }))
+        return id
+      },
+
+      setChatKind: (id, kind, project) => set((s) => ({
+        chats: s.chats.map((c) => (c.id === id
+          ? { ...c, kind, settings: kind === 'coding' ? { ...c.settings, project: project ?? c.settings?.project } : c.settings }
+          : c)),
+      })),
 
       deleteChat: (id) => set((s) => ({
         chats: s.chats.filter((c) => c.id !== id),

@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { MotionConfig } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
@@ -103,6 +103,33 @@ export default function App() {
   )
 }
 
+/**
+ * Cold routes have to fetch a chunk. Rather than freezing the frame or showing
+ * a bare skeleton, a two-pixel bar crosses the top of the window — the same
+ * signal every browser gives — and the rail marks the row you picked.
+ */
+function RouteProgress() {
+  const loading = useUI((s) => s.routeLoading)
+  return (
+    <AnimatePresence>
+      {loading && (
+        <motion.div
+          key="route-progress"
+          className="re-route-progress"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          role="progressbar"
+          aria-label="Loading page"
+        >
+          <span className="re-route-progress-bar" />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 function RoutedApp() {
   const starfield = useUI((s) => s.starfield)
   const location = useLocation()
@@ -128,6 +155,7 @@ function RoutedApp() {
       skillRun: null,
       islandExpanded: false,
       sidebarOpenMobile: false,
+      routeLoading: null,
     })
   }, [location.key])
 
@@ -142,6 +170,9 @@ function RoutedApp() {
           </filter>
         </defs>
       </svg>
+      {/* A hairline that says the click was heard while a route chunk loads.
+          The page underneath stays interactive the whole time. */}
+      <RouteProgress />
       <ErrorBoundary>
       <Shell>
         <Suspense fallback={<RouteSkeleton />}>

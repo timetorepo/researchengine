@@ -27,6 +27,8 @@ export interface FlowPipelineState {
 interface UIState {
   sidebarCollapsed: boolean
   sidebarOpenMobile: boolean
+  /** Route path whose chunk is being fetched for a navigation in flight. */
+  routeLoading: string | null
   settingsOpen: boolean
   settingsSheet: boolean
   settingsTab: string
@@ -61,6 +63,8 @@ interface UIState {
   set: (patch: Partial<UIState>) => void
   setActivity: (activity: Activity) => void
   toggleSidebar: () => void
+  /** Open the Settings page on a given tab — from anywhere, including the dock. */
+  openSettings: (tab?: string) => void
   toast: (title: string, body?: string, tone?: Toast['tone']) => void
   clearNotices: () => void
   dismissToast: (id: string) => void
@@ -88,6 +92,7 @@ function saveNotices(list: Notice[]) {
 export const useUI = create<UIState>((set, get) => ({
   sidebarCollapsed: typeof window !== 'undefined' && window.innerWidth < 1200,
   sidebarOpenMobile: false,
+  routeLoading: null,
   settingsOpen: false,
   settingsSheet: false,
   settingsTab: 'providers',
@@ -115,6 +120,25 @@ export const useUI = create<UIState>((set, get) => ({
 
   set: (patch) => set(patch),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+
+  /**
+   * Settings lives on its own route, but the buttons that open it are scattered
+   * (sidebar footer, collapsed dock, command palette, message chips). They all
+   * used to flip `settingsOpen`, which nothing ever rendered — so Profile and
+   * Theme looked dead. One helper: set the tab, close whatever is open, and
+   * actually go there.
+   */
+  openSettings: (tab) => {
+    set((s) => ({
+      settingsOpen: true,
+      settingsTab: tab ?? s.settingsTab,
+      settingsSheet: false,
+      sidebarOpenMobile: false,
+    }))
+    if (typeof window !== 'undefined' && !window.location.hash.startsWith('#/settings')) {
+      window.location.hash = '#/settings'
+    }
+  },
   // Views claim the activity; the last one to mount owns the label, and an
   // unmount only clears it if it is still the one that set it (so a route
   // change that mounts the next view first does not blank the label).

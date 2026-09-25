@@ -61,6 +61,14 @@ export function CodingView() {
   }, [])
   useEffect(() => { void refresh() }, [refresh])
 
+  // ?project=<name> opens that project straight away — how a research chat
+  // that turned into coding ("start_coding_mode") hands the user a workspace
+  // rather than a list to search in.
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('project')
+    if (want) setOpen((cur) => cur ?? want)
+  }, [])
+
   // Keep the tree in sync with reality (AI edits files, terminal commands, …).
   const loadTree = useCallback(async (project: string) => {
     try {
@@ -75,6 +83,13 @@ export function CodingView() {
     window.addEventListener('re:ide-changed', h)
     return () => window.removeEventListener('re:ide-changed', h)
   }, [open, loadTree])
+
+  // Opening a project selects its coding chat (creating one on first use), so
+  // the IDE panel and the Chats page agree about where the work lives.
+  useEffect(() => {
+    if (!open) return
+    useStore.getState().setActiveChat(chatIdFor(open))
+  }, [open])
 
   /** Live preview of the folder name the user will actually get. */
   const nameCheck = normalizeProjectName(newName)

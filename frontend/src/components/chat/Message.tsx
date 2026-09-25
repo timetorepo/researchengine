@@ -9,7 +9,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Markdown } from './Markdown'
 import { ReplicateTimeline } from './ReplicateTimeline'
-import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip } from './ToolUI'
+import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { SourceStrip } from './SourceStrip'
 import { HumanizedAnswer, HumanizingIndicator, HumanizeError } from './HumanizedAnswer'
@@ -202,6 +202,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           <>
             {msg.stages && msg.stages.length > 0 && <ReplicateTimeline chatId={chatId} msg={msg} />}
             <ToolTraceChips msg={msg} />
+            <CodingModeCard project={msg.promotedTo?.project} reason={msg.promotedTo?.reason} />
             <ExecApproval chatId={chatId} msg={msg} />
             <QuestionnaireCard chatId={chatId} msg={msg} />
             {msg.humanizing && !msg.humanized && <HumanizingIndicator onCancel={() => void runHumanize()} />}

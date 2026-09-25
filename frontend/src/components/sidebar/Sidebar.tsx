@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -15,6 +16,7 @@ import { useUI } from '@/stores/useUI'
 import type { ThemeId } from '@/types'
 import { AppLogo } from '@/components/shared/AppLogo'
 import { useVirtualList } from '@/hooks/useVirtualList'
+import { navigateReady } from '@/lib/routes/registry'
 import { clsx } from 'clsx'
 
 const NAV = [
@@ -41,6 +43,13 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   const spaces = useStore((s) => s.spaces)
   const [spaceFilter, setSpaceFilter] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  // Research and coding conversations are different work; the history list
+  // shows one kind at a time rather than interleaving them.
+  const [kindFilter, setKindFilter] = useState<'research' | 'coding'>('research')
+  // The route whose chunk is being fetched. The row you clicked says so, so a
+  // cold page is visibly "yours" instead of a click that seemed to do nothing.
+  const routeLoading = useUI((s) => s.routeLoading)
+  const pendingFor = (to: string) => routeLoading === to
 
   // Close the mobile drawer whenever the route changes (covers every nav action),
   // and when the viewport grows past the drawer breakpoint. Without this the
@@ -63,13 +72,16 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 
   const filtered = useMemo(() => {
     let list = chats
+    // `kind` is optional on chats written before it existed — those are research.
+    if (kindFilter === 'coding') list = list.filter((c) => c.kind === 'coding')
+    else list = list.filter((c) => c.kind !== 'coding')
     if (spaceFilter) list = list.filter((c) => c.spaceId === spaceFilter)
     if (query.trim()) {
       const q = query.toLowerCase()
       list = list.filter((c) => c.title.toLowerCase().includes(q) || c.messages.some((m) => m.content.toLowerCase().includes(q)))
     }
     return [...list].sort((a, b) => b.updatedAt - a.updatedAt)
-  }, [chats, spaceFilter, query])
+  }, [chats, spaceFilter, query, kindFilter])
 
   const unpinned = useMemo(() => filtered.filter((c) => !c.pinned), [filtered])
   const virt = useVirtualList(unpinned.length, 44)
@@ -114,20 +126,21 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
           {NAV.map((n, i) => {
             const active = n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to)
             return (
-              <DockItem key={n.to} index={i + 2} label={n.label} active={active} onClick={() => { closeMobile(); navigate(n.to) }}>
+              <DockItem key={n.to} index={i + 2} label={n.label} active={active} pending={pendingFor(n.to)}
+                onClick={() => { closeMobile(); void navigateReady({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) }) }}>
                 <n.icon size={18} strokeWidth={1.5} />
               </DockItem>
             )
           })}
           <DockSpacer />
           <DockDivider />
-          <DockItem index={NAV.length + 2} label="Theme" onClick={() => useUI.setState({ settingsOpen: true, settingsTab: 'appearance' })}>
+          <DockItem index={NAV.length + 2} label="Theme" onClick={() => useUI.getState().openSettings('appearance')}>
             <DockThemeIcon />
           </DockItem>
-          <DockItem index={NAV.length + 3} label="Settings" onClick={() => useUI.setState({ settingsSheet: true })}>
+          <DockItem index={NAV.length + 3} label="Settings" onClick={() => useUI.getState().openSettings()}>
             <Settings size={18} strokeWidth={1.5} />
           </DockItem>
-          <DockItem index={NAV.length + 4} label="Profile" onClick={() => useUI.setState({ settingsOpen: true, settingsTab: 'profile' })}>
+          <DockItem index={NAV.length + 4} label="Profile" onClick={() => useUI.getState().openSettings('profile')}>
             <UserAvatar size={22} />
           </DockItem>
         </DockRail>
@@ -167,7 +180,15 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
                 key={n.to}
                 to={n.to}
                 end={n.end}
-                onClick={closeMobile}
+                onClick={(e) => {
+                  closeMobile()
+                  // Let the chunk arrive first — the page you are on stays
+                  // clickable while it does.
+                  e.preventDefault()
+                  void navigateReady({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) })
+                }}
+                data-pending={pendingFor(n.to) ? 'true' : 'false'}
+                aria-busy={pendingFor(n.to) || undefined}
                 className="re-nav-item group flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] overflow-hidden"
                 style={({ isActive }) => ({
                   color: isActive ? 'var(--text)' : 'var(--text-2)',
@@ -208,8 +229,16 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 
           {/* Chat history */}
           <div className="px-3 mt-4 flex-1 min-h-0 flex flex-col">
-            <div className="text-[10px] font-semibold uppercase tracking-wider px-2.5 mb-1.5" style={{ color: 'var(--text-3)' }}>
-              History · {filtered.length}
+            <div className="re-history-tabs" role="tablist" aria-label="Conversation kind">
+              <button role="tab" aria-selected={kindFilter === 'research'} data-active={kindFilter === 'research'}
+                onClick={() => setKindFilter('research')}>
+                Research
+              </button>
+              <button role="tab" aria-selected={kindFilter === 'coding'} data-active={kindFilter === 'coding'}
+                onClick={() => setKindFilter('coding')}>
+                Coding
+              </button>
+              <span className="re-history-count">{filtered.length}</span>
             </div>
             <div ref={virt.ref} onScroll={virt.onScroll} className="flex-1 overflow-y-auto min-h-0 no-scrollbar">
               {filtered.length === 0 ? (
@@ -226,14 +255,14 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
                         <Pin size={9} /> Pinned
                       </div>
                       {filtered.filter((c) => c.pinned).map((c) => (
-                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} pinned />
+                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} pinned kind={c.kind} />
                       ))}
                     </div>
                   )}
                   <div style={virt.containerStyle}>
                     <div style={{ transform: `translateY(${virt.offset}px)` }}>
                       {unpinned.slice(virt.slice.start, virt.slice.end).map((c) => (
-                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} />
+                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} kind={c.kind} />
                       ))}
                     </div>
                   </div>
@@ -322,15 +351,30 @@ function DockRail({ children }: { children: React.ReactNode }) {
   )
 }
 
-function DockItem({ index, label, active = false, onClick, children, tone }: {
+function DockItem({ index, label, active = false, pending = false, onClick, children, tone }: {
   index: number
   label: string
   active?: boolean
+  /** Its route chunk is loading right now. */
+  pending?: boolean
   onClick: () => void
   children: React.ReactNode
   tone?: string
 }) {
   const ctx = useContext(DockCtx)
+  const itemRef = useRef<HTMLDivElement>(null)
+  const [labelAt, setLabelAt] = useState<{ x: number; y: number } | null>(null)
+  // The name is drawn in a portal at the icon's screen position. Coding mode's
+  // workbench builds its own stacking context, so a label positioned inside the
+  // rail was being painted under it — the "text disappears in coding mode"
+  // report. A portal has no ancestor to be trapped by.
+  useEffect(() => {
+    if (ctx?.hovered !== index) { setLabelAt(null); return }
+    const el = itemRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    setLabelAt({ x: r.right + 10, y: r.top + r.height / 2 })
+  }, [ctx?.hovered, index])
   const hovered = ctx?.hovered ?? null
   const d = hovered === null ? null : Math.abs(index - hovered)
   const { scale, lean } = dockMetrics(d)
@@ -350,6 +394,7 @@ function DockItem({ index, label, active = false, onClick, children, tone }: {
         animate={{ scale, y: dir * lean }}
         transition={{ type: 'spring', damping: 20, stiffness: 420, mass: 0.6 }}
         className="relative"
+        ref={itemRef}
       >
         <button
           onClick={onClick}
@@ -365,24 +410,30 @@ function DockItem({ index, label, active = false, onClick, children, tone }: {
         >
           {active && <span className="re-nav-indicator absolute left-[-5px] top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full" style={{ background: 'var(--primary)' }} />}
           {children}
+          {pending && <span className="re-dock-pending" aria-hidden />}
         </button>
 
-        {/* The name, only for the icon under the pointer. */}
+      </motion.div>
+
+      {/* The name, only for the icon under the pointer — portal-ed so no
+          ancestor's overflow or stacking context can swallow it. */}
+      {createPortal(
         <AnimatePresence>
-          {pointed && (
+          {pointed && labelAt && (
             <motion.span
               initial={{ opacity: 0, x: -8, scale: 0.94 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: -8, scale: 0.94 }}
               transition={{ type: 'spring', damping: 22, stiffness: 400 }}
-              className="re-dock-label pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 whitespace-nowrap px-2.5 py-1 rounded-[9px] text-[11.5px] font-medium surface-elevated"
-              style={{ color: 'var(--text)', boxShadow: '0 10px 28px -12px rgba(0,0,0,0.5)' }}
+              className="re-dock-label pointer-events-none fixed -translate-y-1/2 whitespace-nowrap px-2.5 py-1 rounded-[9px] text-[11.5px] font-medium surface-elevated"
+              style={{ left: labelAt.x, top: labelAt.y, color: 'var(--text)', boxShadow: '0 10px 28px -12px rgba(0,0,0,0.5)' }}
             >
               {label}
             </motion.span>
           )}
-        </AnimatePresence>
-      </motion.div>
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   )
 }
@@ -433,7 +484,7 @@ function SpaceChip({ active, label, color, onClick }: { active: boolean; label: 
   )
 }
 
-function ChatItem({ id, title, when, pinned }: { id: string; title: string; when: number; pinned?: boolean }) {
+function ChatItem({ id, title, when, pinned, kind }: { id: string; title: string; when: number; pinned?: boolean; kind?: string }) {
   const { id: activeId } = useParams()
   const navigate = useNavigate()
   const [menu, setMenu] = useState(false)
@@ -463,6 +514,7 @@ function ChatItem({ id, title, when, pinned }: { id: string; title: string; when
       exit={{ opacity: 0, x: -30 }}
       className="group chat-row flex items-center rounded-[10px] mb-0.5 relative"
       data-active={active}
+      data-kind={kind === 'coding' ? 'coding' : 'research'}
       style={{ height: 44 }}
       onContextMenu={(e) => { e.preventDefault(); setMenu(true) }}
     >
@@ -488,7 +540,8 @@ function ChatItem({ id, title, when, pinned }: { id: string; title: string; when
           <>
             <div className="text-[13px] truncate flex items-center gap-1" style={{ color: active ? 'var(--text)' : 'var(--text-2)' }}>
               {pinned && <Pin size={10} className="shrink-0" style={{ color: 'var(--warning)' }} />}
-              {title}
+              {kind === 'coding' && <CodeIcon size={11} className="shrink-0" style={{ color: 'var(--primary)' }} />}
+              <span className="chat-title truncate">{title}</span>
             </div>
             <div className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{timeAgo(when)}</div>
           </>
@@ -549,7 +602,7 @@ function CtxItem({ icon, label, onClick, danger }: { icon: React.ReactNode; labe
 function SettingsLauncher({ collapsed }: { collapsed: boolean }) {
   return (
     <button
-      onClick={() => useUI.setState({ settingsSheet: true })}
+      onClick={() => useUI.getState().openSettings()}
       className={clsx(
         'pressable flex items-center gap-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]',
@@ -584,7 +637,7 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="relative">
       <button
-        onPointerDown={() => { longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; setPickerOpen(true) }, 500) }}
+        onPointerDown={() => { longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; useUI.getState().openSettings('appearance') }, 600) }}
         onPointerUp={() => clearTimeout(pressTimer.current)}
         onPointerLeave={() => clearTimeout(pressTimer.current)}
         onClick={() => { if (!longPressed.current) cycle() }}
@@ -592,7 +645,7 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
           'pressable flex items-center gap-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]',
           collapsed ? 'p-2' : 'w-full px-2.5 py-2',
         )}
-        aria-label="Cycle theme" title="Click: cycle themes · hold: theme picker"
+        aria-label="Cycle theme" title="Click: cycle themes · hold: Appearance settings"
         style={{ color: 'var(--text-2)' }}
       >
         {isDark ? <Moon size={18} strokeWidth={1.5} /> : <Sun size={18} strokeWidth={1.5} />}
@@ -693,7 +746,7 @@ function ProfilePill({ collapsed }: { collapsed: boolean }) {
                 </button>
               </div>
               <button
-                onClick={() => { setOpen(false); useUI.getState().set({ settingsOpen: true, settingsTab: 'profile' }) }}
+                onClick={() => { setOpen(false); useUI.getState().openSettings('profile') }}
                 className="w-full flex items-center gap-2 px-2 py-1.5 mb-0.5 rounded-[8px] text-[12px] hover:bg-[var(--elevated)]"
                 style={{ color: 'var(--text-2)' }}>
                 <UserRound size={13} /> Edit profile &amp; avatar
