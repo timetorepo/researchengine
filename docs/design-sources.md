@@ -53,7 +53,7 @@ What was actually applied:
 
 | Pattern | Applied as |
 |---|---|
-| One accent per surface; quiet chrome, loud content | Toasts stay neutral and carry tone in a 3px left edge + icon instead of repainting the card in red/green |
+| One accent per surface; quiet chrome, loud content | Toasts keep the app's blurred glass card and carry tone in **one** coloured icon — never a repainted background — the same discipline the previous toast used, now with Sonner's physics |
 | Hairline separation over boxes | Dock dividers, top-bar build chip: 1px `--surface-border`, no background blocks |
 | Instrument-grade numbers | Tabular numerals everywhere a value ticks (timer, savings counter) — a clock that reflows its own width is the classic tell of a fake one |
 | Precision motion | 150–300 ms, `cubic-bezier(0.22, 1, 0.36, 1)`, springs only where something is being grabbed or thrown |

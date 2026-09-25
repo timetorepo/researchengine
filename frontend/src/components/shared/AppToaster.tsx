@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Toaster as SonnerToaster, toast as sonner } from 'sonner'
+import { CheckCircle2, Info, AlertTriangle, XCircle } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { setToastSink, type ToastTone } from '@/lib/notify'
@@ -18,6 +19,13 @@ import { setToastSink, type ToastTone } from '@/lib/notify'
  * to change. Sonner owns the *lifetime* of the on-screen toast, which is what
  * makes hover-to-pause real; its dismiss/auto-close callbacks land back in the
  * store so the queue never disagrees with what is on screen.
+ *
+ * The *look* is the toast this app already had: the same blurred glass surface
+ * as the chatbox and the Dynamic Island (including Settings → Appearance →
+ * Glass mode: off, blur or liquid), one tone-coloured icon on the left, the
+ * title and body in the app's own type, and a quiet little X in the corner.
+ * Sonner's default skin is a flat card with its own palette — none of it is
+ * used.
  */
 
 const TONE: Record<ToastTone, typeof sonner.info> = {
@@ -25,6 +33,15 @@ const TONE: Record<ToastTone, typeof sonner.info> = {
   success: sonner.success,
   warning: sonner.warning,
   danger: sonner.error,
+}
+
+/** The same four glyphs the hand-rolled stack used, at the same size. Colour is
+ *  applied per tone in CSS so a theme can tint them. */
+const ICONS = {
+  success: <CheckCircle2 size={16} strokeWidth={1.8} />,
+  info: <Info size={16} strokeWidth={1.8} />,
+  warning: <AlertTriangle size={16} strokeWidth={1.8} />,
+  error: <XCircle size={16} strokeWidth={1.8} />,
 }
 
 export function AppToaster() {
@@ -40,6 +57,10 @@ export function AppToaster() {
       fire(title, {
         id,
         description: body,
+        // The glass surface (chatbox / island look) is mirrored in globals.css
+        // rather than borrowed from `.glass-chat`, because that class sets
+        // `position: relative` in liquid mode and Sonner stacks its toasts
+        // absolutely.
         className: `re-toast re-toast-${tone}`,
         onDismiss: done,
         onAutoClose: done,
@@ -60,6 +81,7 @@ export function AppToaster() {
       duration={4200}
       closeButton
       expand
+      icons={ICONS}
       // The app has 20+ palettes; Sonner's own dark/light is only a hint. The
       // real colours come from CSS variables in globals.css (.re-toast).
       theme={light ? 'light' : 'dark'}
@@ -79,7 +101,7 @@ export function AppToaster() {
         ['--normal-border' as string]: 'var(--surface-border)',
         ['--normal-text' as string]: 'var(--text)',
         ['--border-radius' as string]: '14px',
-        ['--width' as string]: '330px',
+        ['--width' as string]: '320px',
       }}
     />
   )

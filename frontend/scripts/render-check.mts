@@ -609,7 +609,22 @@ async function main() {
   const toaster = win.document.querySelector('[data-sonner-toaster]')
   check('Sonner is the mounted toast renderer', !!toaster)
   check('the toast body is in the DOM', (win.document.body.textContent ?? '').includes('drawn by sonner'), (win.document.body.textContent ?? '').slice(0, 90))
-  check('the toast wears the app palette', !!win.document.querySelector('.re-toast'), 'no .re-toast')
+  const toastEl = win.document.querySelector('.re-toast') as any
+  check('the toast wears the app palette', !!toastEl, 'no .re-toast')
+  check('it is the old glass surface, blurred', !!toastEl
+    && readFileSync('../frontend/src/styles/globals.css', 'utf8').includes('backdrop-filter: blur(24px) saturate(1.4) !important'))
+  check('the tone rides on the icon, not a repainted card', readFileSync('../frontend/src/styles/globals.css', 'utf8').includes('.re-toast-success .re-sonner-icon svg'))
+  check('no left colour bar (the old toast had none)', !readFileSync('../frontend/src/styles/globals.css', 'utf8').includes('border-left-width: 3px'))
+  check('liquid/blur glass modes are mirrored for toasts', /data-glass="liquid"\] \.re-sonner-toast/.test(readFileSync('../frontend/src/styles/globals.css', 'utf8')))
+  // Sonner stacks its toasts with position: absolute; a glass mode must never
+  // override that (the chatbox class does, which is why it is not reused).
+  const toastCss = readFileSync('../frontend/src/styles/globals.css', 'utf8')
+  const toastBlock = toastCss
+    .slice(toastCss.indexOf('.re-sonner-toast {'), toastCss.indexOf('.re-sonner-title'))
+    .replace(/\/\*[\s\S]*?\*\//g, '')   // ignore the comments, look at the rules
+  check('the toast surface never touches positioning', !/position:/.test(toastBlock), toastBlock.slice(0, 60))
+  check('the toaster is told which icons to draw', readFileSync('../frontend/src/components/shared/AppToaster.tsx', 'utf8').includes('icons={ICONS}'))
+  check('and the close button is a quiet X', toastCss.includes('.re-sonner-close svg { width: 13px'))
   check('dismissing it through Sonner clears the queue', (() => {
     const before = uiStore.getState().toasts.length
     uiStore.getState().dismissToast(uiStore.getState().toasts.at(-1)!.id)
