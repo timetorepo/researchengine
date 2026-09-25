@@ -36,12 +36,24 @@ jobs:
         run: npm run build --workspace frontend
 
       - name: Install Bun
+        id: bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
       - name: Compile the sidecar (single-file server, no Node on the user's machine)
-        run: node scripts/desktop-sidecar.mjs --target win-x64
+        shell: bash
+        env:
+          BUN: ${{ steps.bun.outputs['bun-path'] }}
+        run: |
+          set -o pipefail
+          bun --version
+          node scripts/desktop-sidecar.mjs --target win-x64 2>&1 | tee sidecar.log
+
+      - name: Explain a failed sidecar build
+        if: failure()
+        shell: bash
+        run: node scripts/ci-annotate.mjs sidecar.log "sidecar build failed"
 
       - name: Prove the sidecar actually answers before installing anything
         run: node scripts/desktop-check.mjs --run
@@ -61,8 +73,16 @@ jobs:
         working-directory: desktop
 
       - name: Build the NSIS installer
-        run: npm run tauri:build -- --bundles nsis
+        shell: bash
         working-directory: desktop
+        run: |
+          set -o pipefail
+          npm run tauri:build -- --bundles nsis 2>&1 | tee tauri.log
+
+      - name: Explain a failed bundle
+        if: failure()
+        working-directory: desktop
+        run: node ../scripts/ci-annotate.mjs tauri.log "tauri bundle failed"
 
       - name: Upload the installer as a build artifact
         uses: actions/upload-artifact@v4
@@ -95,12 +115,22 @@ jobs:
         run: npm run build --workspace frontend
 
       - name: Install Bun
+        id: bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
       - name: Compile the sidecar
-        run: node scripts/desktop-sidecar.mjs --target linux-x64
+        env:
+          BUN: ${{ steps.bun.outputs['bun-path'] }}
+        run: |
+          set -o pipefail
+          bun --version
+          node scripts/desktop-sidecar.mjs --target linux-x64 2>&1 | tee sidecar.log
+
+      - name: Explain a failed sidecar build
+        if: failure()
+        run: node scripts/ci-annotate.mjs sidecar.log "sidecar build failed"
 
       - name: Prove the sidecar answers
         run: node scripts/desktop-check.mjs --run
@@ -125,8 +155,15 @@ jobs:
         working-directory: desktop
 
       - name: Build the bundles
-        run: npm run tauri:build -- --bundles deb,appimage
         working-directory: desktop
+        run: |
+          set -o pipefail
+          npm run tauri:build -- --bundles deb,appimage 2>&1 | tee tauri.log
+
+      - name: Explain a failed bundle
+        if: failure()
+        working-directory: desktop
+        run: node ../scripts/ci-annotate.mjs tauri.log "tauri bundle failed"
 
       - name: Upload the bundles
         uses: actions/upload-artifact@v4
