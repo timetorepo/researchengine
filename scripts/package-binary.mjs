@@ -11,9 +11,11 @@
 //   node scripts/package-binary.mjs [--out release] [--rebuild]
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { join, resolve } from 'node:path'
 
-const root = new URL('..', import.meta.url).pathname
+// fileURLToPath keeps this correct on Windows (`.pathname` gives "/D:/…").
+const root = fileURLToPath(new URL('..', import.meta.url))
 const args = process.argv.slice(2)
 // NB: indexOf returns -1 when the flag is absent — look up the value only then.
 const outIdx = args.indexOf('--out')

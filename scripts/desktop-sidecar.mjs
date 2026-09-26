@@ -16,10 +16,13 @@
 // (backend/dist + prod node_modules + frontend dist) and says so — that variant
 // needs Node 20+ installed on the target machine.
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, statSync } from 'node:fs'
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { join, resolve } from 'node:path'
 
-const root = new URL('..', import.meta.url).pathname
+// fileURLToPath, not `.pathname`: on Windows the latter yields "/D:/…", which
+// every join() then mangles into a path that does not exist.
+const root = fileURLToPath(new URL('..', import.meta.url))
 const args = process.argv.slice(2)
 const flag = (name, fallback = null) => (args.includes(name) ? (args[args.indexOf(name) + 1] ?? true) : fallback)
 
@@ -46,11 +49,17 @@ if (!triple) {
 const isWin = target.startsWith('win')
 const outDir = resolve(root, flag('--out', 'desktop/src-tauri/binaries'))
 const outFile = join(outDir, `research-engine-${triple}${isWin ? '.exe' : ''}`)
-const sh = (cmd, cwd = root) => { console.log(`$ ${cmd}`); execSync(cmd, { cwd, stdio: 'inherit' }) }
+// No shell: execFile spelling keeps this working on runners whose shell has no
+// ComSpec/cmd.exe in its environment (a bash step on Windows, for example).
+const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const run = (file, args, cwd = root) => {
+  console.log(`$ ${file} ${args.join(' ')}`)
+  execFileSync(file, args, { cwd, stdio: 'inherit' })
+}
 
 // 1. Both halves must exist before anything is packaged.
-if (flag('--rebuild', false) || !existsSync(join(root, 'frontend/dist/index.html'))) sh('npm run build --workspace frontend')
-if (flag('--rebuild', false) || !existsSync(join(root, 'backend/dist/index.js'))) sh('npm run build --workspace backend')
+if (flag('--rebuild', false) || !existsSync(join(root, 'frontend/dist/index.html'))) run(npmBin, ['run', 'build', '--workspace', 'frontend'])
+if (flag('--rebuild', false) || !existsSync(join(root, 'backend/dist/index.js'))) run(npmBin, ['run', 'build', '--workspace', 'backend'])
 
 mkdirSync(outDir, { recursive: true })
 
@@ -71,7 +80,7 @@ if (bun) {
   console.log(`\n$ sidecar: bun ${bun.version} → ${target} (${triple})`)
   // `--compile` embeds the Bun runtime: the result is one file with no
   // dependencies, which is exactly what an installer needs.
-  sh(`${bun.bin} build backend/src/index.ts --compile --minify --target=bun-${target} --outfile "${outFile}"`)
+  run(bun.bin, ['build', 'backend/src/index.ts', '--compile', '--minify', `--target=bun-${target}`, '--outfile', outFile])
   if (!isWin) chmodSync(outFile, 0o755)
   const mb = (statSync(outFile).size / 1e6).toFixed(1)
   console.log(`\nsidecar ready: ${outFile} (${mb} MB, self-contained)`)

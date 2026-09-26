@@ -80,7 +80,7 @@ jobs:
           npm run tauri:build -- --bundles nsis 2>&1 | tee tauri.log
 
       - name: Explain a failed bundle
-        if: failure()
+        if: failure() && hashFiles('desktop/tauri.log') != ''
         working-directory: desktop
         run: node ../scripts/ci-annotate.mjs tauri.log "tauri bundle failed"
 
@@ -161,7 +161,7 @@ jobs:
           npm run tauri:build -- --bundles deb,appimage 2>&1 | tee tauri.log
 
       - name: Explain a failed bundle
-        if: failure()
+        if: failure() && hashFiles('desktop/tauri.log') != ''
         working-directory: desktop
         run: node ../scripts/ci-annotate.mjs tauri.log "tauri bundle failed"
 

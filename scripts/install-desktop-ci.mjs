@@ -17,7 +17,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 
-const root = resolve(new URL('..', import.meta.url).pathname)
+const root = fileURLToPath(new URL('..', import.meta.url))
 const source = join(root, 'desktop/ci/desktop.yml')
 const dest = join(root, '.github/workflows/desktop.yml')
 const args = process.argv.slice(2)

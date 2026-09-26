@@ -12,9 +12,10 @@ import { existsSync, readFileSync, readdirSync, mkdtempSync, rmSync, statSync } 
 import { spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 
-const root = resolve(new URL('..', import.meta.url).pathname)
+const root = fileURLToPath(new URL('..', import.meta.url))
 const run = process.argv.includes('--run')
 let passed = 0
 const failures = []

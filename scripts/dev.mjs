@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Dev loop: Vite (HMR frontend on :5173) + backend API (:8787) side by side.
 // No extra dependency — plain child processes with prefixed output.
+import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 
 const procs = []
@@ -23,6 +24,6 @@ function shutdown(code) {
 process.on('SIGINT', () => shutdown(0))
 process.on('SIGTERM', () => shutdown(0))
 
-run('backend', 'npm', ['run', 'dev'], new URL('../backend', import.meta.url).pathname)
-run('frontend', 'npm', ['run', 'dev'], new URL('../frontend', import.meta.url).pathname)
+run('backend', 'npm', ['run', 'dev'], fileURLToPath(new URL('../backend', import.meta.url)))
+run('frontend', 'npm', ['run', 'dev'], fileURLToPath(new URL('../frontend', import.meta.url)))
 console.log('Research Engine dev — frontend :5173 (proxies /api → :8787)')
