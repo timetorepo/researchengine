@@ -1784,6 +1784,18 @@ async function main() {
   check('and proves text can never run off the card',
     m16readSrc(new URL('../src/lib/quiz/shareCard.ts', import.meta.url)).includes('breakLongWord'))
 
+  // --- The bench, from the terminal as well as the button ---
+  const devSrc28 = m16readSrc(new URL('../src/components/settings/DeveloperTab.tsx', import.meta.url))
+  const benchSrc28 = m16readSrc(new URL('./bench-report.mts', import.meta.url))
+  check('the create bench is one shared core, not two copies',
+    devSrc28.includes('export async function runCreateBench') && benchSrc28.includes("from '../src/components/settings/DeveloperTab'"))
+  check('the button calls the same function the terminal does',
+    /const run = async[\s\S]{0,500}runCreateBench\(kind/.test(devSrc28))
+  check('and the terminal prints the very same report the Copy button does',
+    devSrc28.includes('export function buildReport') && benchSrc28.includes('buildReport(project, health, pkg.version)'))
+  check('the report names the runtime honestly, in a terminal or a browser',
+    devSrc28.includes('node ${node}') && devSrc28.includes(": 'browser'"))
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/heroui/Switch'
 import { APP_VERSION, BUILD_ID } from '@/components/settings/AboutTab'
 import { Button } from '@/components/ui/heroui/Button'
 import { SAMPLE_PROJECT } from '@/lib/ide/sample'
-import { createProjectRobust, postJson } from '@/lib/ide/create'
+import { createProjectRobust, postJson, type PostJson } from '@/lib/ide/create'
 
 /**
  * Developer Mode, and the create-project test bench.
@@ -20,8 +20,8 @@ import { createProjectRobust, postJson } from '@/lib/ide/create'
  * a fact the next bug report can carry.
  */
 
-interface Step { label: string; value: string; tone?: 'ok' | 'bad' | 'dim' }
-interface RunResult {
+export interface Step { label: string; value: string; tone?: 'ok' | 'bad' | 'dim' }
+export interface RunResult {
   kind: 'project' | 'sample'
   ok: boolean
   when: number
@@ -34,19 +34,121 @@ interface RunResult {
 /** What the browser is running on — the first thing a platform-specific bug
  *  report needs (this is how a Windows path separator was found). */
 export function platformLabel(): string {
-  const nav = navigator as any
+  // The bench is runnable from a terminal too (scripts/bench-report.mts), where
+  // there is no navigator — say what the runtime actually is rather than lying.
+  const nav: any = typeof navigator === 'undefined' ? null : navigator
+  if (!nav) return `${typeof process !== 'undefined' ? process.platform : 'unknown'} · node${typeof process !== 'undefined' ? ' ' + process.versions.node : ''}`
   const plat = nav.userAgentData?.platform ?? nav.platform ?? 'unknown'
   const ua = nav.userAgent ?? ''
   const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser'
+  // Node 22 has a global `navigator` too, with a Node.js user agent. Report it
+  // as what it is rather than calling the terminal "browser".
+  const node = typeof process !== 'undefined' ? process.versions?.node : undefined
+  if (node && !['Edge', 'Chrome', 'Firefox', 'Safari'].includes(browser)) return `${plat} · node ${node}`
   return `${plat} · ${browser}`
 }
 
-async function projectsOnDisk(): Promise<string[]> {
+/** Everything the bench touches. The browser passes the live app's calls; a
+ *  script (or a test) passes the same calls pointed at a server it started. */
+export interface BenchDeps {
+  /** POST JSON — relative in the browser, absolute from a script. */
+  post: PostJson
+  /** Delete a project; resolves to the HTTP status (0 when unreachable). */
+  remove: (name: string) => Promise<number>
+  /** Names already on disk, so a taken name is never the reason a test fails. */
+  taken: string[]
+  /** The /api/health body, quoted in the report. */
+  health?: any
+  /** Injectable clock, so the core has no hidden globals. */
+  clock?: () => number
+  /** Stamp for generated project names. */
+  stamp?: string
+}
+
+const realClock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+
+/** The deps a running app uses. `base` is '' in the browser, a URL in a script. */
+export async function benchDeps(base = ''): Promise<BenchDeps> {
+  let taken: string[] = []
   try {
-    const res = await fetch('/api/ide/projects')
+    const res = await fetch(`${base}/api/ide/projects`)
     const j = await res.json()
-    return (j.projects ?? []).map((p: any) => p.name)
-  } catch { return [] }
+    taken = (j.projects ?? []).map((p: any) => p.name)
+  } catch { /* an unreachable server shows up as an empty list, then as a failure */ }
+  return {
+    post: (url, payload) => postJson(base + url, payload),
+    remove: async (name) => {
+      try {
+        const res = await fetch(`${base}/api/ide/projects/${encodeURIComponent(name)}`, { method: 'DELETE' })
+        return res.status
+      } catch { return 0 }
+    },
+    taken,
+  }
+}
+
+/**
+ * One create flow, end to end, keeping every intermediate fact: the payload,
+ * the attempts, the status, the cleanup. The button and the terminal call this
+ * same function, so a report from either one means the same thing.
+ */
+export async function runCreateBench(kind: 'project' | 'sample', deps: BenchDeps): Promise<RunResult> {
+  const clock = deps.clock ?? realClock
+  const taken = deps.taken ?? []
+  const health = deps.health
+  const stamp = deps.stamp ?? Date.now().toString(36).slice(-4)
+  const name = kind === 'sample' ? 'sample-landing' : `dev-test-${stamp}`
+  const fallback = kind === 'sample' ? 'sample-app' : 'dev-test'
+  const files = kind === 'sample' ? SAMPLE_PROJECT : { 'README.md': `# ${name}\n\nCreated by the Settings → Developer test.\n` }
+  // What is *shown* mirrors what is sent: the same file map, with sizes in
+  // place of the contents so the report stays readable.
+  const shownFiles = Object.fromEntries(
+    Object.entries(files).map(([f, c]) => [f, `${c.length} B`]),
+  )
+  const steps: Step[] = [
+    { label: 'POST', value: '/api/ide/projects' },
+    { label: 'Payload', value: JSON.stringify({ name, fallback, unique: true, files: shownFiles }) },
+    { label: 'Projects already on disk', value: taken.length ? taken.join(', ') : '(none)', tone: 'dim' },
+    { label: 'This machine', value: `${platformLabel()} · backend ${health?.runtime?.platform ?? '?'}/${health?.runtime?.arch ?? '?'}`, tone: 'dim' },
+  ]
+  let outcome
+  const t0 = clock()
+  try {
+    outcome = await createProjectRobust(deps.post, { name, fallback, files, taken, unique: true })
+  } catch (e: any) {
+    outcome = { ok: false, error: String(e?.message ?? e), attempts: 1 } as any
+  }
+  const ms = Math.round(clock() - t0)
+  steps.push({ label: 'Attempts', value: String(outcome.attempts) })
+  steps.push({
+    label: 'Result',
+    value: outcome.ok ? `201/200 — created “${outcome.name}”${outcome.renamed ? ' (renamed)' : ''}${outcome.invented ? ' (name invented by the server)' : ''}` : `FAILED — ${outcome.error}`,
+    tone: outcome.ok ? 'ok' : 'bad',
+  })
+
+  // Leave nothing behind: a successful test project is deleted immediately,
+  // so the bench can be run as often as you like without filling the list.
+  if (outcome.ok && outcome.name) {
+    try {
+      const status = await deps.remove(outcome.name)
+      steps.push({ label: 'Cleanup', value: `deleted “${outcome.name}” (${status})`, tone: status && status < 400 ? 'dim' : 'bad' })
+    } catch (e: any) {
+      steps.push({ label: 'Cleanup', value: `could not delete the test project (${String(e?.message ?? e)})`, tone: 'bad' })
+    }
+  }
+
+  const summary = outcome.ok
+    ? kind === 'sample' ? 'the sample app can be created.' : 'a project can be created.'
+    : 'send this report (Copy report)'
+  return {
+    kind, ok: !!outcome.ok, when: Date.now(), ms, summary, steps,
+    raw: JSON.stringify({
+      kind, name, fallback, attempts: outcome.attempts, ok: outcome.ok, error: outcome.error, ms,
+      browser: platformLabel(),
+      server: health?.runtime ? `${health.runtime.platform}/${health.runtime.arch} node ${health.runtime.node}` : 'unknown',
+      mode: health?.web?.mode ?? 'unknown',
+    }, null, 2),
+  }
 }
 
 export function DeveloperTab() {
@@ -65,66 +167,13 @@ export function DeveloperTab() {
   /** Run one create flow end-to-end and keep every intermediate fact. */
   const run = async (kind: 'project' | 'sample') => {
     setBusy(kind); setResult(null)
-    const started = Date.now()
-    const taken = await projectsOnDisk()
-    const stamp = Date.now().toString(36).slice(-4)
-    const name = kind === 'sample' ? `sample-landing` : `dev-test-${stamp}`
-    const fallback = kind === 'sample' ? 'sample-app' : 'dev-test'
-    const files = kind === 'sample' ? SAMPLE_PROJECT : { 'README.md': `# ${name}\n\nCreated by the Settings → Developer test.\n` }
-    // What is *shown* mirrors what is sent: the same file map, with sizes in
-    // place of the contents so the report stays readable.
-    const shownFiles = Object.fromEntries(
-      Object.entries(files).map(([f, c]) => [f, `${c.length} B`]),
-    )
-    const steps: Step[] = [
-      { label: 'POST', value: '/api/ide/projects' },
-      { label: 'Payload', value: JSON.stringify({ name, fallback, unique: true, files: shownFiles }) },
-      { label: 'Projects already on disk', value: taken.length ? taken.join(', ') : '(none)', tone: 'dim' },
-      { label: 'This machine', value: `${platformLabel()} · backend ${health?.runtime?.platform ?? '?'}/${health?.runtime?.arch ?? '?'}`, tone: 'dim' },
-    ]
-    let outcome
-    const t0 = performance.now()
-    try {
-      outcome = await createProjectRobust(postJson, { name, fallback, files, taken, unique: true })
-    } catch (e: any) {
-      outcome = { ok: false, error: String(e?.message ?? e), attempts: 1 } as any
-    }
-    const ms = Math.round(performance.now() - t0)
-    steps.push({ label: 'Attempts', value: String(outcome.attempts) })
-    steps.push({
-      label: 'Result',
-      value: outcome.ok ? `201/200 — created “${outcome.name}”${outcome.renamed ? ' (renamed)' : ''}${outcome.invented ? ' (name invented by the server)' : ''}` : `FAILED — ${outcome.error}`,
-      tone: outcome.ok ? 'ok' : 'bad',
-    })
-
-    // Leave nothing behind: a successful test project is deleted immediately,
-    // so the bench can be run as often as you like without filling the list.
-    if (outcome.ok && outcome.name) {
-      try {
-        const del = await fetch(`/api/ide/projects/${encodeURIComponent(outcome.name)}`, { method: 'DELETE' })
-        steps.push({ label: 'Cleanup', value: `deleted “${outcome.name}” (${del.status})`, tone: del.ok ? 'dim' : 'bad' })
-      } catch (e: any) {
-        steps.push({ label: 'Cleanup', value: `could not delete the test project (${String(e?.message ?? e)})`, tone: 'bad' })
-      }
-    }
-
-    const summary = outcome.ok
-      ? kind === 'sample' ? 'PASSED — the sample app can be created.' : 'PASSED — a project can be created.'
-      : 'FAILED — send this report (Copy report)'
-    const res: RunResult = {
-      kind, ok: !!outcome.ok, when: Date.now(), ms, summary, steps,
-      raw: JSON.stringify({
-        kind, name, fallback, attempts: outcome.attempts, ok: outcome.ok, error: outcome.error, ms,
-        browser: platformLabel(),
-        server: health?.runtime ? `${health.runtime.platform}/${health.runtime.arch} node ${health.runtime.node}` : 'unknown',
-        mode: health?.web?.mode ?? 'unknown',
-      }, null, 2),
-    }
+    // The same core the terminal report runs — one implementation, two callers.
+    const res = await runCreateBench(kind, { ...(await benchDeps()), health })
     setResult(res)
     // Also into the notice trail, so Settings → About → Notices keeps it.
     useUI.getState().toast(
-      res.ok ? `Test passed — ${summary}` : `Test failed — ${summary}`,
-      res.ok ? `Took ${ms} ms over ${outcome.attempts} request(s).` : String(outcome.error),
+      res.ok ? `Test passed — ${res.summary}` : `Test failed — ${res.summary}`,
+      res.ok ? `Took ${res.ms} ms.` : String(res.steps.find((s) => s.tone === 'bad')?.value ?? 'see the report'),
       res.ok ? 'success' : 'danger',
     )
     setBusy(null)
@@ -246,17 +295,17 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'ok'
 
 /** Any project whose name marks it as a test artifact. */
 async function clearTestProjects() {
-  const names = await projectsOnDisk()
+  const names = (await benchDeps()).taken
   const junk = names.filter((n) => /^dev-test-|^sample-landing-\d+$|^untitled-project/.test(n))
   for (const n of junk) await fetch(`/api/ide/projects/${encodeURIComponent(n)}`, { method: 'DELETE' }).catch(() => null)
   useUI.getState().toast(junk.length ? 'Test projects removed' : 'Nothing to remove', junk.length ? junk.join(', ') : 'No test projects were on disk.', 'info')
 }
 
-function buildReport(result: RunResult | null, health: any): string {
+export function buildReport(result: RunResult | null, health: any, version = APP_VERSION): string {
   const lines = [
     'Research Engine — create-path report',
     `when        : ${new Date().toISOString()}`,
-    `app version : ${APP_VERSION}`,
+    `app version : ${version}`,
     `build id    : ${BUILD_ID}`,
     `served      : ${health?.web?.served?.version ?? '?'} (${health?.web?.served?.builtAt ?? '?'})`,
     `source      : ${health?.web?.source?.version ?? '— (portable build has no source tree)'}`,

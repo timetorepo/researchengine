@@ -56,6 +56,15 @@ Then open http://127.0.0.1:3847. Data lives in `~/.research-engine`
 (override with `RESEARCH_ENGINE_DATA_DIR`). systemd / launchd service
 templates are in the root README, install method C.
 
+## Does it actually work on this machine?
+
+`bench-report-0.28.0-beta.1.txt` is the output of the Developer bench
+(`npx tsx frontend/scripts/bench-report.mts`) run against this exact build: it
+created a project and the sample app through the real API and deleted both
+again, with the status codes and timings in the file. The same function backs the
+two buttons in Settings → Developer, so what the file says is what those buttons
+would say on your machine.
+
 ## Which build am I running?
 
 Ask the launcher:
