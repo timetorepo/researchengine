@@ -9,10 +9,13 @@ per-user `setup.exe` (no Node, no Electron, WebView2 fetched automatically),
 Linux a `.deb`/`.AppImage`, macOS a `.dmg`. They are built by CI and attached to
 the release you are reading:
 
-| Platform | File |
-|---|---|
-| Windows 10/11 x64 | `Research.Engine_0.25.0-beta.1_x64-setup.exe` |
-| Linux x64 | `Research.Engine_0.25.0-beta.1_amd64.deb`, `Research.Engine_0.25.0-beta.1_amd64.AppImage` |
+| Platform | File | sha256 |
+|---|---|---|
+| Windows 10/11 x64 | `Research.Engine_0.25.0-beta.1_x64-setup.exe` | `19729157…23d3f6` |
+| Linux x64 | `Research.Engine_0.25.0-beta.1_amd64.deb` | `85b0d8da…26e922` |
+| Linux x64 | `Research.Engine_0.25.0-beta.1_amd64.AppImage` | `4b318208…13b676` |
+
+Full hashes: `INSTALLERS.sha256` in this folder.
 
 See `desktop/README.md` for how the shell boots the local server, and
 `.github/workflows/desktop.yml` for the build.
