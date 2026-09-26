@@ -23,6 +23,11 @@ export interface Profile {
   handle: string
   /** One line about you, shown in Settings → Profile. */
   bio: string
+  /**
+   * A few things you are into. Shown as chips on the profile card (in a
+   * different order each visit) and sent along with research context.
+   */
+  hobbies: string[]
   avatar: {
     kind: AvatarKind
     shape: AvatarShape
@@ -52,6 +57,7 @@ export const DEFAULT_PROFILE: Profile = {
   name: 'Researcher',
   handle: 'researcher',
   bio: 'Local-first, key-in-hand, no telemetry.',
+  hobbies: ['research', 'reading', 'writing'],
   avatar: { kind: 'blobatar', shape: 'circle', motion: 'hover', expression: 'idle', hue: null, salt: '' },
 }
 
@@ -60,6 +66,7 @@ export function withProfileDefaults(p?: Partial<Profile> | null): Profile {
   return {
     ...DEFAULT_PROFILE,
     ...(p ?? {}),
+    hobbies: Array.isArray(p?.hobbies) ? p!.hobbies : DEFAULT_PROFILE.hobbies,
     avatar: { ...DEFAULT_PROFILE.avatar, ...(p?.avatar ?? {}) },
   }
 }

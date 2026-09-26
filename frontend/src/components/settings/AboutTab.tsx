@@ -7,6 +7,7 @@ import { AppLogo } from '@/components/shared/AppLogo'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Button } from '@/components/ui/heroui/Button'
+import { ProfileCard } from '@/components/ui/watermelon/ProfileCard'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 
 /** Injected by Vite from package.json — never drifts from the shipped build. */
@@ -106,6 +107,10 @@ const UI_LIBRARIES: { name: string; href: string; author?: string; used: string 
   { name: 'Border Beam', href: 'https://beam.jakubantalik.com', author: 'Jakub Antalik', used: 'The travelling light around the home-screen chatbox' },
   { name: 'Orbs', href: 'https://orbs.jakubantalik.com', author: 'Jakub Antalik', used: 'The thinking indicator and streaming marker' },
   { name: 'Blobatar', href: 'https://blobatar.dev', author: 'Alain', used: 'Your profile avatar, drawn from your handle' },
+  { name: 'Skiper UI', href: 'https://skiper-ui.com', used: 'Animated number (the focus timer) and the smooth caret input — reimplemented against this app’s tokens' },
+  { name: 'Watermelon UI', href: 'https://ui.watermelon.sh', used: 'Expandable profile card, shuffled pinned list (tasks), and the select used across settings and the quiz' },
+  { name: 'Cult UI', href: 'https://www.cult-ui.com', used: 'Timer anatomy (compound icon/display/progress) and the magnified dock behaviour in the collapsed sidebar' },
+  { name: 'Number Flow', href: 'https://number-flow.barvian.me', author: 'Max Barvian', used: 'The per-digit roll behind every animated number' },
 ]
 
 const RUNTIME_LIBRARIES = ['React', 'Vite', 'Tailwind CSS', 'Framer Motion', 'Zustand', 'Lucide', 'KaTeX', 'react-markdown', 'JSZip']
@@ -154,21 +159,36 @@ export function AboutTab() {
       <StaleBuildCard />
 
       {/* Who made it -------------------------------------------------- */}
+      {/* The maker, as the same expandable card the user's own profile uses —
+          expand it for the long version. */}
+      <ProfileCard
+        tone="maker"
+        className="mb-4"
+        name="dnishh"
+        handle="timetorepo/researchengine"
+        bio="One-person project. No company behind it, no funding, no roadmap dictated by an investor."
+        longBio="Research Engine is built in the open by dnishh. Ideas, bug reports and pull requests all arrive through the repository and shape what gets built next — and it is released under the MIT licence, so you can take it apart and keep the pieces."
+        hobbies={['local-first', 'privacy', 'research tooling', 'open source', 'MIT', 'no telemetry']}
+        facts={[
+          { label: 'Licence', value: 'MIT' },
+          { label: 'Source', value: 'github.com/timetorepo/researchengine' },
+          { label: 'Promises', value: 'no accounts, no tracking' },
+          { label: 'Built with', value: 'React · Vite · Tauri' },
+        ]}
+        actions={(
+          <a href={REPO} target="_blank" rel="noreferrer" className="flex items-center gap-1 px-2 py-1.5 rounded-[9px] text-[11.5px]"
+            style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+            source <ExternalLink size={10} />
+          </a>
+        )}
+      />
       <div className="surface p-4 mb-4">
         <div className="flex items-start gap-3">
           <Heart size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
           <div className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            <div className="flex items-center gap-2 mb-1">
-              <b style={{ color: 'var(--text)' }}>Made by dnishh</b>
-              <a href={REPO} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11.5px]" style={{ color: 'var(--primary)' }}>
-                source <ExternalLink size={10} />
-              </a>
-            </div>
             <p>
-              Research Engine is built in the open by <b style={{ color: 'var(--text)' }}>dnishh</b> — a
-              one-person project with no company behind it, no funding, and no roadmap dictated by an
-              investor. Ideas, bug reports and pull requests all arrive through the repository and shape
-              what gets built next.
+              Every release note is written for the person using it, not for a changelog bot: what changed,
+              why it changed, and what is still missing.
             </p>
           </div>
         </div>
@@ -275,6 +295,7 @@ export function AboutTab() {
       {/* Changelog ----------------------------------------------------- */}
       <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>
+        <p><b>0.26.0-beta.1 — Free routes, smooth text, and a task list that means something:</b> six more model providers land in Settings → Providers — <b>Inception Mercury</b> (their diffusion LLM), <b>xAI Grok</b>, <b>DeepSeek</b>, <b>Moonshot Kimi</b>, <b>Z.ai GLM</b> and <b>MiniMax</b> — each OpenAI-compatible and auto-discovering its own model list. And a new feature, <b>FreeRoute</b>: one endpoint in front of every free tier ResearchEngine knows about — <b>GLM Flash</b> (free on the API), <b>OpenCode Zen</b>'s free coding models, the free developer tiers at <b>Groq</b>, <b>Google AI Studio</b>, <b>Mistral</b> and <b>Cerebras</b>, <b>GitHub Models</b>, only the <code>:free</code> ids on OpenRouter, and the models on <b>your own machine</b> through Ollama or LM Studio. Requests walk your order and <b>fail over</b>, so a rate limit is a detour rather than an error; the console in <b>Settings → FreeRoute</b> probes every route, shows what each one actually offers for free, and lets you reorder them. It is a real OpenAI-compatible endpoint (<code>/api/freeroute/v1</code>), so any tool you own can point at it, and your keys are used per request and never stored on the server. <b>New UI, from the libraries you asked for:</b> the focus timer now counts with <b>animated digits</b> (Number Flow, via Skiper UI's animated number) on a countdown that re-anchors to the wall-clock second — the stutter and the occasional double-second are gone at the source rather than papered over with a longer interval. <b>Text fields have a smooth caret</b> (Skiper UI's smooth caret input): the native caret is hidden and a spring-animated bar tracks the cursor, measured from the field's own font, snapping under reduce-motion — on by default, and toggleable in Appearance. A <b>task list</b> (Watermelon UI's shuffled pinned list) lives in the top bar and works the same in Research and Coding: <b>pin what matters and it takes the top</b>, drag to reorder, shuffle the rest, then <b>Send to AI</b> — pinned tasks go to the model first, in order, and the composer picks them up. <b>Profile cards</b> (Watermelon UI's expandable profile card) now show you — name, bio, <b>hobbies</b>, avatar and facts — and the same card introduces the maker on the About page. Selecting is a real <b>listbox</b> everywhere (Watermelon UI's select): keyboard-navigable, theme-true, and it scrolls itself instead of dragging the page with it. The collapsed sidebar's dock (Cult UI's magnified dock) gained a glass shelf and a short reflection under the icon you are pointing at.</p>
         <p><b>0.25.0-beta.1 — The click you made is the page you get, and Research Engine is now an app you install:</b> you were right that both navigation bugs were one mistake — a click waited for the page file to download <i>before</i> it moved, so tapping a screen you had not opened yet simply did nothing ("it automatically doesnt load"), and if the download finished after you had already picked something else, it pushed you onto the <b>older</b> page instead of the one you asked for last. Navigation no longer waits for anything: the move happens in the same tick as your tap, the page file is fetched <b>beside</b> it instead of in front of it, a page you already visited opens instantly, and hovering a sidebar or dock item warms the next screen before you click. A late download can never win — it only ever warms the cache now, it never navigates. <b>You can also install it:</b> there is a full <b>Tauri desktop app</b> — the OS's own webview (WebView2 on Windows) wrapped around the same local server compiled to a single file, so the app needs <b>no Node, no Electron and no browser</b> on your machine. Windows gets <b>setup.exe</b>: per-user install, no admin prompt, WebView2 fetched automatically when missing, Start-menu entry and an uninstaller; Linux gets <b>.deb</b> and <b>.AppImage</b>, macOS a <b>.dmg</b>. The shell starts its server on loopback, waits until it actually answers, then opens the window at it — and kills it when you close the app, so nothing is left holding the port. Your chats, documents and projects live in one real SQLite file in <code>~/.research-engine</code>, which means the desktop app, the portable build and the web build all read the same library. Build it yourself with <code>npm run desktop:build</code>, or let CI do it — the workflow calls <code>scripts/desktop-check.mjs</code> on Windows before it bundles, so an installer is never built around a server that will not start.</p>
         <p><b>0.24.0-beta.1 — Pages that let you in, and a share card worth posting:</b> a tap on a screen that had not been loaded yet could <b>freeze the frame</b> — the old page was snapshotted over the new one while its chunk downloaded, and for the length of that transition nothing answered, which is the "it glitches and then finally lets me in" you reported. Navigation now fetches the page <b>first</b>, while the page you are on stays live and clickable; the row you picked pulses and a hairline crosses the top of the window, so a cold page is visibly yours. Only one transition can run at a time, and every transition has a deadline that ends it if the browser stalls. <b>Coding chats are their own kind now</b> — the history list switches between <b>Research</b> and <b>Coding</b>, each coding row carries a project chip, and the Chats page sections the two apart. And a research chat can <b>become</b> a coding chat from the AI itself: ask for an app, a script or a fix and it calls <code>start_coding_mode</code> — a client-side tool that only exists in ResearchEngine — which creates the project, moves the conversation into it (nothing you said is lost) and opens the workspace; the transcript shows a card saying what happened. <b>Share results</b> is a studio instead of a gradient: a live preview of the exact PNG with <b>Liquid glass</b>, <b>Gradient</b>, <b>Solid</b> or your own <b>Custom image</b>, accent pairs taken from your theme, per-field toggles, a caption of your own, Save and Copy-to-clipboard — composed at 1080×1350. <b>Fixes:</b> the collapsed rail's names no longer vanish in coding mode (each label is drawn in a portal at its icon's screen position, so no stacking context or overflow can swallow it); <b>Profile</b> and <b>Theme</b> in the sidebar and the dock finally go to the pages they name (they were flipping a flag nothing rendered).</p>
         <p><b>0.23.0-beta.1 — A coding IDE you can watch, and agents that cannot collide:</b> the IDE is now a workspace, not a panel. Three tabs sit beside the editor — <b>AI</b>, <b>Agents</b> and <b>Activity</b> — and the Activity tab is the Cursor habit at last: every file the AI read, every line it added, every command it ran, as it happens, each row clickable through to the file. Type <code>/</code> in the composer for the <b>Claude Code</b> commands (<code>/ultrareview</code> — four passes with <b>file:line</b> evidence and no invented line numbers, <code>/godmode</code>, <code>/plan</code>, <code>/test</code>, <code>/fix</code>, <code>/commit</code>, <code>/security</code>), the <b>Codex</b> parallel moves (<code>/agents</code>, <code>/parallel</code>), <b>Devin</b>'s <code>/handoff</code> and <code>/cloud</code>, and the <b>Cursor</b> inline edits (<code>/inline</code>, <code>/refactor</code>, <code>/explain</code>, <code>/doc</code>) — each labelled with where it came from, each expanding into a real instruction, and the handoff chip in the header flips a session between your local model and a cloud one. <b>Agents run in parallel without bumping into each other</b>: spawning one forks a private working copy of the project, its tools stay scoped to that copy, and when it finishes you get a review — the files it changed with <b>+added/−removed</b>, a tick per file to include or skip, then <b>Merge</b>. Anything you changed after the fork is never overwritten; that agent's version is kept beside yours as <code>*.agent-conflict-*</code> with a plain-language reason. <b>⌘K</b> opens a palette over files, actions and commands. <b>Fix:</b> the app can no longer open scrolled to the bottom — no component is allowed to call the browser's <code>scrollIntoView</code> (every list scrolls itself, through one helper), and a frame pin puts the shell back at the top if anything tries. <b>Design mode:</b> the preview now fits the pane it stands in (zoom 0.5×–2×, "Fit · 68%"), the divider between screen and inspector drags from 300–720px and remembers where you left it, and <b>Focus</b> gives the screen the whole workbench with the assistant docked out as a pill.</p>

@@ -1,11 +1,12 @@
 import React from 'react'
 import {
   KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound,
-  Terminal,
+  Terminal, Route,
 } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
+import { FreeRouteTab } from './FreeRouteTab'
 import { IntegrationsTab } from './IntegrationsTab'
 import { SearchTab } from './SearchTab'
 import { AppearanceTab } from './AppearanceTab'
@@ -22,6 +23,7 @@ import { DeveloperTab } from './DeveloperTab'
 export const TABS = [
   { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'providers', label: 'Providers', icon: KeyRound },
+  { id: 'freeroute', label: 'FreeRoute', icon: Route },
   { id: 'integrations', label: 'Integrations', icon: Plug },
   { id: 'search', label: 'Search', icon: Search },
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -41,6 +43,7 @@ export function renderTab(tab: string): React.ReactNode {
   switch (tab) {
     case 'profile': return <ProfileTab />
     case 'providers': return <ProvidersTab />
+    case 'freeroute': return <FreeRouteTab />
     case 'integrations': return <IntegrationsTab />
     case 'search': return <SearchTab />
     case 'appearance': return <AppearanceTab />

@@ -6,9 +6,13 @@ import type { Expression } from 'blobatar/expression'
 import { useStore } from '@/stores/useStore'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import {
+  DEFAULT_PROFILE,
   EXPRESSIONS, blobatarSeed, initialsOf, normalizeHandle, withProfileDefaults,
   type AvatarExpression, type AvatarKind, type AvatarMotion, type AvatarShape,
 } from '@/lib/profile'
+import { ProfileCard } from '@/components/ui/watermelon/ProfileCard'
+import { flattenTags } from '@/lib/ui/skins'
+import { smoothCaretProps } from '@/components/input/SmoothText'
 
 const SHAPES: { id: AvatarShape; label: string }[] = [
   { id: 'circle', label: 'Circle' },
@@ -35,6 +39,7 @@ export function ProfileTab() {
   const profile = withProfileDefaults(settings.profile)
   const [saved, setSaved] = useState(false)
   const [handleDraft, setHandleDraft] = useState(profile.handle)
+  const [hobbyDraft, setHobbyDraft] = useState<string | null>(null)
 
   const handle = normalizeHandle(handleDraft) || 'researcher'
   const dirty = handle !== profile.handle
@@ -71,6 +76,24 @@ export function ProfileTab() {
 
   return (
     <div className="max-w-[620px] space-y-6">
+      {/* The same facts the form below edits, as a card you can read at a
+          glance — collapsed it answers "who is this?", expanded it shows the
+          details and hobbies. */}
+      <ProfileCard
+        name={profile.name || 'Researcher'}
+        handle={handle}
+        bio={profile.bio || 'No bio yet — add one line below.'}
+        longBio={`Everything here lives in your own data directory. The avatar is a blobatar derived from @${handle}, so the same handle always draws the same creature.`}
+        avatar={<UserAvatar size={56} />}
+        hobbies={profile.hobbies?.length ? profile.hobbies : DEFAULT_PROFILE.hobbies}
+        facts={[
+          { label: 'Handle', value: `@${handle}` },
+          { label: 'Avatar', value: `${profile.avatar.kind} · ${profile.avatar.shape}` },
+          { label: 'Expression', value: profile.avatar.expression },
+          { label: 'Motion', value: profile.avatar.motion },
+        ]}
+      />
+
       <div>
         <h3 className="text-[15px] font-semibold mb-1">Profile</h3>
         <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
@@ -151,6 +174,34 @@ export function ProfileTab() {
             className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none resize-none"
             style={inputStyle}
           />
+        </Field>
+
+        {/* Hobbies — chips on the profile card, and useful context for the AI. */}
+        <Field label="Hobbies & interests">
+          <input
+            value={hobbyDraft ?? (profile.hobbies ?? []).join(', ')}
+            onChange={(e) => {
+              setHobbyDraft(e.target.value)
+              update({ hobbies: flattenTags(e.target.value) })
+            }}
+            onBlur={() => setHobbyDraft(null)}
+            placeholder="research, climbing, film photography"
+            aria-label="Hobbies"
+            className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
+            style={inputStyle}
+            {...smoothCaretProps()}
+          />
+          {(profile.hobbies ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {(profile.hobbies ?? []).map((h) => (
+                <span key={h} className="px-2 py-0.5 rounded-full text-[11px]"
+                  style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)', color: 'var(--text-2)' }}>{h}</span>
+              ))}
+            </div>
+          )}
+          <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-3)' }}>
+            Comma-separated. Shown on your profile card and offered as context when you ask for something broad.
+          </p>
         </Field>
       </div>
 

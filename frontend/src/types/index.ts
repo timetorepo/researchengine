@@ -1,5 +1,8 @@
 export type ProviderId =
   | 'openai' | 'anthropic' | 'groq' | 'gemini' | 'ollama' | 'nim' | 'openrouter' | 'together' | 'mistral' | 'lmstudio' | 'custom'
+  // 0.26.0: the six asked-for providers, plus the FreeRoute gateway that sits
+  // in front of every free tier.
+  | 'mercury' | 'grok' | 'deepseek' | 'kimi' | 'glm' | 'minimax' | 'freeroute'
 
 export interface ProviderConfig {
   id: ProviderId
@@ -277,6 +280,24 @@ export interface ReplicateStage {
   tokens?: number
 }
 
+/**
+ * A task — the "what am I actually doing" list that both Research and Coding
+ * modes share. `pinned` is the user's way of saying *this one first*; the AI
+ * receives pinned rows ahead of the rest, in list order.
+ */
+export interface Task {
+  id: string
+  title: string
+  detail?: string
+  done: boolean
+  pinned: boolean
+  /** Where it came from: 'you', 'chat', 'coding', 'quiz'… */
+  source?: string
+  createdAt: number
+  /** Ordering weight — rewritten by drag-and-drop. */
+  order: number
+}
+
 export interface Settings {
   theme: ThemeId
   fontScale: number
@@ -297,6 +318,20 @@ export interface Settings {
   dynamicIsland: boolean
   /** Derive card gradients from the active theme instead of fixed hues. */
   themeGradients: boolean
+  /**
+   * FreeRoute — one route through the free tiers. `order` is the failover
+   * order, `keys` holds keys for routes that do not map to a configured
+   * provider, and `disabled` are routes the user turned off.
+   */
+  freeRoute?: {
+    enabled: boolean
+    order: string[]
+    keys: Record<string, string>
+    disabled: string[]
+    lastProbe?: number
+  }
+  /** Smooth caret in text fields (Skiper UI's SmoothInput). */
+  smoothCaret?: boolean
   floodBudget: number
   osWidgets: boolean
   osWallpaper: string

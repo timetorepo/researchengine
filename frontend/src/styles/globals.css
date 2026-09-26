@@ -2104,3 +2104,93 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
   .re-nav-item[data-pending="true"]::after, .re-dock-pending { animation: none; }
 }
 .reduce-motion .re-nav-item[data-pending="true"]::after, .reduce-motion .re-dock-pending { animation: none; }
+
+/* ============================================================
+   SMOOTH CARET (Skiper UI "smooth caret input", reimplemented)
+   The native caret is hidden; a spring-animated bar tracks the
+   text. `.re-smooth-caret` marks a field, `.re-smooth-caret-bar`
+   is the bar itself, positioned against the field's wrapper.
+   ============================================================ */
+.re-smooth-caret {
+  caret-color: transparent;
+}
+.re-smooth-caret::selection {
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
+}
+.re-smooth-caret-bar {
+  position: absolute;
+  left: 0;
+  width: 1.5px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 45%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+/* The bar is drawn even in a textarea that scrolls: the host is the wrapper. */
+.re-caret-host {
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-smooth-caret-bar {
+    transition: none !important;
+  }
+}
+/* Number Flow digits: keep the width stable so a countdown cannot nudge its
+   neighbours, and let the roll read as one motion rather than a flip. */
+.re-number-flow {
+  font-variant-numeric: tabular-nums;
+  --number-flow-mask-height: 0.2em;
+}
+
+/* ================================================================== */
+/* DOCK SHELF (Cult UI's magnified dock, on this app's tokens)         */
+/* The rail is a glass shelf that materialises under the pointer, and  */
+/* the icon being pointed at casts a short reflection into it — the     */
+/* detail that makes a dock read as physical rather than a column of    */
+/* buttons. Magnification itself lives in framer-motion.               */
+/* ================================================================== */
+.re-dock::before {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 55%, transparent),
+    color-mix(in srgb, var(--elevated) 22%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent),
+    0 10px 30px -18px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px) saturate(1.25);
+}
+/* The active marker slides between items instead of blinking on and off. */
+.re-dock-item > button {
+  transition: background-color 220ms var(--ease-ios, ease-out), color 220ms var(--ease-ios, ease-out);
+}
+/* A pointer-following sheen on the highlighted item. */
+.re-dock-item[data-pointed='true'] > button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%);
+  pointer-events: none;
+}
+/* Reflection: a short mirror of the pointed icon, fading out quickly. */
+.re-dock-item[data-pointed='true'] .re-dock-reflection {
+  opacity: 1;
+  transform: scaleY(-0.45) translateY(1px);
+}
+.re-dock-reflection {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% 0;
+  opacity: 0;
+  filter: blur(2px);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 70%);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 70%);
+  pointer-events: none;
+  transition: opacity 180ms var(--ease-ios, ease-out), transform 180ms var(--ease-ios, ease-out);
+}
+@media (prefers-reduced-motion: reduce), (prefers-contrast: more) {
+  .re-dock-reflection { display: none; }
+}

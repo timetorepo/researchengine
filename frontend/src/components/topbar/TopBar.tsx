@@ -9,6 +9,7 @@ import { refreshAllModels, refreshProviderModels } from '@/lib/providers/refresh
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { FocusPill } from '@/components/shared/FocusPill'
+import { ListChecks } from 'lucide-react'
 import { APP_VERSION, BUILD_ID } from '@/components/settings/AboutTab'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
 import { fmt } from '@/lib/utils'
@@ -16,6 +17,7 @@ import { fmt } from '@/lib/utils'
 export function TopBar() {
   const navigate = useNavigate()
   const ui = useUI()
+  const tasks = useStore((s) => s.tasks)
   const settings = useStore((s) => s.settings)
   const saved = useStore((s) => s.tokensSavedSession)
   const integrations = useStore((s) => s.integrations)
@@ -199,6 +201,28 @@ export function TopBar() {
       {/* Privacy shield — moved up here from the sidebar footer so the state of
           the shield (and the one-tap way into what it is doing) is visible from
           every screen, not just when the sidebar is open. */}
+      {/* Tasks: the same list in Research and Coding; pinned rows are the
+          main thing, and the panel can hand them straight to the composer. */}
+      <button
+        onClick={() => ui.set({ tasksOpen: !ui.tasksOpen })}
+        aria-label="Tasks"
+        aria-pressed={ui.tasksOpen}
+        className="relative p-2 rounded-[10px] hover:bg-[var(--elevated)]"
+        style={{ color: ui.tasksOpen ? 'var(--primary)' : 'var(--text-3)' }}
+      >
+        <ListChecks size={16} />
+        {(() => {
+          const pinned = tasks.filter((t) => t.pinned && !t.done).length
+          const openCount = tasks.filter((t) => !t.done).length
+          if (!openCount) return null
+          return (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full text-[9.5px] flex items-center justify-center font-semibold"
+              style={{ background: pinned ? 'var(--primary)' : 'var(--elevated)', color: pinned ? '#fff' : 'var(--text-3)' }}>
+              {openCount}
+            </span>
+          )
+        })()}
+      </button>
       <PrivacyShield compact amber={anyIntegration} />
 
       {/* Focus timer — same idea: it belongs to the shell, not the sidebar. */}

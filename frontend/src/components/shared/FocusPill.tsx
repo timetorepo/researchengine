@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Timer, Play, Pause, RotateCcw, SkipForward, GraduationCap, Code2, BookOpen, Sparkles, Flame } from 'lucide-react'
 import { useUI, type ActivityKind } from '@/stores/useUI'
+import { AnimatedNumber, useSteadyCountdown } from '@/components/shared/AnimatedNumber'
 
 /**
  * The focus timer, as a pill that morphs into a rounded block.
@@ -41,33 +42,55 @@ export function FocusPill() {
   const focus = useUI((s) => s.focus)
   const activity = useUI((s) => s.activity)
   const [open, setOpen] = useState(false)
-  const tickRef = useRef<any>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  // The countdown. One interval, owned here, writing into the store so the
-  // Dynamic Island and anything else reading `focus` stays in step.
+  // The countdown. The displayed seconds come from `useSteadyCountdown`, which
+  // re-anchors to the next wall-clock second instead of sampling on an interval
+  // — that is what removes the double-count and the stutter on the digit roll.
+  // The store is written only when the second actually changes, so nothing
+  // re-renders 500 times a minute.
   useEffect(() => {
-    if (focus.running && focus.endsAt) {
-      tickRef.current = setInterval(() => {
-        const f = useUI.getState().focus
-        if (!f.endsAt) return
-        const remaining = Math.max(0, Math.round((f.endsAt - Date.now()) / 1000))
+    if (!focus.running || !focus.endsAt) return
+    const endsAt = focus.endsAt
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
+    const tick = () => {
+      if (cancelled) return
+      const f = useUI.getState().focus
+      if (!f.endsAt) return
+      const left = Math.max(0, (f.endsAt - Date.now()) / 1000)
+      const remaining = Math.ceil(left)
+      if (remaining !== f.remaining) {
         useUI.setState({ focus: { ...f, remaining } })
         useUI.setState((s) => ({ island: s.island.kind === 'focus' || s.island.kind === 'idle' ? { kind: 'focus', remaining, total: f.total } : s.island }))
-        if (remaining <= 0) {
-          const next = f.mode === 'work' ? 'break' : 'work'
-          const total = next === 'work' ? WORK : BREAK
-          useUI.getState().toast(
-            f.mode === 'work' ? 'Focus complete' : 'Break over',
-            f.mode === 'work' ? '5 minute break — you can leave the desk.' : 'Back to it.',
-            'success',
-          )
-          useUI.setState({ focus: { running: true, endsAt: Date.now() + total * 1000, remaining: total, total, mode: next } })
-        }
-      }, 500)
-      return () => clearInterval(tickRef.current)
+      }
+      if (left <= 0) {
+        const next = f.mode === 'work' ? 'break' : 'work'
+        const total = next === 'work' ? WORK : BREAK
+        useUI.getState().toast(
+          f.mode === 'work' ? 'Focus complete' : 'Break over',
+          f.mode === 'work' ? '5 minute break — you can leave the desk.' : 'Back to it.',
+          'success',
+        )
+        useUI.setState({ focus: { running: true, endsAt: Date.now() + total * 1000, remaining: total, total, mode: next } })
+        return
+      }
+      const msToBoundary = 1000 - ((Date.now() - f.endsAt) % 1000 || 1000)
+      timer = setTimeout(tick, Math.max(50, msToBoundary) + 8)
     }
-  }, [focus.running])
+    tick()
+    // A throttled background tab must not leave a stale clock on return.
+    const onVisible = () => { if (document.visibilityState === 'visible') tick() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [focus.running, focus.endsAt])
+
+  // The number the pill shows, animated (Skiper 37 / Number Flow).
+  const steady = useSteadyCountdown(focus.endsAt, focus.running, focus.remaining)
 
   // Click-away closes the block, the way a menu does.
   useEffect(() => {
@@ -124,8 +147,10 @@ export function FocusPill() {
           className={`flex items-center gap-2 text-left ${open ? 'px-3.5 pt-3 pb-2.5' : 'px-3 py-1.5'}`}
         >
           <Timer size={14} strokeWidth={1.6} style={{ color: running ? act.tone : 'var(--text-2)' }} />
-          <span className="text-[12px] font-mono" style={{ color: running ? 'var(--text)' : 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>
-            {clock}
+          <span className="text-[12px] font-mono flex items-center" style={{ color: running ? 'var(--text)' : 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }} data-focus-clock>
+            <AnimatedNumber value={Math.floor(steady / 60)} minIntegerDigits={1} ariaLabel={undefined} />
+            <span aria-hidden>:</span>
+            <AnimatedNumber value={steady % 60} minIntegerDigits={2} ariaLabel={undefined} />
           </span>
           {/* What the clock belongs to — the point of the label. */}
           {(running || open) && (
@@ -151,7 +176,11 @@ export function FocusPill() {
                 {/* How much time is left, in the two forms you actually read:
                     the exact clock and a bar you can feel at a glance. */}
                 <div className="flex items-end justify-center mb-2.5">
-                  <span className="text-[42px] leading-none font-semibold" style={{ letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{clock}</span>
+                  <span className="text-[42px] leading-none font-semibold flex items-center" style={{ letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }} data-focus-clock-large>
+                    <AnimatedNumber value={Math.floor(steady / 60)} minIntegerDigits={1} />
+                    <span aria-hidden>:</span>
+                    <AnimatedNumber value={steady % 60} minIntegerDigits={2} />
+                  </span>
                   <span className="ml-2 mb-1 text-[12px]" style={{ color: 'var(--text-3)' }}>left</span>
                 </div>
 

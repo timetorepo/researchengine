@@ -15,6 +15,7 @@ import { DEMO_DOC_ID, DEMO_DOC_TEXT, DEMO_HIGHLIGHTS, DEMO_REWRITE, DEMO_QUIZ } 
 import { ReaderView, type ReaderDoc } from '@/components/reader/ReaderView'
 import { QuizPlay, type PlayResult } from './QuizPlay'
 import { QuizResults } from './QuizResults'
+import { Select } from '@/components/ui/watermelon/Select'
 
 type Stage = { id: string; label: string; icon: any; pct: number; done: boolean }
 
@@ -387,17 +388,27 @@ export function QuizHub() {
               <div className="flex flex-wrap items-center gap-3 text-[12px]">
                 <label className="flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
                   Questions
-                  <select value={count} onChange={(e) => setCount(Number(e.target.value))}
-                    className="px-2 py-1 rounded-[8px] outline-none" style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
-                  {[5, 8, 10, 15].map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+                  <Select
+                    size="sm"
+                    value={String(count)}
+                    onChange={(v) => setCount(Number(v))}
+                    options={[5, 8, 10, 15].map((n) => ({ value: String(n), label: `${n} questions` }))}
+                    className="w-[118px]"
+                  />
                 </label>
                 <label className="flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
                   Difficulty
-                  <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as any)}
-                    className="px-2 py-1 rounded-[8px] outline-none capitalize" style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
-                  {['easy', 'medium', 'hard'].map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                  <Select
+                    size="sm"
+                    value={difficulty}
+                    onChange={(v) => setDifficulty(v as any)}
+                    options={[
+                      { value: 'easy', label: 'Easy', hint: 'recall and definitions' },
+                      { value: 'medium', label: 'Medium', hint: 'apply what you read' },
+                      { value: 'hard', label: 'Hard', hint: 'synthesis, edge cases' },
+                    ]}
+                    className="w-[112px]"
+                  />
                 </label>
                 <button onClick={() => setTimed((t) => !t)}
                   className="px-2.5 py-1 rounded-full transition-colors"

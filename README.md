@@ -4,7 +4,7 @@
 
 ![Research Engine screenshot](docs/screenshot.png)
 
-[![Pre-release](https://img.shields.io/badge/release-v0.25.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Pre-release](https://img.shields.io/badge/release-v0.26.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license--credits)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#install-research-engine)
 
@@ -131,9 +131,9 @@ Safari        :  File -> Add to Home Screen (or Share on iOS)
 | macOS | build from source — no macOS runner yet | `npm run desktop:build` on the Mac produces the `.dmg` |
 
 ```bash
-sudo apt install ./Research.Engine_0.25.0-beta.1_amd64.deb
+sudo apt install ./Research.Engine_0.26.0-beta.1_amd64.deb
 # or
-chmod +x Research.Engine_0.25.0-beta.1_amd64.AppImage && ./Research.Engine_0.25.0-beta.1_amd64.AppImage
+chmod +x Research.Engine_0.26.0-beta.1_amd64.AppImage && ./Research.Engine_0.26.0-beta.1_amd64.AppImage
 ```
 
 **Data.** The same `~/.research-engine` (`%USERPROFILE%\.research-engine` on Windows) SQLite database the web and portable builds use, so the desktop app, a browser tab and a portable copy all read the same library. Move the port with `RE_DESKTOP_PORT` if something else lives on 3847.

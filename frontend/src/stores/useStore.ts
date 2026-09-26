@@ -3,8 +3,7 @@ import { persist } from 'zustand/middleware'
 import { DEFAULT_PROFILE, migrateProfile } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
-  Chat, ChatMessage, Skill, Article, Space, Settings, ConnectionLogEntry,
-  KnowledgeCard, Citation, DocumentRecord, QuizRecord, Squad, IntegrationState, Source, FlowStats,
+  Article, Chat, ChatMessage, Citation, ConnectionLogEntry, DocumentRecord, FlowStats, IntegrationState, KnowledgeCard, QuizRecord, Settings, Skill, Source, Space, Squad, Task,
 } from '@/types'
 import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
@@ -25,6 +24,8 @@ interface StoreState {
   squads: Squad[]
   workflows: Workflow[]
   workflowRuns: WorkflowRunRecord[]
+  /** The shared task list — pinned rows are the main thing to tackle. */
+  tasks: Task[]
   integrations: Record<string, IntegrationState>
   connectionLog: ConnectionLogEntry[]
   settings: Settings
@@ -49,6 +50,16 @@ interface StoreState {
   addTokensSaved: (n: number) => void
   resetAll: () => void
 
+  // tasks (shared by Research and Coding)
+  addTask: (title: string, opts?: { detail?: string; source?: string; pinned?: boolean }) => string
+  toggleTask: (id: string, done?: boolean) => void
+  pinTask: (id: string, pinned: boolean) => void
+  updateTask: (id: string, patch: Partial<Task>) => void
+  deleteTask: (id: string) => void
+  /** Rewrite the order from a drag: the ids are the list, top to bottom. */
+  reorderTasks: (ids: string[]) => void
+  clearDoneTasks: () => void
+
   // workflows
   addWorkflow: (wf: Workflow) => void
   updateWorkflow: (id: string, patch: Partial<Workflow>) => void
@@ -57,6 +68,8 @@ interface StoreState {
 }
 
 const defaultSettings: Settings = {
+  smoothCaret: true,
+  freeRoute: { enabled: true, order: [], keys: {}, disabled: [] },
   theme: 'dark',
   fontScale: 1,
   compact: false,
@@ -120,6 +133,7 @@ export const useStore = create<StoreState>()(
       squads: builtinSquads,
       workflows: [],
       workflowRuns: [],
+      tasks: [],
       integrations: {},
       connectionLog: [],
       settings: defaultSettings,
@@ -128,6 +142,44 @@ export const useStore = create<StoreState>()(
       totalRequests: 0,
 
       set: (fn) => set(fn as any),
+
+      addTask: (title, opts) => {
+        const id = nanoid(10)
+        const clean = String(title ?? '').trim().slice(0, 200) || 'Untitled task'
+        set((s) => ({
+          tasks: [...s.tasks, {
+            id, title: clean, detail: opts?.detail?.slice(0, 400), done: false,
+            pinned: !!opts?.pinned, source: opts?.source ?? 'you',
+            createdAt: Date.now(), order: s.tasks.length,
+          }],
+        }))
+        return id
+      },
+      toggleTask: (id, done) => set((s) => ({
+        tasks: s.tasks.map((t) => (t.id === id ? { ...t, done: done ?? !t.done } : t)),
+      })),
+      pinTask: (id, pinned) => set((s) => ({
+        // Pinning rewrites the order so the pinned task is genuinely first —
+        // the AI reads the list top to bottom, and so does the user.
+        tasks: (() => {
+          const target = s.tasks.find((t) => t.id === id)
+          if (!target) return s.tasks
+          const others = s.tasks.filter((t) => t.id !== id)
+          const next = pinned
+            ? [{ ...target, pinned: true }, ...others]
+            : [...others.slice(0, Math.max(0, others.findIndex((t) => !t.pinned))), { ...target, pinned: false }, ...others.slice(Math.max(0, others.findIndex((t) => !t.pinned)))]
+          return next.map((t, i) => ({ ...t, order: i }))
+        })(),
+      })),
+      updateTask: (id, patch) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
+      deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id).map((t, i) => ({ ...t, order: i })) })),
+      reorderTasks: (ids) => set((s) => {
+        const byId = new Map(s.tasks.map((t) => [t.id, t]))
+        const ordered = ids.map((id2) => byId.get(id2)).filter(Boolean) as Task[]
+        const missing = s.tasks.filter((t) => !ids.includes(t.id))
+        return { tasks: [...ordered, ...missing].map((t, i) => ({ ...t, order: i })) }
+      }),
+      clearDoneTasks: () => set((s) => ({ tasks: s.tasks.filter((t) => !t.done).map((t, i) => ({ ...t, order: i })) })),
 
       newChat: (spaceId) => {
         const id = nanoid(10)

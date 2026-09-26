@@ -395,6 +395,7 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
   return (
     <div
       className="re-dock-item relative flex justify-center"
+      data-pointed={pointed ? 'true' : 'false'}
       style={{ zIndex: pointed ? 6 : 1 }}
       onMouseEnter={() => { ctx?.setHovered(index); onHover?.() }}
       onFocus={() => ctx?.setHovered(index)}
@@ -423,6 +424,8 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
           {pending && <span className="re-dock-pending" aria-hidden />}
         </button>
 
+        {/* The mirror under the highlighted icon (Cult UI's dock). */}
+        {pointed && <span className="re-dock-reflection" aria-hidden>{children}</span>}
       </motion.div>
 
       {/* The name, only for the icon under the pointer — portal-ed so no

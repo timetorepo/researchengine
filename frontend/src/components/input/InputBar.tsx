@@ -31,6 +31,9 @@ interface Props {
 
 export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emptyHistory, chatId, autoFocus = true, big = false }: Props) {
   const [text, setText] = useState('')
+  // The task panel (and anything else) can seed the composer: the seed is
+  // consumed once, so editing afterwards is never overwritten.
+  const seed = useUI((s) => s.composerSeed)
   const [search, setSearch] = useState(false)
   const [quality, setQuality] = useState(false)
   const [replicate, setReplicate] = useState(false)
@@ -69,6 +72,12 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   useEffect(() => { if (autoFocus) taRef.current?.focus() }, [chatId, autoFocus])
 
   // ↑ in empty input → edit last user message
+  useEffect(() => {
+    if (!seed) return
+    setText((cur) => (cur.trim() ? `${cur.trim()}\n\n${seed}` : seed))
+    useUI.setState({ composerSeed: null })
+  }, [seed])
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (picker && (e.key === 'Escape')) { setPicker(null); return }
     if (e.key === 'ArrowUp' && text === '' && emptyHistory === false) {
@@ -178,7 +187,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder={big ? 'What would you like to research today?' : 'Ask, or type / for skills, @ for sources…'}
-              className="chat-input w-full bg-transparent outline-none resize-none px-4 pt-3.5 pb-1 text-[14px] leading-relaxed"
+              className="chat-input re-smooth-caret w-full bg-transparent outline-none resize-none px-4 pt-3.5 pb-1 text-[14px] leading-relaxed"
               style={{ minHeight: big ? 56 : 44 }}
               aria-label="Message input"
             />

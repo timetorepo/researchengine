@@ -237,6 +237,8 @@ export function AppearanceTab() {
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
         <Switch label="Composer border beam" description="Ring the home-screen chatbox with Border Beam by Jakubantalik. Brightens while you type."
           checked={settings.composerBeam !== false} onChange={(v) => update({ composerBeam: v })} />
+        <Switch label="Smooth caret" description="Text fields hide the native caret and spring an animated one to the cursor instead (Skiper UI's smooth caret input). On by default."
+          checked={settings.smoothCaret !== false} onChange={(v) => update({ smoothCaret: v })} />
 
         {/* Border Beam palette — same component, four built-in variants. */}
         <div className="surface p-4">

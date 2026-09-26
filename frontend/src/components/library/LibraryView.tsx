@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { download, timeAgo, fuzzy } from '@/lib/utils'
+import { Select } from '@/components/ui/watermelon/Select'
 
 type Tab = 'citations' | 'knowledge' | 'spaces'
 
@@ -67,10 +68,13 @@ function Citations() {
           <Search size={13} style={{ color: 'var(--text-3)' }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search citations" className="bg-transparent outline-none text-[13px] flex-1" />
         </div>
-        <select value={collection} onChange={(e) => setCollection(e.target.value)}
-          className="px-3 py-2 rounded-[10px] text-[12.5px] outline-none" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-          {collections.map((c) => <option key={c}>{c}</option>)}
-        </select>
+        <Select
+          value={collection}
+          onChange={(v) => setCollection(v)}
+          options={collections.map((c) => ({ value: c, label: c }))}
+          size="sm"
+          className="min-w-[150px]"
+        />
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-4">

@@ -12,6 +12,7 @@ import { getVaultPassphrase } from '@/lib/crypto/session'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 import { shapeSystemPrompt, classifyQuery } from '@/lib/flow/classifier'
 import { Markdown } from '@/components/chat/Markdown'
+import { Select } from '@/components/ui/watermelon/Select'
 
 export function CompareView() {
   const settings = useStore((s) => s.settings)
@@ -94,12 +95,14 @@ export function CompareView() {
 
         <div className="flex gap-2 mb-3 flex-wrap">
           {models.map((m, i) => (
-            <select key={i} value={m}
-              onChange={(e) => setModels((prev) => prev.map((x, j) => j === i ? e.target.value : x))}
-              className="px-3 py-1.5 rounded-[10px] text-[12px] font-mono outline-none max-w-[240px]"
-              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-              {[m, ...options.filter((o) => o !== m)].map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <Select
+              key={i}
+              size="sm"
+              className="max-w-[240px]"
+              value={m}
+              onChange={(v) => setModels((prev) => prev.map((x, j) => (j === i ? v : x)))}
+              options={[m, ...options.filter((o) => o !== m)].map((o) => ({ value: o, label: o }))}
+            />
           ))}
           {models.length < 3 && (
             <button onClick={() => setModels((prev) => [...prev, options.find((o) => !prev.includes(o)) ?? options[0]])}

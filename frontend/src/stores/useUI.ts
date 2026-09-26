@@ -65,6 +65,13 @@ interface UIState {
   toggleSidebar: () => void
   /** Open the Settings page on a given tab — from anywhere, including the dock. */
   openSettings: (tab?: string) => void
+  /** The shared task panel (Research + Coding). */
+  tasksOpen: boolean
+  /**
+   * Text handed to whichever composer is open — used by the task panel's
+   * "Send to AI". The composer clears it once it has been adopted.
+   */
+  composerSeed: string | null
   toast: (title: string, body?: string, tone?: Toast['tone']) => void
   clearNotices: () => void
   dismissToast: (id: string) => void
@@ -128,6 +135,8 @@ export const useUI = create<UIState>((set, get) => ({
    * Theme looked dead. One helper: set the tab, close whatever is open, and
    * actually go there.
    */
+  tasksOpen: false,
+  composerSeed: null,
   openSettings: (tab) => {
     set((s) => ({
       settingsOpen: true,

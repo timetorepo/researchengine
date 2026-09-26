@@ -1439,6 +1439,173 @@ async function main() {
   const resultsSrc = m16readSrc(new URL('../src/components/quiz/QuizResults.tsx', import.meta.url))
   check('share opens the studio', resultsSrc.includes('ShareStudio') && resultsSrc.includes('setShareOpen(true)'))
 
+  /* ------------------------------------------------------------------ */
+  console.log('\n[26] 0.26.0 — free routes, smooth text, and tasks you can pin')
+
+  // --- Providers -----------------------------------------------------
+  const { PROVIDERS: R8PROVIDERS } = await import('../src/lib/providers/registry')
+  const wanted: [string, string][] = [
+    ['mercury', 'https://api.inceptionlabs.ai/v1'],
+    ['grok', 'https://api.x.ai/v1'],
+    ['deepseek', 'https://api.deepseek.com/v1'],
+    ['kimi', 'https://api.moonshot.ai/v1'],
+    ['glm', 'https://api.z.ai/api/paas/v4'],
+    ['minimax', 'https://api.minimax.io/v1'],
+    ['freeroute', '/api/freeroute/v1'],
+  ]
+  for (const [id, base] of wanted) {
+    const p = R8PROVIDERS.find((x) => x.id === id)
+    check(`provider "${id}" is offered`, !!p, p ? '' : 'missing from the registry')
+    check(`  …and points at the right endpoint`, p?.baseUrl === base, p?.baseUrl ?? '')
+  }
+  check('the six new keyed providers need a key', wanted.slice(0, 6).every(([id]) => R8PROVIDERS.find((p) => p.id === id)?.needsKey === true))
+  check('FreeRoute needs no key of its own', R8PROVIDERS.find((p) => p.id === 'freeroute')?.needsKey === false)
+  const types8 = m16readSrc(new URL('../src/types/index.ts', import.meta.url))
+  check('the ids are part of the ProviderId union',
+    wanted.every(([id]) => types8.includes(`'${id}'`)))
+
+  // --- FreeRoute backend --------------------------------------------
+  const frSrc = m16readFile(new URL('../../backend/src/routes/freeroute.ts', import.meta.url), 'utf8')
+  const frEndpoints: [string, string][] = [
+    ['Z.ai GLM Flash', 'https://api.z.ai/api/paas/v4'],
+    ['OpenCode Zen', 'https://opencode.ai/zen/v1'],
+    ['Ollama', 'http://localhost:11434/v1'],
+    ['Groq', 'https://api.groq.com/openai/v1'],
+    ['Google AI Studio', 'https://generativelanguage.googleapis.com/v1beta/openai'],
+    ['Mistral', 'https://api.mistral.ai/v1'],
+    ['OpenRouter', 'https://openrouter.ai/api/v1'],
+  ]
+  for (const [name, url] of frEndpoints) {
+    check(`FreeRoute lists ${name}`, frSrc.includes(url), url)
+  }
+  check('it exposes an OpenAI-compatible endpoint', frSrc.includes("'/freeroute/v1/chat/completions'") && frSrc.includes("'/freeroute/v1/models'"))
+  check('it can probe health without a generation', frSrc.includes("'/freeroute/probe'") && frSrc.includes("'/freeroute/test'"))
+  check('free-only routes filter out paid model ids', frSrc.includes('freeOnly') && frSrc.includes('isFreeOn'))
+  check('a rate limit fails over to the next route', /for \(const route of routes\)/.test(frSrc) && frSrc.includes('attempts.push'))
+  check('a wrong key stops instead of trying every route', frSrc.includes('res.status === 401 || res.status === 403'))
+  check('route ids cannot become arbitrary URLs', frSrc.includes('const routeById = (id: string) => FREE_ROUTES.find'))
+  check('streaming is passed through, not buffered', frSrc.includes('new Response(out.res.body'))
+  check('keys travel per request, never stored', frSrc.includes('x-re-freeroute-keys') && !/freeroute.*writeFile/i.test(frSrc))
+  const beIndex = m16readFile(new URL('../../backend/src/index.ts', import.meta.url), 'utf8')
+  check('the routes are mounted in the server', beIndex.includes('freerouteRoutes'))
+
+  // --- FreeRoute in the app -----------------------------------------
+  const streamSrc = m16readSrc(new URL('../src/lib/providers/stream.ts', import.meta.url))
+  check('the app streams through FreeRoute', streamSrc.includes('/api/freeroute/v1/chat/completions'))
+  check('and discovers its models from the live routes', streamSrc.includes("meta.id === 'freeroute'"))
+  check('keys are sent with the request only', streamSrc.includes('x-re-freeroute-keys') && streamSrc.includes('freeRouteHeaders'))
+  check('no top-level require survives in the browser bundle', !/\brequire\(/.test(streamSrc))
+  const frTab = m16readSrc(new URL('../src/components/settings/FreeRouteTab.tsx', import.meta.url))
+  check('there is a FreeRoute console in settings', frTab.includes('Probe all routes') && frTab.includes('Use as default model'))
+  check('the failover order is editable', frTab.includes('ArrowUp') && frTab.includes('reorderTasks') === false && frTab.includes('move(r.id, -1)'))
+  const tabsSrc = m16readSrc(new URL('../src/components/settings/settingsTabs.tsx', import.meta.url))
+  check('and it is registered as a tab', tabsSrc.includes("id: 'freeroute'") && tabsSrc.includes('<FreeRouteTab />'))
+  const frType = types8.includes('freeRoute?:') && types8.includes('lastProbe')
+  check('the order and route keys are persisted in settings', frType)
+
+  // --- Animated number (Skiper 37) ----------------------------------
+  const numSrc = m16readSrc(new URL('../src/components/shared/AnimatedNumber.tsx', import.meta.url))
+  check('animated numbers use Number Flow', numSrc.includes("from '@number-flow/react'"))
+  check('the countdown re-anchors to the wall-clock second', numSrc.includes('msToBoundary') && numSrc.includes('useSteadyCountdown'))
+  check('a hidden tab re-syncs instead of showing a stale clock', numSrc.includes('visibilitychange'))
+  check('reduce-motion shows the value without rolling', numSrc.includes('useReducedMotion'))
+  const pillSrc = m16readSrc(new URL('../src/components/shared/FocusPill.tsx', import.meta.url))
+  check('the timer no longer samples on a 500ms interval', !/setInterval\([\s\S]{0,200}500\)/.test(pillSrc))
+  check('the store is written only when the second changes', pillSrc.includes('remaining !== f.remaining'))
+  check('both timer surfaces draw animated digits', (pillSrc.match(/<AnimatedNumber/g) ?? []).length >= 4)
+  check('and the tabular digits cannot jitter the layout', m16cssAll.includes('.re-number-flow') && m16cssAll.includes('tabular-nums'))
+
+  // --- Smooth caret (Skiper 106) ------------------------------------
+  const caretSrc = m16readSrc(new URL('../src/components/input/SmoothText.tsx', import.meta.url))
+  check('the caret is measured from the field’s own font', caretSrc.includes('getComputedStyle') && caretSrc.includes('measureText'))
+  check('it follows selection, input, scroll and resize', caretSrc.includes("addEventListener('selectionchange'") && caretSrc.includes('ResizeObserver'))
+  check('it hides while text is selected', caretSrc.includes('start !== end'))
+  check('it can be spread onto existing fields', caretSrc.includes('export function smoothCaretProps'))
+  check('smooth is the default', /smoothCaret\) !== false/.test(m16readSrc(new URL('../src/components/input/SmoothText.tsx', import.meta.url))) || caretSrc.includes('return value !== false'))
+  check('there is a toggle in Appearance', m16readSrc(new URL('../src/components/settings/AppearanceTab.tsx', import.meta.url)).includes('smoothCaret'))
+  check('the caret bar has a stylesheet rule', m16cssAll.includes('.re-smooth-caret-bar'))
+  const inputSrc = m16readSrc(new URL('../src/components/input/InputBar.tsx', import.meta.url))
+  check('the composer wears it', inputSrc.includes('re-smooth-caret'))
+
+  // --- Select (Watermelon select-11) --------------------------------
+  const selectSrc = m16readSrc(new URL('../src/components/ui/watermelon/Select.tsx', import.meta.url))
+  check('the select is a real listbox, not a native <select>', selectSrc.includes('role="listbox"') && selectSrc.includes('aria-expanded'))
+  check('keyboard navigation works', selectSrc.includes("e.key === 'ArrowDown'") && selectSrc.includes("e.key === 'Escape'"))
+  check('it opens on a spring, with staggered options', selectSrc.includes('spring') && selectSrc.includes('delay: Math.min'))
+  const swapped = ['quiz/QuizHub.tsx', 'compare/CompareView.tsx', 'library/LibraryView.tsx']
+    .filter((f) => m16readSrc(new URL(`../src/components/${f}`, import.meta.url)).includes('watermelon/Select'))
+  check('native selects were replaced in the main surfaces', swapped.length >= 3, swapped.join(', '))
+
+  // --- Profile card (Watermelon expandable-profile-card) ------------
+  const cardSrc = m16readSrc(new URL('../src/components/ui/watermelon/ProfileCard.tsx', import.meta.url))
+  check('the profile card expands rather than swapping pages', cardSrc.includes('AnimatePresence') && cardSrc.includes("height: 'auto'"))
+  check('it shows hobbies as chips, in a fresh order', cardSrc.includes('shuffled(hobbies)'))
+  check('it derives its gradient from the active theme', cardSrc.includes('themeGradient'))
+  check('the user profile uses it', m16readSrc(new URL('../src/components/settings/ProfileTab.tsx', import.meta.url)).includes('<ProfileCard'))
+  check('and so does the maker card', m16readSrc(new URL('../src/components/settings/AboutTab.tsx', import.meta.url)).includes('tone="maker"'))
+  const profileLib = m16readSrc(new URL('../src/lib/profile.ts', import.meta.url))
+  check('hobbies are part of the profile, not a decoration', profileLib.includes('hobbies: string[]') && profileLib.includes('DEFAULT_PROFILE.hobbies'))
+
+  // --- Tasks + shuffled pinned list ---------------------------------
+  const { tasksToPrompt } = await import('../src/components/ui/watermelon/ShuffledPinnedList')
+  const sampleTasks = [
+    { id: 'a', title: 'write the intro', done: false, pinned: false, createdAt: 1, order: 0 },
+    { id: 'b', title: 'fix the failing test', done: false, pinned: true, createdAt: 2, order: 1 },
+    { id: 'c', title: 'done thing', done: true, pinned: false, createdAt: 3, order: 2 },
+  ] as any
+  const prompt = tasksToPrompt(sampleTasks)
+  check('the pinned task leads the instruction block', prompt.startsWith('Tackle these first'), prompt.split('\n')[0])
+  check('pinned and the rest are separated', prompt.includes('Then, if there is time'))
+  check('finished work is left out', !prompt.includes('done thing'))
+
+  const store8 = useStore.getState()
+  store8.addTask('first', { source: 'test' })
+  store8.addTask('second', { source: 'test' })
+  const ids = useStore.getState().tasks.slice(-2).map((t) => t.id)
+  useStore.getState().pinTask(ids[1], true)
+  const afterPin = useStore.getState().tasks.filter((t) => t.source === 'test')
+  check('pinning moves a task to the top of the list', afterPin[0]?.id === ids[1], afterPin.map((t) => t.title).join(','))
+  useStore.getState().reorderTasks([ids[0], ids[1]])
+  const afterOrder = useStore.getState().tasks.filter((t) => t.source === 'test')
+  check('drag order is persisted verbatim', afterOrder[0]?.id === ids[0] && afterOrder[1]?.id === ids[1])
+  useStore.getState().toggleTask(ids[0], true)
+  check('a task can be finished and un-finished', useStore.getState().tasks.find((t) => t.id === ids[0])?.done === true)
+  useStore.getState().clearDoneTasks()
+  check('finished tasks can be swept', !useStore.getState().tasks.some((t) => t.id === ids[0]))
+  useStore.getState().deleteTask(ids[1])
+  check('and deleted individually', !useStore.getState().tasks.some((t) => t.id === ids[1]))
+
+  const listSrc = m16readSrc(new URL('../src/components/ui/watermelon/ShuffledPinnedList.tsx', import.meta.url))
+  check('the list drags to reorder', listSrc.includes('Reorder.Group') && listSrc.includes('useDragControls'))
+  check('pinning is visible, not implied', listSrc.includes(': Pin') === false && listSrc.includes("'Pin as the main thing'"))
+  check('shuffling never touches pinned items', listSrc.includes('seed ? shuffled(live.filter((t) => !t.pinned), seed)'))
+  check('the list can hand itself to the AI', listSrc.includes('Send to AI') && listSrc.includes('tasksToPrompt'))
+  const panelSrc = m16readSrc(new URL('../src/components/tasks/TasksPanel.tsx', import.meta.url))
+  check('the panel is reachable from the top bar', m16readSrc(new URL('../src/components/topbar/TopBar.tsx', import.meta.url)).includes('set({ tasksOpen'))
+  check('it works in research and coding alike', panelSrc.includes('Research and Coding'))
+  check('it seeds whichever composer is open', panelSrc.includes('composerSeed') && inputSrc.includes('composerSeed'))
+  check('the panels are mounted by the shell', m16readSrc(new URL('../src/App.tsx', import.meta.url)).includes('<TasksPanel />'))
+
+  // --- Skins + dock -------------------------------------------------
+  const { shuffled: shuf, flattenTags, initials, clampText } = await import('../src/lib/ui/skins')
+  check('shuffling is deterministic for a seed', JSON.stringify(shuf([1, 2, 3, 4, 5], 7)) === JSON.stringify(shuf([1, 2, 3, 4, 5], 7)))
+  check('and a different seed gives a different order', JSON.stringify(shuf([1, 2, 3, 4, 5], 7)) !== JSON.stringify(shuf([1, 2, 3, 4, 5], 9)))
+  check('tags are de-duplicated and capped', flattenTags('a, b, A, , c', 3).length === 3)
+  check('initials handle one name and two', initials('dnishh') === 'D' && initials('ada lovelace') === 'AL')
+  check('long text is clamped', clampText('x'.repeat(200), 20).length <= 20)
+  check('every skin helper reads the theme, never a fixed colour',
+    !/#[0-9a-fA-F]{3,6}\b/.test(m16readSrc(new URL('../src/lib/ui/skins.ts', import.meta.url)).replace(/var\(--[a-z-]+\)/g, '')))
+  const dockCss = m16cssAll.includes('.re-dock-reflection')
+  check('the dock has a glass shelf and a reflection', dockCss && m16cssAll.includes('.re-dock:hover::before'))
+  check('only the pointed icon reflects', m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url)).includes("data-pointed={pointed ? 'true' : 'false'}"))
+
+  // --- The new libraries are credited -------------------------------
+  const aboutSrc = m16readSrc(new URL('../src/components/settings/AboutTab.tsx', import.meta.url))
+  for (const lib of ['Skiper UI', 'Watermelon UI', 'Cult UI', 'Number Flow']) {
+    check(`${lib} is credited in About`, aboutSrc.includes(lib))
+  }
+  check('and the maker is still dnishh', aboutSrc.includes('name="dnishh"'))
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

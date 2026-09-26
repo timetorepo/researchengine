@@ -23,6 +23,7 @@ async function main() {
   const { resourceRoutes } = await import('./routes/resources')
   const { fsRoutes } = await import('./routes/fs')
   const { providerRoutes } = await import('./routes/providers')
+  const { freerouteRoutes } = await import('./routes/freeroute')
   const { ideRoutes } = await import('./routes/ide')
   const { previewRoutes } = await import('./routes/preview')
   const { PreviewManager } = await import('./preview/manager')
@@ -53,6 +54,8 @@ async function main() {
   app.route('/api/ollama', ollamaRoutes)
   app.route('/api/integrations', integrationRoutes)
   app.route('/api', providerRoutes)
+  // FreeRoute — one OpenAI-compatible endpoint in front of the free tiers.
+  app.route('/api', freerouteRoutes)
 
   app.onError((err, c) => {
     // Surface the real error to the client — the UI shows it verbatim.
