@@ -18,7 +18,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 // fileURLToPath, not `.pathname`: on Windows the latter yields "/D:/…", which
 // every join() then mangles into a path that does not exist.
@@ -49,23 +49,52 @@ if (!triple) {
 const isWin = target.startsWith('win')
 const outDir = resolve(root, flag('--out', 'desktop/src-tauri/binaries'))
 const outFile = join(outDir, `research-engine-${triple}${isWin ? '.exe' : ''}`)
-// No shell: execFile spelling keeps this working on runners whose shell has no
-// ComSpec/cmd.exe in its environment (a bash step on Windows, for example).
-const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+// No shell, ever: `execSync` dies on a runner whose shell has no ComSpec, and
+// Node ≥ 20 refuses to spawn npm.cmd directly on Windows (EINVAL). So npm is
+// reached as a JS entry point through the running node binary.
 const run = (file, args, cwd = root) => {
   console.log(`$ ${file} ${args.join(' ')}`)
   execFileSync(file, args, { cwd, stdio: 'inherit' })
 }
+const npmCli = () => {
+  const candidates = [
+    process.env.npm_execpath,
+    join(process.env.npm_prefix ?? '', 'node_modules/npm/bin/npm-cli.js'),
+    join(process.env.APPDATA ?? '', 'npm/node_modules/npm/bin/npm-cli.js'),
+    join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
+    join(dirname(process.execPath), '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ].filter(Boolean)
+  return candidates.find((p) => { try { return existsSync(p) && p.endsWith('.js') } catch { return false } })
+}
+const runNpm = (args) => {
+  if (process.platform !== 'win32') return run('npm', args)
+  const cli = npmCli()
+  if (!cli) {
+    throw new Error(`cannot find npm-cli.js to run \"npm ${args.join(' ')}\" — run it yourself, then re-run this script`)
+  }
+  return run(process.execPath, [cli, ...args])
+}
 
 // 1. Both halves must exist before anything is packaged.
-if (flag('--rebuild', false) || !existsSync(join(root, 'frontend/dist/index.html'))) run(npmBin, ['run', 'build', '--workspace', 'frontend'])
-if (flag('--rebuild', false) || !existsSync(join(root, 'backend/dist/index.js'))) run(npmBin, ['run', 'build', '--workspace', 'backend'])
+if (flag('--rebuild', false) || !existsSync(join(root, 'frontend/dist/index.html'))) runNpm(['run', 'build', '--workspace', 'frontend'])
+if (flag('--rebuild', false) || !existsSync(join(root, 'backend/dist/index.js'))) runNpm(['run', 'build', '--workspace', 'backend'])
 
 mkdirSync(outDir, { recursive: true })
 
 // 2. Find Bun: BUN env var, then PATH, then a local install.
 const findBun = () => {
-  const candidates = [process.env.BUN, join(root, 'node_modules/.bin/bun'), 'bun'].filter(Boolean)
+  const win = process.platform === 'win32'
+  const candidates = [
+    process.env.BUN,
+    // The npm package ("bun" is a devDependency) ships the real runtime binary
+    // as bin/bun.exe on every platform; .bin holds wrapper shims, which are not
+    // spawnable without a shell on Windows.
+    join(root, 'node_modules/bun/bin', win ? 'bun.exe' : 'bun'),
+    join(root, 'node_modules/bun/bin/bun.exe'),
+    join(root, 'node_modules/.bin', win ? 'bun.exe' : 'bun'),
+    join(process.env.USERPROFILE ?? process.env.HOME ?? '', '.bun/bin', win ? 'bun.exe' : 'bun'),
+    'bun',
+  ].filter(Boolean)
   for (const c of candidates) {
     try {
       const v = execFileSync(c, ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
@@ -88,25 +117,19 @@ if (bun) {
   process.exit(0)
 }
 
-// 3. Fallback: the portable Node folder. Works offline, needs Node on target.
-console.warn('\nwarning: Bun not found — building the portable Node folder instead.')
-console.warn('         install it with `npm i -D bun`, or set BUN=/path/to/bun\n')
-const dir = join(outDir, `research-engine-${target}`)
-rmSync(dir, { recursive: true, force: true })
-mkdirSync(dir, { recursive: true })
-cpSync(join(root, 'backend/dist'), join(dir, 'server'), { recursive: true })
-cpSync(join(root, 'backend/bin'), join(dir, 'bin'), { recursive: true })
-cpSync(join(root, 'frontend/dist'), join(dir, 'frontend-dist'), { recursive: true })
-const pkg = JSON.parse(readFileSync(join(root, 'backend/package.json'), 'utf8'))
-writeFileSync(join(dir, 'server/package.json'), JSON.stringify({
-  name: 'research-engine-server', type: 'module', version: pkg.version,
-  dependencies: pkg.dependencies, optionalDependencies: pkg.optionalDependencies,
-}, null, 2))
-writeFileSync(join(outDir, `research-engine-${triple}${isWin ? '.cmd' : ''}`),
-  isWin ? `@echo off\r\nnode "%~dp0research-engine-${target}\\bin\\research-engine.mjs" %*\r\n`
-        : `#!/bin/sh\nexec node "$(dirname "$0")/research-engine-${target}/bin/research-engine.mjs" "$@"\n`)
-writeFileSync(join(outDir, 'README.txt'), sidecarNote(target, triple, 'node'))
-console.log(`\nsidecar ready: ${dir} (portable folder + ${isWin ? '.cmd' : 'sh'} launcher)`)
+// 3. No Bun, no desktop sidecar. A Tauri `externalBin` must be a real
+//    executable — a launcher script or a Node folder would produce an installer
+//    that cannot start on a machine without Node, which is the whole point.
+console.error('\nBun was not found.')
+console.error('The desktop app ships the whole local server as ONE self-contained')
+console.error('executable, and Bun is the compiler that makes that possible.\n')
+console.error('Fix it with either:')
+console.error('  npm install                 # "bun" is a devDependency, so this is enough')
+console.error('  npm i -D bun                # …or add it explicitly')
+console.error('  curl -fsSL https://bun.sh/install | bash    # …or install it system-wide')
+console.error('  BUN=/path/to/bun node scripts/desktop-sidecar.mjs\n')
+console.error('Need a Node-dependent portable folder instead? Use scripts/package-binary.mjs.')
+process.exit(2)
 
 function sidecarNote(target, triple, mode) {
   return `Research Engine desktop sidecar — ${target} (${triple})

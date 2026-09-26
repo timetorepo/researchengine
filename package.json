@@ -25,5 +25,8 @@
     "node": ">=20"
   },
   "license": "MIT",
-  "author": "dnishh"
+  "author": "dnishh",
+  "devDependencies": {
+    "bun": "^1.4.2"
+  }
 }

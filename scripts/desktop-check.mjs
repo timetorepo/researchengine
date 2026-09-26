@@ -49,6 +49,16 @@ check('the Windows installer is NSIS, per-user, no language prompt',
   conf.bundle.windows.nsis.installMode === 'currentUser' && conf.bundle.windows.nsis.displayLanguageSelector === false)
 check('WebView2 is bootstrapped automatically', conf.bundle.windows.webviewInstallMode.type === 'downloadBootstrapper')
 check('the window is created by the shell, not by config', Array.isArray(conf.app.windows) && conf.app.windows.length === 0)
+// Tauri's generate_context!() panics on an icon that is not RGBA — a build that
+// only fails inside a 6-minute CI job is worth catching here in 6 milliseconds.
+const iconProblems = (conf.bundle.icon ?? []).filter((rel) => {
+  const buf = readFileSync(join(root, 'desktop/src-tauri', rel))
+  const colourType = buf[25]
+  const isPng = buf.subarray(1, 4).toString() === 'PNG'
+  return isPng && colourType !== 6
+})
+check('every bundled icon is 8-bit RGBA', iconProblems.length === 0, iconProblems.join(', '))
+check('and the Windows .ico is present', existsSync(join(root, 'desktop/src-tauri/icons/icon.ico')))
 check('dev mode points the window at the local server', String(conf.build.devUrl).startsWith('http://127.0.0.1:'))
 
 console.log('\n[2] The shell starts, waits for and stops the server')

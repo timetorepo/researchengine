@@ -32,8 +32,8 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: Build the frontend
-        run: npm run build --workspace frontend
+      - name: Build the frontend and the backend bundle
+        run: npm run build
 
       - name: Install Bun
         id: bun
@@ -111,8 +111,8 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: Build the frontend
-        run: npm run build --workspace frontend
+      - name: Build the frontend and the backend bundle
+        run: npm run build
 
       - name: Install Bun
         id: bun
