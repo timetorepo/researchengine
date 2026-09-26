@@ -84,6 +84,9 @@ jobs:
         working-directory: desktop
         run: node ../scripts/ci-annotate.mjs tauri.log "tauri bundle failed"
 
+      - name: Prove the installer is an installer (magic bytes, NSIS signature, size)
+        run: node scripts/verify-installer.mjs windows
+
       - name: Upload the installer as a build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -164,6 +167,9 @@ jobs:
         if: failure() && hashFiles('desktop/tauri.log') != ''
         working-directory: desktop
         run: node ../scripts/ci-annotate.mjs tauri.log "tauri bundle failed"
+
+      - name: Prove the bundles are bundles (ar/ELF magic, size)
+        run: node scripts/verify-installer.mjs linux
 
       - name: Upload the bundles
         uses: actions/upload-artifact@v4
