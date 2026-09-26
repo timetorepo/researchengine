@@ -35,6 +35,7 @@ import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { SettingsSheet } from '@/components/settings/SettingsSheet'
 import { TasksPanel } from '@/components/tasks/TasksPanel'
+import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 import { installViewTransitions } from '@/hooks/useViewTransitions'
@@ -200,6 +201,9 @@ function RoutedApp() {
       <AppToaster />
       <SettingsSheet />
       <TasksPanel />
+      {/* Skiper's scroll progress, adapted: it follows whichever surface is
+          scrolling and steps aside on tabs that have their own edge furniture. */}
+      <ScrollProgress />
       <VaultUnlock />
       <CommandPalette />
       <ShortcutsOverlay />

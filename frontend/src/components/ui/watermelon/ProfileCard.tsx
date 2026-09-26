@@ -57,43 +57,54 @@ export function ProfileCard({
       data-profile-card={tone}
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
     >
-      {/* Header — the gradient is derived from the active theme, so the card
-          reads as part of the app in every palette, light ones included. */}
+      {/* The banner is genuinely taller than the avatar that overlaps it: the
+          avatar is 56px plus a 3px ring (62px), the row is pulled up 32px, so
+          the banner has to be ≥ 96px or the ring is clipped by the card's own
+          overflow — which is what the first version shipped with. Name, handle
+          and bio live *below* the banner so they are never white-on-pastel in
+          a light theme. */}
       <div className="relative">
-        <div className="h-16 w-full" style={{ background: gradient }} aria-hidden />
-        <div className="px-4 pb-3 -mt-8 flex items-end gap-3">
+        <div className="h-24 w-full" style={{ background: gradient }} aria-hidden />
+
+        {/* Actions and the expander float over the banner on frosted chips, so
+            they stay legible on every theme's gradient. */}
+        <div className="absolute right-3 top-3 flex items-center gap-1.5">
+          {actions}
+          <button
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? 'Show less' : 'Show more'}
+            className="p-1.5 rounded-[9px]"
+            style={{
+              background: 'color-mix(in srgb, var(--surface) 72%, transparent)',
+              backdropFilter: 'blur(10px) saturate(1.3)',
+              border: '1px solid color-mix(in srgb, var(--surface) 40%, transparent)',
+              color: 'var(--text-2)',
+            }}
+          >
+            <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }} className="flex">
+              <ChevronDown size={14} />
+            </motion.span>
+          </button>
+        </div>
+
+        <div className="px-4 -mt-8 flex items-end gap-3 relative">
           <motion.div layout className="shrink-0 rounded-full p-[3px]" style={{ background: 'var(--surface)' }}>
             {avatar ?? (
               <span className="w-14 h-14 rounded-full flex items-center justify-center text-[20px] font-semibold"
                 style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>{initial}</span>
             )}
           </motion.div>
-          <div className="flex-1 min-w-0 pb-0.5">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[15px] font-medium truncate">{name}</span>
-              {tone === 'maker' && <ShieldCheck size={13} style={{ color: 'var(--success)' }} aria-label="Maker" />}
-            </div>
-            {handle && <div className="text-[12px] truncate" style={{ color: 'var(--text-3)' }}>@{handle}</div>}
-          </div>
-          <div className="flex items-center gap-1.5 pb-1">
-            {actions}
-            <button
-              onClick={() => setOpen((o) => !o)}
-              aria-expanded={open}
-              aria-label={open ? 'Show less' : 'Show more'}
-              className="p-1.5 rounded-[9px]"
-              style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}
-            >
-              <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }} className="flex">
-                <ChevronDown size={14} />
-              </motion.span>
-            </button>
-          </div>
         </div>
       </div>
 
       <div className="px-4 pb-4">
-        {bio && <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>{bio}</p>}
+        <div className="flex items-center gap-1.5 mt-1.5">
+          <span className="text-[15px] font-medium truncate">{name}</span>
+          {tone === 'maker' && <ShieldCheck size={13} style={{ color: 'var(--success)' }} aria-label="Maker" />}
+        </div>
+        {handle && <div className="text-[12px] truncate" style={{ color: 'var(--text-3)' }}>@{handle}</div>}
+        {bio && <p className="text-[12.5px] leading-relaxed mt-2" style={{ color: 'var(--text-2)' }}>{bio}</p>}
 
         <AnimatePresence initial={false}>
           {open && (

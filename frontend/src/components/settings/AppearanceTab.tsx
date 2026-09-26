@@ -239,6 +239,9 @@ export function AppearanceTab() {
           checked={settings.composerBeam !== false} onChange={(v) => update({ composerBeam: v })} />
         <Switch label="Smooth caret" description="Text fields hide the native caret and spring an animated one to the cursor instead (Skiper UI's smooth caret input). On by default."
           checked={settings.smoothCaret !== false} onChange={(v) => update({ smoothCaret: v })} />
+        <Switch label="Scroll progress" description="A thin indicator on the edge of every scrolling surface (Skiper UI's scroll progress). Right-click it to unlock and drag it anywhere; this switch is how you bring it back if you hide it."
+          checked={settings.scrollProgress?.enabled !== false}
+          onChange={(v) => update({ scrollProgress: { ...(settings.scrollProgress ?? {}), enabled: v } })} />
 
         {/* Border Beam palette — same component, four built-in variants. */}
         <div className="surface p-4">

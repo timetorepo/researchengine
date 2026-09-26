@@ -1302,12 +1302,13 @@ async function main() {
   check('the shell shows a loading hairline for cold routes', m16readSrc(new URL('../src/App.tsx', import.meta.url)).includes('RouteProgress'))
   const sideSrc21 = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
   check('the rail navigates through the same synchronous helper', sideSrc21.includes('navigateNow'))
-  check('and warms the chunk on hover so the click is instant', sideSrc21.includes('prefetchRoute') && sideSrc21.includes('onMouseEnter={() => warm'))
+  check('and warms the chunk on hover so the click is instant', sideSrc21.includes('prefetchRoute') && sideSrc21.includes('onMouseEnter={warm}'))
   check('the row you picked says it is loading', sideSrc21.includes('data-pending') && m16cssAll.includes('data-pending="true"'))
   check('and the collapsed dock says it too', sideSrc21.includes('re-dock-pending') && m16cssAll.includes('.re-dock-pending'))
   check('the hairline has a stylesheet rule', m16cssAll.includes('.re-route-progress-bar'))
 
   /* ------------------------------------------------------------------ */
+  const chatsSrc22Kind = () => m16readSrc(new URL('../src/components/chats/ChatsView.tsx', import.meta.url)).includes("type Kind = 'all' | 'research' | 'coding'")
   console.log('\n[22] Coding chats are their own kind')
   const { useStore: store22 } = await import('../src/stores/useStore')
   const researchId = store22.getState().newChat()
@@ -1322,9 +1323,11 @@ async function main() {
   check('a research chat can be turned into a coding one', store22.getState().chats.find((c) => c.id === researchId)!.kind === 'coding')
 
   const sideSrc22 = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
-  check('the sidebar separates the two kinds', sideSrc22.includes("kindFilter === 'coding'") && sideSrc22.includes("kind === 'coding'"))
-  check('and offers the switch', sideSrc22.includes('re-history-tabs'))
-  check('the switch has a stylesheet rule', m16cssAll.includes('.re-history-tabs'))
+  // The rail is navigation only now: the kind switch and the whole list live on
+  // the Chats page, and recent conversations arrive on hover instead.
+  check('the sidebar carries no history list', !sideSrc22.includes('re-history-tabs') && !sideSrc22.includes('function ChatItem'))
+  check('the kind switch moved to the Chats page, rule and all',
+    chatsSrc22Kind() && m16cssAll.includes('.re-history-tabs'))
   const chatsSrc22 = m16readSrc(new URL('../src/components/chats/ChatsView.tsx', import.meta.url))
   check('the Chats page sections them apart', chatsSrc22.includes("section('Coding'") && chatsSrc22.includes("section('Research'"))
   check('and shows which project a coding chat belongs to', chatsSrc22.includes('chat.settings?.project'))
@@ -1605,6 +1608,100 @@ async function main() {
     check(`${lib} is credited in About`, aboutSrc.includes(lib))
   }
   check('and the maker is still dnishh', aboutSrc.includes('name="dnishh"'))
+
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[27] 0.27.0 — the crash, the rail, and two Skiper components')
+
+  // --- React error #310: a hook may never be spread inside a branch ------
+  const smoothSrc = m16readSrc(new URL('../src/components/input/SmoothText.tsx', import.meta.url))
+  // Slice exactly the helper's body — the hook variant is declared nearby and
+  // its own name must not leak into the test.
+  const propsStart = smoothSrc.indexOf('export function smoothCaretProps')
+  const propsBody = smoothSrc.slice(propsStart, smoothSrc.indexOf('\n}\n', propsStart) + 3)
+  check('the props helper is hook-free', propsBody.length > 0 && !/\buse[A-Z]/.test(propsBody.replace(/useStore\.getState\(\)/g, 'store')))
+  check('and reads the setting without subscribing', smoothSrc.includes('useStore.getState().settings?.smoothCaret'))
+  check('the hook variant exists for components', smoothSrc.includes('export function useSmoothCaret'))
+  check('and is memoised on the value it reads', /useSmoothCaret[\s\S]{0,220}useMemo/.test(smoothSrc))
+  const frTabSrc = m16readSrc(new URL('../src/components/settings/FreeRouteTab.tsx', import.meta.url))
+  check('FreeRoute takes the caret once, at the top', frTabSrc.includes('const caret = useSmoothCaret()'))
+  check('and only ever spreads the value it captured', frTabSrc.includes('{...caret}') && !/smoothCaretProps\(/.test(frTabSrc))
+  {
+    // The regression is a hooks-order violation, so prove the hook is called
+    // exactly once per render and never inside the branch it is used in.
+    const calls = frTabSrc.split('useSmoothCaret()').length - 1
+    check('exactly one call site', calls === 1, `${calls} call sites`)
+    const caretAt = frTabSrc.indexOf('const caret = useSmoothCaret()')
+    const branchAt = frTabSrc.indexOf('caret &&') >= 0 ? frTabSrc.indexOf('caret &&') : frTabSrc.indexOf('{...caret}')
+    check('declared before the field that uses it', caretAt > 0 && caretAt < branchAt, `${caretAt} < ${branchAt}`)
+  }
+
+  // --- The profile card header -----------------------------------------
+  const pcSrc = m16readSrc(new URL('../src/components/ui/watermelon/ProfileCard.tsx', import.meta.url))
+  check('the banner is taller than the avatar ring it carries', /h-24/.test(pcSrc))
+  check('the avatar overlaps the banner instead of sitting inside it', pcSrc.includes('-mt-8'))
+  check('the identity block sits below the banner, not over it',
+    pcSrc.indexOf('{name}') > pcSrc.indexOf("className=\"h-24 w-full\"") && pcSrc.indexOf('@{handle}') > pcSrc.indexOf('{name}'))
+  check('the banner row is a frosted chip, so the controls stay readable',
+    pcSrc.includes('backdropFilter') && pcSrc.includes('color-mix'))
+
+  // --- The rail: navigation only, arrows, and the hover cube ------------
+  const flyoutSrc = m16readSrc(new URL('../src/components/sidebar/ChatsFlyout.tsx', import.meta.url))
+  check('the rail drops the Spaces section', !sideSrc21.includes('SpaceChip'))
+  check('and drops the research/coding switch', !sideSrc21.includes('kindFilter'))
+  check('every rail row carries an edge arrow', sideSrc21.includes('ChevronRight size={14}') && sideSrc21.includes('re-nav-arrow'))
+  check('the arrow has a stylesheet rule', m16cssAll.includes('.re-nav-arrow'))
+  check('the rail never cross-fades its own snapshot',
+    /::view-transition-old\(re-sidebar\)[^{]*\{[^}]*display:\s*none/.test(m16cssAll))
+  check('the chats row is the one that opens', sideSrc21.includes('ChatsRow') && sideSrc21.includes('dwellMs={n.to === \'/chats\''))
+  check('the minimised pill dwells two seconds', flyoutSrc.includes('CHATS_DWELL_MINIMIZED_MS = 2000'))
+  check('the expanded row dwells one', flyoutSrc.includes('CHATS_DWELL_EXPANDED_MS = 1000'))
+  check('and each state uses its own number', sideSrc21.includes('dwellMs={n.to === \'/chats\' ? CHATS_DWELL_MINIMIZED_MS : 0}')
+    && sideSrc21.includes('useHoverDwell(CHATS_DWELL_EXPANDED_MS)'))
+  check('the cube grows out of the thing you pointed at', flyoutSrc.includes('transformOrigin') && flyoutSrc.includes('scale: 0.35'))
+  check('it is one spring, not a sequence', (flyoutSrc.match(/type: 'spring'/g) ?? []).length >= 1 && !flyoutSrc.includes('delayChildren'))
+  check('the pointer can cross the gap into the cube', flyoutSrc.includes('graceMs = 240') && flyoutSrc.includes('closeTimer.current = setTimeout(() => setArmed(false), graceMs)'))
+  check('and re-entering cancels the pending close', /onEnter: \(\) => \{\n\s*\/\/[^\n]*\n\s*clearClose\(\)/m.test(flyoutSrc) || flyoutSrc.includes('clearClose()\n      if (!enabled || armed) return'))
+  check('the panel is portalled so no ancestor can clip it', sideSrc21.includes('createPortal') && sideSrc21.includes('<ChatCube'))
+  check('recent chats are read from the store, newest first', flyoutSrc.includes('b.updatedAt') && flyoutSrc.includes('RECENT_LIMIT'))
+  check('and each row says what kind it is', flyoutSrc.includes('c.kind === \'coding\''))
+
+  // --- Chats page absorbs what the rail gave up -------------------------
+  const chatsSrc27 = m16readSrc(new URL('../src/components/chats/ChatsView.tsx', import.meta.url))
+  check('a chat can be pinned from the page', chatsSrc27.includes('setPinned(chat.id, !chat.pinned)'))
+  check('pinned chats sort to the top', chatsSrc27.includes('Number(!!b.pinned) - Number(!!a.pinned)'))
+  check('a title renames on double click', chatsSrc27.includes('onDoubleClick={() => { setDraft(chat.title)'))
+  check('and a chat exports as JSON', chatsSrc27.includes('exportChat'))
+
+  // --- Skiper 40: the CSS link -----------------------------------------
+  const linkSrc = m16readSrc(new URL('../src/components/ui/skiper/CssLink.tsx', import.meta.url))
+  check('the link draws its rule in CSS', linkSrc.includes('re-css-link') && m16cssAll.includes("background-size: 0% 1px"))
+  check('the rule wipes in rather than switching on', m16cssAll.includes('.re-css-link:hover, .re-css-link:focus-visible { background-size: 100% 1px; }'))
+  check('it has the three shapes the app needs', ['inline', 'chip', 'standalone'].every((v) => linkSrc.includes(`'${v}'`)))
+  check('citations render as chips', linkSrc.includes('CssSourceLink'))
+  check('the external marker is inferred, not demanded', /const ext = external \?\?/.test(linkSrc))
+  check('internal links stay inside the app', linkSrc.includes("href.startsWith('#/')"))
+  check('reduced motion gets a plain underline', m16cssAll.includes('@media (prefers-reduced-motion: reduce) {\n  .re-css-link'))
+  check('answers render their links through it', m16readSrc(new URL('../src/components/chat/Markdown.tsx', import.meta.url)).includes('<CssLink'))
+
+  // --- Skiper 89: the scroll progress ------------------------------------
+  const spSrc = m16readSrc(new URL('../src/components/ui/skiper/ScrollProgress.tsx', import.meta.url))
+  const sp = await import('../src/components/ui/skiper/ScrollProgress')
+  check('it is mounted by the shell', m16readSrc(new URL('../src/App.tsx', import.meta.url)).includes('<ScrollProgress />'))
+  check('it tracks whichever surface is scrolling', spSrc.includes("document.addEventListener('scroll', onScroll, true)"))
+  check('and hides itself when there is nothing to scroll', spSrc.includes('scroller.scrollHeight - scroller.clientHeight > 24'))
+  check('coding and chats get their own position', sp.surfaceOf('/code') === 'coding' && sp.surfaceOf('/chat/xyz') === 'chats' && sp.surfaceOf('/chats') === 'chats')
+  const navTargets: [string, string][] = [['/', 'home'], ['/code', 'coding'], ['/chats', 'chats'], ['/quiz', 'quiz'], ['/articles', 'articles'], ['/library', 'library'], ['/compare', 'compare'], ['/workflows', 'workflows'], ['/flood', 'flood']]
+  check('every tab in the rail maps to a placement', navTargets.every(([p, s]) => sp.surfaceOf(p) === s && !!sp.SURFACE_PLACEMENT[s as keyof typeof sp.SURFACE_PLACEMENT]))
+  check('the placements are actually different per tab', new Set(Object.values(sp.SURFACE_PLACEMENT).map((p) => `${p.right}/${p.top}`)).size > 4)
+  check('it steps aside for the tasks panel', spSrc.includes('tasksOpen ? 392 : 0'))
+  check('a right click unlocks it for dragging', spSrc.includes('onContextMenu') && spSrc.includes('Unlock to drag'))
+  check('dragging stores the position per surface', spSrc.includes('[surface]: pos') && spSrc.includes('pendingDragPos'))
+  check('it can be locked, reset and hidden', spSrc.includes('Lock in place') && spSrc.includes('Reset position') && spSrc.includes('Hide on every tab'))
+  check('the track itself scrubs the page', spSrc.includes('jumpTo(e.clientY)'))
+  check('the fill follows the scroll, not a timer', spSrc.includes('scroller.scrollTop / max'))
+  check('it is enabled by default', m16readSrc(new URL('../src/stores/useStore.ts', import.meta.url)).includes('scrollProgress: { enabled: true'))
+  check('the settings shape is typed', m16readSrc(new URL('../src/types/index.ts', import.meta.url)).includes('scrollProgress?:'))
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))

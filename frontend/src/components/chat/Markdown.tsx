@@ -5,6 +5,7 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { Check, Copy } from 'lucide-react'
 import { highlight } from '@/lib/highlight'
+import { CssLink } from '@/components/ui/skiper/CssLink'
 
 function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
   const [copied, setCopied] = useState(false)
@@ -46,8 +47,13 @@ export const Markdown = memo(function Markdown({ content, streaming = false }: {
             if (isBlock) return <CodeBlock className={className}>{children}</CodeBlock>
             return <code className={className}>{children}</code>
           },
+          // Links in an answer are the way out of it, so they get the real
+          // treatment: the rule is drawn in CSS instead of by the browser, the
+          // external marker arrives on hover, and citations read as chips.
           a({ href, children }) {
-            return <a href={href} target="_blank" rel="noreferrer noopener">{children}</a>
+            const text = Array.isArray(children) ? children.join('') : String(children ?? '')
+            const cite = /^\s*\[?\d{1,2}\]?\s*$/.test(text)
+            return <CssLink href={href ?? '#'} variant={cite ? 'chip' : 'inline'}>{children}</CssLink>
           },
         }}
       >

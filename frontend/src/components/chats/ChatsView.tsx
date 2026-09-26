@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen } from 'lucide-react'
+import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, PinOff, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
-import { timeAgo } from '@/lib/utils'
+import { download, timeAgo } from '@/lib/utils'
 import { navigateNow } from '@/lib/routes/registry'
 
 type Kind = 'all' | 'research' | 'coding'
@@ -13,8 +13,10 @@ type Kind = 'all' | 'research' | 'coding'
  *
  * Coding chats are the IDE's own conversations — one per project, carrying a
  * project name and a different tool surface. Mixing them into research history
- * made both harder to find, so they are a section of their own (and the
- * sidebar switches between the two kinds).
+ * made both harder to find, so they are a section of their own.
+ *
+ * This page is also where a conversation is managed now that the sidebar is
+ * navigation-only: pin, rename (double-click a title), export, delete.
  */
 export function ChatsView() {
   const navigate = useNavigate()
@@ -22,11 +24,15 @@ export function ChatsView() {
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<Kind>('all')
   const [removing, setRemoving] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return [...chats]
-      .sort((a, b) => b.updatedAt - a.updatedAt)
+      // Pinned first, then most recent — the sidebar's pinned block used to say
+      // "this one first"; the order says it here.
+      .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt - a.updatedAt)
       .filter((c) => (kind === 'all' ? true : (c.kind ?? 'research') === kind))
       .filter((c) => !q || c.title.toLowerCase().includes(q) || c.messages.some((m) => m.content.toLowerCase().includes(q)))
   }, [chats, query, kind])
@@ -39,6 +45,20 @@ export function ChatsView() {
   const remove = (id: string) => {
     setRemoving(id)
     window.setTimeout(() => { useStore.getState().deleteChat(id); setRemoving(null) }, 300)
+  }
+  const setPinned = (id: string, v: boolean) => useStore.setState((s) => ({
+    chats: s.chats.map((c) => c.id === id ? { ...c, pinned: v } : c),
+  }))
+  const commitRename = (id: string, fallback: string) => {
+    const next = draft.trim()
+    if (next && next !== fallback) useStore.getState().renameChat(id, next)
+    setRenaming(null)
+  }
+  const exportChat = (id: string) => {
+    const chat = useStore.getState().chats.find((c) => c.id === id)
+    if (!chat) return
+    download(`${chat.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 40) || 'chat'}.json`,
+      JSON.stringify(chat, null, 2), 'application/json')
   }
   const open = (id: string) => {
     useStore.getState().setActiveChat(id)
@@ -76,10 +96,25 @@ export function ChatsView() {
               transition={{ type: 'spring', damping: 26, stiffness: 320, delay: removing === chat.id ? 0 : i * .02 }}
               className="surface p-4 mb-2.5 flex items-center gap-3 group"
             >
-              <button className="flex-1 min-w-0 text-left" onClick={() => open(chat.id)}>
+              <button className="flex-1 min-w-0 text-left" onClick={() => { if (renaming !== chat.id) open(chat.id) }}
+                onDoubleClick={() => { setDraft(chat.title); setRenaming(chat.id) }}>
                 <div className="font-medium text-[14px] truncate flex items-center gap-1.5">
                   {chat.kind === 'coding' && <CodeIcon size={13} className="shrink-0" style={{ color: 'var(--primary)' }} />}
-                  {chat.title}
+                  {chat.pinned && <Pin size={12} className="shrink-0" style={{ color: 'var(--warning)' }} />}
+                  {renaming === chat.id ? (
+                    <input
+                      autoFocus value={draft} maxLength={60}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitRename(chat.id, chat.title)
+                        if (e.key === 'Escape') setRenaming(null)
+                      }}
+                      onBlur={() => commitRename(chat.id, chat.title)}
+                      className="flex-1 min-w-0 bg-transparent outline-none text-[14px]"
+                      style={{ borderBottom: '1px solid var(--primary)' }}
+                    />
+                  ) : chat.title}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
                   <Clock3 size={11} /> {timeAgo(chat.updatedAt)} · {chat.messages.length} messages
@@ -90,6 +125,14 @@ export function ChatsView() {
                   )}
                 </div>
               </button>
+              <button onClick={() => setPinned(chat.id, !chat.pinned)} aria-label={chat.pinned ? 'Unpin chat' : 'Pin chat'}
+                title={chat.pinned ? 'Unpin' : 'Pin to the top'}
+                className={`p-2 rounded-lg hover:bg-[var(--elevated)] transition-opacity ${chat.pinned ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}
+                style={{ color: chat.pinned ? 'var(--warning)' : 'var(--text-3)' }}>
+                {chat.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              </button>
+              <button onClick={() => exportChat(chat.id)} aria-label="Export chat" title="Export as JSON"
+                className="p-2 rounded-lg opacity-40 group-hover:opacity-100 hover:bg-[var(--elevated)] transition-opacity" style={{ color: 'var(--text-3)' }}><Download size={14} /></button>
               <button onClick={() => remove(chat.id)} aria-label="Delete chat" className="p-2 rounded-lg opacity-40 group-hover:opacity-100 hover:bg-[var(--elevated)] transition-opacity" style={{ color: 'var(--danger)' }}><Trash2 size={14} /></button>
             </motion.div>
           ))}

@@ -1,13 +1,14 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus, UserRound,
-  Trash2, Search, ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, X, Pencil, Check, Swords,
-  Sun, Moon, RotateCcw, Pin, PinOff, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon,
+  ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, Check, Swords,
+  Sun, Moon, RotateCcw, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon,
+  ChevronRight,
 } from 'lucide-react'
-import { download, timeAgo } from '@/lib/utils'
+import { download } from '@/lib/utils'
 import { THEMES } from '@/lib/themes/meta'
 import { useStore } from '@/stores/useStore'
 import { UserAvatar } from '@/components/shared/UserAvatar'
@@ -15,8 +16,8 @@ import { withProfileDefaults } from '@/lib/profile'
 import { useUI } from '@/stores/useUI'
 import type { ThemeId } from '@/types'
 import { AppLogo } from '@/components/shared/AppLogo'
-import { useVirtualList } from '@/hooks/useVirtualList'
 import { prefetchRoute, routePathOf, navigateNow } from '@/lib/routes/registry'
+import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_DWELL_EXPANDED_MS } from './ChatsFlyout'
 import { clsx } from 'clsx'
 
 const NAV = [
@@ -39,13 +40,6 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   const ui = useUI()
   const navigate = useNavigate()
   const location = useLocation()
-  const chats = useStore((s) => s.chats)
-  const spaces = useStore((s) => s.spaces)
-  const [spaceFilter, setSpaceFilter] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
-  // Research and coding conversations are different work; the history list
-  // shows one kind at a time rather than interleaving them.
-  const [kindFilter, setKindFilter] = useState<'research' | 'coding'>('research')
   // The route whose chunk is being fetched. The row you clicked says so, so a
   // cold page is visibly "yours" instead of a click that seemed to do nothing.
   const routeLoading = useUI((s) => s.routeLoading)
@@ -74,21 +68,9 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 
   const closeMobile = () => { if (useUI.getState().sidebarOpenMobile) useUI.setState({ sidebarOpenMobile: false }) }
 
-  const filtered = useMemo(() => {
-    let list = chats
-    // `kind` is optional on chats written before it existed — those are research.
-    if (kindFilter === 'coding') list = list.filter((c) => c.kind === 'coding')
-    else list = list.filter((c) => c.kind !== 'coding')
-    if (spaceFilter) list = list.filter((c) => c.spaceId === spaceFilter)
-    if (query.trim()) {
-      const q = query.toLowerCase()
-      list = list.filter((c) => c.title.toLowerCase().includes(q) || c.messages.some((m) => m.content.toLowerCase().includes(q)))
-    }
-    return [...list].sort((a, b) => b.updatedAt - a.updatedAt)
-  }, [chats, spaceFilter, query, kindFilter])
-
-  const unpinned = useMemo(() => filtered.filter((c) => !c.pinned), [filtered])
-  const virt = useVirtualList(unpinned.length, 44)
+  // The sidebar is navigation only. Spaces, the research/coding switch and the
+  // full history all live on the Chats page (where there is room to search and
+  // filter), and recent conversations are one hover away on the Chats item.
 
   const width = collapsed ? 60 : 264
 
@@ -132,6 +114,9 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             return (
               <DockItem key={n.to} index={i + 2} label={n.label} active={active} pending={pendingFor(n.to)}
                 onHover={() => warm(n.to)}
+                dwellMs={n.to === '/chats' ? CHATS_DWELL_MINIMIZED_MS : 0}
+                pillMorph={n.to === '/chats'}
+                flyout={n.to === '/chats' ? <ChatsFlyout onNavigate={closeMobile} /> : undefined}
                 onClick={() => { closeMobile(); navigateNow({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) }) }}>
                 <n.icon size={18} strokeWidth={1.5} />
               </DockItem>
@@ -154,7 +139,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
           {/* New chat */}
           <div className="px-3 mt-1">
             <button
-              onClick={() => { const id = useStore.getState().newChat(spaceFilter ?? undefined); closeMobile(); navigate(`/chat/${id}`) }}
+              onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}
               className="re-new-research w-full flex items-center gap-2 px-3 py-2 rounded-[14px] text-[13px] font-medium transition-all duration-200 hover:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)] hover:-translate-y-px active:translate-y-0"
               style={{ background: 'var(--primary)', color: '#fff' }}
             >
@@ -162,122 +147,17 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             </button>
           </div>
 
-          {/* Search */}
-          <div className="px-3 mt-2">
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-[10px]" style={{ background: 'var(--elevated)' }}>
-              <Search size={14} strokeWidth={1.5} style={{ color: 'var(--text-3)' }} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search chats"
-                className="bg-transparent outline-none text-[13px] flex-1 min-w-0"
-              />
-              {query && <button onClick={() => setQuery('')} aria-label="Clear search"><X size={13} style={{ color: 'var(--text-3)' }} /></button>}
-            </div>
-          </div>
-
           {/* Nav. Hover lifts the row, grows its icon and slides the label; the
               active marker carries `re-nav-indicator`, so navigating animates it
               from the item you left to the item you arrived at. */}
           <nav className="px-3 mt-3 flex flex-col gap-0.5 re-icon-stagger">
             {NAV.map((n) => (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                end={n.end}
-                onMouseEnter={() => warm(n.to)}
-                onFocus={() => warm(n.to)}
-                onClick={(e) => {
-                  closeMobile()
-                  // The move happens now, in this tick. The chunk is usually
-                  // already warm from the hover; if it is not, the shell shows
-                  // its skeleton and the hairline — never a blocked click.
-                  e.preventDefault()
-                  navigateNow({ href: `#${n.to}`, push: (href) => navigate(href.replace(/^#/, '')) })
-                }}
-                data-pending={pendingFor(n.to) ? 'true' : 'false'}
-                aria-busy={pendingFor(n.to) || undefined}
-                className="re-nav-item group flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] overflow-hidden"
-                style={({ isActive }) => ({
-                  color: isActive ? 'var(--text)' : 'var(--text-2)',
-                  // Only the active row sets a background inline — a transparent
-                  // inline value would win over the stylesheet's hover wash.
-                  background: isActive ? 'var(--elevated)' : undefined,
-                })}
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && (
-                      <motion.span
-                        layoutId="re-nav-marker"
-                        transition={{ type: 'spring', damping: 26, stiffness: 380 }}
-                        className="re-nav-indicator absolute w-[3px] rounded-full"
-                        style={{ left: 0, top: '50%', marginTop: -9, height: 18, background: 'var(--primary)' }}
-                        aria-hidden
-                      />
-                    )}
-                    <n.icon size={17} strokeWidth={1.5} className="transition-transform" />
-                    <span className="group-hover:translate-x-0.5 transition-transform duration-200">{n.label}</span>
-                  </>
-                )}
-              </NavLink>
+              n.to === '/chats'
+                ? <ChatsRow key={n.to} label={n.label} icon={n.icon} onBefore={closeMobile} warm={() => warm(n.to)} pending={pendingFor(n.to)} />
+                : <NavRow key={n.to} to={n.to} label={n.label} icon={n.icon} end={n.end} onBefore={closeMobile} warm={() => warm(n.to)} pending={pendingFor(n.to)} />
             ))}
           </nav>
 
-          {/* Spaces */}
-          <div className="px-3 mt-4">
-            <div className="text-[10px] font-semibold uppercase tracking-wider px-2.5 mb-1.5" style={{ color: 'var(--text-3)' }}>Spaces</div>
-            <div className="flex flex-wrap gap-1.5 px-1">
-              <SpaceChip active={spaceFilter === null} label="All" color="var(--text-3)" onClick={() => setSpaceFilter(null)} />
-              {spaces.map((sp) => (
-                <SpaceChip key={sp.id} active={spaceFilter === sp.id} label={sp.name} color={sp.color} onClick={() => setSpaceFilter(spaceFilter === sp.id ? null : sp.id)} />
-              ))}
-            </div>
-          </div>
-
-          {/* Chat history */}
-          <div className="px-3 mt-4 flex-1 min-h-0 flex flex-col">
-            <div className="re-history-tabs" role="tablist" aria-label="Conversation kind">
-              <button role="tab" aria-selected={kindFilter === 'research'} data-active={kindFilter === 'research'}
-                onClick={() => setKindFilter('research')}>
-                Research
-              </button>
-              <button role="tab" aria-selected={kindFilter === 'coding'} data-active={kindFilter === 'coding'}
-                onClick={() => setKindFilter('coding')}>
-                Coding
-              </button>
-              <span className="re-history-count">{filtered.length}</span>
-            </div>
-            <div ref={virt.ref} onScroll={virt.onScroll} className="flex-1 overflow-y-auto min-h-0 no-scrollbar">
-              {filtered.length === 0 ? (
-                <div className="px-3 py-6 text-center text-[12px]" style={{ color: 'var(--text-3)' }}>
-                  No research yet.
-                  <br />Your conversations stay on this device.
-                </div>
-              ) : (
-                <>
-                  {/* Pinned section */}
-                  {filtered.some((c) => c.pinned) && (
-                    <div className="mb-1">
-                      <div className="px-2.5 pb-1 pt-1.5 text-[9.5px] font-semibold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
-                        <Pin size={9} /> Pinned
-                      </div>
-                      {filtered.filter((c) => c.pinned).map((c) => (
-                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} pinned kind={c.kind} />
-                      ))}
-                    </div>
-                  )}
-                  <div style={virt.containerStyle}>
-                    <div style={{ transform: `translateY(${virt.offset}px)` }}>
-                      {unpinned.slice(virt.slice.start, virt.slice.end).map((c) => (
-                        <ChatItem key={c.id} id={c.id} title={c.title} when={c.updatedAt} kind={c.kind} />
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
         </>
       )}
 
@@ -322,6 +202,171 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Rail rows                                                           */
+/*                                                                     */
+/* Every row carries an arrow at its right edge — it is the affordance   */
+/* for "this goes somewhere", it slides in when you point at the row,    */
+/* and on Chats it is the thing that opens: rest on the row and the      */
+/* arrow is replaced by a cube of your recent conversations.             */
+/* ------------------------------------------------------------------ */
+
+interface RowProps {
+  to: string
+  label: string
+  icon: React.ElementType
+  end?: boolean
+  pending: boolean
+  warm: () => void
+  onBefore: () => void
+}
+
+const rowClass = 're-nav-item group relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] overflow-hidden'
+const rowStyle = ({ isActive }: { isActive: boolean }) => ({
+  color: isActive ? 'var(--text)' : 'var(--text-2)',
+  // Only the active row sets a background inline — a transparent inline value
+  // would win over the stylesheet's hover wash.
+  background: isActive ? 'var(--elevated)' : undefined,
+})
+
+function useNavClick(to: string, onBefore: () => void) {
+  const navigate = useNavigate()
+  return (e: React.MouseEvent) => {
+    onBefore()
+    // The move happens now, in this tick. The chunk is usually already warm
+    // from the hover; if it is not, the shell shows its skeleton and the
+    // hairline — never a blocked click.
+    e.preventDefault()
+    navigateNow({ href: `#${to}`, push: (href) => navigate(href.replace(/^#/, '')) })
+  }
+}
+
+export function NavRow({ to, label, icon: Icon, end, pending, warm, onBefore }: RowProps) {
+  const onClick = useNavClick(to, onBefore)
+  return (
+    <NavLink to={to} end={end} onMouseEnter={warm} onFocus={warm} onClick={onClick}
+      data-pending={pending ? 'true' : 'false'}
+      aria-busy={pending || undefined}
+      className={rowClass}
+      style={rowStyle}
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <motion.span
+              layoutId="re-nav-marker"
+              transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+              className="re-nav-indicator absolute w-[3px] rounded-full"
+              style={{ left: 0, top: '50%', marginTop: -9, height: 18, background: 'var(--primary)' }}
+              aria-hidden
+            />
+          )}
+          <Icon size={17} strokeWidth={1.5} className="transition-transform" />
+          {/* `nowrap` + `truncate` matters more than it looks: the rail animates
+              its own width, and a label allowed to reflow mid-animation wraps to
+              a second line — the "doubled label" ghost that kept coming back. */}
+          <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">{label}</span>
+          {/* Dim while you are elsewhere, bright while you point at it — and
+              always present, so the row reads as a door rather than a label. */}
+          <ChevronRight size={14} aria-hidden
+            className={clsx('re-nav-arrow ml-auto shrink-0 transition-all duration-200',
+              isActive ? 'opacity-70' : 'opacity-30 group-hover:opacity-80 group-hover:translate-x-0.5')} />
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+/**
+ * Chats keeps its arrow visible and, after a moment of rest, opens a cube of
+ * recent conversations in place of it. The arrow is the seed of the cube: it
+ * shrinks toward it, the cube grows from the same point, and both settle in one
+ * spring. Nothing re-triggers while it is open.
+ */
+export function ChatsRow({ label, icon: Icon, pending, warm, onBefore }: Omit<RowProps, 'to' | 'end'>) {
+  const onClick = useNavClick('/chats', onBefore)
+  const pathname = useLocation().pathname
+  const isActive = pathname.startsWith('/chats')
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null)
+  const rowRef = useRef<HTMLAnchorElement | null>(null)
+  const dwell = useHoverDwell(CHATS_DWELL_EXPANDED_MS)
+
+  // Measure on arm (and keep it honest if the window moves underneath us).
+  useEffect(() => {
+    if (!dwell.armed) { setAnchor(null); return }
+    const place = () => {
+      const rect = rowRef.current?.getBoundingClientRect()
+      if (rect) setAnchor({ x: rect.right + 10, y: rect.top + rect.height / 2 })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [dwell.armed])
+
+  return (
+    <>
+      <NavLink ref={rowRef as any} to="/chats" end={false}
+        onMouseEnter={() => { warm(); dwell.onEnter() }}
+        onMouseLeave={dwell.onLeave}
+        onFocus={warm}
+        onClick={(e) => { dwell.close(); onClick(e) }}
+        data-pending={pending ? 'true' : 'false'}
+        data-chats-row="true"
+        data-flyout={dwell.armed ? 'true' : 'false'}
+        aria-busy={pending || undefined}
+        className={rowClass}
+        style={rowStyle}
+      >
+        <>
+          {isActive && (
+            <motion.span
+              layoutId="re-nav-marker"
+              transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+              className="re-nav-indicator absolute w-[3px] rounded-full"
+              style={{ left: 0, top: '50%', marginTop: -9, height: 18, background: 'var(--primary)' }}
+              aria-hidden
+            />
+          )}
+          <Icon size={17} strokeWidth={1.5} className="transition-transform" />
+          {/* `nowrap` + `truncate` matters more than it looks: the rail animates
+              its own width, and a label allowed to reflow mid-animation wraps to
+              a second line — the "doubled label" ghost that kept coming back. */}
+          <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">{label}</span>
+          {/* The seed: an arrow that becomes the cube. */}
+          <motion.span
+            aria-hidden
+            className="re-nav-arrow ml-auto shrink-0 flex items-center justify-center"
+            initial={false}
+            animate={dwell.armed
+              ? { scale: 0.72, opacity: 0.9, rotate: 0, borderRadius: 8 }
+              : { scale: 1, opacity: 1, borderRadius: 999 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+            style={{
+              width: 18, height: 18,
+              background: dwell.armed ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'transparent',
+              color: isActive ? 'var(--primary)' : 'var(--text-3)',
+            }}
+          >
+            <ChevronRight size={14} />
+          </motion.span>
+        </>
+      </NavLink>
+
+      {/* Portal-ed so the sidebar's own clipping can never trim the cube, and
+          positioned at the row it belongs to. */}
+      {createPortal(
+        <div className="fixed z-[65]" style={{ left: anchor?.x ?? 0, top: anchor?.y ?? 0, transform: 'translateY(-50%)', pointerEvents: dwell.armed ? 'auto' : 'none' }}>
+          <ChatCube open={dwell.armed && !!anchor} origin="left"
+            onEnter={dwell.onEnter} onLeave={dwell.onLeave}>
+            <ChatsFlyout onNavigate={dwell.close} />
+          </ChatCube>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* The dock                                                            */
 /*                                                                     */
 /* When the sidebar is collapsed it stops being a list of links and    */
@@ -359,7 +404,7 @@ function DockRail({ children }: { children: React.ReactNode }) {
   )
 }
 
-function DockItem({ index, label, active = false, pending = false, onClick, onHover, children, tone }: {
+function DockItem({ index, label, active = false, pending = false, onClick, onHover, children, tone, dwellMs = 0, flyout, pillMorph = false }: {
   index: number
   label: string
   active?: boolean
@@ -370,10 +415,17 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
   onHover?: () => void
   children: React.ReactNode
   tone?: string
+  /** Rest for this long and `flyout` opens (0 = never). */
+  dwellMs?: number
+  /** Panel shown after the dwell, anchored at this item's right edge. */
+  flyout?: React.ReactNode
+  /** While the flyout is open, swell the pill itself into a rounded cube. */
+  pillMorph?: boolean
 }) {
   const ctx = useContext(DockCtx)
   const itemRef = useRef<HTMLDivElement>(null)
   const [labelAt, setLabelAt] = useState<{ x: number; y: number } | null>(null)
+  const dwell = useHoverDwell(dwellMs || 0, dwellMs > 0)
   // The name is drawn in a portal at the icon's screen position. Coding mode's
   // workbench builds its own stacking context, so a label positioned inside the
   // rail was being painted under it — the "text disappears in coding mode"
@@ -385,10 +437,25 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
     const r = el.getBoundingClientRect()
     setLabelAt({ x: r.right + 10, y: r.top + r.height / 2 })
   }, [ctx?.hovered, index])
+  // The name and the flyout are both measured from the live element, and both
+  // are dropped the instant the pointer leaves — a stale measurement is what
+  // left a ghost label behind in an earlier round.
+  useEffect(() => {
+    if (!dwell.armed) return
+    const place = () => {
+      const r = itemRef.current?.getBoundingClientRect()
+      if (r) setLabelAt((cur) => cur ?? { x: r.right + 10, y: r.top + r.height / 2 })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [dwell.armed])
+
   const hovered = ctx?.hovered ?? null
   const d = hovered === null ? null : Math.abs(index - hovered)
   const { scale, lean } = dockMetrics(d)
   const pointed = hovered === index
+  const morphed = dwell.armed && pillMorph
   const dir = hovered === null ? 0 : Math.sign(index - hovered)
   const color = tone ?? (active ? 'var(--primary)' : 'var(--text-2)')
 
@@ -397,32 +464,48 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
       className="re-dock-item relative flex justify-center"
       data-pointed={pointed ? 'true' : 'false'}
       style={{ zIndex: pointed ? 6 : 1 }}
-      onMouseEnter={() => { ctx?.setHovered(index); onHover?.() }}
-      onFocus={() => ctx?.setHovered(index)}
-      onBlur={() => ctx?.setHovered(null)}
+      onMouseEnter={() => { ctx?.setHovered(index); onHover?.(); dwell.onEnter() }}
+      onMouseLeave={dwell.onLeave}
+      onFocus={() => { ctx?.setHovered(index); dwell.onEnter() }}
+      onBlur={() => { ctx?.setHovered(null); dwell.onLeave() }}
     >
       <motion.div
-        animate={{ scale, y: dir * lean }}
+        animate={{ scale: morphed ? scale * 1.12 : scale, y: dir * lean }}
         transition={{ type: 'spring', damping: 20, stiffness: 420, mass: 0.6 }}
         className="relative"
         ref={itemRef}
+        data-flyout={morphed ? 'true' : 'false'}
       >
-        <button
-          onClick={onClick}
+        <motion.button
+          onClick={() => { dwell.close(); onClick() }}
           aria-label={label}
           title={label}
           aria-current={active ? 'page' : undefined}
-          className="relative flex items-center justify-center w-9 h-9 rounded-[11px] transition-colors"
+          aria-expanded={dwellMs > 0 ? dwell.armed : undefined}
+          initial={false}
+          animate={{ borderRadius: morphed ? 18 : 11 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+          className="relative flex items-center justify-center w-9 h-9 transition-colors"
           style={{
             color,
-            background: active ? 'var(--elevated)' : pointed ? 'var(--elevated)' : 'transparent',
+            background: active || pointed ? 'var(--elevated)' : 'transparent',
             boxShadow: pointed ? '0 8px 22px -10px rgba(0,0,0,0.55)' : 'none',
           }}
         >
           {active && <span className="re-nav-indicator absolute left-[-5px] top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full" style={{ background: 'var(--primary)' }} />}
           {children}
           {pending && <span className="re-dock-pending" aria-hidden />}
-        </button>
+        </motion.button>
+
+        {/* The cube grows out of the pill you were pointing at. */}
+        {flyout && createPortal(
+          <div className="fixed z-[66]" style={{ left: (labelAt?.x ?? 0) + 8, top: labelAt?.y ?? 0, transform: 'translateY(-50%)', pointerEvents: dwell.armed ? 'auto' : 'none' }}>
+            <ChatCube open={dwell.armed && !!labelAt} origin="left" onEnter={dwell.onEnter} onLeave={dwell.onLeave}>
+              {flyout}
+            </ChatCube>
+          </div>,
+          document.body,
+        )}
 
         {/* The mirror under the highlighted icon (Cult UI's dock). */}
         {pointed && <span className="re-dock-reflection" aria-hidden>{children}</span>}
@@ -432,7 +515,7 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
           ancestor's overflow or stacking context can swallow it. */}
       {createPortal(
         <AnimatePresence>
-          {pointed && labelAt && (
+          {pointed && labelAt && !morphed && (
             <motion.span
               initial={{ opacity: 0, x: -8, scale: 0.94 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -480,126 +563,6 @@ function IconBtn({ children, label, onClick, active = false }: { children: React
   )
 }
 
-function SpaceChip({ active, label, color, onClick }: { active: boolean; label: string; color: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] transition-all"
-      style={{
-        background: active ? 'var(--elevated)' : 'transparent',
-        border: `1px solid ${active ? color : 'var(--surface-border)'}`,
-        color: active ? 'var(--text)' : 'var(--text-2)',
-      }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-      {label}
-    </button>
-  )
-}
-
-function ChatItem({ id, title, when, pinned, kind }: { id: string; title: string; when: number; pinned?: boolean; kind?: string }) {
-  const { id: activeId } = useParams()
-  const navigate = useNavigate()
-  const [menu, setMenu] = useState(false)
-  const [renaming, setRenaming] = useState(false)
-  const [draft, setDraft] = useState(title)
-  const active = activeId === id
-  const spaces = useStore((s) => s.spaces)
-
-  const setPinned = (v: boolean) => useStore.setState((s) => ({
-    chats: s.chats.map((c) => c.id === id ? { ...c, pinned: v } : c),
-  }))
-  const moveToSpace = (spaceId?: string) => useStore.setState((s) => ({
-    chats: s.chats.map((c) => c.id === id ? { ...c, spaceId } : c),
-  }))
-  const exportChat = () => {
-    const chat = useStore.getState().chats.find((c) => c.id === id)
-    if (!chat) return
-    download(`${chat.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 40) || 'chat'}.json`,
-      JSON.stringify(chat, null, 2), 'application/json')
-  }
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -30 }}
-      className="group chat-row flex items-center rounded-[10px] mb-0.5 relative"
-      data-active={active}
-      data-kind={kind === 'coding' ? 'coding' : 'research'}
-      style={{ height: 44 }}
-      onContextMenu={(e) => { e.preventDefault(); setMenu(true) }}
-    >
-      <button
-        onClick={() => { useStore.getState().setActiveChat(id); navigate(`/chat/${id}`) }}
-        onDoubleClick={() => { setDraft(title); setRenaming(true) }}
-        title={title}
-        className="flex-1 min-w-0 text-left px-2.5 py-2"
-      >
-        {renaming ? (
-          <input
-            autoFocus value={draft} maxLength={40}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { useStore.getState().renameChat(id, draft || title); setRenaming(false) }
-              if (e.key === 'Escape') setRenaming(false)
-            }}
-            onBlur={() => { useStore.getState().renameChat(id, draft || title); setRenaming(false) }}
-            className="w-full bg-transparent outline-none text-[13px] border-b border-[var(--primary)]"
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <>
-            <div className="text-[13px] truncate flex items-center gap-1" style={{ color: active ? 'var(--text)' : 'var(--text-2)' }}>
-              {pinned && <Pin size={10} className="shrink-0" style={{ color: 'var(--warning)' }} />}
-              {kind === 'coding' && <CodeIcon size={11} className="shrink-0" style={{ color: 'var(--primary)' }} />}
-              <span className="chat-title truncate">{title}</span>
-            </div>
-            <div className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{timeAgo(when)}</div>
-          </>
-        )}
-      </button>
-
-      <div className="hidden group-hover:flex items-center gap-0.5 pr-2">
-        <button aria-label="More options" title="Rename / Pin / Export / Move / Delete" className="p-1 rounded hover:bg-[var(--surface)]" style={{ color: 'var(--text-3)' }}
-          onClick={() => setMenu(true)}>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Context menu */}
-      <AnimatePresence>
-        {menu && (
-          <>
-            <div className="fixed inset-0 z-[60]" onClick={() => setMenu(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.12 }}
-              className="absolute right-2 top-10 z-[61] min-w-[160px] surface-elevated p-1 rounded-[12px]"
-              style={{ boxShadow: '0 12px 40px -12px rgba(0,0,0,0.5)', border: '1px solid var(--surface-border)' }}
-            >
-              <CtxItem icon={<Pencil size={13} />} label="Rename" onClick={() => { setMenu(false); setDraft(title); setRenaming(true) }} />
-              <CtxItem icon={pinned ? <PinOff size={13} /> : <Pin size={13} />} label={pinned ? 'Unpin' : 'Pin'} onClick={() => { setPinned(!pinned); setMenu(false) }} />
-              <CtxItem icon={<Download size={13} />} label="Export as JSON" onClick={() => { exportChat(); setMenu(false) }} />
-              <div className="px-2 pt-1.5 pb-0.5 text-[9.5px] uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
-                <FolderInput size={9} /> Move to space
-              </div>
-              {spaces.map((sp) => (
-                <CtxItem key={sp.id} icon={<span className="w-2 h-2 rounded-full inline-block" style={{ background: sp.color }} />}
-                  label={sp.name} onClick={() => { moveToSpace(sp.id); setMenu(false) }} />
-              ))}
-              <CtxItem icon={<Trash2 size={13} />} label="Delete" danger onClick={() => { useStore.getState().deleteChat(id); setMenu(false) }} />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  )
-}
-
 function CtxItem({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean }) {
   return (
     <button onClick={onClick}
@@ -615,7 +578,7 @@ function CtxItem({ icon, label, onClick, danger }: { icon: React.ReactNode; labe
 function SettingsLauncher({ collapsed }: { collapsed: boolean }) {
   return (
     <button
-      onClick={() => useUI.getState().openSettings()}
+      onClick={() => useUI.setState({ settingsSheet: true })}
       className={clsx(
         'pressable flex items-center gap-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]',
@@ -650,7 +613,7 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="relative">
       <button
-        onPointerDown={() => { longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; useUI.getState().openSettings('appearance') }, 600) }}
+        onPointerDown={() => { longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; setPickerOpen(true) }, 500) }}
         onPointerUp={() => clearTimeout(pressTimer.current)}
         onPointerLeave={() => clearTimeout(pressTimer.current)}
         onClick={() => { if (!longPressed.current) cycle() }}
@@ -658,7 +621,7 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
           'pressable flex items-center gap-2 rounded-[10px] transition-colors hover:bg-[var(--elevated)]',
           collapsed ? 'p-2' : 'w-full px-2.5 py-2',
         )}
-        aria-label="Cycle theme" title="Click: cycle themes · hold: Appearance settings"
+        aria-label="Cycle theme" title="Click: cycle themes · hold: theme picker"
         style={{ color: 'var(--text-2)' }}
       >
         {isDark ? <Moon size={18} strokeWidth={1.5} /> : <Sun size={18} strokeWidth={1.5} />}
@@ -697,9 +660,9 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
 /** User profile pill — avatar, name, presence dot. Popover with profile options. */
 function ProfilePill({ collapsed }: { collapsed: boolean }) {
   const name = useStore((s) => s.settings.profileName) ?? 'Researcher'
-  const handle = withProfileDefaults(useStore((s) => s.settings.profile)).handle
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(name)
+  const initials = (name || 'Researcher').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'R'
 
   return (
     <div className="relative">
@@ -709,13 +672,16 @@ function ProfilePill({ collapsed }: { collapsed: boolean }) {
         aria-label="Profile"
       >
         <span className="relative shrink-0">
-          <UserAvatar size={28} />
+          <span className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold"
+            style={{ background: 'color-mix(in srgb, var(--primary) 22%, transparent)', color: 'var(--primary)' }}>
+            {initials}
+          </span>
           <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full" style={{ background: 'var(--success)', border: '2px solid var(--bg)' }} />
         </span>
         {!collapsed && (
           <span className="text-left min-w-0">
             <span className="block text-[12px] font-medium truncate" style={{ color: 'var(--text)' }}>{name}</span>
-            <span className="block text-[9.5px] truncate" style={{ color: 'var(--text-3)' }}>@{handle} · Local</span>
+            <span className="block text-[9.5px]" style={{ color: 'var(--text-3)' }}>Local · private</span>
           </span>
         )}
       </button>
@@ -730,40 +696,18 @@ function ProfilePill({ collapsed }: { collapsed: boolean }) {
               className="absolute bottom-full left-0 mb-2 z-50 w-[240px] surface-elevated p-3"
               style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.5)' }}
             >
-              <div className="flex items-center gap-2.5 mb-3">
-                <UserAvatar size={40} />
-                <div className="min-w-0">
-                  <div className="text-[12px] font-medium truncate">{name}</div>
-                  <div className="text-[10.5px] font-mono truncate" style={{ color: 'var(--text-3)' }}>@{handle}</div>
-                </div>
-              </div>
               <div className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-3)' }}>Display name</div>
               <div className="flex gap-1.5 mb-3">
                 <input value={draft} onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== 'Enter') return
-                    const nextName = draft.trim() || 'Researcher'
-                    useStore.setState((s) => ({ settings: { ...s.settings, profileName: nextName, profile: withProfileDefaults({ ...s.settings.profile, name: nextName }) } }))
-                    setOpen(false)
-                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { useStore.setState((s) => ({ settings: { ...s.settings, profileName: draft.trim() || 'Researcher' } })); setOpen(false) } }}
                   className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[8px] text-[12px] bg-transparent outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
                 <button
-                  onClick={() => {
-                    const nextName = draft.trim() || 'Researcher'
-                    useStore.setState((s) => ({ settings: { ...s.settings, profileName: nextName, profile: withProfileDefaults({ ...s.settings.profile, name: nextName }) } }))
-                    setOpen(false)
-                  }}
+                  onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, profileName: draft.trim() || 'Researcher' } })); setOpen(false) }}
                   className="px-2.5 rounded-[8px] text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
                   <Check size={13} />
                 </button>
               </div>
-              <button
-                onClick={() => { setOpen(false); useUI.getState().openSettings('profile') }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 mb-0.5 rounded-[8px] text-[12px] hover:bg-[var(--elevated)]"
-                style={{ color: 'var(--text-2)' }}>
-                <UserRound size={13} /> Edit profile &amp; avatar
-              </button>
               <button
                 onClick={() => { setOpen(false); useStore.setState((s) => ({ settings: { ...s.settings, onboarded: false } })) }}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[8px] text-[12px] hover:bg-[var(--elevated)]"
@@ -777,6 +721,7 @@ function ProfilePill({ collapsed }: { collapsed: boolean }) {
     </div>
   )
 }
+
 
 export function PrivacyShield({ compact = false, amber = false }: { compact?: boolean; amber?: boolean }) {
   const ui = useUI()

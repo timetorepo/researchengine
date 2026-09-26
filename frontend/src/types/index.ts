@@ -332,6 +332,17 @@ export interface Settings {
   }
   /** Smooth caret in text fields (Skiper UI's SmoothInput). */
   smoothCaret?: boolean
+  /**
+   * The scroll-progress indicator (Skiper's scroll progress, adapted). Its
+   * position is remembered per surface, because the clear edge differs between
+   * the chat composer, the IDE panel and the workflow canvas.
+   */
+  scrollProgress?: {
+    enabled?: boolean
+    /** Right-click unlocked: the indicator can be dragged anywhere. */
+    unlocked?: boolean
+    perSurface?: Record<string, { right: number; top: string }>
+  }
   floodBudget: number
   osWidgets: boolean
   osWallpaper: string

@@ -35,23 +35,37 @@ export function useSmoothCaretEnabled(): boolean {
  *
  *   <input {...smoothCaretProps()} className="…" />
  *
- * The caret itself is drawn by `.re-caret-host` + a sibling `<SmoothCaret>`,
- * but a field without one still gets a *soft* caret: the transparent native
- * caret plus the `transition` on caret-width, which is invisible minus the
- * animation but never worse than the browser default.
+ * NOT a hook, deliberately. This is spread inside conditionals and inside
+ * `.map()` bodies all over the app (a route list that grows as it loads, a key
+ * field that only appears when a key is needed), and a hook called from there
+ * changes the hook count between renders — which is exactly React error #310,
+ * the crash the FreeRoute page shipped with. It reads the store's current value
+ * instead of subscribing: fields re-render with the components that own them,
+ * and `useSmoothCaret()` exists for the rare case where a component wants to
+ * react to the setting itself.
  */
 export function smoothCaretProps(enabled?: boolean): {
   style?: React.CSSProperties
   className?: string
   'data-smooth-caret'?: string
 } {
-  const on = enabled ?? useSmoothCaretEnabled()
+  const on = enabled ?? useStore.getState().settings?.smoothCaret !== false
   if (!on) return {}
   return {
     style: { caretColor: 'transparent' },
     className: 're-smooth-caret',
     'data-smooth-caret': 'true',
   }
+}
+
+/**
+ * Hook-safe spelling, for components that want the props *and* to re-render
+ * when the setting changes. Call it once at the top of the component and reuse
+ * the result — never inside a conditional or a `.map()`.
+ */
+export function useSmoothCaret(enabled?: boolean): ReturnType<typeof smoothCaretProps> {
+  const setting = useSmoothCaretEnabled()
+  return React.useMemo(() => smoothCaretProps(enabled ?? setting), [enabled, setting])
 }
 
 /** Measure the pixel width of `text` as the field would render it. */

@@ -1520,6 +1520,14 @@ button:active > svg.lucide, [role="button"]:active > svg.lucide { transform: sca
 ::view-transition-group(re-topbar), ::view-transition-group(re-sidebar) { animation: none; }
 ::view-transition-old(re-topbar), ::view-transition-new(re-topbar),
 ::view-transition-old(re-sidebar), ::view-transition-new(re-sidebar) { animation: none; opacity: 1; }
+/* One snapshot only. Both were painted at full opacity, and the sidebar's own
+   background is transparent between its rows — so any difference between the
+   two snapshots (a hovered row shifted 2px, the active marker mid-slide, a
+   label that reflowed while the rail animated its width) showed *through* the
+   new one as a ghost: the doubled label in the sidebar that survived several
+   rounds of fixes. Hiding the outgoing snapshot removes the possibility rather
+   than the symptom. */
+::view-transition-old(re-sidebar), ::view-transition-old(re-topbar) { display: none; }
 
 /* ================================================================== */
 /* Workflows — cards, nodes, edges                                     */
@@ -2194,3 +2202,86 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
 @media (prefers-reduced-motion: reduce), (prefers-contrast: more) {
   .re-dock-reflection { display: none; }
 }
+
+/* ================================================================== */
+/* CssLink — links whose underline is drawn, not switched on           */
+/* (Skiper's CSS link, reimplemented on our tokens)                    */
+/* ================================================================== */
+/* The rule is a background gradient on the text box: it is wiped in from
+   the left on hover and stays for touch/focus, so the underline "grows"
+   rather than blinking into place. The gradient stops are the row's own
+   colour, so an inline link in prose, a citation chip and a call-to-action
+   card all underline in the colour that belongs to them. */
+.re-css-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28em;
+  color: var(--primary);
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 calc(100% - 0.06em);
+  background-size: 0% 1px;
+  transition: background-size 320ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms ease;
+  border-radius: 6px;
+}
+.re-css-link:hover, .re-css-link:focus-visible { background-size: 100% 1px; }
+.re-css-link:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
+.re-css-link:hover .re-css-link-arrow { opacity: 1; transform: translate(1px, -1px); }
+.re-css-link-arrow {
+  display: inline-flex;
+  opacity: 0.35;
+  transform: translate(0, 0);
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-css-link-icon { display: inline-flex; align-items: center; }
+.re-css-link-text { min-width: 0; }
+
+/* Citations: a real chip — the number, the source, its host — because a
+   footnote-looking number is what the reader is scanning for. */
+.re-css-link[data-variant="chip"] {
+  gap: 0.4em;
+  padding: 1px 7px 1px 5px;
+  border: 1px solid var(--surface-border);
+  background-color: var(--elevated);
+  border-radius: 999px;
+  font-size: 0.92em;
+  background-position: 0.35em calc(100% - 0.1em);
+  background-size: 0 calc(100% - 0.15em);
+}
+.re-css-link[data-variant="chip"]:hover,
+.re-css-link[data-variant="chip"]:focus-visible { background-size: calc(100% - 0.7em) calc(100% - 0.15em); background-color: transparent; }
+.re-css-link-index { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.85em; opacity: 0.7; padding-left: 2px; }
+.re-css-link-quote { opacity: 0.55; flex-shrink: 0; }
+.re-css-link-host { color: var(--text-3); font-size: 0.86em; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-css-link[data-variant="chip"] .re-css-link-title { max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Standalone: a whole card that happens to be a link. */
+.re-css-link[data-variant="standalone"] {
+  display: flex;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--elevated);
+  border-radius: 14px;
+  background-image: none;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), border-color 240ms ease, box-shadow 240ms ease;
+}
+.re-css-link[data-variant="standalone"]:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--surface-border));
+  box-shadow: 0 12px 30px -16px rgba(0, 0, 0, 0.5);
+}
+
+/* An underline that never animates is the honest fallback. */
+@media (prefers-reduced-motion: reduce) {
+  .re-css-link { transition: none; background-size: 100% 1px; background-position: 0 calc(100% - 0.06em); }
+  .re-css-link[data-variant="chip"] { background-size: calc(100% - 0.7em) calc(100% - 0.15em); }
+  .re-css-link-arrow { transition: none; }
+}
+
+/* The row arrow: it is the affordance, so it never disappears on the row you
+   are pointing at — it is already there when the cube takes its place. */
+.re-nav-arrow { color: var(--text-3); }
+.re-nav-item:hover .re-nav-arrow { color: var(--primary); }
+.re-nav-item[aria-current="page"] .re-nav-arrow { color: color-mix(in srgb, var(--primary) 70%, var(--text-3)); }

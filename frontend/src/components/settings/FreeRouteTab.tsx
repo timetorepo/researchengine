@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
-import { smoothCaretProps } from '@/components/input/SmoothText'
+import { useSmoothCaret } from '@/components/input/SmoothText'
 import { Button } from '@/components/ui/heroui/Button'
 
 /**
@@ -52,6 +52,9 @@ export function FreeRouteTab() {
   const [probing, setProbing] = useState(false)
   const [testing, setTesting] = useState<string | null>(null)
   const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({})
+  // Called once, at the top: the key fields below render conditionally, and a
+  // hook spread from inside that conditional is React error #310.
+  const caret = useSmoothCaret()
 
   const providerKeys = useMemo(() => {
     const out: Record<string, string> = {}
@@ -251,7 +254,7 @@ export function FreeRouteTab() {
                         autoComplete="off"
                         className="flex-1 px-3 py-1.5 rounded-[9px] bg-transparent outline-none text-[12px] font-mono"
                         style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
-                        {...smoothCaretProps()}
+                        {...caret}
                       />
                       <Button variant="flat" size="sm" onClick={() => { saveRouteKey(r.id, keyDrafts[r.id] ?? ''); useUI.getState().toast('Key saved locally', `${r.name} will be used on the next probe.`, 'success') }}>Save</Button>
                     </div>

@@ -69,6 +69,7 @@ interface StoreState {
 
 const defaultSettings: Settings = {
   smoothCaret: true,
+  scrollProgress: { enabled: true, unlocked: false, perSurface: {} },
   freeRoute: { enabled: true, order: [], keys: {}, disabled: [] },
   theme: 'dark',
   fontScale: 1,
