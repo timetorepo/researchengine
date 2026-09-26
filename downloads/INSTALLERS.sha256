@@ -8,8 +8,8 @@
 #   shasum -a 256  Research.Engine_0.27.0-beta.1_amd64.AppImage
 #
 # The hashes below are printed by CI for the exact files it built, uploaded
-# and verified (magic bytes, NSIS/ar/ELF signature, size) in run 36227869927
-# (jobs: Windows installer 108365265538, Linux bundles 108365265650).
-b40b746b0a323c4cf210882f9c10f465d42fa6275868411f5f65e8097f3cbcd7  Research.Engine_0.27.0-beta.1_x64-setup.exe
-f86daec3fcf8c6dccb053e04d1a70ffa0dd851231e1faf28e6464f11f0a1c6dd  Research.Engine_0.27.0-beta.1_amd64.deb
-38e8d56dbcc7257456569387240cf48b7c4b0f7219a652618f84c15feba7f39a  Research.Engine_0.27.0-beta.1_amd64.AppImage
+# and verified (magic bytes, NSIS/ar/ELF signature, size) in run 36228769700
+# (jobs: Windows installer 108367756217, Linux bundles 108367756049).
+436cf139a600a1a6898d9ef8c4f350b8a1c77b0fdb60308556fbc2082fef58d7  Research.Engine_0.27.0-beta.1_x64-setup.exe
+619dfc57324bb56a5dfc5b5ef566848ce4d516fc0ce90cb74acc8262585e0f78  Research.Engine_0.27.0-beta.1_amd64.deb
+7ad7ed64712a9a2bfb1232834fe9340058c62f10cdd93a66e8ac63dcc52dfe6f  Research.Engine_0.27.0-beta.1_amd64.AppImage

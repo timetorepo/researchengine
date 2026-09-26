@@ -108,8 +108,18 @@ surface. The hard part was that this app has no single scroll container, so it:
 | Linux installer | `Research.Engine_0.27.0-beta.1_amd64.deb`, `…AppImage` | nothing |
 
 Portable archives are attached to this release and hashed in `SHA256SUMS`;
-installer hashes are in `downloads/INSTALLERS.sha256`. Node.js is only needed by
-the portable builds — the installers carry their own server.
+installer hashes are in `downloads/INSTALLERS.sha256`. Every one of them was
+built by CI from this tag (run 36228769700, both jobs green) and verified before
+upload — magic bytes, NSIS/ar/ELF signature, size. Node.js is only needed by the
+portable builds; the installers carry their own server.
+
+| File | sha256 |
+|---|---|
+| `Research.Engine_0.27.0-beta.1_x64-setup.exe` | `436cf139…58d7` |
+| `Research.Engine_0.27.0-beta.1_amd64.deb` | `619dfc57…0f78` |
+| `Research.Engine_0.27.0-beta.1_amd64.AppImage` | `7ad7ed64…fe6f` |
+| `research-engine-0.27.0-beta.1-linux-x64.tar.gz` | `087bad27…33bf` |
+| `research-engine-0.27.0-beta.1-win-x64.zip` | `3300a6e0…ae8c` |
 
 Data lives in `~/.research-engine` (`%USERPROFILE%\.research-engine` on Windows)
 and is shared by every build, so updating never touches your library.
