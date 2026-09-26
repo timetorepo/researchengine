@@ -109,29 +109,38 @@ Safari        :  File -> Add to Home Screen (or Share on iOS)
 
 ### B. Desktop app (Tauri)
 
-**What it is.** A native window wrapping the same engine: system tray, global hotkey, native file dialogs, OS keychain-friendly secret storage, and start-at-login. The shell lives in `desktop/` of this repository.
+**What it is.** A native window (Tauri 2, the OS's own webview — WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) around the same engine. The entire local server — API, SSE streams, documents, the Coding/Design preview manager — is compiled into **one self-contained executable**, so the app needs **no Node.js, no Electron and no browser** on your machine.
 
-**Best for.** The recommended default for laptop and desktop users who want Research Engine one keystroke away.
+**Best for.** The recommended default on a laptop or desktop: double-click, and the app is there with everything local.
 
-**Requirements.** For prebuilt installers: none — install and run. To build installers yourself (or on a platform without prebuilts): Rust 1.80+, the Tauri CLI, and the platform toolchain (Xcode command-line tools on macOS, WebView2 on Windows — preinstalled on Windows 11, GTK/webkit2gtk on Linux).
+**How it starts.** The shell is deliberate about boot order:
 
-**Install.** Download the asset for your platform from the release page and verify its checksum before running:
+1. Is a Research Engine server already answering on `127.0.0.1:3847`? Reuse it (that is the dev-server case, or a second launch of the app).
+2. Otherwise spawn the server binary that sits next to the app, pointing it at the bundled UI (`FRONTEND_DIST`).
+3. Poll `/api/health` over a socket until the server **answers** — a reachable port is not enough — then open the window at `http://127.0.0.1:3847/`.
+4. When the window closes, that server process is stopped with it. One process tree, one life.
+
+**Requirements.** None to install a prebuilt. To build one yourself: Rust stable, Node 20+ (`bun` is a devDependency and compiles the server), and on Linux `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`.
+
+**Install.** Download the asset for your platform from the release page, and compare the checksum printed by CI for that build.
 
 | Platform | Asset | Notes |
 |---|---|---|
-| macOS | `ResearchEngine_<ver>_aarch64.dmg`, `_x64.dmg` | Apple Silicon and Intel builds; notarization pending for early betas — right-click -> Open the first time |
-| Windows | `ResearchEngine_<ver>_x64-setup.exe` | Installer; an NSIS-free portable `.zip` is also published |
-| Linux | `.AppImage`, `.deb`, `.rpm`, Flatpak manifest, AUR package | AppImage needs `chmod +x` and FUSE |
+| Windows 10/11 x64 | `Research.Engine_<ver>_x64-setup.exe` | Per-user NSIS installer — no admin prompt, Start-menu entry, uninstaller; the WebView2 bootstrapper runs only if the machine does not already have it |
+| Linux x64 | `Research.Engine_<ver>_amd64.deb`, `Research.Engine_<ver>_amd64.AppImage` | `sudo apt install ./…deb`, or `chmod +x …AppImage && ./…AppImage` |
+| macOS | build from source — no macOS runner yet | `npm run desktop:build` on the Mac produces the `.dmg` |
 
 ```bash
-shasum -a 256 ResearchEngine_0.17.0-beta.1_aarch64.dmg   # compare with the SHA256SUMS on the release
+sudo apt install ./Research.Engine_0.25.0-beta.1_amd64.deb
+# or
+chmod +x Research.Engine_0.25.0-beta.1_amd64.AppImage && ./Research.Engine_0.25.0-beta.1_amd64.AppImage
 ```
 
-**Run.** Launch from the applications menu. The app starts the local backend automatically; close-to-tray keeps it warm.
+**Data.** The same `~/.research-engine` (`%USERPROFILE%\.research-engine` on Windows) SQLite database the web and portable builds use, so the desktop app, a browser tab and a portable copy all read the same library. Move the port with `RE_DESKTOP_PORT` if something else lives on 3847.
 
-**Update.** In-app update prompt when a new pre-release is published, or download the new installer over the old one.
+**Build it.** `npm install && npm run build && npm run desktop:sidecar && npm run desktop:check && npm run desktop:build` — output in `desktop/src-tauri/target/release/bundle/`. CI (`.github/workflows/desktop.yml`) builds the Windows and Linux installers on every tag and attaches them to the release; it boots the compiled server on the runner and verifies the installer's magic bytes, NSIS signature and size **before** uploading.
 
-**Uninstall.** Standard OS removal (drag out of Applications / Add or remove programs / your package manager). Your data directory (`~/.research-engine`) is left untouched — delete it manually for a complete wipe.
+**Not included (yet).** No tray icon, no global hotkey, no auto-update, and no macOS notarization — the window, the local server and the installer are what this round ships.
 
 ### C. Native binary (portable folder)
 
