@@ -19,7 +19,8 @@
     "desktop:build": "npm run tauri:build --prefix desktop",
     "package:binary": "node scripts/package-binary.mjs",
     "desktop:sidecar": "node scripts/desktop-sidecar.mjs",
-    "desktop:check": "node scripts/desktop-check.mjs --run"
+    "desktop:check": "node scripts/desktop-check.mjs --run",
+    "render-probe": "npm run render-probe --workspace frontend"
   },
   "engines": {
     "node": ">=20"

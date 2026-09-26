@@ -11,7 +11,8 @@
     "design-test": "tsx scripts/design-test.mts",
     "sample-test": "tsx scripts/sample-test.mts",
     "ui-test": "tsx scripts/ui-test.mts",
-    "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts"
+    "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts",
+    "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts"
   },
   "dependencies": {
     "@blobatar/react": "^2.7.0",

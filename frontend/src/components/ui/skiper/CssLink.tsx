@@ -35,7 +35,13 @@ export interface CssLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorEleme
   cite?: boolean
 }
 
-const isExternal = (href: string) => /^https?:\/\//i.test(href) && !href.startsWith(window.location.origin)
+// Never assume a window: this renders during server-side passes too (and the
+// first paint of a static build), so the origin check is guarded.
+const isExternal = (href: string) => {
+  if (!/^https?:\/\//i.test(href)) return false
+  const origin = typeof window === 'undefined' ? '' : window.location.origin
+  return !origin || !href.startsWith(origin)
+}
 
 export function CssLink({
   href = '#', children, variant = 'inline', icon, external, cite, className, onClick, ...rest

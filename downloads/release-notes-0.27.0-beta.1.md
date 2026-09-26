@@ -87,8 +87,14 @@ surface. The hard part was that this app has no single scroll container, so it:
 
 ## Everything else in this round
 
-- `render-check` grew a section for this round: **530 checks, all passing**
+- `render-check` grew a section for this round: **532 checks, all passing**
   (hook-order proof included).
+- A new **render probe** (`npm run render-probe`, 27 checks) mounts the shell's
+  components into a string with no browser — the only headless way to catch a
+  crash that happens *while rendering*, which is the class of bug this round
+  started with. It caught one of mine: a portal read `document.body` during
+  render, which throws anywhere that is not a browser. All floating UI (dock
+  labels, the chats cube) now goes through one guarded portal.
 - Version bumped to 0.27.0-beta.1 across the workspace, the README badge and
   Settings → About, which carries the full changelog entry.
 

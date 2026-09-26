@@ -1399,7 +1399,8 @@ async function main() {
   const deadSheet = sideSrc22.includes('settingsOpen: true')
   check('no control still flips a settings flag nothing renders', !deadSheet)
   // the dock label lives in a portal so no ancestor can clip it
-  check('dock labels are rendered into the body', sideSrc22.includes('createPortal') && sideSrc22.includes('document.body'))
+  check('dock labels are rendered into the body',
+    sideSrc22.includes('<Portal>') && m16readSrc(new URL('../src/lib/dom/portal.tsx', import.meta.url)).includes('createPortal(children, document.body)'))
   check('and positioned from the icon on screen', sideSrc22.includes('getBoundingClientRect'))
 
   /* ------------------------------------------------------------------ */
@@ -1662,7 +1663,9 @@ async function main() {
   check('it is one spring, not a sequence', (flyoutSrc.match(/type: 'spring'/g) ?? []).length >= 1 && !flyoutSrc.includes('delayChildren'))
   check('the pointer can cross the gap into the cube', flyoutSrc.includes('graceMs = 240') && flyoutSrc.includes('closeTimer.current = setTimeout(() => setArmed(false), graceMs)'))
   check('and re-entering cancels the pending close', /onEnter: \(\) => \{\n\s*\/\/[^\n]*\n\s*clearClose\(\)/m.test(flyoutSrc) || flyoutSrc.includes('clearClose()\n      if (!enabled || armed) return'))
-  check('the panel is portalled so no ancestor can clip it', sideSrc21.includes('createPortal') && sideSrc21.includes('<ChatCube'))
+  check('the panel is portalled so no ancestor can clip it', sideSrc21.includes('<Portal>') && sideSrc21.includes('<ChatCube'))
+  check('and the portal never assumes a document', m16readSrc(new URL('../src/lib/dom/portal.tsx', import.meta.url)).includes("typeof document === 'undefined'"))
+  check('the render probe exists and renders in markup', m16readSrc(new URL('./render-probe.mts', import.meta.url)).includes('renderToStaticMarkup'))
   check('recent chats are read from the store, newest first', flyoutSrc.includes('b.updatedAt') && flyoutSrc.includes('RECENT_LIMIT'))
   check('and each row says what kind it is', flyoutSrc.includes('c.kind === \'coding\''))
 

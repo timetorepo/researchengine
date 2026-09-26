@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -18,6 +17,7 @@ import type { ThemeId } from '@/types'
 import { AppLogo } from '@/components/shared/AppLogo'
 import { prefetchRoute, routePathOf, navigateNow } from '@/lib/routes/registry'
 import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_DWELL_EXPANDED_MS } from './ChatsFlyout'
+import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
 
 const NAV = [
@@ -353,15 +353,14 @@ export function ChatsRow({ label, icon: Icon, pending, warm, onBefore }: Omit<Ro
 
       {/* Portal-ed so the sidebar's own clipping can never trim the cube, and
           positioned at the row it belongs to. */}
-      {createPortal(
+      <Portal>
         <div className="fixed z-[65]" style={{ left: anchor?.x ?? 0, top: anchor?.y ?? 0, transform: 'translateY(-50%)', pointerEvents: dwell.armed ? 'auto' : 'none' }}>
           <ChatCube open={dwell.armed && !!anchor} origin="left"
             onEnter={dwell.onEnter} onLeave={dwell.onLeave}>
             <ChatsFlyout onNavigate={dwell.close} />
           </ChatCube>
-        </div>,
-        document.body,
-      )}
+        </div>
+      </Portal>
     </>
   )
 }
@@ -498,13 +497,14 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
         </motion.button>
 
         {/* The cube grows out of the pill you were pointing at. */}
-        {flyout && createPortal(
-          <div className="fixed z-[66]" style={{ left: (labelAt?.x ?? 0) + 8, top: labelAt?.y ?? 0, transform: 'translateY(-50%)', pointerEvents: dwell.armed ? 'auto' : 'none' }}>
-            <ChatCube open={dwell.armed && !!labelAt} origin="left" onEnter={dwell.onEnter} onLeave={dwell.onLeave}>
-              {flyout}
-            </ChatCube>
-          </div>,
-          document.body,
+        {flyout && (
+          <Portal>
+            <div className="fixed z-[66]" style={{ left: (labelAt?.x ?? 0) + 8, top: labelAt?.y ?? 0, transform: 'translateY(-50%)', pointerEvents: dwell.armed ? 'auto' : 'none' }}>
+              <ChatCube open={dwell.armed && !!labelAt} origin="left" onEnter={dwell.onEnter} onLeave={dwell.onLeave}>
+                {flyout}
+              </ChatCube>
+            </div>
+          </Portal>
         )}
 
         {/* The mirror under the highlighted icon (Cult UI's dock). */}
@@ -513,7 +513,7 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
 
       {/* The name, only for the icon under the pointer — portal-ed so no
           ancestor's overflow or stacking context can swallow it. */}
-      {createPortal(
+      <Portal>
         <AnimatePresence>
           {pointed && labelAt && !morphed && (
             <motion.span
@@ -527,9 +527,8 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
               {label}
             </motion.span>
           )}
-        </AnimatePresence>,
-        document.body,
-      )}
+        </AnimatePresence>
+      </Portal>
     </div>
   )
 }
