@@ -6,8 +6,16 @@ pure-JS portable builds: the only requirement on your machine is Node.js.
 
 Prefer an installer? 0.25.0 adds a **Tauri desktop app** — Windows gets a
 per-user `setup.exe` (no Node, no Electron, WebView2 fetched automatically),
-Linux a `.deb`/`.AppImage`, macOS a `.dmg`. See `desktop/README.md` and
-`desktop/ci/desktop.yml`.
+Linux a `.deb`/`.AppImage`, macOS a `.dmg`. They are built by CI and attached to
+the release you are reading:
+
+| Platform | File |
+|---|---|
+| Windows 10/11 x64 | `Research.Engine_0.25.0-beta.1_x64-setup.exe` |
+| Linux x64 | `Research.Engine_0.25.0-beta.1_amd64.deb`, `Research.Engine_0.25.0-beta.1_amd64.AppImage` |
+
+See `desktop/README.md` for how the shell boots the local server, and
+`.github/workflows/desktop.yml` for the build.
 
 | File | Platform | Needs |
 |---|---|---|
