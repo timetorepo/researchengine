@@ -1,14 +1,15 @@
-# Desktop installer checksums — v0.26.0-beta.1
+# Desktop installer checksums — v0.27.0-beta.1
 #
 # These files are release assets (not shipped inside this folder: 38–121 MB
 # each). Download from
-#   https://github.com/timetorepo/researchengine/releases/tag/v0.26.0-beta.1
+#   https://github.com/timetorepo/researchengine/releases/tag/v0.27.0-beta.1
 # then compare:
-#   sha256sum  Research.Engine_0.26.0-beta.1_x64-setup.exe
-#   shasum -a 256 Research.Engine_0.26.0-beta.1_amd64.AppImage
+#   sha256sum  Research.Engine_0.27.0-beta.1_x64-setup.exe
+#   shasum -a 256  Research.Engine_0.27.0-beta.1_amd64.AppImage
 #
 # The hashes below are printed by CI for the exact files it built, uploaded
-# and verified (magic bytes, NSIS/ar/ELF signature, size) in run 36224644304.
-67b02c8a38cee1bc93e3c3cf855ee2c85c2390facdc0a5643bce5fbbd7127bb0  Research.Engine_0.26.0-beta.1_x64-setup.exe
-0bb418a9eb9d99b05c961e5711f95edd0bc29568ad943655bec60c6e093dfc43  Research.Engine_0.26.0-beta.1_amd64.deb
-2ed48afa0bb53f38e27bff034dbd92ab04703124d0f539c1cca392defdd624aa  Research.Engine_0.26.0-beta.1_amd64.AppImage
+# and verified (magic bytes, NSIS/ar/ELF signature, size) in run 36227869927
+# (jobs: Windows installer 108365265538, Linux bundles 108365265650).
+b40b746b0a323c4cf210882f9c10f465d42fa6275868411f5f65e8097f3cbcd7  Research.Engine_0.27.0-beta.1_x64-setup.exe
+f86daec3fcf8c6dccb053e04d1a70ffa0dd851231e1faf28e6464f11f0a1c6dd  Research.Engine_0.27.0-beta.1_amd64.deb
+38e8d56dbcc7257456569387240cf48b7c4b0f7219a652618f84c15feba7f39a  Research.Engine_0.27.0-beta.1_amd64.AppImage

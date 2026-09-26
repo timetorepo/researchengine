@@ -4,16 +4,12 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? 0.25.0 adds a **Tauri desktop app** — Windows gets a
-per-user `setup.exe` (no Node, no Electron, WebView2 fetched automatically),
-Linux a `.deb`/`.AppImage`, macOS a `.dmg`. They are built by CI and attached to
-the release you are reading:
-
-| Platform | File | sha256 |
-|---|---|---|
-| Windows 10/11 x64 | `Research.Engine_0.25.0-beta.1_x64-setup.exe` | `19729157…23d3f6` |
-| Linux x64 | `Research.Engine_0.25.0-beta.1_amd64.deb` | `85b0d8da…26e922` |
-| Linux x64 | `Research.Engine_0.25.0-beta.1_amd64.AppImage` | `4b318208…13b676` |
+Prefer an installer? **0.27.0** also ships the **Tauri desktop app** — Windows
+gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
+automatically), Linux a `.deb`/`.AppImage`, macOS a `.dmg`. CI builds them from
+this tag and attaches them to the release you are reading; their hashes are in
+`INSTALLERS.sha256` in this folder (fill them from the release page after CI
+finishes — a freshly built installer is never claimed here before it exists).
 
 Full hashes: `INSTALLERS.sha256` in this folder.
 
@@ -22,8 +18,8 @@ See `desktop/README.md` for how the shell boots the local server, and
 
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.25.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.25.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
+| `research-engine-0.27.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.27.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
 
 Verify either archive first:
 
@@ -51,7 +47,7 @@ launcher with NSSM — see the root README, install method C.
 ## Linux / macOS
 
 ```bash
-tar xzf research-engine-0.25.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.27.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ./research-engine-linux-x64/research-engine serve --port 3847
 ```
@@ -69,9 +65,9 @@ Ask the launcher:
 ```
 
 ```
-Research Engine 0.22.0-beta.1  [portable]
-  built frontend : 0.19.0-beta.1 (2026-09-24T09:12:04.881Z)
-  STATUS         : STALE — the served build is 0.19.0-beta.1 but this code is 0.22.0-beta.1
+Research Engine 0.27.0-beta.1  [portable]
+  built frontend : 0.24.0-beta.1 (2026-09-26T06:44:02.114Z)
+  STATUS         : STALE — the served build is 0.24.0-beta.1 but this code is 0.27.0-beta.1
                    fix: unpack the current release archive over this folder
 ```
 
