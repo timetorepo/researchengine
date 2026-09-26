@@ -2285,3 +2285,57 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
 .re-nav-arrow { color: var(--text-3); }
 .re-nav-item:hover .re-nav-arrow { color: var(--primary); }
 .re-nav-item[aria-current="page"] .re-nav-arrow { color: color-mix(in srgb, var(--primary) 70%, var(--text-3)); }
+
+/* ================================================================== */
+/* Context menu (shadcn's component, dressed in our tokens)            */
+/* ================================================================== */
+.re-ctx-content {
+  z-index: 80;
+  min-width: 200px;
+  padding: 5px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7), 0 2px 8px -4px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(18px) saturate(1.4);
+  color: var(--text);
+  font-size: 12.5px;
+  /* Radix drives enter/exit with these attributes. */
+  animation: re-ctx-in 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-ctx-content[data-state='closed'] { animation: re-ctx-out 110ms ease-in forwards; }
+@keyframes re-ctx-in { from { opacity: 0; transform: scale(0.96) translateY(-2px); } to { opacity: 1; transform: none; } }
+@keyframes re-ctx-out { to { opacity: 0; transform: scale(0.98); } }
+.re-ctx-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  cursor: default;
+  user-select: none;
+  outline: none;
+  color: var(--text-2);
+  transition: background 120ms ease, color 120ms ease;
+}
+.re-ctx-item > svg { color: var(--text-3); flex-shrink: 0; }
+.re-ctx-item[data-highlighted] { background: var(--elevated); color: var(--text); }
+.re-ctx-item[data-highlighted] > svg { color: var(--primary); }
+.re-ctx-item[data-disabled] { opacity: 0.45; }
+.re-ctx-item[data-disabled][data-highlighted] { background: transparent; }
+.re-ctx-item[data-tone='danger'] { color: var(--danger); }
+.re-ctx-item[data-tone='danger'][data-highlighted] { background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.re-ctx-item[data-state='open'] { background: var(--elevated); color: var(--text); }
+.re-ctx-label { padding: 5px 9px 3px; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.re-ctx-separator { height: 1px; margin: 4px 6px; background: var(--surface-border); }
+.re-ctx-shortcut { margin-left: auto; padding-left: 12px; font-size: 10.5px; letter-spacing: 0.04em; color: var(--text-3); font-family: var(--font-mono, ui-monospace, monospace); }
+@media (prefers-reduced-motion: reduce) {
+  .re-ctx-content, .re-ctx-content[data-state='closed'] { animation: none; }
+}
+
+/* The dock's name plate: bigger, still quiet. */
+.re-dock-label {
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+}

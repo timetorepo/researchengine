@@ -17,11 +17,13 @@
  *   • Navigation is synchronous. A click always moves, in the same tick.
  *   • Prefetching is a background hint. It can never gate, delay or reorder a
  *     navigation, and its result is only used to mark a chunk "warm".
- *   • Warmth is what buys polish: hovering a row starts the import, and a
- *     navigation into a warm route is the only one the View Transitions layer
- *     is allowed to animate (so a transition never starts over a skeleton).
+ *   • Warmth is what buys polish: hovering a row starts the import, and only a
+ *     route that has already rendered once — `hasVisited` — may be animated
+ *     into, so a transition never starts over a skeleton and never wraps a
+ *     render that is about to suspend.
  */
 import { useUI } from '@/stores/useUI'
+import { canAnimateNow, startNavigationTransition } from './vt'
 
 type Loader = () => Promise<unknown>
 
@@ -47,6 +49,24 @@ const ROUTES: { test: (path: string) => boolean; load: Loader }[] = [
 
 /** Chunks already resolved in this session — a Set, so warmth is O(1). */
 const warm = new Set<string>()
+/**
+ * Routes whose component has actually finished rendering at least once.
+ *
+ * This is the gate for the View Transitions path, and it is not the same thing
+ * as warmth. A lazy route ALWAYS suspends on its first render — React.lazy
+ * starts its own import when it is first rendered and throws that promise, no
+ * matter how long ago the module was prefetched — so the first navigation into
+ * a route can only ever complete *asynchronously*. Running such a render inside
+ * `flushSync`, which is what the transition path does, loses the commit: the URL
+ * changes, the old page stays on screen, and the next click (with the lazy now
+ * resolved) works. That was the user's report exactly: "I click it once and it
+ * denies, I click the same button again and it works."
+ *
+ * So: nothing is animated into until it has been rendered once the normal way.
+ * A route's first visit is not animated — it could not be, it shows a skeleton —
+ * and every visit after that is.
+ */
+const visited = new Set<string>()
 /** Imports in flight, so hovering twice does not start two fetches. */
 const inflight = new Map<string, Promise<void>>()
 
@@ -59,6 +79,16 @@ export function routePathOf(href: string): string {
 
 export function loaderFor(path: string): Loader | null {
   return ROUTES.find((r) => r.test(path))?.load ?? null
+}
+
+/** Mark a route as having rendered for real (called from inside Suspense). */
+export function markVisited(path: string): void {
+  if (path) visited.add(path)
+}
+
+/** True once this route has rendered at least once in this session. */
+export function hasVisited(path: string): boolean {
+  return visited.has(path)
 }
 
 /** True when this route's chunk is already in the module registry. */
@@ -93,14 +123,17 @@ export async function preloadRoute(path: string): Promise<void> {
 /**
  * Navigate — synchronously, always.
  *
- * The push happens in the same tick as the click; the chunk fetch is kicked off
- * beside it only to drive the hairline (Suspense renders the page the moment
- * the module lands). Because the push is synchronous, an older navigation can
- * never overwrite a newer one.
+ * The push happens in the same tick as the click, before anything else, so the
+ * router never sees a stale location (see `vt.ts`: deferring the push is what
+ * made every click need two). The chunk fetch is kicked off beside it only to
+ * drive the hairline. When a transition is safe — the destination has rendered
+ * before, the tab is visible, motion is on — the push is wrapped in one, which
+ * animates the page change without changing when it happens.
  */
 export function navigateNow(args: { href: string; push: (href: string) => void }): void {
   const path = routePathOf(args.href)
   const ui = useUI.getState()
+
   if (!isWarm(path)) {
     ui.set({ routeLoading: path })
     void prefetchRoute(path).then(() => {
@@ -110,6 +143,11 @@ export function navigateNow(args: { href: string; push: (href: string) => void }
     setTimeout(() => {
       if (useUI.getState().routeLoading === path) useUI.setState({ routeLoading: null })
     }, 4000)
+  }
+
+  if (canAnimateNow() && hasVisited(path)) {
+    startNavigationTransition(() => args.push(args.href))
+    return
   }
   args.push(args.href)
 }

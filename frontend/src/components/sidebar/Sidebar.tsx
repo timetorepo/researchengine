@@ -521,7 +521,7 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: -8, scale: 0.94 }}
               transition={{ type: 'spring', damping: 22, stiffness: 400 }}
-              className="re-dock-label pointer-events-none fixed -translate-y-1/2 whitespace-nowrap px-2.5 py-1 rounded-[9px] text-[11.5px] font-medium surface-elevated"
+              className="re-dock-label pointer-events-none fixed -translate-y-1/2 whitespace-nowrap px-3 py-1.5 rounded-[11px] text-[13.5px] font-medium surface-elevated"
               style={{ left: labelAt.x, top: labelAt.y, color: 'var(--text)', boxShadow: '0 10px 28px -12px rgba(0,0,0,0.5)' }}
             >
               {label}

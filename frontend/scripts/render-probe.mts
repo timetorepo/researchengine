@@ -43,12 +43,14 @@ function render(what: string, el: React.ReactElement): { ok: boolean; html: stri
 async function main() {
   console.log('\n[1] Every component mounts')
 
-  const { ScrollProgress, surfaceOf, SURFACE_PLACEMENT } = await import('../src/components/ui/skiper/ScrollProgress')
+  const { ScrollProgress, surfaceOf, SURFACE_PLACEMENT, PROGRESS_MODES } = await import('../src/components/ui/skiper/ScrollProgress')
   const { CssLink, CssSourceLink } = await import('../src/components/ui/skiper/CssLink')
   const { ChatsFlyout } = await import('../src/components/sidebar/ChatsFlyout')
   const { Sidebar } = await import('../src/components/sidebar/Sidebar')
   const { ProfileCard } = await import('../src/components/ui/watermelon/ProfileCard')
   const { Markdown } = await import('../src/components/chat/Markdown')
+  const { AppContextMenu } = await import('../src/components/shared/AppContextMenu')
+  const { ShareStudio } = await import('../src/components/quiz/ShareStudio')
 
   const scroll = render('ScrollProgress', React.createElement(MemoryRouter, null, React.createElement(ScrollProgress)))
   const side = render('Sidebar', React.createElement(MemoryRouter, null, React.createElement(Sidebar)))
@@ -101,13 +103,36 @@ async function main() {
   check('the identity block comes after the banner', card.html.indexOf('dnishh') > card.html.indexOf('h-24 w-full'))
   check('the expander says whether it is open', card.html.includes('aria-expanded="false"'))
 
-  console.log('\n[5] The scroll indicator')
+  console.log('\n[5] The share studio')
+
+  const studio = render('ShareStudio', React.createElement(MemoryRouter, null,
+    React.createElement(ShareStudio, {
+      data: { title: 'The Attention Economy', source: 'notes.pdf', pct: 82, correct: 9, total: 11, streak: 6 },
+      onClose: () => {},
+    })))
+  check('the studio renders', studio.ok, studio.error)
+  check('with the canvas the preview is drawn on', studio.html.includes('<canvas'))
+  check('and the four looks', ['Liquid glass', 'Gradient', 'Solid', 'Custom image'].every((l) => studio.html.includes(l)))
+  check('and a way to get the image out', studio.html.includes('Save PNG') && studio.html.includes('Copy'))
+
+  console.log('\n[6] The right-click menu')
+
+  const menu = render('AppContextMenu', React.createElement(MemoryRouter, null,
+    React.createElement(AppContextMenu, null, React.createElement('div', null, 'page'))))
+  check('the app-wide menu mounts over any page', menu.ok && menu.html.includes('page'), menu.error)
+  check('and it wraps the app without becoming a box', menu.html.includes('class="contents"'))
+
+  console.log('\n[7] The scroll indicator')
 
   check('it hides itself when nothing can scroll', scroll.ok && scroll.html === '', JSON.stringify(scroll.html.slice(0, 40)))
   const nav: [string, string][] = [['/', 'home'], ['/code', 'coding'], ['/chats', 'chats'], ['/chat/x', 'chats'], ['/quiz', 'quiz'], ['/articles', 'articles'], ['/library', 'library'], ['/compare', 'compare'], ['/workflows', 'workflows'], ['/flood', 'flood']]
   check('every surface in the app has its own placement', nav.every(([p, s]) => surfaceOf(p) === s && !!SURFACE_PLACEMENT[s as keyof typeof SURFACE_PLACEMENT]))
   check('and the positions really do differ',
     new Set(Object.values(SURFACE_PLACEMENT).map((p) => `${p.right}/${p.top}`)).size > 4)
+  check('it has the four shapes you asked for',
+    ['bar', 'circle', 'dot', 'top'].every((id) => PROGRESS_MODES.some((m) => m.id === id)),
+    PROGRESS_MODES.map((m) => m.id).join(','))
+  check('a bare ring really is bare', PROGRESS_MODES.find((m) => m.id === 'dot')!.id === 'dot')
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))

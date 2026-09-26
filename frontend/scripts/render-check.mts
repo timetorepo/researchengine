@@ -830,8 +830,11 @@ async function main() {
   const m16vtSrc = m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url))
   const m16sideSrc = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
   const m16topSrc = m16readSrc(new URL('../src/components/topbar/TopBar.tsx', import.meta.url))
-  check('navigation is wrapped in a view transition', m16appSrc.includes('installViewTransitions') && m16vtSrc.includes('startViewTransition'))
-  check('reduced motion skips the transition entirely', m16vtSrc.includes('prefers-reduced-motion') && m16vtSrc.includes('reduce-motion'))
+  const m16vtRouteSrc = m16readSrc(new URL('../src/lib/routes/vt.ts', import.meta.url))
+  check('navigation is wrapped in a view transition',
+    m16appSrc.includes('installViewTransitions') && m16vtRouteSrc.includes('startViewTransition'))
+  check('reduced motion skips the transition entirely',
+    m16vtRouteSrc.includes('prefers-reduced-motion') && m16vtRouteSrc.includes('reduce-motion'))
   check('the rail and the top bar are pinned across a transition', m16sideSrc.includes('re-vt-sidebar') && m16topSrc.includes('re-vt-topbar'))
   check('the rail marks the page you are on', m16sideSrc.includes('re-nav-indicator') && m16cssAll.includes('.re-nav-indicator'))
   check('the rail is a dock when collapsed', m16sideSrc.includes('DockRail'))
@@ -1271,34 +1274,57 @@ async function main() {
   check('no navigation is pending behind the user', race.length === 2, JSON.stringify(race))
 
   // Where the freeze came from: a transition must never start over a skeleton.
+  // And where the "it denies my click" came from: a route may only be animated
+  // into once it has rendered, because its first render always suspends.
   const vtdoc = win.document as any
   const transitions: string[] = []
-  vtdoc.startViewTransition = (cb: () => void) => {
+  vtdoc.startViewTransition = (cb: () => void | Promise<void>) => {
     transitions.push('started')
-    cb()
+    void cb()
     return { finished: Promise.resolve(), skipTransition() {} }
   }
   const { installViewTransitions } = await import('../src/hooks/useViewTransitions')
   installViewTransitions()
-  // `/flood` has not been touched yet in this run, so it is genuinely cold.
-  check('the route under test really is cold', !isWarm('/flood'), String(isWarm('/flood')))
-  win.history.pushState({}, '', '/#/flood')        // cold on purpose
+  const { markVisited, hasVisited: _hasVisited } = await import('../src/lib/routes/registry')
+  // `/flood` has neither rendered nor been prefetched in this run.
+  check('the route under test really is cold', !isWarm('/flood') && !_hasVisited('/flood'))
+  const vtPushes: string[] = []
+  navigateNow({ href: '#/flood', push: (h) => vtPushes.push(h) })
   await wait(60)
-  check('a cold route changes the page without a transition', routePathOf(win.location.href) === '/flood' && transitions.length === 0,
-    `${routePathOf(win.location.href)} / ${transitions.length}`)
+  check('a route that has never rendered moves without a transition', vtPushes.length === 1 && transitions.length === 0,
+    `${vtPushes.length} vtPushes / ${transitions.length} transitions`)
   await prefetchRoute('/articles')
+  check('prefetching does not make a route animatable', !_hasVisited('/articles'))
+  markVisited('/articles')
   transitions.length = 0
-  win.history.pushState({}, '', '/#/articles')
+  vtPushes.length = 0
+  navigateNow({ href: '#/articles', push: (h) => vtPushes.push(h) })
   await wait(60)
-  check('a warm route animates', transitions.length === 1, String(transitions.length))
-  check('and it still moved', routePathOf(win.location.href) === '/articles', routePathOf(win.location.href))
+  check('a route that has rendered animates, and still moves', transitions.length === 1 && vtPushes.length === 1,
+    `${vtPushes.length} vtPushes / ${transitions.length} transitions`)
 
-  const vtSrc = m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url))
-  check('the push is never deferred', !/await[^\n]*original\(/.test(vtSrc) && !/\.then\([^)]*original/.test(vtSrc))
-  check('only a warm chunk is allowed to animate', vtSrc.includes('isWarm(path)'))
+  // The regression itself, at the source level: the push must be issued
+  // before anything the transition does.
+  const vtLib = m16readSrc(new URL('../src/lib/routes/vt.ts', import.meta.url))
+  check('the navigation is issued inside the callback, never deferred past it',
+    vtLib.includes('update()') && !/await[^\n]*update\(/.test(vtLib))
+  check('and the browser is told to wait for the paint that follows',
+    vtLib.includes('requestAnimationFrame(() => requestAnimationFrame(() => resolve()))'))
+
+  const vtSrc = m16readSrc(new URL('../src/lib/routes/vt.ts', import.meta.url))
+  const vtHookSrc = m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url))
+  // The bug that made every click need two: the push was deferred into the
+  // transition callback, so the router reported the OLD location and React
+  // rendered the old page while the URL moved on.
+  check('the push is never deferred, in the helper or the patch',
+    vtHookSrc.indexOf('original(...args)') < vtHookSrc.indexOf('void prefetchRoute(') && vtHookSrc.includes('history[method] = ('))
+  check('only a route that has rendered once may animate', vtSrc.includes('canAnimateNow') && m16readSrc(new URL('../src/lib/routes/registry.ts', import.meta.url)).includes('hasVisited(path)'))
+  check('and the transition waits for React to paint, without flushSync',
+    vtSrc.includes('requestAnimationFrame') && !vtSrc.replace(/\/\*[\s\S]*?\*\//g, '').includes('flushSync'))
   check('only one transition runs at a time', vtSrc.includes('skipRunningTransition'))
   check('every transition has a deadline', /TRANSITION_DEADLINE_MS/.test(vtSrc) && vtSrc.includes('skipTransition'))
   check('reduced motion and hidden tabs skip straight to the navigation', vtSrc.includes('visibilityState'))
+  check('the visitor is marked from inside the Suspense boundary', /<Suspense fallback=\{<RouteSkeleton \/>\}>[\s\S]{0,900}<RouteLatch \/>/.test(m16readSrc(new URL('../src/App.tsx', import.meta.url))))
   check('the shell shows a loading hairline for cold routes', m16readSrc(new URL('../src/App.tsx', import.meta.url)).includes('RouteProgress'))
   const sideSrc21 = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
   check('the rail navigates through the same synchronous helper', sideSrc21.includes('navigateNow'))
@@ -1698,13 +1724,65 @@ async function main() {
   check('every tab in the rail maps to a placement', navTargets.every(([p, s]) => sp.surfaceOf(p) === s && !!sp.SURFACE_PLACEMENT[s as keyof typeof sp.SURFACE_PLACEMENT]))
   check('the placements are actually different per tab', new Set(Object.values(sp.SURFACE_PLACEMENT).map((p) => `${p.right}/${p.top}`)).size > 4)
   check('it steps aside for the tasks panel', spSrc.includes('tasksOpen ? 392 : 0'))
-  check('a right click unlocks it for dragging', spSrc.includes('onContextMenu') && spSrc.includes('Unlock to drag'))
+  check('a right click opens its own menu, not the app one',
+    spSrc.includes('<ContextMenu>') && spSrc.includes('Unlock to drag'))
   check('dragging stores the position per surface', spSrc.includes('[surface]: pos') && spSrc.includes('pendingDragPos'))
-  check('it can be locked, reset and hidden', spSrc.includes('Lock in place') && spSrc.includes('Reset position') && spSrc.includes('Hide on every tab'))
+  check('it can be locked, reset and hidden', spSrc.includes('Lock in place') && spSrc.includes('Reset position for this tab') && spSrc.includes('Hide on every tab'))
+  check('and it offers the shapes you asked for',
+    ['bar', 'circle', 'dot', 'top'].every((m) => spSrc.includes(`'${m}'`)) && spSrc.includes('PROGRESS_MODES'))
+  check('the app menu steps aside for it',
+    m16readSrc(new URL('../src/components/shared/AppContextMenu.tsx', import.meta.url)).includes("closest('[data-scroll-progress], [data-owns-context-menu]')"))
   check('the track itself scrubs the page', spSrc.includes('jumpTo(e.clientY)'))
+  check('and a ring scrubs by angle', spSrc.includes('scrubRing') && spSrc.includes('atan2'))
+  check('the top bar clears the rail', spSrc.includes('useContentLeft') && spSrc.includes('left: contentLeft'))
   check('the fill follows the scroll, not a timer', spSrc.includes('scroller.scrollTop / max'))
   check('it is enabled by default', m16readSrc(new URL('../src/stores/useStore.ts', import.meta.url)).includes('scrollProgress: { enabled: true'))
   check('the settings shape is typed', m16readSrc(new URL('../src/types/index.ts', import.meta.url)).includes('scrollProgress?:'))
+
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[28] 0.28.0 — one click, a bigger name plate, a real menu, a card that draws')
+
+  // --- The navigation regression (the full behavioural proof is nav-test) ---
+  const navTestSrc = m16readSrc(new URL('./nav-test.mts', import.meta.url))
+  check('the navigation test drives the real app in a real DOM',
+    navTestSrc.includes('new JSDOM') && navTestSrc.includes('createRoot'))
+  check('and it fakes the View Transitions API the browser gives us',
+    navTestSrc.includes('startViewTransition') && navTestSrc.includes('setTimeout'))
+  check('it asserts the thing a person notices', navTestSrc.includes('one click puts the page on screen') || navTestSrc.includes('the page is on screen after the first click'))
+  check('the route observer never gets in front of the push',
+    m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url)).indexOf('original(...args)') <
+    m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url)).indexOf('void prefetchRoute('))
+
+  // --- The dock's name plate ---
+  const sideSrc28 = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
+  check('the dock label is bigger than it was', sideSrc28.includes('re-dock-label') && sideSrc28.includes('text-[13.5px]'))
+  check('and its size is pinned in the stylesheet too', /\.re-dock-label\s*\{[^}]*font-size:\s*13\.5px/.test(m16cssAll))
+
+  // --- shadcn's context menu ---
+  const ctxSrc = m16readSrc(new URL('../src/components/ui/context-menu.tsx', import.meta.url))
+  check('the shadcn context menu is in the tree', ctxSrc.includes('ContextMenuContent') && ctxSrc.includes('ContextMenuRadioItem'))
+  check('on the primitive shadcn uses', ctxSrc.includes('@radix-ui/react-context-menu'))
+  check('it is themed, not default-skinned', m16cssAll.includes('.re-ctx-content') && m16cssAll.includes('.re-ctx-item[data-highlighted]'))
+  const appMenuSrc = m16readSrc(new URL('../src/components/shared/AppContextMenu.tsx', import.meta.url))
+  check('it is mounted over the whole app', m16readSrc(new URL('../src/App.tsx', import.meta.url)).includes('<AppContextMenu>'))
+  check('and wraps it with display:contents so layout is untouched', appMenuSrc.includes('className="contents"'))
+  check('it offers Paste', appMenuSrc.includes('Paste') && appMenuSrc.includes('ClipboardPaste'))
+  check('it offers Ask AI', appMenuSrc.includes('Ask AI') && appMenuSrc.includes('composerSeed'))
+  check('and the app moves of its own', ['New research', 'Tasks', 'Settings', 'Command palette'].every((x) => appMenuSrc.includes(x)))
+  check('paste falls back to the composer instead of doing nothing',
+    appMenuSrc.includes('insertText') && appMenuSrc.includes("document.execCommand('insertText'"))
+  check('link actions only appear over a link', appMenuSrc.includes("closest('a[href]')"))
+  check('and selection actions only over a selection', appMenuSrc.includes("getSelection()?.toString()"))
+
+  // --- The share card that never drew ---
+  const studioSrc28 = m16readSrc(new URL('../src/components/quiz/ShareStudio.tsx', import.meta.url))
+  check('every style uses one paint path', studioSrc28.includes('const paint = (image: HTMLImageElement | null) =>') && studioSrc28.includes('paint(null)'))
+  check('and the draw is guarded, with a fallback look', studioSrc28.includes("drawShareCard(ctx, data, { ...opts, style: 'liquid' }, null)"))
+  check('a blank canvas is never saved or copied', studioSrc28.includes('dataUrlToBlob') && studioSrc28.includes('blob.size === 0'))
+  check('the share test drives all four styles', m16readSrc(new URL('./share-test.mts', import.meta.url)).includes('SHARE_STYLES'))
+  check('and proves text can never run off the card',
+    m16readSrc(new URL('../src/lib/quiz/shareCard.ts', import.meta.url)).includes('breakLongWord'))
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))

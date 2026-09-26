@@ -341,6 +341,8 @@ export interface Settings {
     enabled?: boolean
     /** Right-click unlocked: the indicator can be dragged anywhere. */
     unlocked?: boolean
+    /** Its shape: a bar on the edge, a ring (with or without a track), or a top bar. */
+    mode?: 'bar' | 'circle' | 'dot' | 'top'
     perSurface?: Record<string, { right: number; top: string }>
   }
   floodBudget: number

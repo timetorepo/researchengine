@@ -47,6 +47,12 @@ export function ShareStudio({ data, onClose }: { data: ShareData; onClose: () =>
   const set = <K extends keyof ShareOptions>(k: K, v: ShareOptions[K]) => setOpts((o) => ({ ...o, [k]: v }))
 
   // Redraw whenever anything changes: the preview IS the file.
+  //
+  // The draw used to happen only on the image branch — every other style set the
+  // canvas size and then drew nothing, so the preview stayed blank and Copy put a
+  // blank PNG on the clipboard. One paint path, used by every style, is the fix;
+  // the `cancelled` flag stops a slow image decode from painting over a style you
+  // have already switched away from.
   useEffect(() => {
     const cv = canvasRef.current
     if (!cv) return
@@ -54,11 +60,28 @@ export function ShareStudio({ data, onClose }: { data: ShareData; onClose: () =>
     cv.height = SHARE_H
     const ctx = cv.getContext('2d')
     if (!ctx) return
-    const ready = opts.style === 'image' && opts.imageDataUrl
-      ? loadImage(opts.imageDataUrl).then((im) => { drawShareCard(ctx, data, opts, im); return im })
-      : Promise.resolve(null)
-    void ready
-  }, [opts, data])
+
+    let cancelled = false
+    const paint = (image: HTMLImageElement | null) => {
+      if (cancelled) return
+      try {
+        drawShareCard(ctx, data, opts, image)
+      } catch (e) {
+        // A picture that cannot be decoded must not take the whole studio with
+        // it: fall back to the gradient look and say why.
+        drawShareCard(ctx, data, { ...opts, style: 'liquid' }, null)
+        ui.toast('That picture could not be drawn', 'The card fell back to the gradient look.', 'warning')
+        console.warn('[share] draw failed', e)
+      }
+    }
+
+    if (opts.style === 'image' && opts.imageDataUrl) {
+      loadImage(opts.imageDataUrl).then(paint).catch(() => paint(null))
+    } else {
+      paint(null)
+    }
+    return () => { cancelled = true }
+  }, [opts, data, ui])
 
   const pickFile = (f: File | undefined) => {
     if (!f) return
@@ -70,13 +93,21 @@ export function ShareStudio({ data, onClose }: { data: ShareData; onClose: () =>
     reader.readAsDataURL(f)
   }
 
-  const toBlob = () => new Promise<Blob | null>((resolve) => canvasRef.current?.toBlob((b) => resolve(b), 'image/png'))
+  // `toBlob` is the cheap path; a canvas the browser refuses to encode (or a
+  // zero-sized one) falls back to the data-URL form, and both are checked for
+  // actually carrying pixels before anything is saved or copied.
+  const toBlob = () => new Promise<Blob | null>((resolve) => {
+    const cv = canvasRef.current
+    if (!cv || !cv.width || !cv.height) { resolve(null); return }
+    if (typeof cv.toBlob !== 'function') { resolve(dataUrlToBlob(cv.toDataURL('image/png'))); return }
+    cv.toBlob((b) => resolve(b ?? dataUrlToBlob(cv.toDataURL('image/png'))), 'image/png')
+  })
 
   const save = async () => {
     setSaving(true)
     try {
       const blob = await toBlob()
-      if (!blob) throw new Error('nothing to save')
+      if (!blob || blob.size === 0) throw new Error('the canvas came back empty')
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -231,6 +262,16 @@ export function ShareStudio({ data, onClose }: { data: ShareData; onClose: () =>
       </motion.div>
     </div>
   )
+}
+
+/** A PNG data-URL as a Blob — the fallback when `canvas.toBlob` is unavailable. */
+function dataUrlToBlob(url: string): Blob | null {
+  const comma = url.indexOf(',')
+  if (!/^data:/.test(url) || comma < 0) return null
+  const binary = atob(url.slice(comma + 1))
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: 'image/png' })
 }
 
 /** Decode a data-URL once per URL; canvas drawing needs an element, not a URL. */

@@ -111,9 +111,27 @@ function glassPanel(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
   ctx.fill()
 }
 
-/** Wraps a line of text to `maxW`, returning the lines it broke into. */
+/** Breaks a word that is wider than the whole line (a URL, a hash, a filename). */
+function breakLongWord(ctx: CanvasRenderingContext2D, word: string, maxW: number) {
+  const parts: string[] = []
+  let chunk = ''
+  for (const ch of word) {
+    if (chunk && ctx.measureText(chunk + ch).width > maxW) { parts.push(chunk); chunk = ch }
+    else chunk += ch
+  }
+  if (chunk) parts.push(chunk)
+  return parts
+}
+
+/**
+ * Wraps a line of text to `maxW`, returning the lines it broke into.
+ *
+ * A single token longer than the line used to be pushed through untouched — and
+ * a caption is exactly where a URL ends up, so the text ran straight off the
+ * card. Anything that cannot fit is now broken mid-word.
+ */
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLines = 2) {
-  const words = text.split(/\s+/).filter(Boolean)
+  const words = text.split(/\s+/).filter(Boolean).flatMap((w) => (ctx.measureText(w).width > maxW ? breakLongWord(ctx, w, maxW) : [w]))
   const lines: string[] = []
   let line = ''
   for (const w of words) {

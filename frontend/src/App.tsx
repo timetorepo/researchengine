@@ -36,9 +36,11 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { SettingsSheet } from '@/components/settings/SettingsSheet'
 import { TasksPanel } from '@/components/tasks/TasksPanel'
 import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
+import { AppContextMenu } from '@/components/shared/AppContextMenu'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 import { installViewTransitions } from '@/hooks/useViewTransitions'
+import { markVisited, routePathOf } from '@/lib/routes/registry'
 import { installFramePin } from '@/lib/dom/scroll'
 import { wireAgentActivity } from '@/lib/ide/agents'
 
@@ -99,7 +101,12 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={reduced ? 'always' : 'user'} transition={{ type: 'spring', damping: 26, stiffness: 320 }}>
       <HashRouter>
-        <RoutedApp />
+        {/* One right-click menu for the whole app. The scroll indicator, chat
+            rows and other surfaces that own their right-click stop the event
+            before it reaches this, so theirs is the one you get. */}
+        <AppContextMenu>
+          <RoutedApp />
+        </AppContextMenu>
       </HashRouter>
     </MotionConfig>
   )
@@ -130,6 +137,13 @@ function RouteProgress() {
       )}
     </AnimatePresence>
   )
+}
+
+function RouteLatch() {
+  const location = useLocation()
+  const path = routePathOf(`#${location.pathname}`)
+  useEffect(() => { markVisited(path) }, [path])
+  return null
 }
 
 function RoutedApp() {
@@ -178,6 +192,13 @@ function RoutedApp() {
       <ErrorBoundary>
       <Shell>
         <Suspense fallback={<RouteSkeleton />}>
+        {/* Inside the boundary on purpose. When a route suspends, everything in
+            here — this latch included — is replaced by the skeleton and mounts
+            again the moment the chunk lands, so the effect below fires exactly
+            when the route has rendered for real. The View Transitions layer
+            reads that mark; a route is never animated into before then, because
+            flushing a render that suspends loses the navigation. */}
+        <RouteLatch />
         <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/chat/:id" element={<ChatView />} />
