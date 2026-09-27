@@ -2791,6 +2791,56 @@ async function main() {
       /probeIntegration/.test(accSrc) && /only when a credential exists/.test(accSrc))
   }
 
+  /* ---------------- SmoothUI: installed *and* used (R15) ----------------
+     "Actually use the components" is the requirement, so a component that is
+     merely sitting in a folder is a failure here — every one below must be
+     imported by a file outside its own directory. */
+  {
+    const { readFileSync: readSU, readdirSync: readSUdir } = await import('node:fs')
+
+    /** component → the file that puts it to work. */
+    const WIRED: [string, string][] = [
+      ['kinetic-center-build', 'components/onboarding/Onboarding.tsx'],
+      ['typewriter-text', 'components/onboarding/Onboarding.tsx'],
+      ['github-stars-animation', 'components/onboarding/Onboarding.tsx'],
+      ['stagger-from-edges', 'components/onboarding/Onboarding.tsx'],
+      ['mac-terminal', 'components/onboarding/Onboarding.tsx'],
+      ['folder-reveal', 'components/onboarding/Onboarding.tsx'],
+      ['ai-message', 'components/chat/Message.tsx'],
+      ['ai-diff', 'components/chat/Message.tsx'],
+      ['ai-reasoning', 'components/chat/Message.tsx'],
+      ['ai-response', 'components/chat/Markdown.tsx'],
+      ['ai-loader', 'components/chat/HumanizedAnswer.tsx'],
+      ['ai-sources', 'components/chat/SourceStrip.tsx'],
+      ['ai-tool-call', 'components/chat/ToolUI.tsx'],
+      ['ai-task-list', 'components/agents/FloodView.tsx'],
+      ['ai-approval', 'components/settings/DataTab.tsx'],
+      ['ai-context-meter', 'components/topbar/TopBar.tsx'],
+      ['social-hover-card', 'components/settings/AboutTab.tsx'],
+      ['image-generation-panel', 'components/home/ImageLab.tsx'],
+    ]
+    for (const [name, user] of WIRED) {
+      const src = readSU(`../frontend/src/${user}`, 'utf8')
+      check(`SmoothUI ${name} is used by ${user.split('/').pop()}`, src.includes(`@/components/smoothui/${name}`))
+    }
+
+    check('the shadcn token vocabulary is mapped onto this app’s own variables, not a dark island',
+      ['--color-border: var(--surface-border)', '--color-muted: var(--elevated)', '--color-card: var(--surface)', '--color-brand: var(--primary)', '--color-destructive: var(--danger)']
+        .every((line) => readSU('../frontend/src/styles/globals.css', 'utf8').includes(line))
+      && !/\.dark\s*\{/.test(readSU('../frontend/src/styles/globals.css', 'utf8')))
+    check('the registry config points at the real SmoothUI host, not the sandbox mirror',
+      readSU('../frontend/components.json', 'utf8').includes('https://smoothui.dev/r/{name}.json'))
+    check('the mirror script that installed them is kept, so they can be updated',
+      readSU('../frontend/scripts/smoothui-registry.mjs', 'utf8').includes('smoothui.dev'))
+    check('the upstream patches are documented in the files they changed',
+      readSU('../frontend/src/components/smoothui/folder-reveal/index.tsx', 'utf8').includes('Local patch')
+      && readSU('../frontend/src/components/smoothui/smooth-button/index.tsx', 'utf8').includes('Local patch')
+      && readSU('../frontend/src/components/smoothui/ai-message/index.tsx', 'utf8').includes('Local patch'))
+    check('every installed component folder is still on disk',
+      ['ai-message', 'ai-context-meter', 'ai-task-list', 'image-generation-panel', 'social-hover-card', 'kinetic-center-build', 'folder-reveal']
+        .every((n) => { try { return readSUdir(`../frontend/src/components/smoothui/${n}`).length > 0 } catch { return false } }))
+  }
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

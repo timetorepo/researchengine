@@ -15,6 +15,7 @@ import { runChat } from '@/lib/chat/runChat'
 import { themeKind } from '@/lib/themes/meta'
 import { wallpaperOf } from '@/lib/wallpapers'
 import { beginHandoff, HANDOFF_BLUR_MS, EASE_OUT, EASE, DUR } from '@/lib/ui/handoff'
+import { ImageLab } from '@/components/home/ImageLab'
 import { RevolvingText } from './RevolvingText'
 import { SuggestedForYou } from './SuggestedForYou'
 
@@ -230,6 +231,13 @@ export function HomeScreen() {
             ) : (
               <GettingStarted />
             )}
+
+            {/* Image lab — the one widget that creates rather than opens, and
+                the only place the image panel lives: it renders through the
+                provider you already configured. */}
+            <div className="mt-3">
+              <ImageLab />
+            </div>
           </motion.div>
         )}
       </div>

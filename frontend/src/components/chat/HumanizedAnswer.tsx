@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Check, Copy, Eye, Feather, History, Loader2, RotateCcw, Sparkles, X } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { Markdown } from './Markdown'
+// SmoothUI's AILoader — a labeled loader that keeps its own elapsed time.
+import AILoader from '@/components/smoothui/ai-loader'
 
 /**
  * The humanized view of an answer.
@@ -164,10 +166,9 @@ export function HumanizedAnswer({
 export function HumanizingIndicator({ onCancel }: { onCancel: () => void }) {
   return (
     <div className="flex items-center gap-2.5 text-[12.5px] py-1" style={{ color: 'var(--text-2)' }}>
-      <span className="relative flex items-center justify-center">
-        <Loader2 size={13} className="animate-spin" style={{ color: 'var(--success)' }} />
-      </span>
-      <span>Rewriting this answer so it reads like a person wrote it…</span>
+      {/* The loader counts its own elapsed seconds, so a rewrite that takes a
+          while says so instead of spinning silently. */}
+      <AILoader label="Rewriting this answer so it reads like a person wrote it" showElapsed variant="dots" />
       <button onClick={onCancel} className="humanize-mini">Cancel</button>
     </div>
   )

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Menu, Wind, ListChecks, ArrowDownToLine, X } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { useUpdates } from '@/lib/updates/client'
@@ -9,6 +10,9 @@ import { FocusPill } from '@/components/shared/FocusPill'
 import { BUILD_ID } from '@/components/settings/AboutTab'
 import { useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
+// SmoothUI's AIContextMeter — the ring that shows how full the window is.
+import AIContextMeter from '@/components/smoothui/ai-context-meter'
+import { contextWindowFor } from '@/lib/providers/context-window'
 
 export function TopBar() {
   const ui = useUI()
@@ -22,6 +26,21 @@ export function TopBar() {
   // Quiet update check (nothing downloads without a press) + a pill when there is
   // something newer, so the fix for "I am tired of reinstalling" is visible.
   const { check: updateCheck } = useUpdates({ autoCheck: settings.updates?.autoCheck !== false })
+  /**
+   * How full the context window is on the chat you are looking at. The prompt
+   * size of the last answer is what the model had to read; the window itself
+   * comes from a family table because no provider reports it.
+   */
+  const location = useLocation()
+  const openChatId = location.pathname.startsWith('/chat/') ? location.pathname.slice(6).split('/')[0] : ''
+  const openChat = useStore((s) => (openChatId ? s.chats.find((c) => c.id === openChatId) : undefined))
+  let lastPrompt: { tokens: number; model?: string } | null = null
+  if (openChat) {
+    for (let i = openChat.messages.length - 1; i >= 0; i--) {
+      const m = openChat.messages[i]
+      if (m.role === 'assistant' && m.usage && m.usage.prompt > 0) { lastPrompt = { tokens: m.usage.prompt, model: m.model }; break }
+    }
+  }
   const updateDismissed = settings.updates?.dismissed === updateCheck?.latest
   const showUpdatePill = !!updateCheck?.available && !updateDismissed
 
@@ -132,6 +151,13 @@ export function TopBar() {
 
       {/* Focus timer — same idea: it belongs to the shell, not the sidebar. */}
       <FocusPill />
+
+      {/* Context window — only while a chat is open and has been answered. */}
+      {lastPrompt && (
+        <div className="hidden md:flex items-center" title="Estimated from the last request — providers do not report their window size">
+          <AIContextMeter used={lastPrompt.tokens} limit={contextWindowFor(lastPrompt.model)} />
+        </div>
+      )}
 
       {/* Flow savings counter */}
       <div

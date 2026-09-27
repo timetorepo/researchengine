@@ -4,6 +4,9 @@ import { Download, Upload, Trash2, Database, Archive, GitMerge } from 'lucide-re
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { download } from '@/lib/utils'
+// SmoothUI's AIApproval — the card you decide in, with the destructive option
+// marked as destructive.
+import AIApproval from '@/components/smoothui/ai-approval'
 
 const COLLECTIONS = ['chats', 'articles', 'documents', 'quizzes', 'skills', 'spaces', 'citations', 'knowledge'] as const
 type Col = typeof COLLECTIONS[number]
@@ -13,6 +16,9 @@ export function DataTab() {
   const fileRef = useRef<HTMLInputElement>(null)
   const state = useStore.getState()
   const [selected, setSelected] = useState<Col[]>([...COLLECTIONS])
+  /** Wiping everything is the one irreversible thing in Settings, so it asks
+   *  with a real card instead of the browser's confirm dialog. */
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const sizeKB = Math.round(JSON.stringify({
     chats: state.chats, articles: state.articles, skills: state.skills, citations: state.citations,
@@ -96,8 +102,8 @@ export function DataTab() {
   }
 
   const clearAll = () => {
-    if (!confirm('Delete all chats, articles, citations and knowledge? This cannot be undone.')) return
     useStore.getState().resetAll()
+    setConfirmClear(false)
     ui.toast('Cleared', 'All local research data has been removed.', 'warning')
   }
 
@@ -155,17 +161,38 @@ export function DataTab() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button onClick={clearAll} className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
-          style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', color: 'var(--danger)' }}>
-          <Trash2 size={15} /> Clear all data
-        </button>
-        <button onClick={() => ui.toast('Tip', 'Importing merges — it never overwrites your existing chats.', 'info')}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
-          style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
-          <Upload size={15} /> How merge works
-        </button>
-      </div>
+      {confirmClear ? (
+        <AIApproval
+          className="max-w-[460px]"
+          question="Delete every chat, article, citation and knowledge card on this device?"
+          options={[
+            { id: 'export', label: 'Export a backup first', detail: 'Download a JSON copy, then decide' },
+            { id: 'delete', label: 'Delete everything', detail: 'Immediate, local, and cannot be undone', destructive: true },
+            { id: 'cancel', label: 'Keep my data' },
+          ]}
+          onDecide={(o) => {
+            if (o.id === 'delete') clearAll()
+            else if (o.id === 'export') { exportJson(); setConfirmClear(false); ui.toast('Backup downloaded', 'Keep it somewhere safe, then clear when you are ready.', 'success') }
+            else setConfirmClear(false)
+          }}
+        >
+          <p className="text-[12px]" style={{ color: 'var(--text-2)' }}>
+            Nothing here is ever uploaded, so there is no copy on a server to restore from.
+          </p>
+        </AIApproval>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setConfirmClear(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
+            style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', color: 'var(--danger)' }}>
+            <Trash2 size={15} /> Clear all data
+          </button>
+          <button onClick={() => ui.toast('Tip', 'Importing merges — it never overwrites your existing chats.', 'info')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
+            style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
+            <Upload size={15} /> How merge works
+          </button>
+        </div>
+      )}
 
       <p className="text-[11.5px] mt-5 leading-relaxed" style={{ color: 'var(--text-3)' }}>
         Nothing here is ever uploaded. There is no Research Engine cloud, account, or sync service — by design.

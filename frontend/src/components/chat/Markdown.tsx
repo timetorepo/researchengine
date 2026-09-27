@@ -6,6 +6,8 @@ import rehypeKatex from 'rehype-katex'
 import { Check, Copy } from 'lucide-react'
 import { highlight } from '@/lib/highlight'
 import { CssLink } from '@/components/ui/skiper/CssLink'
+// SmoothUI's AIResponse — used for the plain-text streaming path below.
+import AIResponse from '@/components/smoothui/ai-response'
 
 function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
   const [copied, setCopied] = useState(false)
@@ -37,7 +39,11 @@ export const Markdown = memo(function Markdown({ content, streaming = false }: {
   return (
     <div className={`md-body ${streaming ? 'md-streaming' : ''}`}>
       {plainStreaming ? (
-        <span aria-live="polite">{content.split(/(\s+)/).map((part, i) => part.trim() ? <span key={i} className="re-word-focus">{part}</span> : part)}</span>
+        // SmoothUI's AIResponse animates a word when the word *arrives* rather
+        // than on a fixed timer, so the entrance can never drift out of step
+        // with the stream it is describing. Markdown takes over the moment the
+        // answer contains any markup to render.
+        <AIResponse text={content} isStreaming />
       ) : <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}

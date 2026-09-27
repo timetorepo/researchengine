@@ -72,8 +72,8 @@ exactly like a network update.
 
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.32.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.32.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
+| `research-engine-0.33.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.33.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
 
 Verify either archive first:
 
@@ -101,7 +101,7 @@ launcher with NSSM — see the root README, install method C.
 ## Linux
 
 ```bash
-tar xzf research-engine-0.32.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.33.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ./research-engine-linux-x64/research-engine serve --port 3847
 ```
@@ -112,7 +112,7 @@ templates are in [docs/install.md](../docs/install.md).
 
 ## Does it actually work on this machine?
 
-`bench-report-0.32.0-beta.1.txt` is the output of the Developer bench
+`bench-report-0.33.0-beta.1.txt` is the output of the Developer bench
 (`npx tsx frontend/scripts/bench-report.mts`) run against this exact build: it
 created a project and the sample app through the real API and deleted both
 again, with the status codes and timings in the file. The same function backs the
@@ -128,8 +128,8 @@ Ask the launcher:
 ```
 
 ```
-Research Engine 0.32.0-beta.1  [portable]
-  built frontend : 0.32.0-beta.1 (2026-09-27T08:47:51.519Z)
+Research Engine 0.33.0-beta.1  [portable]
+  built frontend : 0.33.0-beta.1 (2026-09-27T08:47:51.519Z)
   STATUS         : ok
 ```
 

@@ -24,6 +24,13 @@ import { humanizeText } from '@/lib/chat/humanize'
 import { nanoid } from 'nanoid'
 import { ThinkingOrb } from 'thinking-orbs'
 import { themeKind } from '@/lib/themes/meta'
+// SmoothUI — the message frame (avatar, bubble, timestamp, copy / vote / retry
+// actions that fade in from the side the bubble is anchored to).
+import AIMessage from '@/components/smoothui/ai-message'
+import AIDiff from '@/components/smoothui/ai-diff'
+import AIReasoning from '@/components/smoothui/ai-reasoning'
+import { timeAgo } from '@/lib/utils'
+import { diffLines } from '@/lib/text/diff'
 
 interface Props {
   chatId: string
@@ -39,6 +46,8 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(msg.content)
   const [showInfo, setShowInfo] = useState(false)
+  /** An edit is being reviewed as a diff before it is written back. */
+  const [reviewing, setReviewing] = useState(false)
   const [hoverSource, setHoverSource] = useState<string | null>(null)
   const humanizeAbort = useRef<AbortController | null>(null)
   const store = useStore
@@ -103,7 +112,16 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
     return (
       <div className="msg-row group py-4" style={{ borderTop: '1px solid var(--surface-border)' }}>
         <div className="max-w-[760px] mx-auto px-4">
-          {editing ? (
+          {editing ? (reviewing ? (
+            // Reviewing your own edit as a diff: what is about to be removed,
+            // what is about to replace it, and one place to decide.
+            <AIDiff
+              title="Review your edit"
+              lines={diffLines(msg.content, draft)}
+              onAccept={() => { store.getState().updateMessage(chatId, msg.id, { content: draft }); setEditing(false); setReviewing(false) }}
+              onReject={() => setReviewing(false)}
+            />
+          ) : (
             <div>
               <textarea
                 value={draft}
@@ -115,23 +133,30 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               />
               <div className="flex gap-2 mt-2">
                 <button className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}
-                  onClick={() => { store.getState().updateMessage(chatId, msg.id, { content: draft }); setEditing(false) }}>
-                  Save
+                  title="See what changed before it is saved"
+                  onClick={() => { if (draft === msg.content) { setEditing(false); return } setReviewing(true) }}>
+                  Review
                 </button>
                 <button className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}
-                  onClick={() => setEditing(false)}>Cancel</button>
+                  onClick={() => { setDraft(msg.content); setEditing(false); setReviewing(false) }}>Cancel</button>
               </div>
             </div>
-          ) : (
+          )) : (
             <>
               <AttachmentStrip msg={msg} />
-              <div className="text-[14.5px] whitespace-pre-wrap" style={{ color: 'var(--text)' }}>{msg.content}</div>
+              <div className="flex justify-end">
+                <AIMessage
+                  bubble
+                  copyText={msg.content}
+                  from="user"
+                  timestamp={timeAgo(msg.createdAt)}
+                >
+                  <div className="whitespace-pre-wrap text-[14.5px]">{msg.content}</div>
+                </AIMessage>
+              </div>
             </>
           )}
-          <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <HoverBtn label="Copy" onClick={() => { navigator.clipboard.writeText(msg.content); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>
-              {copied ? <Check size={13} /> : <Copy size={13} />}
-            </HoverBtn>
+          <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
             <HoverBtn label="Edit" onClick={() => { setDraft(msg.content); setEditing(true) }}><Pencil size={13} /></HoverBtn>
             <HoverBtn label="Build skill" onClick={() => ui.set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
           </div>
@@ -142,6 +167,23 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
 
   const f = msg.flow
   const usage = msg.usage
+  /**
+   * How long the answer actually took: the wall clock between the prompt and
+   * this message. The only duration worth printing — a timer that starts when
+   * a panel opens would be measuring the wrong thing.
+   */
+  const answerSeconds = (() => {
+    const chat = store.getState().chats.find((c) => c.id === chatId)
+    const i = chat?.messages.findIndex((m) => m.id === msg.id) ?? -1
+    if (!chat || i <= 0) return undefined
+    for (let j = i - 1; j >= 0; j--) {
+      if (chat.messages[j].role === 'user') {
+        const s = (msg.createdAt - chat.messages[j].createdAt) / 1000
+        return s > 0 && s < 24 * 3600 ? s : undefined
+      }
+    }
+    return undefined
+  })()
   const showTokenUsage = useStore((st) => st.settings.showTokenUsage !== false)
   const Row: any = streaming ? motion.div : 'div'
   return (
@@ -154,6 +196,23 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
       } : {})}
       className={`msg-row group py-4 ${streaming ? 'msg-streaming' : 'msg-settle'}`}>
       <div className="max-w-[760px] mx-auto px-4">
+        <AIMessage
+          avatar={(
+            <span className="grid h-7 w-7 place-items-center rounded-full" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
+                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
+              </svg>
+            </span>
+          )}
+          bubble={false}
+          className="items-start"
+          contentClassName="w-full max-w-none"
+          copyText={msg.content}
+          from="assistant"
+          onRetry={() => onRegenerate(msg)}
+          timestamp={timeAgo(msg.createdAt)}
+        >
         {/* Model attribution */}
         <div className="flex items-center gap-1.5 mb-2 text-[11px]" style={{ color: 'var(--text-3)' }}>
           {streaming && msg.content !== '' && (
@@ -210,7 +269,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         ) : (
           <>
             {msg.stages && msg.stages.length > 0 && <ReplicateTimeline chatId={chatId} msg={msg} />}
-            <ToolTraceChips msg={msg} />
+            <ToolTraceChips msg={msg} streaming={streaming} />
             <CodingModeCard project={msg.promotedTo?.project} reason={msg.promotedTo?.reason} />
             <ExecApproval chatId={chatId} msg={msg} />
             <QuestionnaireCard chatId={chatId} msg={msg} />
@@ -325,17 +384,18 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           </div>
         )}
 
-        {/* Flow trust indicator */}
+        {/* How this answer was made — SmoothUI's AIReasoning disclosure, with
+            the real numbers inside it. */}
         {showInfo && f && (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-            className="mt-2.5 p-3.5 rounded-[14px] text-[12px] grid grid-cols-2 sm:grid-cols-5 gap-3"
-            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-            <Stat label="Original context" value={`${f.originalTokens} tok`} />
-            <Stat label="Pruned context" value={`${f.prunedTokens} tok`} />
-            <Stat label="Prompt sent" value={`${f.promptTokens} tok`} />
-            <Stat label="Completion" value={`${f.completionTokens} tok`} />
-            <Stat label="Est. cost saved" value={`$${f.costSaved.toFixed(4)}`} accent />
-          </motion.div>
+          <AIReasoning className="mt-2.5" collapseWhenDone={false} defaultOpen duration={answerSeconds}>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-[12px]">
+              <Stat label="Original context" value={`${f.originalTokens} tok`} />
+              <Stat label="Pruned context" value={`${f.prunedTokens} tok`} />
+              <Stat label="Prompt sent" value={`${f.promptTokens} tok`} />
+              <Stat label="Completion" value={`${f.completionTokens} tok`} />
+              <Stat label="Est. cost saved" value={`$${f.costSaved.toFixed(4)}`} accent />
+            </div>
+          </AIReasoning>
         )}
 
         {/* Continue from here — shown when a stream was stopped early */}
@@ -367,6 +427,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
             ))}
           </div>
         )}
+        </AIMessage>
       </div>
     </Row>
   )

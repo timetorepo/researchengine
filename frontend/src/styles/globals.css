@@ -89,6 +89,30 @@
 @theme {
   --color-background: var(--bg);
   --color-foreground: var(--text);
+  /* ---------- shadcn / SmoothUI vocabulary (R15) ----------
+     The 20 SmoothUI components are written against the shadcn token names
+     (`border-border`, `bg-muted`, `text-muted-foreground`, `bg-card`, `ring-ring`,
+     `text-destructive`, `bg-brand`). None of those existed here, so they are
+     mapped onto the app's own variables instead of shadcn's light/dark ramps:
+     every SmoothUI surface therefore follows whichever of the 13 themes is
+     active, the same way the rest of the app does. */
+  --color-border: var(--surface-border);
+  --color-input: var(--surface-border);
+  --color-ring: var(--primary);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-muted: var(--elevated);
+  --color-muted-foreground: var(--text-2);
+  --color-accent: var(--elevated);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-brand: var(--primary);
+  --color-brand-light: color-mix(in srgb, var(--primary) 72%, #ffffff);
+  --color-brand-lighter: color-mix(in srgb, var(--primary) 46%, #ffffff);
+  --color-brand-secondary: var(--secondary);
   --color-foreground-50: var(--text);
   --color-foreground-100: var(--text);
   --color-foreground-200: var(--text-2);

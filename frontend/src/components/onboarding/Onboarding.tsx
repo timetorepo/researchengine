@@ -9,7 +9,16 @@ import { THEMES, applyTheme } from '@/lib/themes/meta'
 import { Button } from '@/components/ui/heroui/Button'
 import { Input } from '@/components/ui/heroui/Input'
 import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
-import { TextGenerateEffect } from '@/components/ui/aceternity/TextGenerateEffect'
+// SmoothUI (shadcn registry, github.com/educlopez/smoothui) — installed under
+// src/components/smoothui and used for real here: the promises build in the
+// centre, the repo stars count up, the connection test prints into a terminal,
+// the demo contents open out of a folder.
+import KineticCenterBuild from '@/components/smoothui/kinetic-center-build'
+import TypewriterText from '@/components/smoothui/typewriter-text'
+import StaggerFromEdges from '@/components/smoothui/stagger-from-edges'
+import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-terminal'
+import FolderReveal from '@/components/smoothui/folder-reveal'
+import GitHubStarsAnimation from '@/components/smoothui/github-stars-animation'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { refreshProviderModels } from '@/lib/providers/refresh'
@@ -87,6 +96,32 @@ export function Onboarding() {
     applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
   }
 
+  /**
+   * What the connection test is actually doing, printed line by line. The
+   * terminal replays from scratch whenever the provider, the key or the result
+   * changes (`key` below), so the lines on screen are never stale.
+   */
+  const terminalLines: TerminalLine[] = [
+    { id: 'cmd', type: 'command', text: `research-engine connect --provider ${provider}`, delay: 260 },
+    { id: 'url', type: 'comment', text: `# ${PROVIDERS.find((p) => p.id === provider)?.baseUrl ?? ''}` },
+    {
+      id: 'key',
+      type: 'output',
+      text: apiKey
+        ? `key ${apiKey.slice(0, 4)}…${apiKey.slice(-4)} → kept on this device`
+        : 'no key yet — the local demo model answers until you add one',
+    },
+    ...(testState === 'busy'
+      ? [{ id: 'busy', type: 'output' as const, text: 'dialling the endpoint…' }]
+      : []),
+    ...(testState === 'ok'
+      ? [{ id: 'ok', type: 'success' as const, text: testMsg }]
+      : []),
+    ...(testState === 'err'
+      ? [{ id: 'err', type: 'error' as const, text: testMsg || 'connection failed' }]
+      : []),
+  ]
+
   const fade = {
     initial: { opacity: 0, scale: 0.99 },
     animate: { opacity: 1, scale: 1 },
@@ -105,12 +140,17 @@ export function Onboarding() {
         </svg>
       </motion.div>
       <h1 className="text-[30px] font-bold leading-tight" style={{ letterSpacing: '-0.03em' }}>Research Engine</h1>
-      <TextGenerateEffect
-        text="Perplexity-level answers. Zero data leaves your device except the calls you aim yourself."
-        className="text-[15px] mt-3 leading-relaxed"
-        duration={1.2}
+      {/* the three promises build word-by-word in the centre, hold, then hand over */}
+      <KineticCenterBuild
+        phrases={[
+          'Perplexity-level answers.',
+          'Zero data leaves your device.',
+          'Only the calls you aim leave.',
+        ]}
+        interval={2400}
+        className="text-[15.5px] mt-3.5 min-h-[48px] max-w-[460px] mx-auto leading-relaxed"
       />
-      <div className="flex flex-wrap justify-center gap-2 mt-6">
+      <div className="flex flex-wrap justify-center gap-2 mt-5">
         {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Read & Quiz', 'Agent Flood'].map((t, i) => (
           <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
             className="px-3 py-1 rounded-full text-[11.5px]"
@@ -119,7 +159,15 @@ export function Onboarding() {
           </motion.span>
         ))}
       </div>
-      <div className="mt-8 flex justify-center">
+      {/* real star count from the GitHub API; renders nothing at all when the
+          machine is offline, so no invented numbers on an offline-first app */}
+      <div className="mt-6 flex justify-center">
+        <GitHubStarsAnimation owner="timetorepo" repo="researchengine" maxAvatars={5} />
+      </div>
+      <div className="mt-2 h-[16px] text-[11.5px] font-mono" style={{ color: 'var(--text-3)' }}>
+        <TypewriterText speed={34}>local-first · bring your own key · works offline</TypewriterText>
+      </div>
+      <div className="mt-6 flex justify-center">
         <MovingBorder onClick={next} radius={999} className="w-52 h-12">
           <span className="flex items-center justify-center gap-2 font-medium text-[14px] text-white"
             style={{ background: 'var(--primary)', borderRadius: 999, height: '100%' }}>
@@ -150,7 +198,9 @@ export function Onboarding() {
           </motion.div>
         ))}
       </div>
-      <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>While you're here — pick a theme</div>
+      <StaggerFromEdges className="block text-[11px] uppercase tracking-wider mb-2" triggerOnView={false} stagger={0.012}>
+        {`While you're here — pick a theme`}
+      </StaggerFromEdges>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {THEMES.map((t) => (
           <button key={t.id} onClick={() => setTheme(t.id)}
@@ -195,6 +245,16 @@ export function Onboarding() {
             {testState === 'ok' && <span className="text-[12px] flex items-center gap-1" style={{ color: 'var(--success)' }}><Check size={12} /> {testMsg}</span>}
             {testState === 'err' && <span className="text-[12px] truncate" style={{ color: 'var(--danger)' }}>{testMsg}</span>}
           </div>
+          {/* the real request/response, typed out — not a mock */}
+          <MacTerminal
+            key={`${provider}-${testState}-${apiKey.length}`}
+            autoPlay
+            lines={terminalLines}
+            maxHeight={190}
+            theme="auto"
+            title="connection test"
+            typingSpeed={12}
+          />
         </div>
       ) : (
         <div className="p-4 rounded-[14px] text-[13px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
@@ -208,15 +268,32 @@ export function Onboarding() {
     <div key="s3" className="max-w-[520px] mx-auto text-center">
       <StepHeader icon={BookOpen} title="See it working — no key required" sub="A bundled study demo: a genuine DNA primer, AI study rewrite, three-tier highlights, and a hand-tuned quiz. Fully offline." />
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-        className="rounded-[18px] p-5 text-left mb-5"
+        className="rounded-[18px] p-5 text-left mb-5 flex flex-col sm:flex-row items-center gap-5"
         style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-        <div className="text-[13px] font-medium mb-1">“The Structure of DNA” demo</div>
-        <ul className="text-[12px] space-y-1" style={{ color: 'var(--text-2)' }}>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Scripted 3-stage processing pipeline — Parsing, Extracting, Analyzing</li>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> 720px serif reader with progress rail and annotation markers</li>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> AI study rewrite with toggle back to the original</li>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Premium quiz with explanations and source jumps</li>
-        </ul>
+        {/* the four things in the demo, literally in a folder — hover to open it */}
+        <FolderReveal
+          className="shrink-0"
+          color="brand"
+          items={[
+            { id: 'pipeline', content: <CardText t="3-stage pipeline" />, color: 'color-mix(in srgb, var(--primary) 14%, var(--surface))' },
+            { id: 'reader', content: <CardText t="720px reader" />, color: 'color-mix(in srgb, var(--success) 14%, var(--surface))' },
+            { id: 'rewrite', content: <CardText t="AI study rewrite" />, color: 'color-mix(in srgb, var(--secondary) 14%, var(--surface))' },
+            { id: 'quiz', content: <CardText t="Hand-tuned quiz" />, color: 'color-mix(in srgb, var(--warning) 16%, var(--surface))' },
+          ]}
+          label="DNA demo"
+          rotation={9}
+          size={232}
+          trigger="hover"
+        />
+        <div className="min-w-0">
+          <div className="text-[13px] font-medium mb-1.5">“The Structure of DNA” demo</div>
+          <ul className="text-[12px] space-y-1" style={{ color: 'var(--text-2)' }}>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Scripted Parsing → Extracting → Analyzing run</li>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Serif reader with progress rail and annotations</li>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> AI study rewrite, toggle back to the original</li>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Premium quiz with explanations and source jumps</li>
+          </ul>
+        </div>
       </motion.div>
       <div className="flex justify-center gap-2">
         <Button size="md" onClick={tryDemo} startContent={<BookOpen size={15} />}>Open the reading demo</Button>
@@ -236,6 +313,9 @@ export function Onboarding() {
         Theme: <b>{THEMES.find((t) => t.id === theme)?.name}</b> ·
         Model: <b>{apiKey ? PROVIDERS.find((p) => p.id === provider)?.name : 'Local demo'}</b>
       </p>
+      <StaggerFromEdges className="block text-[12.5px] mt-3.5" stagger={0.016} triggerOnView={false}>
+        {'Everything is ready. Nothing you typed left this device.'}
+      </StaggerFromEdges>
       <div className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
         <Sparkles size={12} /> Try typing <code className="px-1.5 py-0.5 rounded font-mono" style={{ background: 'var(--elevated)' }}>-404</code> sometime.
       </div>
@@ -305,6 +385,15 @@ export function Onboarding() {
       </div>
     </AuroraBackground>
     </div>
+  )
+}
+
+function CardText({ t }: { t: string }) {
+  return (
+    <span className="flex h-full w-full items-center justify-center p-3 text-center text-[11.5px] font-medium leading-snug"
+      style={{ color: 'var(--text)' }}>
+      {t}
+    </span>
   )
 }
 

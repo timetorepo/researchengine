@@ -3,17 +3,28 @@ import { motion } from 'motion/react'
 import { Wrench, CheckCircle2, XCircle, ShieldAlert, TerminalSquare, ClipboardList, Send, Check, X, Code as CodeIcon } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { submitQuestionnaire, resolveExec } from '@/lib/chat/tools'
+// SmoothUI's AIToolCall — the tool that is running right now, as a card.
+import AIToolCall from '@/components/smoothui/ai-tool-call'
 
 /* ---------- tool activity chips ---------- */
-export function ToolTraceChips({ msg }: { msg: ChatMessage }) {
+export function ToolTraceChips({ msg, streaming = false }: { msg: ChatMessage; streaming?: boolean }) {
   if (!msg.toolTrace?.length) return null
   // Deduplicate consecutive identical labels.
   const chips: typeof msg.toolTrace = []
   for (const t of msg.toolTrace) {
     if (!chips.length || chips[chips.length - 1].label !== t.label || chips[chips.length - 1].status !== t.status) chips.push(t)
   }
+  const last = chips[chips.length - 1]
+  const live: 'pending' | 'running' | 'success' | 'error' =
+    last.status === 'ok' ? 'success' : last.status === 'error' || last.status === 'blocked' ? 'error'
+    : last.status === 'confirm' ? 'pending' : 'running'
+
   return (
-    <div className="flex flex-wrap gap-1.5 mb-2.5">
+    <div className="mb-2.5">
+      {/* While the answer is still arriving, the newest tool gets the full card
+          — name, state and what it is doing — instead of only a chip. */}
+      {streaming && <AIToolCall className="mb-2" name={last.tool} status={live} summary={last.label} />}
+      <div className="flex flex-wrap gap-1.5">
       {chips.slice(-6).map((t, i) => (
         <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px]"
           style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
@@ -21,6 +32,7 @@ export function ToolTraceChips({ msg }: { msg: ChatMessage }) {
           {t.label}
         </span>
       ))}
+      </div>
     </div>
   )
 }

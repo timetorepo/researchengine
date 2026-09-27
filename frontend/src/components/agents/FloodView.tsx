@@ -7,6 +7,8 @@ import type { AgentSpec, Squad } from '@/types'
 import { useStore, AGENT_COLORS } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { AGENT_ROLES, AGENT_INSTRUCTIONS } from '@/lib/agents/squads'
+// SmoothUI's AITaskList — the agents, by state.
+import AITaskList from '@/components/smoothui/ai-task-list'
 import { estimateTokens } from '@/lib/flow/pruner'
 import { generateText } from '@/lib/chat/generate'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
@@ -400,6 +402,24 @@ export function FloodView() {
           <span className="text-[13px] font-medium flex-1">Scratchpad</span>
           <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>agent-to-agent</span>
         </div>
+        {/* The live checklist: which agent is idle, working, finished or halted.
+            SmoothUI's AITaskList — state, not a status string. */}
+        {statuses.length > 0 && (
+          <div className="px-3 pt-3">
+            <AITaskList
+              label="Agent flood"
+              tasks={statuses.map((st) => ({
+                id: st.spec.id,
+                label: String((st.spec as any).name ?? (st.spec as any).role ?? 'Agent'),
+                note: st.tokens > 0 ? `${fmt(st.tokens)} tok` : undefined,
+                status: st.state === 'done' ? 'done'
+                  : st.state === 'working' ? 'running'
+                  : st.state === 'idle' ? 'pending'
+                  : 'failed',
+              }))}
+            />
+          </div>
+        )}
         <div ref={padRef} className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[180px]">
           {pad.length === 0 && (
             <div className="text-[12px] text-center py-8" style={{ color: 'var(--text-3)' }}>
