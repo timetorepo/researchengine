@@ -149,14 +149,34 @@ Two bugs, both visible:
 | Entry bundle | 1.32 MB raw / 389 kB gzip |
 | render-check | **800 passed, 0 failed** |
 | updates UI (new) | **17 passed, 0 failed** — the popup and the tab strip, mounted for real |
-| updater suite | 71 passed, 0 failed, 3 skipped (no network in this build environment) |
+| updater suite | 81 passed, 0 failed, 2 skipped (no network for the GitHub-hosted cases) |
 | models / smoke / UI / integrations | 96 · 65 · 60 · 51 — all passed |
 | design mode end-to-end | 32 passed, 0 failed |
+| desktop check (`--run`, compiles and boots the real sidecar) | 44 passed, 0 failed |
 | developer bench (this archive) | 8 passed, 0 failed — see `bench-report-0.32.0-beta.1.txt` |
+
+## Downloads
+
+Prefer an installer? This tag ships the **Tauri desktop app** — a native window
+around the same local server, no Node required on the machine:
+
+| Installer | Platform | Size | sha256 (GitHub's own digest for the uploaded asset) |
+|---|---|---|---|
+| `Research.Engine_0.32.0-beta.1_x64-setup.exe` | Windows 10/11 x64, per-user, no language prompt, WebView2 fetched automatically | 38.9 MB | `7323bd12…8acb90bf` |
+| `Research.Engine_0.32.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.3 MB | `9968941…c0de16` |
+| `Research.Engine_0.32.0-beta.1_amd64.AppImage` | any x64 Linux | 122.2 MB | `0c534b4…ca21e4` |
+
+There is no macOS build — no runner is configured for it, and this README will
+not pretend otherwise. The full digests are in `INSTALLERS.sha256` in the
+`downloads/` folder of the source tree. The two portable archives
+(`-linux-x64.tar.gz`, `-win-x64.zip`, needing Node 20+) are committed in that
+same folder with their checksums in `SHA256SUMS` — that is what the in-app
+updater reads.
 
 ## Updating to this version
 
 From **0.29.0 on, the app updates itself**: Settings → Updates, or the pill in
-the top bar, or the popup that now appears on its own. The checksums for the two
-archives below are in `SHA256SUMS`; the desktop installers are built by CI from
-this tag and attached to this release, with GitHub's own recorded digests.
+the top bar, or the popup that now appears on its own. Nothing installs without
+your press; the checksum is verified against the `SHA256SUMS` published with the
+same tag before a single byte is unpacked, and a version that cannot start is
+rolled back automatically.

@@ -11,13 +11,15 @@ this tag and attaches them to the release you are reading; their hashes are in
 `INSTALLERS.sha256` in this folder, and every one of them is **GitHub's own
 sha256 digest for the uploaded asset**, read back from the release API
 (`digest` on the asset), not a hash of a local build folder that could have
-drifted. A freshly built installer is never claimed here before it exists, so
-`INSTALLERS.sha256` still lists the 0.31.1 installers — it is a record of what
-was verified, not a promise about what CI is about to build. The 0.32.0
-installers appear on the release page with GitHub's own digests.
+drifted. A freshly built installer is never claimed here before it exists.
 
-Full hashes: `INSTALLERS.sha256` in this folder (and on the release page for
-0.32.0's installers).
+| Installer | Platform | Size |
+|---|---|---|
+| `Research.Engine_0.32.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 38.9 MB |
+| `Research.Engine_0.32.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.3 MB |
+| `Research.Engine_0.32.0-beta.1_amd64.AppImage` | any x64 Linux | 122.2 MB |
+
+Full hashes: `INSTALLERS.sha256` in this folder.
 
 See `desktop/README.md` for how the shell boots the local server, and
 `.github/workflows/desktop.yml` for the build.
