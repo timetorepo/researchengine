@@ -189,7 +189,7 @@ export function ProvidersTab() {
                 {available.map((p) => {
                   const conf = settings.providers[p.id]
                   return (
-                    <button key={p.id} onClick={() => addProvider(p.id)}
+                    <button key={p.id} data-provider={p.id} onClick={() => addProvider(p.id)}
                       className="flex items-center gap-2.5 p-2.5 rounded-[12px] text-left transition-colors hover:bg-[var(--elevated)]"
                       style={{ border: '1px solid var(--surface-border)' }}>
                       <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
@@ -271,7 +271,7 @@ export function ProvidersTab() {
           const d = drafts[p.id] ?? { key: '', url: conf.baseUrl || p.baseUrl, imageKey: '', voiceKey: '' }
           const state = testing[p.id] ?? 'idle'
           return (
-            <div key={p.id} className="surface p-4">
+            <div key={p.id} data-provider={p.id} className="surface p-4">
               <div className="flex items-center gap-3 mb-3">
                 <span className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
                   <ProviderLogo id={p.id} size={18} />

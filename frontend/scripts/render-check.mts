@@ -1986,6 +1986,112 @@ async function main() {
     useStore.setState({ settings: base } as any)
   }
 
+  // --- [30] The Providers tab, from empty to a working connection -------------
+  console.log('\n[30] the Providers tab, from empty to a working connection')
+  {
+    const { ProvidersTab } = await import('../src/components/settings/ProvidersTab')
+    const { PROVIDERS: REGISTRY } = await import('../src/lib/providers/registry')
+    const base = useStore.getState().settings
+    useStore.setState({ settings: { ...base, addedProviders: [] } } as any)
+
+    const host = win.document.createElement('div')
+    win.document.body.appendChild(host)
+    const root = createRoot(host)
+    root.render(React.createElement(ProvidersTab as any))
+    await wait(120)
+
+    check('it opens empty, and says so', (host.textContent ?? '').includes('No providers yet'))
+    check('with the counts of what this build ships',
+      new RegExp(`ships ${REGISTRY.length} provider`).test(host.textContent ?? ''),
+      (host.textContent ?? '').slice(0, 70))
+    check('and one obvious way in', /Add your first provider/.test(host.textContent ?? ''))
+    check('no provider card is rendered before you add one',
+      !host.querySelector('input[placeholder="API key"]'))
+
+    const add = Array.from(host.querySelectorAll('button'))
+      .find((b: any) => /Add your first provider/.test(b.textContent ?? '')) as any
+    fire(add)
+    await wait(150)
+    const search = host.querySelector('input[aria-label="Search providers"]') as any
+    check('adding opens a searchable catalog', !!search)
+    const allCards = host.querySelectorAll('[data-provider]').length
+    check('the catalog lists what the build ships', allCards > 4, `${allCards} entries`)
+
+    if (search) {
+      nativeValue(search, 'deepseek')
+      await wait(150)
+      const filtered = Array.from(host.querySelectorAll('[data-provider]')).map((e: any) => e.getAttribute('data-provider'))
+      check('search narrows the catalog to the match', filtered.includes('deepseek') && filtered.length < allCards,
+        filtered.join(', '))
+      const entry = host.querySelector('button[data-provider="deepseek"]') as any
+      check('the catalog entry is a button you can press', !!entry)
+      fire(entry)
+      await wait(700)
+      check('picking one adds it to your providers',
+        (useStore.getState().settings.addedProviders ?? []).includes('deepseek'),
+        JSON.stringify(useStore.getState().settings.addedProviders))
+      check('and it never touches a key you already have',
+        !(useStore.getState().settings.providers?.deepseek?.apiKey ?? ''), 'no key written')
+      check('the catalog closes once you have one', !host.querySelector('input[aria-label="Search providers"]'))
+      check('the empty state is gone now that there is one', !(host.textContent ?? '').includes('No providers yet'))
+      check('and it offers the key field for the provider you added',
+        !!host.querySelector('input[placeholder="API key"]'),
+        (host.textContent ?? '').slice(0, 80))
+      const removeBtn = host.querySelector('button[aria-label^="Remove"]') as any
+      check('a provider can be removed again, from its card', !!removeBtn)
+      fire(removeBtn)
+      await wait(150)
+      check('removing asks about the saved key first',
+        (host.textContent ?? '').includes('Keep my saved key') && /delete the key/i.test(host.textContent ?? ''))
+      const keep = Array.from(host.querySelectorAll('button'))
+        .find((b: any) => /Keep my saved key/.test(b.textContent ?? '')) as any
+      fire(keep)
+      await wait(150)
+      check('keep removes it from the list without deleting anything',
+        !((useStore.getState().settings.addedProviders ?? []).includes('deepseek')))
+    }
+
+    root.unmount()
+    useStore.setState({ settings: { ...base, addedProviders: base.addedProviders } } as any)
+  }
+
+  // --- [30b] What a reply cost, on the reply --------------------------------
+  console.log('\n[30b] what a reply cost')
+  {
+    const base = useStore.getState().settings
+    useStore.setState({ settings: { ...base, showTokenUsage: true } } as any)
+    const reported = await mountMessage({
+      id: 'tok1', role: 'assistant', content: 'Counted answer.', createdAt: Date.now(), model: 'gpt-4o',
+      usage: { prompt: 1200, completion: 800, total: 2000, reported: true },
+    })
+    check('a reply that reported usage says so', /2\.0k tokens/.test(reported.html), reported.html.slice(0, 0))
+    check('without hedging it as an estimate', !/≈.*2\.0k tokens/.test(reported.html))
+    reported.unmount()
+
+    const estimate = await mountMessage({
+      id: 'tok2', role: 'assistant', content: 'Estimated answer.', createdAt: Date.now(), model: 'gpt-4o',
+      usage: { prompt: 900, completion: 300, total: 1200, reported: false },
+    })
+    check('a reply that could not be measured is marked as an estimate',
+      /≈\s*1\.2k tokens/.test(estimate.html), estimate.html.slice(0, 0))
+    estimate.unmount()
+
+    const plain = await mountMessage({
+      id: 'tok3', role: 'assistant', content: 'No usage at all.', createdAt: Date.now(), model: 'gpt-4o',
+    })
+    check('a reply from before this feature carries no chip', !/tokens/.test(plain.html))
+    plain.unmount()
+
+    useStore.setState({ settings: { ...base, showTokenUsage: false } } as any)
+    const off = await mountMessage({
+      id: 'tok4', role: 'assistant', content: 'Hidden.', createdAt: Date.now(), model: 'gpt-4o',
+      usage: { prompt: 10, completion: 10, total: 20, reported: true },
+    })
+    check('and the whole thing can be switched off', !/tokens/.test(off.html))
+    off.unmount()
+    useStore.setState({ settings: base } as any)
+  }
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)
