@@ -1878,6 +1878,114 @@ async function main() {
   check('responses carry their token cost', m16readSrc(new URL('../src/types/index.ts', import.meta.url)).includes('usage?: { prompt: number'))
   check('and the message footer shows it', m16readSrc(new URL('../src/components/chat/Message.tsx', import.meta.url)).includes('formatTokens(usage.total)'))
 
+  // --- [29b] The picker, driven the way a person drives it -------------------
+  console.log('\n[29b] the model picker, in a real DOM')
+  {
+    const { ModelPicker } = await import('../src/components/topbar/ModelPicker')
+    const base = useStore.getState().settings
+    useStore.setState({
+      settings: {
+        ...base,
+        defaultModel: 'openai:gpt-4o',
+        addedProviders: ['openai', 'anthropic'],
+        hiddenModels: [],
+        modelTiers: {},
+        providerModels: {
+          openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
+          anthropic: ['claude-sonnet-4-5', 'claude-opus-4-1'],
+          freeroute: ['deepseek-chat:free', 'llama-3.3-70b:free'],
+        },
+      },
+    } as any)
+
+    const host = win.document.createElement('div')
+    win.document.body.appendChild(host)
+    const pickRoot = createRoot(host)
+    pickRoot.render(React.createElement(ModelPicker as any))
+    await wait(80)
+
+    const trigger = host.querySelector('button[aria-haspopup="listbox"]') as any
+    check('the picker has a trigger that names the current model', !!trigger && /gpt-4o/.test(trigger.textContent ?? ''))
+    fire(trigger)
+    await wait(100)
+
+    const options = Array.from(host.querySelectorAll('button[role="option"]')) as any[]
+    check('opening it shows the models', options.length === 7, `${options.length} rows`)
+    check('each row carries a logo mark', options.length > 0 && options.every((o) => !!o.querySelector('svg')))
+    check('and the active model is marked as such',
+      options.some((o) => o.getAttribute('aria-selected') === 'true' && (o.textContent ?? '').includes('gpt-4o')))
+
+    const chip = (word: string) => Array.from(host.querySelectorAll('button'))
+      .find((b: any) => new RegExp(`^${word}`, 'i').test((b.textContent ?? '').trim())) as any
+    const paidChip = chip('paid')
+    check('there is a paid filter with a live count on it', !!paidChip && /\d/.test(paidChip.textContent ?? ''))
+    fire(paidChip)
+    await wait(100)
+    const paidNames = (Array.from(host.querySelectorAll('button[role="option"]')) as any[])
+      .map((o) => (o.textContent ?? '').trim())
+    check('picking paid hides the free models', !paidNames.some((n) => /:free/.test(n)), paidNames.join(' | ').slice(0, 80))
+    fire(chip('free'))
+    await wait(100)
+    const freeNames = (Array.from(host.querySelectorAll('button[role="option"]')) as any[])
+      .map((o) => (o.textContent ?? '').trim())
+    check('the free filter leaves only free ones',
+      freeNames.length === 2 && freeNames.every((n) => /:free/.test(n)), freeNames.join(' | ').slice(0, 80))
+    check('and keeps the paid ones', paidNames.some((n) => /claude-opus-4-1/.test(n)))
+    check('while the free ones are the ones it removed', paidNames.length === 5, `${paidNames.length} left`)
+    fire(chip('all'))
+    await wait(80)
+
+    // The dock: hovering a row magnifies it and its neighbours, and only those.
+    const boxes = Array.from(host.querySelectorAll('button[role="option"]')).map((o: any) => o.parentElement) as any[]
+    const scaleOf = (el: any) => {
+      // jsdom computes no layout, so read the transform the animation wrote.
+      const t = String(el?.style?.transform ?? '') || win.getComputedStyle(el).transform
+      if (!t || t === 'none') return 1
+      const m = t.match(/matrix\(([^)]+)\)/)
+      if (m) return parseFloat(m[1].split(',')[0])
+      const sc = t.match(/scale\(([\d.]+)/)
+      return sc ? parseFloat(sc[1]) : 1
+    }
+    fire(boxes[0], 'mouseover')
+    fire(boxes[0], 'mouseenter')
+    await wait(150)
+    check('hovering a row magnifies it', scaleOf(boxes[0]) > 1.02, scaleOf(boxes[0]).toFixed(3))
+    check('the neighbour grows too, by less', scaleOf(boxes[1]) > 1.01 && scaleOf(boxes[1]) < scaleOf(boxes[0]),
+      `${scaleOf(boxes[0]).toFixed(3)} vs ${scaleOf(boxes[1]).toFixed(3)}`)
+    check('and a row out of reach does not', scaleOf(boxes[6]) < 1.005, scaleOf(boxes[6]).toFixed(3))
+
+    // Unlisting is a toggle that hides, never deletes.
+    const eye = host.querySelector('button[aria-label="Unlist o3-mini"]') as any
+    check('a row can be unlisted from itself', !!eye)
+    fire(eye)
+    await wait(100)
+    check('unlisting records the model', (useStore.getState().settings.hiddenModels ?? []).includes('openai:o3-mini'))
+    check('and the model is still there, only unlisted',
+      ((useStore.getState().settings.providerModels as any).openai ?? []).includes('o3-mini'))
+    const visibleNow = (Array.from(host.querySelectorAll('button[role="option"]')) as any[]).map((o) => (o.textContent ?? ''))
+    check('it leaves the picker list', !visibleNow.some((t) => /o3-mini/.test(t)))
+    const unlistedToggle = Array.from(host.querySelectorAll('button'))
+      .find((b: any) => /^\d+ unlisted model/i.test((b.textContent ?? '').trim())) as any
+    check('but it is kept in an unlisted section, not deleted', !!unlistedToggle, (host.textContent ?? '').slice(0, 60))
+    if (unlistedToggle) {
+      fire(unlistedToggle)
+      await wait(120)
+      check('and opening that section shows it again, with a way back',
+        (host.textContent ?? '').includes('o3-mini') && !!host.querySelector('[title="Put it back in the list"]'))
+    }
+
+    const before = useStore.getState().settings.defaultModel
+    const pick = (Array.from(host.querySelectorAll('button[role="option"]')) as any[])
+      .find((o) => /claude-sonnet-4-5/.test(o.textContent ?? ''))
+    fire(pick)
+    await wait(80)
+    check('clicking a row selects that model', useStore.getState().settings.defaultModel === 'anthropic:claude-sonnet-4-5',
+      `${before} -> ${useStore.getState().settings.defaultModel}`)
+
+    pickRoot.unmount()
+    useStore.setState({ settings: base } as any)
+  }
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)
