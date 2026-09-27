@@ -490,7 +490,14 @@ const VoicePill: React.FC<VoicePillProps> = ({
           '--vp-time-size': `${timeSize}px`,
           '--vp-open': `${openDuration}ms`,
           '--vp-press': pressScale,
-          '--vp-hit': `${hit}px`
+          '--vp-hit': `${hit}px`,
+          // `--vp-slide`/`--vp-cancel` are otherwise only written while a
+          // pointer is dragging, so before the first press `var(--vp-cancel)`
+          // is undefined — an invalid `opacity` at computed-value time, which
+          // resolves to 1 and leaves the "Cancel" label on screen permanently.
+          // Both are pinned to their resting values here.
+          '--vp-slide': '0px',
+          '--vp-cancel': '0'
         } as CSSProperties
       }
     >

@@ -248,6 +248,7 @@ export function FloodView() {
               }}
               onStop={stop}
               onDictate={dictateIntoBar}
+              className="re-promptbar"
               background="var(--surface)"
               color="var(--text)"
               menuBackground="var(--elevated)"

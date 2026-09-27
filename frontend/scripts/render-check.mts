@@ -44,6 +44,26 @@ win.cancelAnimationFrame = (id: any) => clearTimeout(id)
 win.scrollTo = () => {}
 win.HTMLElement.prototype.scrollIntoView = function () {}
 win.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }
+/**
+ * jsdom has no canvas. Components that draw a waveform call getContext('2d')
+ * on every frame; without this they would log a warning per frame and the
+ * component under test would be reading a null context. A no-op 2D context is
+ * enough for the DOM-level assertions below (jsdom could not resolve the pixels
+ * anyway) and keeps the output readable.
+ */
+;(win as any).HTMLCanvasElement.prototype.getContext = function () {
+  const noop = () => {}
+  return {
+    canvas: this, save: noop, restore: noop, beginPath: noop, closePath: noop, moveTo: noop, lineTo: noop,
+    stroke: noop, fill: noop, clearRect: noop, fillRect: noop, arc: noop, rect: noop, roundRect: noop,
+    scale: noop, translate: noop, rotate: noop, setTransform: noop, resetTransform: noop, drawImage: noop,
+    createLinearGradient: () => ({ addColorStop: noop }), createRadialGradient: () => ({ addColorStop: noop }),
+    createPattern: () => null, measureText: () => ({ width: 0 }), getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+    putImageData: noop, setLineDash: noop, getLineDash: () => [], quadraticCurveTo: noop, bezierCurveTo: noop,
+    fillStyle: '', strokeStyle: '', lineWidth: 1, font: '', globalAlpha: 1, globalCompositeOperation: 'source-over',
+    shadowBlur: 0, shadowColor: '', lineCap: 'butt', lineJoin: 'miter', filter: 'none',
+  }
+}
 // voice-glow watches its own attributes to re-measure; a no-op observer keeps the
 // microphone card mountable here (there is no layout engine to react to anyway).
 win.MutationObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return [] } }
@@ -2535,6 +2555,189 @@ async function main() {
   check('hashed assets are immutable, the shell is not', /immutable/.test(static30) && /no-cache/.test(static30))
   check('the theme props do not pull three.js into the first load',
     !/from '@react-three\/fiber'/.test(m16readSrc(new URL('../src/components/layout/BackgroundLayer.tsx', import.meta.url))))
+
+
+  console.log('\n[32] 0.30.0 — the composer popovers, the voice pill, connected accounts')
+  {
+    const { ModeMenu } = await import('../src/components/input/ModeMenu')
+    const { default: VoicePill } = await import('../src/components/ui/reactbits/micro/VoicePill')
+    const { IntegrationsMenu } = await import('../src/components/input/IntegrationsMenu')
+
+    /* --- the mode popover: it closes on the row you press --- */
+    const toggles: string[] = []
+    let closes = 0
+    const pills = [
+      { id: 'flow', label: 'Flow', desc: 'Balanced answers.', icon: (() => null) as any, active: true, toggle: () => toggles.push('flow') },
+      { id: 'math', label: 'Math', desc: 'Step by step.', icon: (() => null) as any, active: false, tone: 'warning' as const, toggle: () => toggles.push('math') },
+    ]
+    const anchorHost = win.document.createElement('button')
+    win.document.body.appendChild(anchorHost)
+    const modeHost = win.document.createElement('div')
+    win.document.body.appendChild(modeHost)
+    const modeRoot = createRoot(modeHost)
+    modeRoot.render(React.createElement(ModeMenu as any, { pills, anchor: anchorHost, onClose: () => { closes++ } }))
+    await wait(80)
+    const menu = modeHost.querySelector('[data-mode-menu]') as any
+    check('the mode menu is a real menu, anchored above the composer', !!menu && menu.getAttribute('role') === 'menu')
+    check('every mode is listed with its one-line explanation',
+      /Flow/.test(menu?.textContent ?? '') && /Balanced answers/.test(menu?.textContent ?? '') && /Math/.test(menu?.textContent ?? ''))
+    check('the active mode is checked, not just tinted',
+      menu?.querySelector('[aria-checked="true"]')?.getAttribute('aria-label') === 'Flow')
+    check('Math keeps its warning tone', /Math/.test(menu?.querySelector('[aria-label="Math"]')?.textContent ?? ''))
+    const mathRow = menu?.querySelector('[aria-label="Math"]') as any
+    pointer(mathRow, 'pointerdown')
+    await wait(60)
+    check('pressing a mode applies it', toggles.join(',') === 'math', toggles.join(','))
+    check('and the menu dismisses itself — no second click needed', closes >= 1, String(closes))
+    const before = closes
+    fire(win.document.body, 'keydown', { key: 'Escape' } as any)
+    win.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape' }))
+    await wait(40)
+    check('Escape closes it too', closes > before, String(closes))
+    modeRoot.unmount()
+
+    /* --- the voice pill: no Cancel until there is something to cancel --- */
+    const voiceHost = win.document.createElement('div')
+    win.document.body.appendChild(voiceHost)
+    const voiceRoot = createRoot(voiceHost)
+    let starts = 0
+    const stops: string[] = []
+    voiceRoot.render(React.createElement(VoicePill as any, {
+      mode: 'toggle', reactive: 'simulated', slideToCancel: true, showTime: false,
+      ariaLabel: 'Dictate', onStart: () => { starts++ }, onStop: (i: any) => stops.push(i.reason),
+    }))
+    await wait(80)
+    const pill = voiceHost.querySelector('button') as any
+    check('the dictation pill renders where the composer can reach it', !!pill && pill.getAttribute('aria-label') === 'Dictate')
+    const pillRoot = pill?.closest('[data-state]') as any
+    check('at rest it is idle', pillRoot?.getAttribute('data-state') === 'idle', pillRoot?.getAttribute('data-state'))
+    check('and the cancel affordance is switched off, not merely styled',
+      pillRoot?.style.getPropertyValue('--vp-cancel') === '0' || pill?.closest('div')?.style.getPropertyValue('--vp-cancel') === '0',
+      JSON.stringify(pillRoot?.style.getPropertyValue('--vp-cancel')))
+    tap(pill)
+    await wait(120)
+    check('pressing it starts dictation once', starts === 1, String(starts))
+    const liveRoot = pill?.closest('[data-state]') as any
+    check('and the pill shows it is listening', liveRoot?.getAttribute('data-state') === 'listening', liveRoot?.getAttribute('data-state'))
+    tap(pill)
+    await wait(120)
+    check('pressing again stops it with a reason', stops.length === 1 && !!stops[0], stops.join(','))
+    check('and the cancel affordance goes away with it',
+      (pill?.closest('[data-state]') as any)?.style.getPropertyValue('--vp-cancel') === '0')
+    voiceRoot.unmount()
+    anchorHost.remove()
+
+    /* --- the plug menu: search, connect, attach --- */
+    const realFetch = globalThis.fetch
+    const menuCalls: { url: string; headers: Record<string, string> }[] = []
+    const intFetch = async (input: any, init: any = {}) => {
+      const url = String(input)
+      const headers: Record<string, string> = {}
+      for (const [k, v] of Object.entries(init?.headers ?? {})) headers[k.toLowerCase()] = String(v)
+      menuCalls.push({ url, headers })
+      if (url.includes('/api/integrations/search')) {
+        const q = new URL(url, 'http://x').searchParams.get('q') ?? ''
+        return new Response(JSON.stringify({
+          results: q ? [{ integration: 'drive', id: 'f1', title: 'Thesis.pdf', snippet: 'Solid-state battery notes', kind: 'file' }] : [],
+          errors: [{ integration: 'slack', name: 'Slack', error: 'Slack: that is a bot token', needs: 'auth' }],
+          connected: ['drive'],
+        }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      if (url.includes('/api/integrations/probe')) {
+        return new Response(JSON.stringify({ ok: true, account: 'dnishh', detail: 'scopes: repo' }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({}), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    ;(globalThis as any).fetch = intFetch
+    ;(win as any).fetch = intFetch
+
+    // One account is really connected (encrypted, like a provider key), so the
+    // header the backend receives can be checked for what it should carry.
+    const { saveCreds } = await import('../src/lib/integrations/client')
+    await saveCreds('drive', { token: 'ya29.TEST-TOKEN', clientId: 'cid' })
+
+    const plugAnchor = win.document.createElement('button')
+    win.document.body.appendChild(plugAnchor)
+    const plugHost = win.document.createElement('div')
+    win.document.body.appendChild(plugHost)
+    const plugRoot = createRoot(plugHost)
+    const picks: any[] = []
+    let plugClosed = 0
+    plugRoot.render(React.createElement(IntegrationsMenu as any, { anchor: plugAnchor, onPick: (p: any) => picks.push(p), onClose: () => { plugClosed++ } }))
+    await wait(200)
+    const intMenu = plugHost.querySelector('[data-int-menu]') ?? plugHost.firstElementChild
+    const intText = plugHost.textContent ?? ''
+    check('the plug menu lists every integration this build ships',
+      ['Local files', 'Google Drive', 'Gmail', 'Google Calendar', 'GitHub', 'Notion', 'Slack'].every((n) => intText.includes(n)), intText.slice(0, 90))
+    check('and the ones with no credential offer to connect', /Connect/.test(intText))
+    check('it searches through the gateway, not the service directly',
+      menuCalls.some((c) => c.url.includes('/api/integrations/search')), JSON.stringify(menuCalls.map((c) => c.url)))
+    check('and it says which accounts are connected',
+      /connected/i.test(intText))
+
+    const search = plugHost.querySelector('input[type="search"], input[placeholder]') as any
+    check('there is a search box for everything connected', !!search, (plugHost.innerHTML ?? '').slice(0, 120))
+    if (search) {
+      nativeValue(search, 'thesis')
+      await wait(400)
+      const after = menuCalls.filter((c) => c.url.includes('/api/integrations/search'))
+      check('typing searches the accounts you connected', after.length >= 2, `${after.length} calls`)
+      const sent = after[after.length - 1]
+      const alias = await (await import('../src/lib/integrations/client')).searchIntegrations('x')
+      check('a reply that says "problems" and one that says "errors" are read the same way',
+        alias.problems.length === alias.errors.length && alias.problems.length > 0,
+        `${alias.problems.length}/${alias.errors.length}`)
+      check('the search carries the credentials in a header, never a URL',
+        !!sent?.headers['x-re-integrations'] && !/ya29\./.test(sent?.url ?? ''),
+        JSON.stringify(sent?.headers ?? {}))
+      const carried = JSON.parse(sent?.headers['x-re-integrations'] ?? '{}')
+      check('the header names the service and carries its token',
+        Object.keys(carried).includes('drive') && !!carried.drive?.token,
+        JSON.stringify(Object.keys(carried)))
+      const hit = [...plugHost.querySelectorAll('button')].find((b: any) => /Thesis\.pdf/.test(b.textContent ?? '')) as any
+      check('a result is listed with its source', !!hit && /Drive/.test(plugHost.textContent ?? ''))
+      if (hit) {
+        fire(hit)
+        await wait(120)
+        check('picking a result attaches it to the composer', picks[0]?.integration === 'drive' && picks[0]?.id === 'f1', JSON.stringify(picks[0]))
+        check('and closes the menu', plugClosed >= 1, String(plugClosed))
+      }
+      const fix = [...plugHost.querySelectorAll('button')].find((b: any) => /Connect/.test(b.textContent ?? '') && /Slack/.test(b.closest('div')?.textContent ?? '')) as any
+      check('a refused service offers to connect instead of showing an empty list', !!fix)
+    }
+    const manage = [...plugHost.querySelectorAll('button')].find((b: any) => /Manage/.test(b.textContent ?? '')) as any
+    check('there is one way into the full settings page', !!manage)
+    if (manage) {
+      useUI.setState({ settingsOpen: false, settingsTab: 'providers' })
+      fire(manage)
+      await wait(120)
+      check('which opens Settings on Integrations', useUI.getState().settingsOpen === true && useUI.getState().settingsTab === 'integrations',
+        `${useUI.getState().settingsOpen} / ${useUI.getState().settingsTab}`)
+    }
+    plugRoot.unmount()
+    plugAnchor.remove()
+    ;(globalThis as any).fetch = realFetch
+    ;(win as any).fetch = realFetch
+  }
+  {
+    const barSrc = m16readSrc(new URL('../src/components/input/InputBar.tsx', import.meta.url))
+    const tabSrc = m16readSrc(new URL('../src/components/settings/IntegrationsTab.tsx', import.meta.url))
+    const accSrc = m16readSrc(new URL('../src/components/settings/IntegrationAccounts.tsx', import.meta.url))
+    const css32 = m16readSrc(new URL('../src/styles/globals.css', import.meta.url))
+    check('theme-matched gradients mix into a base the palette chooses',
+      /--grad-base: var\(--bg\)/.test(css32) && /data-grad="theme"\]\[data-theme="catppuccin-latte"\]/.test(css32))
+    check('and in the light palettes that base is ink, so white labels on a card stay readable',
+      /--grad-base: color-mix\(in srgb, var\(--text\) 86%, var\(--primary\)\)/.test(css32))
+    check('the composer uses the new plug menu', barSrc.includes('IntegrationsMenu') && !barSrc.includes('function ConnectorMenu'))
+    check('the plug button says what it opens', /aria-label="Connected data"/.test(barSrc))
+    check('the composer carries the real dictation pill', barSrc.includes('<VoicePill') && barSrc.includes('dictation.'))
+    check('an account item attaches as an addressable reference', /int:\$\{/.test(barSrc))
+    check('Settings now shows real accounts, not a simulated toggle',
+      tabSrc.includes('IntegrationAccounts') && !/simulated here/.test(tabSrc) && !/zotero/i.test(tabSrc))
+    check('every account row has a save-and-test and a disconnect', accSrc.includes('Save &amp; test') && accSrc.includes('Disconnect'))
+    check('and a "connected" badge is the result of a probe, not a promise',
+      /probeIntegration/.test(accSrc) && /only when a credential exists/.test(accSrc))
+  }
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))

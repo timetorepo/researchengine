@@ -156,6 +156,56 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'integration_search',
+    description: 'Search the user\'s CONNECTED ACCOUNTS — Google Drive, Gmail, Google Calendar, GitHub, Notion, Slack — plus their local Research Engine files. Returns real items with ids you can open with integration_read. If an account is not connected the call says so: tell the user which one to connect instead of guessing at its contents.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: opt('string', 'What to look for — keywords, a name, a subject'),
+        integrations: opt('string', 'Comma-separated subset: files,drive,gmail,gcal,github,notion,slack (omit for every connected one)'),
+        limit: opt('number', 'How many items per integration (default 8, max 25)'),
+      },
+      required: ['query'],
+    },
+    run: async (args) => {
+      const { searchIntegrations } = await import('@/lib/integrations/client')
+      try {
+        const ids = String(args?.integrations ?? '').split(',').map((s: string) => s.trim()).filter(Boolean) as any[]
+        const reply = await searchIntegrations(String(args?.query ?? ''), {
+          ids: ids.length ? ids : undefined,
+          limit: Math.max(1, Math.min(25, Number(args?.limit) || 8)),
+        })
+        return JSON.stringify({
+          query: reply.q,
+          results: reply.results.slice(0, 40),
+          // Errors are part of the answer: "not connected" is not "no results".
+          problems: reply.errors,
+          connected: reply.connected ?? [],
+        }).slice(0, 12_000)
+      } catch (e: any) {
+        return `Integration search failed: ${String(e?.message ?? e)}`
+      }
+    },
+  },
+  {
+    name: 'integration_read',
+    description: 'Open one item from a connected account by its id (from integration_search): a Gmail message body, the text of a Google Doc, a Calendar event, a GitHub file, a Notion page or a Slack thread.',
+    parameters: {
+      type: 'object',
+      properties: { integration: opt('string', 'files | drive | gmail | gcal | github | notion | slack'), id: opt('string', 'Item id from integration_search') },
+      required: ['integration', 'id'],
+    },
+    run: async (args) => {
+      const { readIntegrationItem } = await import('@/lib/integrations/client')
+      try {
+        const item = await readIntegrationItem(String(args?.integration ?? '') as any, String(args?.id ?? ''))
+        return JSON.stringify({ title: item.title, url: item.url, text: item.text.slice(0, 12_000) })
+      } catch (e: any) {
+        return `Could not read that item: ${String(e?.message ?? e)}`
+      }
+    },
+  },
+  {
     name: 'connector_search',
     description: 'Search the user\'s connected local data: Google Drive files, Mail messages and Calendar events (all stored locally in Research Engine). Returns matching items with ids you can open via connector_read.',
     parameters: {

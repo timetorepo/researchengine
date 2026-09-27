@@ -4,14 +4,14 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.30.0** also ships the **Tauri desktop app** — Windows
+Prefer an installer? **0.31.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically), Linux a `.deb`/`.AppImage`, macOS a `.dmg`. CI builds them from
 this tag and attaches them to the release you are reading; their hashes are in
-`INSTALLERS.sha256` in this folder, and they are GitHub's own sha256 readings of
-the uploaded assets (the API's `digest` for each file) — not a local copy that
-could have drifted. A freshly built installer is never claimed here before it
-exists; these ones do.
+`INSTALLERS.sha256` in this folder, computed from the assets **as downloaded back
+from that release** — not from a local build folder that could have drifted. A
+freshly built installer is never claimed here before it exists; the ones listed
+do exist.
 
 Full hashes: `INSTALLERS.sha256` in this folder.
 
@@ -25,7 +25,17 @@ You only need to do this once: from 0.29.0 on, the app updates itself.
 on its own is rolled back automatically. Source checkouts are told to
 `git pull && npm run build` instead, and the desktop app is handed the installer.
 
-0.30.0 answers the obvious question — *this repository is private, how does a
+0.31.0 is the round that made the composer honest: the mode popover closes on the
+row you press (Escape, backdrop, scroll and resize close it too), the dictation
+pill only offers Cancel while there is something to cancel, and the plug menu is a
+real gateway — Drive, Gmail, Calendar, GitHub, Notion, Slack and your local files,
+with credentials stored in your local vault, proven against the live service with
+**Save & test**, and reachable by the agent through `integration_search` /
+`integration_read`. It also fixes the one thing that was genuinely white: the
+theme-matched gradients were mixed with the page colour, so on the light palettes
+the cards and the Agent Flood Deploy pill washed out **under white type**.
+
+0.30.0 answered the obvious question — *this repository is private, how does a
 user read its releases at all?* **Settings → Updates → Where updates come from**
 takes a **read-only token** (fine-grained, *Contents: read*; sent to GitHub and
 nowhere else), or a **manifest URL** (any static JSON listing releases — a gist,
@@ -36,8 +46,8 @@ exactly like a network update.
 
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.30.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.30.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
+| `research-engine-0.31.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.31.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
 
 Verify either archive first:
 
@@ -65,7 +75,7 @@ launcher with NSSM — see the root README, install method C.
 ## Linux / macOS
 
 ```bash
-tar xzf research-engine-0.29.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.31.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ./research-engine-linux-x64/research-engine serve --port 3847
 ```
@@ -76,7 +86,7 @@ templates are in the root README, install method C.
 
 ## Does it actually work on this machine?
 
-`bench-report-0.29.0-beta.1.txt` is the output of the Developer bench
+`bench-report-0.31.0-beta.1.txt` is the output of the Developer bench
 (`npx tsx frontend/scripts/bench-report.mts`) run against this exact build: it
 created a project and the sample app through the real API and deleted both
 again, with the status codes and timings in the file. The same function backs the
@@ -92,10 +102,9 @@ Ask the launcher:
 ```
 
 ```
-Research Engine 0.29.0-beta.1  [portable]
-  built frontend : 0.28.0-beta.1 (2026-09-26T06:44:02.114Z)
-  STATUS         : STALE — the served build is 0.28.0-beta.1 but this code is 0.29.0-beta.1
-                   fix: unpack the current release archive over this folder
+Research Engine 0.31.0-beta.1  [portable]
+  built frontend : 0.31.0-beta.1 (2026-09-27T05:20:11.004Z)
+  STATUS         : ok
 ```
 
 Every archive ships a `frontend-dist/build-info.json`, the server prints the

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer, ListOrdered, ImagePlus, Plug, X, Loader2, FolderOpen, Mail, CalendarDays, HardDrive, SlidersHorizontal, Calculator, BookOpen, Mic } from 'lucide-react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, Hammer, ListOrdered, ImagePlus, Plug, X, SlidersHorizontal, Calculator, BookOpen, Mic, FolderOpen, HardDrive, Mail, CalendarDays, Github, StickyNote, Hash } from 'lucide-react'
 import { VoiceBeam } from 'voice-glow'
 import VoicePill from '@/components/ui/reactbits/micro/VoicePill'
 import { useDictation } from '@/hooks/useDictation'
@@ -10,10 +10,18 @@ import { useUI } from '@/stores/useUI'
 import { BorderBeam } from 'border-beam'
 import { SkillPicker } from './SkillPicker'
 import { IntegrationPicker } from './IntegrationPicker'
+import { ModeMenu, type ModeOption } from './ModeMenu'
+import { IntegrationsMenu } from './IntegrationsMenu'
 import { clsx } from 'clsx'
 import { themeKind } from '@/lib/themes/meta'
 
-export interface ContextRef { box: 'files' | 'drive' | 'mail' | 'calendar'; id: string; title: string }
+export interface ContextRef {
+  /** `files` | `drive` | `mail` | `calendar` are the local boxes; `int:<id>` is a
+   *  connected account (Gmail, Drive, GitHub, Notion, Slack, local files). */
+  box: 'files' | 'drive' | 'mail' | 'calendar' | `int:${string}`
+  id: string
+  title: string
+}
 export interface SendOpts {
   search?: boolean; quality?: boolean; replicate?: boolean
   attachments?: { type: 'image'; name: string; dataUrl: string }[]
@@ -41,6 +49,25 @@ function ComposerVoiceBeam({ on, children, ...rest }: React.ComponentProps<typeo
   return <VoiceBeam {...rest} style={{ width: '100%' }}>{children}</VoiceBeam>
 }
 
+/** The chip icon for an attached reference — local boxes and connected accounts. */
+function refIcon(box: ContextRef['box']) {
+  const size = 10
+  if (box.startsWith('int:')) {
+    const id = box.slice(4)
+    if (id === 'gmail') return <Mail size={size} />
+    if (id === 'gcal') return <CalendarDays size={size} />
+    if (id === 'github') return <Github size={size} />
+    if (id === 'notion') return <StickyNote size={size} />
+    if (id === 'slack') return <Hash size={size} />
+    if (id === 'drive') return <HardDrive size={size} />
+    return <FolderOpen size={size} />
+  }
+  if (box === 'files') return <FolderOpen size={size} />
+  if (box === 'drive') return <HardDrive size={size} />
+  if (box === 'mail') return <Mail size={size} />
+  return <CalendarDays size={size} />
+}
+
 export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emptyHistory, chatId, autoFocus = true, big = false }: Props) {
   const [text, setText] = useState('')
   // The task panel (and anything else) can seed the composer: the seed is
@@ -66,8 +93,8 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [refs, setRefs] = useState<ContextRef[]>([])
   const [connOpen, setConnOpen] = useState(false)
   const [modeOpen, setModeOpen] = useState(false)
-  const [modePos, setModePos] = useState({ left: 12, bottom: 80 })
   const modeButtonRef = useRef<HTMLButtonElement>(null)
+  const plugRef = useRef<HTMLButtonElement>(null)
   const imgInputRef = useRef<HTMLInputElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const glassMode = useStore((s) => s.settings.glassMode)
@@ -167,12 +194,37 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     r.readAsDataURL(file)
   }
 
-  const pills = [
-    { id: 'flow', label: 'Flow', icon: Wind, active: flowEnabled, toggle: () => useStore.setState((s) => ({ settings: { ...s.settings, flowEnabled: !s.settings.flowEnabled } })), title: 'AIFlowEngine — token-efficient context' },
-    { id: 'search', label: 'Search', icon: Globe, active: search, toggle: () => setSearch(!search), title: 'Web search with citations (Cmd/Ctrl+Enter)' },
-    { id: 'quality', label: 'Quality', icon: Sparkles, active: quality, toggle: () => { setQuality(!quality); if (!quality) setSearch(true) }, title: 'Longer, thoroughly cited, structured answers' },
-    { id: 'math', label: 'Math', icon: Sigma, active: mathMode, toggle: () => setMathMode(!mathMode), title: 'Step-by-step LaTeX (Cmd/Ctrl+M)' },
-    { id: 'replicate', label: 'Replicate', icon: Hammer, active: replicate, toggle: () => setReplicate(!replicate), title: 'New Tech — staged replication research plan' },
+  const pills: ModeOption[] = [
+    {
+      id: 'flow', label: 'Flow', icon: Wind, active: flowEnabled,
+      desc: 'AIFlowEngine keeps the context tight — cheaper, faster long chats.',
+      toggle: () => useStore.setState((s) => ({ settings: { ...s.settings, flowEnabled: !s.settings.flowEnabled } })),
+      title: 'AIFlowEngine — token-efficient context',
+    },
+    {
+      id: 'search', label: 'Search', icon: Globe, active: search,
+      desc: 'Live web results with citations (Cmd/Ctrl+Enter).',
+      toggle: () => setSearch(!search),
+      title: 'Web search with citations (Cmd/Ctrl+Enter)',
+    },
+    {
+      id: 'quality', label: 'Quality', icon: Sparkles, active: quality,
+      desc: 'Longer, structured, thoroughly cited answers. Turns search on.',
+      toggle: () => { setQuality(!quality); if (!quality) setSearch(true) },
+      title: 'Longer, thoroughly cited, structured answers',
+    },
+    {
+      id: 'math', label: 'Math', icon: Sigma, active: mathMode, tone: 'warning' as const,
+      desc: 'Step-by-step LaTeX, shown one line at a time (Cmd/Ctrl+M).',
+      toggle: () => setMathMode(!mathMode),
+      title: 'Step-by-step LaTeX (Cmd/Ctrl+M)',
+    },
+    {
+      id: 'replicate', label: 'Replicate', icon: Hammer, active: replicate,
+      desc: 'New Tech — a staged replication plan for a paper.',
+      toggle: () => setReplicate(!replicate),
+      title: 'New Tech — staged replication research plan',
+    },
   ]
 
   const beam = big && beamOn && !reduceMotion
@@ -259,7 +311,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               {refs.map((r, i) => (
                 <span key={`${r.box}-${r.id}-${i}`} className="flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[10.5px]"
                   style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
-                  {r.box === 'files' ? <FolderOpen size={10} /> : r.box === 'drive' ? <HardDrive size={10} /> : r.box === 'mail' ? <Mail size={10} /> : <CalendarDays size={10} />}
+                  {refIcon(r.box)}
                   <span className="max-w-[140px] truncate">{r.title}</span>
                   <button onClick={() => setRefs((cur) => cur.filter((_, j) => j !== i))} aria-label="Remove reference"
                     className="p-0.5 rounded-full" style={{ color: 'var(--text-3)' }}><X size={9} /></button>
@@ -271,32 +323,14 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
           {/* Bottom row: pills + send */}
           <div className="flex items-center gap-1.5 px-2.5 pb-2.5 pt-1">
             <div className="relative">
-              <button ref={modeButtonRef} onClick={() => { const r = modeButtonRef.current?.getBoundingClientRect(); if (r) setModePos({ left: Math.max(12, Math.min(r.left, window.innerWidth - 246)), bottom: Math.max(12, window.innerHeight - r.top + 8) }); setModeOpen((v) => !v) }} title="Choose a mode" aria-label="Choose a mode" aria-expanded={modeOpen}
+              <button ref={modeButtonRef} onClick={() => setModeOpen((v) => !v)} title="Choose a mode" aria-label="Choose a mode" aria-expanded={modeOpen}
                 className="flex items-center justify-center w-9 h-8 rounded-full transition-colors hover:bg-[var(--elevated)]"
                 style={{ color: pills.some((p) => p.active) ? 'var(--primary)' : 'var(--text-3)', background: modeOpen ? 'var(--elevated)' : 'var(--surface)', border: '1px solid var(--surface-border)' }}>
                 <SlidersHorizontal size={15} strokeWidth={1.7} />
               </button>
-              <AnimatePresence>
-                {modeOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setModeOpen(false)} />
-                    <motion.div initial={{ opacity: 0, y: 5, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }}
-                      className="fixed z-[80] w-[230px] max-h-[calc(100vh-24px)] overflow-y-auto rounded-[14px] p-1.5" style={{ left: modePos.left, bottom: modePos.bottom, background: 'var(--elevated)', border: '1px solid var(--surface-border)', boxShadow: '0 18px 44px -16px rgba(0,0,0,.55)' }}
->
-                      <div className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-3)' }}>Choose mode</div>
-                      {pills.map((p) => (
-                        <button key={p.id} onClick={() => { p.toggle(); setModeOpen(false) }} title={p.title} aria-pressed={p.active}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-left text-[12.5px] transition-colors hover:bg-[var(--surface)]"
-                          style={{ color: p.active ? (p.id === 'math' ? 'var(--warning)' : 'var(--primary)') : 'var(--text-2)' }}>
-                          <p.icon size={14} strokeWidth={1.7} />
-                          <span className="flex-1">{p.label}</span>
-                          {p.active && <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.id === 'math' ? 'var(--warning)' : 'var(--primary)' }} />}
-                        </button>
-                      ))}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
+              {modeOpen && (
+                <ModeMenu pills={pills} anchor={modeButtonRef.current} onClose={() => setModeOpen(false)} />
+              )}
             </div>
             <span className="hidden sm:inline text-[11px]" style={{ color: 'var(--text-3)' }}>{pills.filter((p) => p.active).map((p) => p.label).join(' · ') || 'Mode'}</span>
 
@@ -310,7 +344,10 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
                 mode={voicePushToTalk ? 'hold' : 'toggle'}
                 size={30}
                 shape="pill"
+                showTime={false}
                 accentColor="var(--primary)"
+                iconColor="var(--text-2)"
+                background="var(--elevated)"
                 ariaLabel={dictation.state === 'recording' ? 'Stop dictation' : 'Dictate'}
                 disabled={dictation.state === 'transcribing' || dictation.state === 'starting' || !!streaming}
                 onStart={() => { void dictation.start() }}
@@ -341,16 +378,21 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden"
               onChange={(e) => { Array.from(e.target.files ?? []).forEach(attachImage); e.target.value = '' }} />
 
-            {/* Connectors: Local Files / Drive / Mail / Calendar */}
+            {/* Connected data: local files, Drive, Gmail, Calendar, GitHub,
+                Notion, Slack — search it, read it in, or connect an account. */}
             <div className="relative">
-              <button className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors" style={{ color: refs.length || connOpen ? 'var(--primary)' : 'var(--text-3)' }} aria-label="Connectors"
-                title="Connectors — Local Files, Drive, Mail, Calendar"
+              <button ref={plugRef}
+                className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors"
+                style={{ color: refs.length || connOpen ? 'var(--primary)' : 'var(--text-3)' }}
+                aria-label="Connected data" aria-expanded={connOpen}
+                title="Connected data — search your accounts, or connect one"
                 onClick={() => setConnOpen((o) => !o)}>
                 <Plug size={15} strokeWidth={1.5} />
               </button>
               {connOpen && (
-                <ConnectorMenu
-                  onPick={(r) => setRefs((cur) => [...cur, r])}
+                <IntegrationsMenu
+                  anchor={plugRef.current}
+                  onPick={(pick) => setRefs((cur) => [...cur, { box: `int:${pick.integration}` as ContextRef['box'], id: pick.id, title: pick.title }])}
                   onClose={() => setConnOpen(false)}
                 />
               )}
@@ -400,99 +442,5 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
         </div>
       </div>
     </div>
-  )
-}
-
-/* ---------- Connector picker: Local Files / Drive / Mail / Calendar ----------
- * Everything is local-first and genuinely queryable. Picking an item attaches
- * it as context for the message; the AI can also reach these on its own via
- * tool calls (connector_search / connector_read). */
-const BOX_META: Record<string, { label: string; icon: any; hue: number }> = {
-  files: { label: 'Local Files', icon: FolderOpen, hue: 210 },
-  drive: { label: 'Drive', icon: HardDrive, hue: 260 },
-  mail: { label: 'Mail', icon: Mail, hue: 20 },
-  calendar: { label: 'Calendar', icon: CalendarDays, hue: 150 },
-}
-
-function ConnectorMenu({ onPick, onClose }: { onPick: (r: ContextRef) => void; onClose: () => void }) {
-  const [query, setQuery] = useState('')
-  const [hits, setHits] = useState<ContextRef[]>([])
-  const [loading, setLoading] = useState(true)
-  const [err, setErr] = useState('')
-
-  useEffect(() => {
-    let live = true
-    const t = setTimeout(async () => {
-      setLoading(true)
-      setErr('')
-      try {
-        const out: ContextRef[] = []
-        const q = query.trim()
-        // Local files + connector boxes in one sweep.
-        const [filesRes, connRes] = await Promise.all([
-          fetch('/api/fs/list'),
-          fetch(`/api/connectors/search?q=${encodeURIComponent(q)}`),
-        ])
-        if (filesRes.ok) {
-          const fj = await filesRes.json()
-          for (const f of (fj.files ?? []).filter((x: any) => !x.dir)) {
-            if (!q || f.name.toLowerCase().includes(q.toLowerCase())) out.push({ box: 'files', id: f.name, title: f.name })
-          }
-        }
-        if (connRes.ok) {
-          const cj = await connRes.json()
-          for (const h of cj.hits ?? []) out.push({ box: h.box, id: h.id, title: h.title ?? '(untitled)' })
-        }
-        if (live) setHits(out.slice(0, 30))
-      } catch (e: any) {
-        if (live) setErr(String(e?.message ?? e))
-      } finally {
-        if (live) setLoading(false)
-      }
-    }, 160)
-    return () => { live = false; clearTimeout(t) }
-  }, [query])
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-        className="absolute bottom-full right-0 mb-2 w-[300px] z-50 rounded-[14px] overflow-hidden"
-        style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', boxShadow: '0 16px 48px -16px rgba(0,0,0,0.5)' }}>
-        <div className="px-3 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Connectors</div>
-        <div className="px-3 pb-2">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} autoFocus
-            placeholder="Search files, mail, events…"
-            className="w-full px-2.5 py-1.5 rounded-[10px] text-[12.5px] outline-none"
-            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
-        </div>
-        <div className="max-h-56 overflow-y-auto pb-1.5">
-          {loading && <div className="flex items-center gap-2 px-3.5 py-3 text-[12px]" style={{ color: 'var(--text-3)' }}><Loader2 size={13} className="animate-spin" /> Searching…</div>}
-          {!loading && err && <div className="px-3.5 py-3 text-[12px]" style={{ color: 'var(--danger)' }}>{err}</div>}
-          {!loading && !err && hits.length === 0 && (
-            <div className="px-3.5 py-3 text-[12px]" style={{ color: 'var(--text-3)' }}>
-              No items yet. Add files in Settings → Integrations, or drop data into Drive / Mail / Calendar there.
-            </div>
-          )}
-          {hits.map((h, i) => {
-            const meta = BOX_META[h.box] ?? BOX_META.files
-            return (
-              <button key={`${h.box}-${h.id}-${i}`} onClick={() => { onPick(h); onClose() }}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left hover:bg-[var(--surface)] transition-colors">
-                <span className="w-6 h-6 rounded-[8px] flex items-center justify-center shrink-0"
-                  style={{ background: `hsl(${meta.hue} 50% 45% / 0.18)`, color: `hsl(${meta.hue} 62% 62%)` }}>
-                  <meta.icon size={13} strokeWidth={1.6} />
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[12.5px] truncate" style={{ color: 'var(--text)' }}>{h.title}</span>
-                  <span className="block text-[10.5px]" style={{ color: 'var(--text-3)' }}>{meta.label}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </motion.div>
-    </>
   )
 }

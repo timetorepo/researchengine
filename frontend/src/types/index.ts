@@ -345,6 +345,20 @@ export interface Settings {
   /** Derive card gradients from the active theme instead of fixed hues. */
   themeGradients: boolean
   /**
+   * Connected accounts (Google Drive / Gmail / Calendar, GitHub, Notion, Slack).
+   * Only the credential lives here, and only encrypted when the vault is in use
+   * — the backend receives it per request and never keeps a copy.
+   */
+  integrations?: Record<string, {
+    token?: string
+    refreshToken?: string
+    clientId?: string
+    clientSecret?: string
+    base?: string
+    account?: string
+    connectedAt?: number
+  }>
+  /**
    * Models the user has taken out of the picker. Refs are "provider:model", so
    * hiding one provider's model never hides another's.
    */

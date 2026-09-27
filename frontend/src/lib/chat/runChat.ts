@@ -1,6 +1,7 @@
 // The send pipeline: classify → prune → shape prompt → call provider (or
 // local demo) → stream → record Flow transparency stats.
 import { nanoid } from 'nanoid'
+import type { IntegrationId } from '@/lib/integrations/registry'
 import { useStore } from '@/stores/useStore'
 import { classifyQuery, shapeSystemPrompt, lengthHint } from '@/lib/flow/classifier'
 import { runReplicate } from './replicate'
@@ -29,7 +30,7 @@ export interface RunOptions {
   /** Vision: images attached to this prompt. */
   attachments?: { type: 'image'; name: string; dataUrl: string }[]
   /** Connector items the user attached via the chatbox connector picker. */
-  contextRefs?: { box: 'files' | 'drive' | 'mail' | 'calendar'; id: string; title: string }[]
+  contextRefs?: { box: ContextBox; id: string; title: string }[]
   /** Coding mode: the open project (enables ide_* tools + project context). */
   project?: string
   /** Parallel agent: run this turn inside that agent's private working copy. */
@@ -48,6 +49,10 @@ export const isStreamingChat = (chatId: string) => activeStreams.has(chatId)
 
 // ---- Question queue: prompts sent while the AI is busy are held here and
 // drained automatically, one at a time, when the current run completes. ----
+/** Where an attached reference came from: a local box, or `int:<id>` for a
+ *  connected account read through the integration gateway. */
+export type ContextBox = 'files' | 'drive' | 'mail' | 'calendar' | `int:${string}`
+
 export interface QueuedPrompt { id: string; prompt: string; mode?: RunOptions['mode']; extra?: Pick<RunOptions, 'attachments' | 'contextRefs' | 'project' | 'projectTree' | 'design' | 'preamble' | 'modelOverride'> }
 
 export function enqueuePrompt(chatId: string, prompt: string, mode?: RunOptions['mode'], extra?: QueuedPrompt['extra']): string {
@@ -255,6 +260,13 @@ export async function runChat(opts: RunOptions): Promise<void> {
     const parts: string[] = []
     for (const ref of opts.contextRefs.slice(0, 5)) {
       try {
+        if (ref.box.startsWith('int:')) {
+          // A connected account: the id belongs to the service, not to a local box.
+          const { readIntegrationItem } = await import('@/lib/integrations/client')
+          const item = await readIntegrationItem(ref.box.slice(4) as IntegrationId, ref.id)
+          parts.push(`--- ${item.title} (${ref.box.slice(4)}) ---\n${String(item.text).slice(0, 8000)}`)
+          continue
+        }
         const res = ref.box === 'files'
           ? await fetch(`/api/fs/read?path=${encodeURIComponent(ref.id)}`)
           : await fetch(`/api/connectors/item?box=${ref.box}&id=${encodeURIComponent(ref.id)}`)

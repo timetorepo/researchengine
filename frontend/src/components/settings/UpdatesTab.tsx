@@ -321,7 +321,7 @@ export function UpdatesTab() {
               className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
               style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }} />
             <div className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
-              <code>{'{"version":"0.30.0-beta.1","notes":"…","archive":"https://…/research-engine-0.30.0-beta.1-linux-x64.tar.gz"}'}</code>
+              <code>{'{"version":"0.31.0-beta.1","notes":"…","archive":"https://…/research-engine-0.31.0-beta.1-linux-x64.tar.gz"}'}</code>
               {' '}— one JSON file answers every install. Set this and the GitHub paths are not used.
             </div>
           </div>

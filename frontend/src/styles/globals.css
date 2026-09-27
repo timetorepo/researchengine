@@ -56,30 +56,47 @@
    from the active theme's own primary/secondary/bg, so cards always belong
    to the palette. Enabled via Settings > Appearance. */
 :root[data-grad="theme"] {
+  /* What the theme-derived gradients are mixed *into*. The page colour is right
+   * for dark palettes (deep, saturated cards), but in a light palette mixing a
+   * brand colour with a near-white page produces pastel washes — and everything
+   * that sits on these surfaces is white type, so it disappeared entirely
+   * ("the card is just white"). Light themes therefore mix the same brand
+   * colours into the theme's own text ink, which keeps them deep, keeps them
+   * theme-matched, and keeps the labels readable. */
+  --grad-base: var(--bg);
   --grad-research:
-    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 66%, var(--bg)) 0%, transparent 58%),
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 66%, var(--grad-base)) 0%, transparent 58%),
     radial-gradient(95% 105% at 42% 62%, color-mix(in srgb, var(--primary) 32%, var(--secondary)) 0%, transparent 64%),
-    linear-gradient(160deg, color-mix(in srgb, var(--primary) 26%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--secondary) 22%, var(--bg)) 100%);
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 26%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--secondary) 22%, var(--grad-base)) 100%);
   --grad-math:
-    radial-gradient(120% 150% at 90% -10%, color-mix(in srgb, var(--warning) 70%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -10% 110%, color-mix(in srgb, var(--primary) 55%, var(--bg)) 0%, transparent 60%),
-    linear-gradient(160deg, color-mix(in srgb, var(--warning) 24%, var(--bg)) 0%, var(--bg) 60%, color-mix(in srgb, var(--primary) 20%, var(--bg)) 100%);
+    radial-gradient(120% 150% at 90% -10%, color-mix(in srgb, var(--warning) 70%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -10% 110%, color-mix(in srgb, var(--primary) 55%, var(--grad-base)) 0%, transparent 60%),
+    linear-gradient(160deg, color-mix(in srgb, var(--warning) 24%, var(--grad-base)) 0%, var(--grad-base) 60%, color-mix(in srgb, var(--primary) 20%, var(--grad-base)) 100%);
   --grad-quiz:
-    radial-gradient(125% 150% at 85% -12%, color-mix(in srgb, var(--success) 72%, var(--bg)) 0%, transparent 56%),
-    radial-gradient(115% 135% at -12% 105%, color-mix(in srgb, var(--primary) 60%, var(--bg)) 0%, transparent 58%),
+    radial-gradient(125% 150% at 85% -12%, color-mix(in srgb, var(--success) 72%, var(--grad-base)) 0%, transparent 56%),
+    radial-gradient(115% 135% at -12% 105%, color-mix(in srgb, var(--primary) 60%, var(--grad-base)) 0%, transparent 58%),
     radial-gradient(90% 100% at 55% 70%, color-mix(in srgb, var(--success) 30%, var(--secondary)) 0%, transparent 62%),
-    linear-gradient(155deg, color-mix(in srgb, var(--success) 26%, var(--bg)) 0%, var(--bg) 60%, color-mix(in srgb, var(--primary) 22%, var(--bg)) 100%);
+    linear-gradient(155deg, color-mix(in srgb, var(--success) 26%, var(--grad-base)) 0%, var(--grad-base) 60%, color-mix(in srgb, var(--primary) 22%, var(--grad-base)) 100%);
   --grad-article:
-    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--secondary) 74%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--primary) 62%, var(--bg)) 0%, transparent 58%),
-    linear-gradient(160deg, color-mix(in srgb, var(--secondary) 26%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--primary) 22%, var(--bg)) 100%);
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--secondary) 74%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--primary) 62%, var(--grad-base)) 0%, transparent 58%),
+    linear-gradient(160deg, color-mix(in srgb, var(--secondary) 26%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--primary) 22%, var(--grad-base)) 100%);
   --grad-flood:
-    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 70%, var(--bg)) 0%, transparent 58%),
-    linear-gradient(160deg, color-mix(in srgb, var(--primary) 28%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--secondary) 24%, var(--bg)) 100%);
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 70%, var(--grad-base)) 0%, transparent 58%),
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 28%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--secondary) 24%, var(--grad-base)) 100%);
 }
 
+
+/* Light palettes: the same gradients, mixed into ink instead of page. */
+:root[data-grad="theme"][data-theme="light"],
+:root[data-grad="theme"][data-theme="catppuccin-latte"],
+:root[data-grad="theme"][data-theme="solarized-light"] {
+  /* Mixed into the ink rather than the page, but not pure black: the cards keep
+   * the palette's hue, they just get deep enough for white type. */
+  --grad-base: color-mix(in srgb, var(--text) 86%, var(--primary));
+}
 /* ---------- Default Dark (signature) ---------- */
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -2338,4 +2355,37 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
 .re-dock-label {
   font-size: 13.5px;
   letter-spacing: -0.005em;
+}
+
+/* ---------- React Bits Micro: theme integration ----------
+ * The vendored components ship opinionated defaults (zinc greys, a near-white
+ * "ink"). They are used as-is; what follows only maps them onto this app's
+ * palette so a control never disappears into the surface it sits on — the one
+ * thing the components cannot know about. */
+
+/* Prompt Bar: the send control is this app's primary action, so it wears the
+ * app's primary even when the model's "ink" is a light colour on a light
+ * button (which read as an empty white square). */
+.re-promptbar [aria-label='Send'][data-armed] { background: var(--primary); }
+.re-promptbar [aria-label='Send'][data-armed] svg { color: #fff; }
+.re-promptbar [aria-label='Send']:disabled { background: color-mix(in srgb, var(--text) 12%, var(--surface)); }
+.re-promptbar [aria-label='Stop'] { background: var(--danger); }
+.re-promptbar [aria-label='Stop'] svg { color: #fff; }
+.re-promptbar [aria-label='Dictate'][data-on] { color: var(--primary); }
+
+/* Voice Pill: the waveform keeps the accent colour it was given, but the pill
+ * body follows the surface it floats over. */
+.re-composer-voice [data-state='listening'] { color: var(--primary); }
+
+/* Mode menu + connected-data popover: one look, one entrance. */
+.re-mode-menu, .re-int-menu {
+  animation: re-pop 160ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  backdrop-filter: saturate(140%) blur(12px);
+}
+@keyframes re-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-mode-menu, .re-int-menu { animation: none; }
 }

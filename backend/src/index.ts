@@ -61,7 +61,7 @@ async function main() {
   app.route('/api/chat', chatRoutes)
   app.route('/api/documents', documentRoutes)
   app.route('/api/ollama', ollamaRoutes)
-  app.route('/api/integrations', integrationRoutes)
+  app.route('/api/integrations', integrationRoutes(rt))
   app.route('/api', providerRoutes)
   // The updater. Everything it can touch is guarded inside update/service.ts.
   app.route('/api', updateRoutes(rt))
