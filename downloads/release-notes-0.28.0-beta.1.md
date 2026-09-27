@@ -125,13 +125,19 @@ Settings → About, which carries the full changelog entry.
 | Windows installer | `Research.Engine_0.28.0-beta.1_x64-setup.exe` | nothing — per-user, no admin |
 | Linux installer | `Research.Engine_0.28.0-beta.1_amd64.deb`, `…AppImage` | nothing |
 
-Portable archives are in `downloads/` and hashed in `SHA256SUMS`; installer
-hashes land in `downloads/INSTALLERS.sha256` once CI has built them from this
-tag (a fresh installer is never claimed here before it exists). Node.js is only
-needed by the portable builds; the installers carry their own server.
+Portable archives are in `downloads/` and hashed in `SHA256SUMS`. The installers
+were built by CI from this tag (run 36255237632, both jobs green) and verified
+before upload — magic bytes, NSIS/ar/ELF signature, product name, size; their
+hashes are in `downloads/INSTALLERS.sha256`, taken from the "installer verified"
+reading CI published, cross-checked against the byte counts GitHub reports for
+the uploaded assets. Node.js is only needed by the portable builds; the
+installers carry their own server.
 
 | File | sha256 |
 |---|---|
+| `Research.Engine_0.28.0-beta.1_x64-setup.exe` | `940e4baa…b9a1` |
+| `Research.Engine_0.28.0-beta.1_amd64.deb` | `c263d097…aff6` |
+| `Research.Engine_0.28.0-beta.1_amd64.AppImage` | `50d8ad5f…f663` |
 | `bench-report-0.28.0-beta.1.txt` | *(a report, not a build)* |
 | `research-engine-0.28.0-beta.1-linux-x64.tar.gz` | `9a87a07e…3f41` |
 | `research-engine-0.28.0-beta.1-win-x64.zip` | `20b1c4a8…b20d` |

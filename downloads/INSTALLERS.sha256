@@ -1,15 +1,27 @@
-# Desktop installer checksums — v0.27.0-beta.1
+# Desktop installer checksums — v0.28.0-beta.1
 #
-# These files are release assets (not shipped inside this folder: 38–121 MB
+# These files are release assets (not shipped inside this folder: 38–122 MB
 # each). Download from
-#   https://github.com/timetorepo/researchengine/releases/tag/v0.27.0-beta.1
+#   https://github.com/timetorepo/researchengine/releases/tag/v0.28.0-beta.1
 # then compare:
-#   sha256sum  Research.Engine_0.27.0-beta.1_x64-setup.exe
-#   shasum -a 256  Research.Engine_0.27.0-beta.1_amd64.AppImage
+#   sha256sum  Research.Engine_0.28.0-beta.1_x64-setup.exe
+#   shasum -a 256  Research.Engine_0.28.0-beta.1_amd64.AppImage
 #
-# The hashes below are printed by CI for the exact files it built, uploaded
-# and verified (magic bytes, NSIS/ar/ELF signature, size) in run 36228769700
-# (jobs: Windows installer 108367756217, Linux bundles 108367756049).
-436cf139a600a1a6898d9ef8c4f350b8a1c77b0fdb60308556fbc2082fef58d7  Research.Engine_0.27.0-beta.1_x64-setup.exe
-619dfc57324bb56a5dfc5b5ef566848ce4d516fc0ce90cb74acc8262585e0f78  Research.Engine_0.27.0-beta.1_amd64.deb
-7ad7ed64712a9a2bfb1232834fe9340058c62f10cdd93a66e8ac63dcc52dfe6f  Research.Engine_0.27.0-beta.1_amd64.AppImage
+# Provenance: the hashes below are what CI printed for the exact files it built
+# and verified *before upload* — magic bytes, NSIS/ar/ELF signature, product
+# name, size — in run 36255237632 (Windows installer job 108440647064, Linux
+# bundles job 108440646903; both green). A green job is the proof: the verifier
+# exits 1 on any failed check, and the published annotation is its success
+# branch ("installer verified").
+#
+# Cross-check: the byte counts GitHub reports for the uploaded assets match the
+# sizes CI hashed, so the files on the release page are the files these hashes
+# describe. The binaries themselves could not be pulled back into the build
+# sandbox (release-assets.githubusercontent.com is unreachable from it), so this
+# is CI's reading cross-checked against the release page rather than a fresh
+# local re-hash — if you want a third opinion, hash after downloading.
+#
+#   uploaded asset sizes, as GitHub reports them: 38118747 / 46558864 / 121534968
+940e4baac5c91cc51138fba49a561b7c241c0cda478c00399419ee0f4639b9a1  Research Engine_0.28.0-beta.1_x64-setup.exe
+c263d09764a9fcb43d7aea7665db0aaf941a9d337a12f33cf4444fc77eceaff6  Research.Engine_0.28.0-beta.1_amd64.deb
+50d8ad5f18afea1447b74762e55efd380281a90cd4826a4a51ec5b6080f4f663  Research.Engine_0.28.0-beta.1_amd64.AppImage
