@@ -20,6 +20,23 @@ import { clsx } from 'clsx'
  * accumulated. So the digits change exactly once per second, on the second.
  */
 
+/**
+ * Milliseconds until the displayed second next changes.
+ *
+ * The countdown shows `ceil(remaining)`, so the moment to wake up is when the
+ * remaining milliseconds cross the next lower whole second — that is the
+ * *fraction* of the current second that is left, not the complement of it. The
+ * complement is what this used to compute, and with a negative modulo it
+ * regularly scheduled the next tick a full second late: a timer that skips a
+ * number every other tick, which is exactly the "it only changes every two
+ * seconds" report.
+ */
+export function msToNextSecond(endsAt: number, now = Date.now()): number {
+  const remaining = Math.max(0, endsAt - now)
+  const frac = remaining % 1000
+  return frac === 0 ? 1000 : frac
+}
+
 /** Seconds remaining, recomputed from `endsAt` — never counted down locally. */
 export function useSteadyCountdown(endsAt: number | null, running: boolean, fallback = 0): number {
   const [remaining, setRemaining] = useState(() =>
@@ -41,8 +58,7 @@ export function useSteadyCountdown(endsAt: number | null, running: boolean, fall
       if (left <= 0) return
       // Re-anchor to the next second boundary each time, so a tab that was
       // throttled, a slow frame or a GC pause cannot accumulate drift.
-      const msToBoundary = 1000 - ((Date.now() - endsAt) % 1000 || 1000)
-      timer = setTimeout(tick, Math.max(50, msToBoundary) + 8)
+      timer = setTimeout(tick, msToNextSecond(endsAt) + 12)
     }
 
     tick()

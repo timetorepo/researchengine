@@ -320,13 +320,37 @@ export function hashUrlsFor(deps: UpdateDeps, version: string, release?: Release
 }
 
 /**
- * Which archive URLs to try for a version: the manifest's own link when it
- * named one, otherwise the committed archive and its asset twin.
+ * The URLs for one release asset, best-first.
+ *
+ * There are two ways to fetch an asset and they are good in opposite cases:
+ * the API form (`/releases/assets/<id>`) is the only one a token can
+ * authenticate, while GitHub's browser download URL returns **404 on those
+ * same private repositories even with a token**. So the API form is queued
+ * first, and the browser form is kept as the no-token fallback.
  */
-export function archiveUrlsFor(deps: UpdateDeps, version: string, release?: ReleaseInfo | null, asset?: { name: string; url?: string; urls?: string[] } | null): string[] {
+export function assetUrlsFor(deps: UpdateDeps, asset: { url?: string; id?: number }): string[] {
+  const urls: string[] = []
+  if (typeof asset.id === 'number') urls.push(`${apiBase(deps)}/repos/${repoOf(deps)}/releases/assets/${asset.id}`)
+  if (asset.url) urls.push(asset.url)
+  return urls
+}
+
+/**
+ * Which archive URLs to try for a version, in the order most likely to work:
+ *
+ *   1. the committed copy at the tag (raw, then the contents API) — the one a
+ *      read-only token can always read, private repository or not;
+ *   2. the uploaded release asset, API form first;
+ *   3. a manifest's own `archive` link, which is all a self-hosted manifest has.
+ */
+export function archiveUrlsFor(deps: UpdateDeps, version: string, release?: ReleaseInfo | null, asset?: { name?: string; url?: string; urls?: string[]; id?: number } | null): string[] {
   if (asset?.urls?.length) return asset.urls
-  if (asset?.url) return [asset.url]
-  return fileUrls(deps, version, archiveNameFor(version, deps.platform))
+  const name = asset?.name || archiveNameFor(version, deps.platform)
+  const manifestOwned = !!deps.manifestUrl
+  const committed = manifestOwned ? [] : fileUrls(deps, version, name)
+  const uploaded = asset ? assetUrlsFor(deps, asset) : []
+  const all = [...committed, ...uploaded]
+  return all.filter((u, i) => !!u && all.indexOf(u) === i)
 }
 
 export interface CheckResult {
@@ -361,7 +385,7 @@ export async function checkForUpdate(deps: UpdateDeps): Promise<CheckResult> {
     // and its checksum come from the same immutable release.
     asset: latest && portable
       ? { name, urls: archiveUrlsFor(deps, latest.version, latest, asset), size: asset?.size ?? 0 }
-      : asset ? { name: asset.name, urls: [asset.url], size: asset.size } : null,
+      : asset ? { name: asset.name, urls: assetUrlsFor(deps, asset), size: asset.size } : null,
     hashUrls: latest ? hashUrlsFor(deps, latest.version, latest) : [],
     kind: deps.kind,
     canSelfUpdate: portable,
@@ -795,25 +819,100 @@ export function noteBootAttempt(deps: UpdateDeps, pending: PendingUpdate): Pendi
  * and hand it to the OS — the installer swaps the program, and the library in
  * the data directory stays where it is.
  */
-export async function downloadInstaller(deps: UpdateDeps, downloadDir: string): Promise<{ ok: boolean; file?: string; error?: string }> {
+export interface InstallerResult {
+  ok: boolean
+  file?: string
+  error?: string
+  /** What actually got fetched, so the UI can say the right sentence. */
+  via?: 'installer' | 'archive'
+  message?: string
+}
+
+/** Installers are big files; nothing else this updater fetches comes close. */
+const MAX_INSTALLER_BYTES = 400 * 1024 * 1024
+
+export async function downloadInstaller(deps: UpdateDeps, downloadDir: string): Promise<InstallerResult> {
   try {
     const check = await checkForUpdate(deps)
-    if (!check.latest || !check.available) return { ok: false, error: `${check.current} is already the newest release` }
+    if (!check.latest) return { ok: false, error: 'no release found' }
+    if (!check.available) return { ok: false, error: `${check.current} is already the newest release` }
+    const version = check.latest
     const all = await latestRelease(deps)
-    const asset = all?.assets.find((a) => deps.platform.startsWith('win')
-      ? /setup\.exe$/i.test(a.name)
-      : deps.platform.startsWith('darwin') ? /\.dmg$/i.test(a.name) : /\.AppImage$/i.test(a.name))
-    if (!asset) return { ok: false, error: `the ${check.latest} release has no installer for ${deps.platform}` }
-    setProgress({ phase: 'downloading', message: `Downloading ${asset.name}…`, pct: 0, received: 0, total: asset.size, to: check.latest })
-    const { buffer, sha256 } = await download(deps, asset.url, (received, total) => {
-      setProgress({ phase: 'downloading', received, total, pct: total ? Math.round((received / total) * 100) : 0, message: `Downloading ${asset.name}…` })
-    })
     mkdirSync(downloadDir, { recursive: true })
-    const file = join(downloadDir, asset.name)
+    const onProgress = (name: string) => (received: number, total: number) => {
+      setProgress({
+        phase: 'downloading', received, total, to: version,
+        pct: total ? Math.round((received / total) * 100) : 0,
+        message: total ? `Downloading ${name} — ${Math.round((received / total) * 100)}%` : `Downloading ${name}…`,
+      })
+    }
+
+    const installer = all?.assets.find((a) => deps.platform.startsWith('win')
+      ? /setup\.exe$/i.test(a.name)
+      : deps.platform.startsWith('darwin') ? /\.dmg$/i.test(a.name) : /\.(AppImage|deb)$/i.test(a.name))
+
+    if (installer) {
+      setProgress({ phase: 'downloading', message: `Downloading ${installer.name}…`, pct: 0, received: 0, total: installer.size, to: version })
+      // Through `downloadAny`, so the token rides along and both the API and
+      // browser forms are tried in turn. This used to call `download()` with the
+      // bare browser URL and no Authorization header, which is a guaranteed 404
+      // on a private repository — the "download failed" report.
+      const { buffer, sha256 } = await downloadAny(deps, assetUrlsFor(deps, installer), onProgress(installer.name), MAX_INSTALLER_BYTES)
+      const file = join(downloadDir, installer.name)
+      writeFileSync(file, buffer)
+      writeFileSync(`${file}.sha256`, `${sha256}  ${installer.name}\n`)
+      setProgress({ phase: 'ready', pct: 100, message: `${installer.name} downloaded — open it to install.` })
+      return { ok: true, file, via: 'installer', message: `${installer.name} downloaded — open it to finish the update. Your library stays where it is.` }
+    }
+
+    /*
+     * No installer for this platform. Plenty of releases publish only the
+     * portable archives — this repository's own releases do — and the honest
+     * answer there is the same archive the in-place updater would use, verified
+     * against the release's SHA256SUMS, saved somewhere the user can reach it.
+     * (Failing with "no installer" was the other half of the download report.)
+     */
+    const name = archiveNameFor(version, deps.platform)
+    const asset = all?.assets.find((a) => a.name === name) ?? null
+    const urls = archiveUrlsFor(deps, version, all, asset)
+    if (!urls.length) return { ok: false, error: `the ${version} release has nothing to download for ${deps.platform}` }
+
+    let want: string | null = null
+    try {
+      const sumsText = (await fetchTextAny(deps, hashUrlsFor(deps, version, all))).text
+      want = expectedHash(sumsText, name)
+    } catch { /* the archive's own .sha256 below is written from the bytes we got */ }
+    if (want === null && !asset) return { ok: false, error: `${name} is not part of the ${version} release` }
+
+    setProgress({ phase: 'downloading', message: `Downloading ${name}…`, pct: 0, received: 0, total: asset?.size ?? 0, to: version })
+    const { buffer, sha256 } = await downloadAny(deps, urls, onProgress(name), MAX_INSTALLER_BYTES)
+    if (want && sha256 !== want) {
+      const error = `checksum mismatch — expected ${want.slice(0, 12)}…, got ${sha256.slice(0, 12)}… (nothing was written)`
+      setProgress({ phase: 'error', error, message: error })
+      return { ok: false, error }
+    }
+    const file = join(downloadDir, name)
     writeFileSync(file, buffer)
-    writeFileSync(`${file}.sha256`, `${sha256}  ${asset.name}\n`)
-    setProgress({ phase: 'ready', pct: 100, message: `${asset.name} downloaded — open it to install.` })
-    return { ok: true, file }
+    writeFileSync(`${file}.sha256`, `${sha256}  ${name}\n`)
+    writeFileSync(join(downloadDir, `HOW-TO-INSTALL-${version}.txt`), [
+      `Research Engine ${version} — ${name}`,
+      '',
+      'This release has no platform installer, so you have the portable build.',
+      'Unpack it with:',
+      '',
+      name.endsWith('.zip')
+        ? `  unzip ${name}      (then run research-engine.exe)`
+        : `  tar -xzf ${name}   (then run ./research-engine)`,
+      '',
+      'Unpack it over the folder you already run Research Engine from — or into a',
+      'new one. Your library, keys and settings live in the data folder',
+      '(~/.research-engine) and are never part of the download.',
+      '',
+      'Check the download yourself with:',
+      `  sha256sum -c ${name}.sha256`,
+    ].join('\n'))
+    setProgress({ phase: 'ready', pct: 100, message: `${name} downloaded to ${downloadDir}.` })
+    return { ok: true, file, via: 'archive', message: `${name} downloaded to ${downloadDir} — unpack it over your install folder to update.` }
   } catch (e: any) {
     const error = String(e?.message ?? e)
     setProgress({ phase: 'error', error, message: error })

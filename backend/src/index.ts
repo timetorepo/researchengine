@@ -81,7 +81,7 @@ async function main() {
   // Count the attempt; if this is a repeated failure, put the old version back
   // and restart into it instead of serving something that cannot stay up.
   const updateDeps = {
-    appRoot: appRoot(), dataDir: rt.dataDir, currentVersion: sourceVersion() || '0.0.0.0',
+    appRoot: appRoot(), dataDir: rt.dataDir, currentVersion: sourceVersion() || webBuild(rt.frontendDist)?.version || 'dev',
     platform: process.platform, kind: installKind(),
     log: (m: string) => console.log(`[re] update: ${m}`),
   }

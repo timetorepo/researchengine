@@ -384,6 +384,8 @@ export interface Settings {
     autoCheck?: boolean
     /** Version whose "update available" pill was dismissed. */
     dismissed?: string
+    /** Version whose "a new release is out" popup has already been shown once. */
+    prompted?: string
     lastChecked?: number
     /**
      * Where updates come from. `github` reads the repository's releases;
@@ -461,6 +463,20 @@ export interface Settings {
   masterPromptOverrides: Record<string, string>
   themeFavorites: ThemeId[]
   profileName: string
+  /**
+   * The home screen, kept minimal by default.
+   *
+   * Research starts with a question, so the landing view is the hero line, the
+   * composer and the suggestions drawn from your own recent work — and nothing
+   * else. The widget grid and the offline-demo button are both off until they
+   * are asked for, and the wallpaper is opt-in per screen.
+   */
+  homeWidgets?: boolean
+  homeDemo?: boolean
+  /** Id from lib/wallpapers — art behind the home screen, with a scrim. */
+  homeWallpaper?: string
+  /** Wallpapers on the other pages too, not only the home screen. */
+  wallpaperEverywhere?: boolean
   /** Border Beam around the home-screen composer (by Jakubantalik). */
   composerBeam: boolean
   composerBeamVariant: 'colorful' | 'ocean' | 'sunset' | 'mono'

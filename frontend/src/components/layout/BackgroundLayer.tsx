@@ -2,17 +2,26 @@ import React from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { BackgroundManager } from '@/components/backgrounds/BackgroundManager'
+import { WallpaperLayer } from '@/components/layout/WallpaperLayer'
 import { ANIMATED_BG_KINDS } from '@/types'
 
-/** Custom app background, rendered behind all chrome. */
+/**
+ * Custom app background, rendered behind all chrome.
+ *
+ * The wallpaper is its own layer and draws even when the app background is
+ * "default": the two belong to different questions — what the app's surface is
+ * made of, and what the home screen sits on.
+ */
 export function BackgroundLayer() {
   const bg = useStore((s) => s.settings.background)
-  if (!bg || bg.kind === 'default') return null
+  if (!bg || bg.kind === 'default') return <WallpaperLayer />
 
   const key = bg.kind + ('dataUrl' in bg ? bg.dataUrl.slice(0, 48) : '')
   const animated = (ANIMATED_BG_KINDS as readonly string[]).includes(bg.kind)
 
   return (
+    <>
+    <WallpaperLayer />
     <AnimatePresence>
       <motion.div
         key={key}
@@ -64,5 +73,6 @@ export function BackgroundLayer() {
         )}
       </motion.div>
     </AnimatePresence>
+    </>
   )
 }

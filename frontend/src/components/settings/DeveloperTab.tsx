@@ -4,7 +4,8 @@ import { Terminal, PlayCircle, CheckCircle2, XCircle, Loader2, Copy, Trash2, Ref
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Switch } from '@/components/ui/heroui/Switch'
-import { APP_VERSION, BUILD_ID } from '@/components/settings/AboutTab'
+import { BUILD_ID } from '@/components/settings/AboutTab'
+import { runningVersion, useRunningVersion } from '@/lib/appVersion'
 import { Button } from '@/components/ui/heroui/Button'
 import { SAMPLE_PROJECT } from '@/lib/ide/sample'
 import { createProjectRobust, postJson, type PostJson } from '@/lib/ide/create'
@@ -152,6 +153,7 @@ export async function runCreateBench(kind: 'project' | 'sample', deps: BenchDeps
 }
 
 export function DeveloperTab() {
+  const version = useRunningVersion()
   const settings = useStore((s) => s.settings)
   const update = (patch: any) => useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
   const [busy, setBusy] = useState<'project' | 'sample' | null>(null)
@@ -258,7 +260,7 @@ export function DeveloperTab() {
           </button>
         </div>
         <div className="space-y-1">
-          <Row label="App version" value={APP_VERSION} />
+          <Row label="App version" value={version} />
           <Row label="Build id" value={BUILD_ID} />
           <Row label="Served bundle" value={served ? `${served.version} (${served.builtAt ?? 'unknown build time'})` : '—'} />
           <Row label="Source on disk" value={source?.version ?? '— (portable build has no source tree)'} />
@@ -301,7 +303,7 @@ async function clearTestProjects() {
   useUI.getState().toast(junk.length ? 'Test projects removed' : 'Nothing to remove', junk.length ? junk.join(', ') : 'No test projects were on disk.', 'info')
 }
 
-export function buildReport(result: RunResult | null, health: any, version = APP_VERSION): string {
+export function buildReport(result: RunResult | null, health: any, version = runningVersion()): string {
   const lines = [
     'Research Engine — create-path report',
     `when        : ${new Date().toISOString()}`,

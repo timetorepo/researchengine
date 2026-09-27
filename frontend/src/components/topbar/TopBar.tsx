@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Menu, Wind, ListChecks, ArrowDownToLine, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -6,11 +6,14 @@ import { useUpdates } from '@/lib/updates/client'
 import { ModelPicker } from '@/components/topbar/ModelPicker'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { FocusPill } from '@/components/shared/FocusPill'
-import { APP_VERSION, BUILD_ID } from '@/components/settings/AboutTab'
+import { BUILD_ID } from '@/components/settings/AboutTab'
+import { useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
 
 export function TopBar() {
   const ui = useUI()
+  /** Stamped into the bundle, or read from the server when it could not be. */
+  const version = useRunningVersion()
   const tasks = useStore((s) => s.tasks)
   const settings = useStore((s) => s.settings)
   const saved = useStore((s) => s.tokensSavedSession)
@@ -21,6 +24,32 @@ export function TopBar() {
   const { check: updateCheck } = useUpdates({ autoCheck: settings.updates?.autoCheck !== false })
   const updateDismissed = settings.updates?.dismissed === updateCheck?.latest
   const showUpdatePill = !!updateCheck?.available && !updateDismissed
+
+  /**
+   * "Whenever a new update comes, the user will know."
+   *
+   * The quiet check the app already ran on open is the trigger — what was
+   * missing was a way of being told. A version we have not announced on this
+   * machine pops the update modal once; a version the user dismissed is never
+   * announced again; and the record lives in settings, so it survives a reload.
+   */
+  useEffect(() => {
+    const latest = updateCheck?.latest
+    if (!latest || !updateCheck?.available) return
+    const updates = settings.updates ?? {}
+    if (updates.prompted === latest || updates.dismissed === latest) return
+    // Wait a beat: announcing an update over a page that is still painting is
+    // the kind of thing that makes an app feel like it is shouting.
+    const id = window.setTimeout(() => {
+      if (useUI.getState().updatePopup) return
+      useStore.setState((s) => ({
+        settings: { ...s.settings, updates: { ...(s.settings.updates ?? {}), prompted: latest } },
+      }))
+      useUI.setState({ updatePopup: latest })
+    }, 4000)
+    return () => window.clearTimeout(id)
+  }, [updateCheck?.latest, updateCheck?.available, settings.updates?.prompted, settings.updates?.dismissed])
+
   return (
     <header
       className="re-vt-topbar flex items-center gap-2 px-3 h-12 shrink-0 relative z-30"
@@ -50,7 +79,7 @@ export function TopBar() {
           title={`Build ${BUILD_ID}`}
         >
           <span className="w-1 h-1 rounded-full" style={{ background: 'var(--warning)' }} />
-          {APP_VERSION}
+          {version}
         </span>
       )}
 
@@ -83,9 +112,9 @@ export function TopBar() {
         <div className="flex items-center gap-0.5 rounded-full pl-2 pr-1 py-0.5 text-[11px]"
           style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
           <button
-            onClick={() => ui.openSettings('updates')}
+            onClick={() => ui.set({ updatePopup: updateCheck?.latest ?? 'latest' })}
             className="flex items-center gap-1 pr-1 font-medium"
-            title={`${updateCheck?.latest} is available — ${updateCheck?.kind === 'desktop' ? 'download the installer' : 'install it from Settings → Updates'}`}
+            title={`${updateCheck?.latest} is available — see what's new and download it`}
           >
             <ArrowDownToLine size={12} />
             {updateCheck?.latest}

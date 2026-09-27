@@ -1,8 +1,8 @@
 Research Engine — create-path report
-when        : 2026-09-27T05:38:44.068Z
-app version : 0.31.1-beta.1
+when        : 2026-09-27T08:48:46.687Z
+app version : 0.32.0-beta.1
 build id    : dev
-served      : 0.31.1-beta.1 (2026-09-27T05:38:30.023Z)
+served      : 0.32.0-beta.1 (2026-09-27T08:47:51.519Z)
 source      : — (portable build has no source tree)
 mode        : portable
 browser     : Linux x86_64 · node 22.22.3
@@ -10,10 +10,10 @@ server      : linux/x64 · node v22.22.3
 
 test        : create a project
 verdict     : PASSED — a project can be created.
-duration    : 12 ms
+duration    : 10 ms
   POST: /api/ide/projects
   Payload: {"name":"dev-test-bench","fallback":"dev-test","unique":true,"files":{"README.md":"60 B"}}
-  Projects already on disk: (none)
+  Projects already on disk: design-test-fixture
   This machine: Linux x86_64 · node 22.22.3 · backend linux/x64
   Attempts: 1
   Result: 201/200 — created “dev-test-bench”
@@ -26,7 +26,7 @@ raw:
   "fallback": "dev-test",
   "attempts": 1,
   "ok": true,
-  "ms": 12,
+  "ms": 10,
   "browser": "Linux x86_64 · node 22.22.3",
   "server": "linux/x64 node v22.22.3",
   "mode": "portable"
@@ -35,10 +35,10 @@ raw:
 — and the sample app —
 
 Research Engine — create-path report
-when        : 2026-09-27T05:38:44.068Z
-app version : 0.31.1-beta.1
+when        : 2026-09-27T08:48:46.687Z
+app version : 0.32.0-beta.1
 build id    : dev
-served      : 0.31.1-beta.1 (2026-09-27T05:38:30.023Z)
+served      : 0.32.0-beta.1 (2026-09-27T08:47:51.519Z)
 source      : — (portable build has no source tree)
 mode        : portable
 browser     : Linux x86_64 · node 22.22.3
@@ -49,7 +49,7 @@ verdict     : PASSED — the sample app can be created.
 duration    : 6 ms
   POST: /api/ide/projects
   Payload: {"name":"sample-landing","fallback":"sample-app","unique":true,"files":{"index.html":"1963 B","styles.css":"1584 B","app.js":"528 B","icon.svg":"220 B","README.md":"458 B"}}
-  Projects already on disk: (none)
+  Projects already on disk: design-test-fixture
   This machine: Linux x86_64 · node 22.22.3 · backend linux/x64
   Attempts: 1
   Result: 201/200 — created “sample-landing”

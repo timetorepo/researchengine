@@ -19,7 +19,7 @@ import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { Runtime } from '../runtime'
-import { installKind, appRoot, sourceVersion } from '../build-info'
+import { installKind, appRoot, sourceVersion, webBuild } from '../build-info'
 import { platformKey } from '../update/version'
 import {
   checkForUpdate, clearOutcome, downloadInstaller, installFromFile, installUpdate, isBusy, openWithOs,
@@ -46,10 +46,21 @@ export function updateRoutes(rt: Runtime) {
     return { repo, token, manifestUrl }
   }
 
+  /**
+   * What version this install is running. Three answers, best first:
+   *
+   *   1. the version declared by the code that is running (checkout / portable);
+   *   2. the version stamped into the built frontend the server is serving —
+   *      which is what a desktop shell and a stripped binary have;
+   *   3. `dev`, and only then, because `0.0.0-dev` was shown to people running a
+   *      perfectly good build whose package.json we simply could not read.
+   */
+  const runningVersion = () => sourceVersion() || webBuild(rt.frontendDist)?.version || 'dev'
+
   const depsFor = (c?: any) => ({
     appRoot: appRoot(),
     dataDir: rt.dataDir,
-    currentVersion: sourceVersion() || '0.0.0-dev',
+    currentVersion: runningVersion(),
     platform: platformKey(),
     kind: installKind(),
     ...sourceOf(c),
@@ -73,6 +84,7 @@ export function updateRoutes(rt: Runtime) {
     const d = depsFor(c)
     return c.json({
       ...updateStatus(d),
+      runningVersion: runningVersion(),
       source: {
         kind: d.manifestUrl ? 'manifest' : 'github',
         repo: (d.repo ?? '').trim() || null,
@@ -101,8 +113,18 @@ export function updateRoutes(rt: Runtime) {
       // and hand it to the OS. The library is untouched either way.
       const out = await downloadInstaller(depsFor(c), join(homedir(), 'Downloads'))
       if (!out.ok || !out.file) return c.json({ ok: false, error: out.error ?? 'could not download the installer' }, 502)
-      const opened = openWithOs(out.file)
-      return c.json({ ok: true, kind: 'desktop', file: out.file, opened, message: opened ? 'Installer downloaded and opened — finish the install and your library will be waiting.' : `Installer saved to ${out.file} — open it to finish updating.` })
+      // Only an installer is handed to the OS. A portable archive is left where
+      // it landed — opening it would just launch an archive manager — with a
+      // short HOW-TO-INSTALL note written beside it.
+      const opened = out.via === 'installer' ? openWithOs(out.file) : false
+      return c.json({
+        ok: true,
+        kind: 'desktop',
+        via: out.via ?? 'installer',
+        file: out.file,
+        opened,
+        message: out.message ?? (opened ? 'Installer downloaded and opened — finish the install and your library will be waiting.' : `Installer saved to ${out.file} — open it to finish updating.`),
+      })
     }
     if (isBusy()) return c.json({ ok: false, error: 'an update is already running' }, 409)
     const d = depsFor(c)

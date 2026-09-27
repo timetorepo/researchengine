@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { X, Plus, ListChecks, Sparkles, Trash2, Pin } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { ShuffledPinnedList, tasksToPrompt } from '@/components/ui/watermelon/ShuffledPinnedList'
 import { Button } from '@/components/ui/heroui/Button'
+import { DUR, EASE, EASE_OUT } from '@/lib/ui/handoff'
 import { smoothCaretProps } from '@/components/input/SmoothText'
 
 /**
@@ -21,9 +22,22 @@ export function TasksPanel() {
   const [title, setTitle] = useState('')
   const [detail, setDetail] = useState('')
 
-  if (!open) return null
-
   const close = () => useUI.setState({ tasksOpen: false })
+
+  /**
+   * Clicking out closes the panel — and it *animates* out while it does.
+   *
+   * This component used to return `null` before its own `AnimatePresence` was
+   * ever rendered, so the exit branch was dead code: the panel vanished the
+   * instant the flag changed. The list now stays mounted while it slides away,
+   * which is also what lets the backdrop fade with it instead of blinking.
+   */
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
 
   const add = (pinned = false) => {
     const t = title.trim()
@@ -52,12 +66,26 @@ export function TasksPanel() {
 
   return (
     <AnimatePresence>
+      {open && (
+        <motion.div
+          key="tasks-scrim"
+          className="fixed inset-0 z-[59]"
+          style={{ background: 'color-mix(in srgb, var(--scrim) 55%, transparent)', backdropFilter: 'blur(3px)' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: DUR.fast, ease: EASE_OUT }}
+          onClick={close}
+          aria-hidden="true"
+        />
+      )}
+      {open && (
       <motion.aside
         key="tasks"
         initial={{ x: 380, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 380, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 34 }}
+        transition={{ duration: DUR.slow, ease: EASE }}
         className="fixed right-0 top-0 bottom-0 w-[380px] max-w-[92vw] z-[60] flex flex-col"
         style={{ background: 'var(--surface)', borderLeft: '1px solid var(--surface-border)', backdropFilter: 'blur(18px)' }}
         aria-label="Tasks"
@@ -124,6 +152,7 @@ export function TasksPanel() {
           />
         </div>
       </motion.aside>
+      )}
     </AnimatePresence>
   )
 }

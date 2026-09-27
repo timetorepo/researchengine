@@ -191,6 +191,66 @@
   --tw-backdrop-opacity: 1;
 }
 
+/* ---- HeroUI's own utilities, in Tailwind v4's `@utility` form -------------
+   HeroUI v2 ships its component styles as *class names* and expects its Tailwind
+   plugin to have registered the utility each name resolves to. We deliberately
+   do not use that plugin (it is Tailwind v3 API), so every one of these names
+   was dead text: `scrollbar-hide` on a tab list still showed a scrollbar,
+   `text-tiny` changed nothing, and a disabled tab was not dimmed.
+
+   There is no place in v4 to "add classes to the theme", so they are written
+   out. Values are HeroUI's own, with their `--heroui-*` variables first and the
+   plugin defaults as the fallback — the components then read correctly with or
+   without the provider that would set those variables. */
+
+@utility leading-inherit { line-height: inherit; }
+@utility bg-img-inherit { background-image: inherit; }
+@utility bg-clip-inherit { background-clip: inherit; }
+@utility text-fill-inherit { -webkit-text-fill-color: inherit; }
+@utility tap-highlight-transparent { -webkit-tap-highlight-color: transparent; }
+@utility input-search-cancel-button-none {
+  &::-webkit-search-cancel-button { -webkit-appearance: none; }
+}
+
+/* Scrollbars: `scrollbar-hide` is what the tab list uses to stay one row tall. */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+@utility scrollbar-default {
+  -ms-overflow-style: auto;
+  scrollbar-width: auto;
+  &::-webkit-scrollbar { display: block; }
+}
+
+/* The type scale HeroUI's components ask for by name. */
+@utility text-tiny {
+  font-size: var(--heroui-font-size-tiny, 0.75rem);
+  line-height: var(--heroui-line-height-tiny, 1rem);
+}
+@utility text-small {
+  font-size: var(--heroui-font-size-small, 0.875rem);
+  line-height: var(--heroui-line-height-small, 1.25rem);
+}
+@utility text-medium {
+  font-size: var(--heroui-font-size-medium, 1rem);
+  line-height: var(--heroui-line-height-medium, 1.5rem);
+}
+@utility text-large {
+  font-size: var(--heroui-font-size-large, 1.125rem);
+  line-height: var(--heroui-line-height-large, 1.75rem);
+}
+
+/* State opacities (`opacity-disabled` is on every disabled HeroUI control). */
+@utility opacity-disabled { opacity: var(--heroui-disabled-opacity, 0.5); }
+@utility opacity-hover { opacity: var(--heroui-hover-opacity, 0.8); }
+
+/* Border widths, same names as the plugin's `borderWidth` scale. */
+@utility border-small { border-width: var(--heroui-border-width-small, 1px); }
+@utility border-medium { border-width: var(--heroui-border-width-medium, 2px); }
+@utility border-large { border-width: var(--heroui-border-width-large, 3px); }
+
 /* Theme-matched gradients — same mesh construction, but every stop is mixed
    from the active theme's own primary/secondary/bg, so cards always belong
    to the palette. Enabled via Settings > Appearance. */

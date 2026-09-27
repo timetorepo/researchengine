@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Timer, Play, Pause, RotateCcw, SkipForward, GraduationCap, Code2, BookOpen, Sparkles, Flame } from 'lucide-react'
 import { useUI, type ActivityKind } from '@/stores/useUI'
-import { AnimatedNumber, useSteadyCountdown } from '@/components/shared/AnimatedNumber'
+import { AnimatedNumber, useSteadyCountdown, msToNextSecond } from '@/components/shared/AnimatedNumber'
 
 /**
  * The focus timer, as a pill that morphs into a rounded block.
@@ -75,8 +75,7 @@ export function FocusPill() {
         useUI.setState({ focus: { running: true, endsAt: Date.now() + total * 1000, remaining: total, total, mode: next } })
         return
       }
-      const msToBoundary = 1000 - ((Date.now() - f.endsAt) % 1000 || 1000)
-      timer = setTimeout(tick, Math.max(50, msToBoundary) + 8)
+      timer = setTimeout(tick, msToNextSecond(f.endsAt) + 12)
     }
     tick()
     // A throttled background tab must not leave a stale clock on return.
@@ -123,7 +122,18 @@ export function FocusPill() {
   const clock = fmtTime(focus.remaining)
 
   return (
-    <div ref={wrapRef} className="relative" data-focus-timer>
+    /**
+     * Top-anchored, and that is a fix rather than a preference: the pill lives
+     * in a 48px bar at the very top of the window, so a block that grew around
+     * its centre pushed its own title row — and the top of the clock — off the
+     * screen. It grows *down* from where the pill already sits.
+     */
+    <div
+      ref={wrapRef}
+      className="relative self-start transition-[margin] duration-200"
+      style={{ marginTop: open ? 6 : 9 }}
+      data-focus-timer
+    >
       <motion.div
         layout
         data-focus-pill

@@ -9,11 +9,19 @@ import { useUI } from '@/stores/useUI'
 import { Button } from '@/components/ui/heroui/Button'
 import { ProfileCard } from '@/components/ui/watermelon/ProfileCard'
 import { UserAvatar } from '@/components/shared/UserAvatar'
+import { BUNDLE_BUILD, runningVersion, useRunningVersion } from '@/lib/appVersion'
 
-/** Injected by Vite from package.json — never drifts from the shipped build. */
-export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0-dev'
+/**
+ * Injected by Vite from package.json, so it never drifts from the shipped build.
+ *
+ * When that stamp is missing (a desktop shell or a hand-unpacked folder can lose
+ * it) the app asks the server instead of inventing `0.0.0-dev` — see
+ * lib/appVersion.ts. Components read `useRunningVersion()`; this constant is for
+ * the non-React callers (the copyable build report).
+ */
+export const APP_VERSION = runningVersion()
 /** Version + build stamp of the bundle you are looking at right now. */
-export const BUILD_ID = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'
+export const BUILD_ID = BUNDLE_BUILD
 const REPO = 'https://github.com/timetorepo/researchengine'
 
 interface ServerWeb {
@@ -32,6 +40,7 @@ interface ServerWeb {
  */
 function StaleBuildCard() {
   const ui = useUI()
+  const version = useRunningVersion()
   const [web, setWeb] = useState<ServerWeb | null>(null)
   const [dismissed, setDismissed] = useState(false)
 
@@ -45,7 +54,7 @@ function StaleBuildCard() {
   }, [])
 
   const serverHandled = web?.served && web.served.version !== web.source
-  const browserStale = !!web?.served && web.served.version !== APP_VERSION
+  const browserStale = !!web?.served && !!version && web.served.version !== version
   if (dismissed || (!serverHandled && !browserStale)) return null
 
   const hardRefresh = async () => {
@@ -70,7 +79,7 @@ function StaleBuildCard() {
         <div className="text-[12.5px] leading-relaxed flex-1" style={{ color: 'var(--text-2)' }}>
           <b style={{ color: 'var(--text)' }}>This self-hosted copy is running an older build.</b>
           {web?.served && browserStale && (
-            <p className="mt-1">The server offers <span className="font-mono">{web.served.version}</span> but this page is running <span className="font-mono">{APP_VERSION}</span> — your browser (or a cached service worker) is still holding the old bundle.</p>
+            <p className="mt-1">The server offers <span className="font-mono">{web.served.version}</span> but this page is running <span className="font-mono">{version}</span> — your browser (or a cached service worker) is still holding the old bundle.</p>
           )}
           {serverHandled && (
             <p className="mt-1">The built frontend on disk is <span className="font-mono">{web?.served?.version}</span>, while the code in this checkout is <span className="font-mono">{web?.source}</span>.</p>
@@ -118,6 +127,7 @@ const RUNTIME_LIBRARIES = ['React', 'Vite', 'Tailwind CSS', 'Framer Motion', 'Zu
 export function AboutTab() {
   const ui = useUI()
   const profile = useStore((s) => s.settings.profile)
+  const version = useRunningVersion()
   const [checking, setChecking] = useState(false)
   const [latest, setLatest] = useState<string | null>(null)
 
@@ -133,7 +143,7 @@ export function AboutTab() {
       if (!res.ok || j.error) throw new Error(j.error ?? `HTTP ${res.status}`)
       const tag = j.latest ? `v${j.latest}` : null
       if (j.available) {
-        ui.toast('Update available', `${tag} is out — you are on v${APP_VERSION}.`, 'success')
+        ui.toast('Update available', `${tag} is out — you are on v${version}.`, 'success')
         ui.openSettings('updates')
       } else if (tag) {
         ui.toast('Up to date', `You are running the latest release (v${j.current}).`, 'success')
@@ -156,7 +166,7 @@ export function AboutTab() {
         <div>
           <h2 className="text-xl font-semibold" style={{ letterSpacing: '-0.02em' }}>Research Engine</h2>
           <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
-            Version {APP_VERSION} · build {BUILD_ID.includes('+') ? BUILD_ID.split('+')[1].replace(/(\d{4})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4h') : 'local'} · self-hosted · privacy-first
+            Version {version} · build {BUILD_ID.includes('+') ? BUILD_ID.split('+')[1].replace(/(\d{4})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4h') : 'local'} · self-hosted · privacy-first
           </p>
         </div>
       </div>
@@ -348,7 +358,7 @@ function DiagnosticsCard() {
   const cacheLine = typeof caches !== 'undefined' ? 'caches API present' : 'no caches API'
 
   const report = () => [
-    `Research Engine ${APP_VERSION}`,
+    `Research Engine ${runningVersion()}`,
     `build      : ${BUILD_ID}`,
     `theme      : ${useStore.getState().settings.theme}`,
     `model      : ${useStore.getState().settings.defaultModel || '(none)'}`,

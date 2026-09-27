@@ -930,6 +930,14 @@ async function main() {
   console.log('\n[16] Quiz card motion, and the stray-overlay class of bug')
   const { readFileSync: m16readFile, readdirSync: m16readdir, statSync: m16stat } = await import('node:fs')
   const m16cssAll = m16readFile(new URL('../src/styles/globals.css', import.meta.url), 'utf8')
+  /** Does HeroUI's modal slot put its own `fixed` overlay on the page? */
+  const heroModalWrapperFixed = () => {
+    try {
+      const theme = m16readFile(new URL('../../node_modules/@heroui/theme/dist/components/modal.js', import.meta.url), 'utf8')
+      const wrapper = theme.slice(theme.indexOf('wrapper:'), theme.indexOf('base:'))
+      return wrapper.includes('"fixed"') && wrapper.includes('"inset-0"')
+    } catch { return false }
+  }
   const m16walkSrc = (dir: URL): URL[] => m16readdir(dir).flatMap((f) => {
     const child = new URL(`${f}${m16stat(new URL(f, dir)).isDirectory() ? '/' : ''}`, dir)
     return m16stat(new URL(f, dir)).isDirectory() ? m16walkSrc(child) : [child]
@@ -958,7 +966,12 @@ async function main() {
     const file = m16tsxLike.find((u) => u.pathname.endsWith(`/${name}.tsx`))
     if (!file) return false // inline fragment or already checked above
     const body = m16readSrc(file)
-    return !(body.includes('fixed inset-0') || body.includes('fixed ') || file.pathname.endsWith('StarField.tsx'))
+    return !(body.includes('fixed inset-0') || body.includes('fixed ')
+      || file.pathname.endsWith('StarField.tsx')
+      // An overlay built on HeroUI's Modal is fixed by *their* wrapper, not by
+      // a class in our file — so it is proven from their theme definition, the
+      // same way Sonner's toaster is proven from Sonner's own stylesheet.
+      || (/from '@heroui\/modal'/.test(body) && heroModalWrapperFixed()))
   })
   check('everything beside the shell is position:fixed', m16inFlow.length === 0, m16inFlow.join(', '))
 
@@ -1714,7 +1727,12 @@ async function main() {
   // --- Animated number (Skiper 37) ----------------------------------
   const numSrc = m16readSrc(new URL('../src/components/shared/AnimatedNumber.tsx', import.meta.url))
   check('animated numbers use Number Flow', numSrc.includes("from '@number-flow/react'"))
-  check('the countdown re-anchors to the wall-clock second', numSrc.includes('msToBoundary') && numSrc.includes('useSteadyCountdown'))
+  check('the countdown re-anchors to the wall-clock second', numSrc.includes('msToNextSecond') && numSrc.includes('useSteadyCountdown'))
+  // The bug behind "the timer only changes every two seconds": the wake-up was
+  // scheduled on the *complement* of the remaining fraction, computed with a
+  // negative modulo, so every other tick landed a second late.
+  check('and waits out the fraction left of the current second, not its complement',
+    /remaining % 1000/.test(numSrc) && !/1000 - \(\(Date\.now\(\) - endsAt\)/.test(numSrc))
   check('a hidden tab re-syncs instead of showing a stale clock', numSrc.includes('visibilitychange'))
   check('reduce-motion shows the value without rolling', numSrc.includes('useReducedMotion'))
   const pillSrc = m16readSrc(new URL('../src/components/shared/FocusPill.tsx', import.meta.url))
@@ -2541,8 +2559,18 @@ async function main() {
   // --- pages that load fast ------------------------------------------
   const app30 = m16readSrc(new URL('../src/App.tsx', import.meta.url))
   const static30 = m16readFile(new URL('../../backend/src/static.ts', import.meta.url), 'utf8')
+  /* HeroUI v2 imports `framer-motion` by name, and our own code imports `motion`
+     — so both names are in the dependency list again. They are not two
+     runtimes: `motion@13` is a re-export of `framer-motion@13`, and Vite dedupes
+     both onto one copy. That is what this check now proves, instead of the old
+     "framer-motion must not appear at all". */
+  const motionReexport30 = m16readFile(new URL('../../node_modules/motion/dist/es/react.mjs', import.meta.url), 'utf8')
+  const viteCfg30 = m16readFile(new URL('../vite.config.ts', import.meta.url), 'utf8')
+  const oneRuntime = !pkg30.dependencies['framer-motion'] || (
+    /from 'framer-motion'/.test(motionReexport30)
+    && /dedupe:\s*\[[^\]]*'framer-motion'[^\]]*'motion'/.test(viteCfg30))
   check('the animation library is no longer shipped twice',
-    !/from 'framer-motion'/.test(app30) && !pkg30.dependencies['framer-motion'])
+    !/from 'framer-motion'/.test(app30) && oneRuntime)
   check('settings is loaded when it is opened, not on first paint',
     /React\.lazy\(\(\) => import\('@\/components\/settings\/SettingsSheet'\)/.test(app30))
   check('the panels nobody opened yet are lazy too',

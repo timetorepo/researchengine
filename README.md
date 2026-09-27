@@ -105,6 +105,8 @@ Dictation works with three engines — your browser's own, a transcription servi
 
 Press update and it fetches the new version, **checks the file against its published fingerprint before unpacking anything**, installs it, and — if the new version cannot start — puts the old one back by itself. Your library is never part of that swap. (You can also hand it a file you downloaded yourself, or point it at a private source if you run a fork.)
 
+**And it tells you.** When a newer release exists, it says so — once per version, in a popup that shows the release notes, the download and its progress, with a restart when it is done and a "skip this version" that is remembered. Nothing installs without your press.
+
 ---
 
 ## ⭐ Only in Research Engine

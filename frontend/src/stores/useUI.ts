@@ -30,6 +30,8 @@ interface UIState {
   /** Route path whose chunk is being fetched for a navigation in flight. */
   routeLoading: string | null
   settingsOpen: boolean
+  /** True while the settings page plays its exit motion, before it navigates. */
+  settingsClosing: boolean
   settingsSheet: boolean
   settingsTab: string
   paletteOpen: boolean
@@ -68,10 +70,22 @@ interface UIState {
   /** The shared task panel (Research + Coding). */
   tasksOpen: boolean
   /**
+   * The version whose "a new release is out" popup is open, or null. Held in
+   * the store rather than in the top bar so the popup can be opened from
+   * anywhere — the pill, the Updates tab, or the automatic first sighting.
+   */
+  updatePopup: string | null
+  /**
    * Text handed to whichever composer is open — used by the task panel's
    * "Send to AI". The composer clears it once it has been adopted.
    */
   composerSeed: string | null
+  /**
+   * A prompt that has just left the home screen. While this is set the home
+   * view is blurring out and the chat page is fading in over it, which is how
+   * a question asked on the landing page becomes an answer without a cut.
+   */
+  handoff: { chatId: string; prompt: string; at: number } | null
   toast: (title: string, body?: string, tone?: Toast['tone']) => void
   clearNotices: () => void
   dismissToast: (id: string) => void
@@ -101,6 +115,7 @@ export const useUI = create<UIState>((set, get) => ({
   sidebarOpenMobile: false,
   routeLoading: null,
   settingsOpen: false,
+  settingsClosing: false,
   settingsSheet: false,
   settingsTab: 'providers',
   paletteOpen: false,
@@ -136,10 +151,13 @@ export const useUI = create<UIState>((set, get) => ({
    * actually go there.
    */
   tasksOpen: false,
+  updatePopup: null,
   composerSeed: null,
+  handoff: null,
   openSettings: (tab) => {
     set((s) => ({
       settingsOpen: true,
+      settingsClosing: false,
       settingsTab: tab ?? s.settingsTab,
       settingsSheet: false,
       sidebarOpenMobile: false,

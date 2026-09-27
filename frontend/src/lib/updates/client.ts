@@ -61,6 +61,18 @@ export interface UpdateStatus {
  * the server: the token is a credential for *this* call, and the manifest URL is
  * the way to update without GitHub's API being reachable at all.
  */
+/** What `/api/update/install` answers with, whichever path it took. */
+export interface InstallResult {
+  ok: boolean
+  kind?: 'desktop' | 'portable'
+  via?: 'installer' | 'archive'
+  file?: string
+  opened?: boolean
+  message?: string
+  pending?: { from: string; to: string; at: number; attempts: number; backup: string }
+  restartRequired?: boolean
+}
+
 export interface UpdateSource {
   repo?: string
   token?: string
@@ -97,7 +109,7 @@ async function jpost<T>(url: string, payload?: unknown, source?: UpdateSource): 
 export const updateApi = {
   status: (source?: UpdateSource) => jget<UpdateStatus>('/api/update/status', source),
   check: (force = false, source?: UpdateSource) => jget<UpdateCheck>(`/api/update/check${force ? '?force=1' : ''}`, source),
-  install: (version?: string, source?: UpdateSource) => jpost<any>('/api/update/install', version ? { version } : {}, source),
+  install: (version?: string, source?: UpdateSource) => jpost<InstallResult>('/api/update/install', version ? { version } : {}, source),
   restart: () => jpost<{ ok: boolean }>('/api/update/restart'),
   rollback: () => jpost<{ ok: boolean }>('/api/update/rollback'),
   dismiss: () => jpost<{ ok: boolean }>('/api/update/dismiss'),
@@ -155,6 +167,14 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
   const [check, setCheck] = useState<UpdateCheck | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /**
+   * The sentence the server sent back after a successful download — which is
+   * *not* the same news on every install kind. A portable build says "press
+   * Restart"; a desktop build says where the installer went and whether it was
+   * opened. The UI used to guess both, so a portable folder that had just been
+   * handed an archive was told to "finish the installer".
+   */
+  const [notice, setNotice] = useState<string | null>(null)
   // Where updates come from, straight from settings — so a private repository
   // (with a token) or a self-hosted manifest works without a rebuild.
   const configured = useStore((s) => s.settings.updates)
@@ -199,9 +219,15 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
   const install = useCallback(async (version?: string) => {
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
-      await updateApi.install(version, source)
+      const out = await updateApi.install(version, source)
       await refreshStatus()
+      setNotice(typeof out?.message === 'string' && out.message
+        ? out.message
+        : out?.restartRequired
+          ? `Downloaded and verified. Press “Restart now” to run ${out?.pending?.to ?? 'the new version'} — your library is untouched.`
+          : 'Downloaded.')
       return true
     } catch (e: any) {
       // A failed install is not a silent thing: the reason goes back to the
@@ -218,6 +244,7 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
   const installFromFile = useCallback(async (file: File, sumsText?: string) => {
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       await updateApi.installFile(file, sumsText)
       await refreshStatus()
@@ -252,5 +279,15 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
     return () => window.clearTimeout(id)
   }, [options.autoCheck, runCheck])
 
-  return { status, check, error, busy, refreshStatus, runCheck, install, installFromFile, setError }
+  /** Restart into the version that is already on disk (then reload the page). */
+  const restart = useCallback(async () => {
+    try { await updateApi.restart() } catch { /* the request dies with the server */ }
+    window.setTimeout(() => window.location.reload(), 4000)
+  }, [])
+
+  return {
+    status, check, error, notice, busy,
+    refreshStatus, runCheck, install, installFromFile, restart, setError,
+    clearNotice: () => setNotice(null),
+  }
 }

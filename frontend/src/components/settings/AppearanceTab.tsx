@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/heroui/Switch'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { fileToBackgroundUrl, SOLID_PRESETS } from '@/lib/backgrounds'
+import { WALLPAPERS, WALLPAPER_SOURCE } from '@/lib/wallpapers'
 import { getPropsForTheme, mixVec3, ANIMATED_BG_META } from '@/lib/backgrounds/themeProps'
 import type { AnimatedBgKind, BackgroundConfig } from '@/types'
 
@@ -223,6 +224,60 @@ export function AppearanceTab() {
               {f === 0.9 ? 'Compact' : f === 1 ? 'Default' : 'Large'}
             </button>
           ))}
+        </div>
+
+        {/* ---- Home screen ---- */}
+        <div className="surface p-4 mt-4 mb-2" data-home-settings>
+          <div className="text-[13px] font-medium mb-0.5">Home screen</div>
+          <div className="text-[11.5px] mb-3" style={{ color: 'var(--text-2)' }}>
+            Research starts with a question, so the landing view is the hero line, the composer and
+            suggestions drawn from your own recent work. Everything else here is optional — and off
+            until you ask for it.
+          </div>
+          <div className="space-y-1">
+            <Switch label="Widget cards" description="The grid of recent research, AIFlowEngine savings, articles and spaces under the composer."
+              checked={settings.homeWidgets === true} onChange={(v) => update({ homeWidgets: v })} />
+            <Switch label="Offline demo button" description="A “try the offline demo” pill under the composer — Read & Quiz with no key and no network."
+              checked={settings.homeDemo === true} onChange={(v) => update({ homeDemo: v })} />
+            <Switch label="Wallpaper on every page" description="Off: the wallpaper stays on the home screen, where there is no dense text over it."
+              checked={settings.wallpaperEverywhere === true} onChange={(v) => update({ wallpaperEverywhere: v })} />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 mt-4 mb-2">
+            <div>
+              <div className="text-[12.5px] font-medium">Wallpaper</div>
+              <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                Raycast's collection, cropped to 1280×720 WebP (10–20 kB each).{' '}
+                <a href={WALLPAPER_SOURCE} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>Full-size originals</a>
+              </div>
+            </div>
+            {(settings.homeWallpaper || undefined) && (
+              <button onClick={() => update({ homeWallpaper: undefined })}
+                className="text-[11.5px] px-2.5 py-1 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+                Remove
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {WALLPAPERS.map((w) => {
+              const active = settings.homeWallpaper === w.id
+              return (
+                <button key={w.id} onClick={() => update({ homeWallpaper: active ? undefined : w.id })}
+                  aria-pressed={active}
+                  className="group text-left rounded-[12px] overflow-hidden transition-transform hover:scale-[1.02] press-tap"
+                  style={{ border: `1.5px solid ${active ? 'var(--primary)' : 'var(--surface-border)'}` }}
+                  title={`${w.name} — ${w.note}`}
+                >
+                  <span className="block h-[68px] bg-cover bg-center" style={{ backgroundImage: `url(${w.file})` }} />
+                  <span className="flex items-center gap-1 px-2 py-1.5 text-[11px]"
+                    style={{ background: 'var(--surface)', color: active ? 'var(--primary)' : 'var(--text-2)' }}>
+                    <span className="truncate">{w.name}</span>
+                    {active && <Check size={11} className="ml-auto shrink-0" />}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <Switch label="Compact mode" description="Tighter spacing and smaller type throughout."

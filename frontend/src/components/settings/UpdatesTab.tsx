@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { motion } from 'motion/react'
 import {
-  ArrowDownToLine, CheckCircle2, Download, HardDriveDownload, Loader2, RefreshCw, RotateCcw,
+  ArrowDownToLine, CheckCircle2, Download, Loader2, RefreshCw, RotateCcw,
   ShieldCheck, Sparkles, TriangleAlert, FolderOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/heroui/Button'
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/heroui/Switch'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { useUpdates, formatBytes, phaseLabel } from '@/lib/updates/client'
-import { APP_VERSION } from '@/components/settings/AboutTab'
+import { useRunningVersion } from '@/lib/appVersion'
 
 /**
  * Settings → Updates.
@@ -22,9 +22,12 @@ import { APP_VERSION } from '@/components/settings/AboutTab'
  */
 export function UpdatesTab() {
   const settings = useStore((s) => s.settings)
+  /** What this install is actually running — never a placeholder string. */
+  const version = useRunningVersion()
   const update = (patch: any) => useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
   const autoCheck = settings.updates?.autoCheck !== false
-  const { status, check, error, busy, refreshStatus, runCheck, install, installFromFile, setError } = useUpdates({ autoCheck: false })
+  const { status, check, error, notice, busy, refreshStatus, runCheck, install, installFromFile, restart, setError } =
+    useUpdates({ autoCheck: false })
   const [checking, setChecking] = useState(false)
   const [justChecked, setJustChecked] = useState(false)
   const [archive, setArchive] = useState<File | null>(null)
@@ -66,18 +69,23 @@ export function UpdatesTab() {
 
   const doInstall = async () => {
     const ok = await install()
-    if (ok) {
-      const s = await refreshStatus()
-      if (s?.kind === 'desktop') toast('Installer ready', 'Opened it for you — your library is where it was.', 'success')
-      else toast('Update downloaded', 'Press “Restart now” to finish. Your library was not touched.', 'success')
-    }
+    if (!ok) return
+    const s = await refreshStatus()
+    const fellBack = s?.kind === 'portable'
+    toast(
+      s?.kind === 'desktop' ? 'Download ready' : 'Update downloaded',
+      // The server's own sentence, so an archive is never described as an
+      // installer and vice versa.
+      s?.progress?.message || notice || (fellBack
+        ? 'Press “Restart now” to finish. Your library was not touched.'
+        : 'Saved to your Downloads folder.'),
+      'success',
+    )
   }
 
   const doRestart = async () => {
     toast('Restarting', 'The server is starting again with the new version.', 'info')
-    try { await fetch('/api/update/restart', { method: 'POST' }) } catch { /* the request dies with the server */ }
-    // Give the server a moment to come back before reloading the page.
-    setTimeout(() => window.location.reload(), 4000)
+    await restart()
   }
 
   const doRollback = async () => {
@@ -138,7 +146,7 @@ export function UpdatesTab() {
       <section className="surface p-4" style={{ borderRadius: 'var(--radius-card)' }}>
         <div className="flex items-center gap-2 mb-3">
           <ArrowDownToLine size={16} strokeWidth={1.6} style={{ color: 'var(--primary)' }} />
-          <h3 className="text-[14px] font-semibold">Research Engine {APP_VERSION}</h3>
+          <h3 className="text-[14px] font-semibold">Research Engine {version}</h3>
           <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
             {kind === 'portable' ? 'portable install' : kind === 'desktop' ? 'desktop app' : 'source checkout'}
           </span>
@@ -259,12 +267,12 @@ export function UpdatesTab() {
               {`Download ${check.latest} installer`}
             </Button>
           )}
-          {check?.url && (
-            <a href={check.url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px]"
-              style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
-              <HardDriveDownload size={13} /> Release notes
-            </a>
+          {/* Notes belong here, not behind a link to a repository that may be
+              private. The popup is still one press away for the long version. */}
+          {check?.available && (
+            <Button variant="flat" onClick={() => useUI.setState({ updatePopup: check.latest ?? 'latest' })}>
+              <Sparkles size={13} /> What's new
+            </Button>
           )}
         </div>
       </section>

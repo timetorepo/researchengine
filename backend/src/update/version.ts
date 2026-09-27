@@ -82,7 +82,7 @@ export interface ReleaseLike {
   prerelease?: boolean
   published_at?: string
   html_url?: string
-  assets?: { name?: string; browser_download_url?: string; size?: number }[]
+  assets?: { name?: string; browser_download_url?: string; url?: string; id?: number; size?: number }[]
   /** A self-hosted manifest may point at its own checksum list. */
   sums?: string | null
 }
@@ -95,7 +95,8 @@ export interface ReleaseInfo {
   publishedAt: string
   url: string
   prerelease: boolean
-  assets: { name: string; url: string; size: number }[]
+  /** `id` is the numeric API asset id — the handle the API accepts a token for. */
+  assets: { name: string; url: string; id?: number; size: number }[]
   /** Where to read SHA256SUMS from, when the source says so explicitly. */
   sums?: string | null
 }
@@ -114,7 +115,10 @@ function toReleaseInfo(r: ReleaseLike): ReleaseInfo | null {
     prerelease: !!r.prerelease,
     assets: (r.assets ?? []).map((a) => ({
       name: String(a.name ?? ''),
-      url: String(a.browser_download_url ?? ''),
+      // The browser URL is the one that works without a token; the API URL is
+      // the only one that works *with* one on a private repository. Keep both.
+      url: String(a.browser_download_url ?? a.url ?? ''),
+      id: typeof a.id === 'number' ? a.id : undefined,
       size: Number(a.size ?? 0),
     })),
   }

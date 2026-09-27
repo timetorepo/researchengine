@@ -6,6 +6,10 @@ import { useStore } from '@/stores/useStore'
 import { runChat } from '@/lib/chat/runChat'
 import { timeAgo } from '@/lib/utils'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
+import { BorderBeam } from 'border-beam'
+import { themeKind } from '@/lib/themes/meta'
+import { useUI } from '@/stores/useUI'
+import { beginHandoff, HANDOFF_BLUR_MS, DUR, EASE_OUT } from '@/lib/ui/handoff'
 import type { Chat } from '@/types'
 
 interface Suggestion {
@@ -91,14 +95,24 @@ export function SuggestedForYou({
 }) {
   const navigate = useNavigate()
   const suggestions = useMemo(() => buildSuggestions(chats), [chats])
+  const theme = useStore((s) => s.settings.theme)
+  const wallpaper = !!useStore((s) => s.settings.homeWallpaper)
+  // The beam is a moving light; where motion is unwelcome, it is not drawn.
+  const reduceMotion = useStore((s) => s.settings.reduceMotion)
+    || (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 
   const run = (s: Suggestion) => {
     if (!s.chatId) { onAsk(s.prompt); return }
-    // Continue inside the original thread so the answer has real context.
+    // Continue inside the original thread so the answer has real context — and
+    // through the same handover the composer uses, so picking a card feels
+    // like asking a question rather than like navigating somewhere.
     const chatId = s.chatId
     useStore.getState().setActiveChat(chatId)
-    navigate(`/chat/${chatId}`)
-    setTimeout(() => { void runChat({ chatId, prompt: s.prompt }) }, 80)
+    beginHandoff(chatId, s.prompt)
+    window.setTimeout(() => {
+      navigate(`/chat/${chatId}`)
+      void runChat({ chatId, prompt: s.prompt })
+    }, HANDOFF_BLUR_MS)
   }
 
   if (!suggestions.length) {
@@ -135,11 +149,37 @@ export function SuggestedForYou({
             key={s.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * i, duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+            transition={{ delay: 0.04 * i, duration: DUR.slow, ease: EASE_OUT }}
             onClick={() => run(s)}
-            className="ios-lift group text-left p-3.5 rounded-[16px] flex flex-col gap-2"
-            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+            className="ios-lift group relative isolate overflow-hidden text-left p-3.5 rounded-[16px] flex flex-col gap-2"
+            style={{
+              background: wallpaper
+                ? 'color-mix(in srgb, var(--surface) 62%, transparent)'
+                : 'var(--surface)',
+              backdropFilter: wallpaper ? 'blur(18px) saturate(1.2)' : undefined,
+              border: '1px solid var(--surface-border)',
+            }}
           >
+            {/* Border Beam by Jakub Antalik — the same travelling light the
+                composer carries, so the home screen's clickable things read as
+                one family. */}
+            {!reduceMotion && (
+              <BorderBeam
+                size="sm"
+                colorVariant="ocean"
+                theme={themeKind(theme)}
+                borderRadius={16}
+                duration={8}
+                brightness={1.2}
+                saturation={1.25}
+                strength={0.5}
+                hueRange={22}
+                aria-hidden="true"
+                style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none', overflow: 'visible' }}
+              >
+                <span style={{ display: 'block', width: '100%', height: '100%' }} />
+              </BorderBeam>
+            )}
             <span className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                 style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
