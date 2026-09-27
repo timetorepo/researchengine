@@ -71,3 +71,15 @@ Portable archives are in `downloads/` in the repository, hashed in `SHA256SUMS`:
 This is a stylesheet fix, so if you are on the desktop installer there is nothing
 you have to do — the installers below are rebuilt by CI from this tag, and the
 next feature release will carry them anyway.
+
+## Installers, built by CI from this tag
+
+| Asset | Bytes | sha256 |
+| --- | ---: | --- |
+| `Research.Engine_0.31.1-beta.1_amd64.AppImage` | 121,772,536 | `99ad8c07fd573673f1a4be11de1f4faef9e4815399e76e2cebb8810b2e7c3ce8` |
+| `Research.Engine_0.31.1-beta.1_amd64.deb` | 46,837,874 | `0625a5bc50f98d855ac96630a33691b2ca666240d7393cca0a562795cd958e47` |
+| `Research.Engine_0.31.1-beta.1_x64-setup.exe` | 38,441,133 | `52df261f7b5957cb380ba446e50a857aa46964cdb83e58b475841acc4ac490f4` |
+
+Those three digests are GitHub's own reading of the uploaded assets (the release
+API's `digest` field for each file); the same three lines are in
+`downloads/INSTALLERS.sha256`.
