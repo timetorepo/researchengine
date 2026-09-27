@@ -2728,6 +2728,30 @@ async function main() {
       /--grad-base: var\(--bg\)/.test(css32) && /data-grad="theme"\]\[data-theme="catppuccin-latte"\]/.test(css32))
     check('and in the light palettes that base is ink, so white labels on a card stay readable',
       /--grad-base: color-mix\(in srgb, var\(--text\) 86%, var\(--primary\)\)/.test(css32))
+    /* The cascade: an unlayered author rule outranks every layered one, so a
+     * reset that sits outside @layer base silently beats Tailwind utilities on
+     * the same element — which is how a vendored control could fill itself with
+     * the light ink and draw its glyph in the same colour. Asserted on the built
+     * stylesheet, where the layers are real. */
+    const builtCss = (() => {
+      try {
+        const names = m16readdir(new URL('../dist/assets', import.meta.url)).filter((n: string) => n.endsWith('.css'))
+        return names.map((n: string) => m16readFile(new URL(`../dist/assets/${n}`, import.meta.url), 'utf8')).sort((a: string, b: string) => b.length - a.length)[0] ?? ''
+      } catch { return '' }
+    })()
+    const resetAt = builtCss.indexOf('input,textarea,select,button')
+    let resetInBase = false
+    if (builtCss && resetAt > 0) {
+      const open = builtCss.lastIndexOf('@layer base{', resetAt)
+      if (open > 0) {
+        let depth = 0
+        for (let i = open; i < resetAt; i++) { const c = builtCss[i]; if (c === '{') depth++; else if (c === '}') depth-- }
+        resetInBase = depth > 0
+      }
+    }
+    check('the form-control reset sits in the base layer, so utilities still win',
+      builtCss ? resetInBase : /@layer base \{[\s\S]{0,120}input, textarea, select, button/.test(css32),
+      builtCss ? `reset at ${resetAt}` : 'no built css')
     check('the composer uses the new plug menu', barSrc.includes('IntegrationsMenu') && !barSrc.includes('function ConnectorMenu'))
     check('the plug button says what it opens', /aria-label="Connected data"/.test(barSrc))
     check('the composer carries the real dictation pill', barSrc.includes('<VoicePill') && barSrc.includes('dictation.'))

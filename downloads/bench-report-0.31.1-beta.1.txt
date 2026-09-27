@@ -1,8 +1,8 @@
 Research Engine — create-path report
-when        : 2026-09-27T05:12:52.673Z
-app version : 0.31.0-beta.1
+when        : 2026-09-27T05:38:44.068Z
+app version : 0.31.1-beta.1
 build id    : dev
-served      : 0.31.0-beta.1 (2026-09-27T05:12:21.219Z)
+served      : 0.31.1-beta.1 (2026-09-27T05:38:30.023Z)
 source      : — (portable build has no source tree)
 mode        : portable
 browser     : Linux x86_64 · node 22.22.3
@@ -35,10 +35,10 @@ raw:
 — and the sample app —
 
 Research Engine — create-path report
-when        : 2026-09-27T05:12:52.673Z
-app version : 0.31.0-beta.1
+when        : 2026-09-27T05:38:44.068Z
+app version : 0.31.1-beta.1
 build id    : dev
-served      : 0.31.0-beta.1 (2026-09-27T05:12:21.219Z)
+served      : 0.31.1-beta.1 (2026-09-27T05:38:30.023Z)
 source      : — (portable build has no source tree)
 mode        : portable
 browser     : Linux x86_64 · node 22.22.3

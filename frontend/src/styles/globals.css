@@ -652,8 +652,19 @@ body {
 /* Chat input: the surrounding surface is the affordance — no focus ring */
 .chat-input:focus-visible, .chat-input:focus { outline: none !important; }
 
-input, textarea, select, button { font: inherit; color: inherit; }
-input::placeholder, textarea::placeholder { color: var(--text-3); }
+/* Form controls take this app's font and colour instead of the browser's.
+ *
+ * This belongs in the base layer, and that is not a detail: an unlayered author
+ * rule outranks *every* layered one, so while this sat outside `@layer base` it
+ * silently overrode every Tailwind utility that set a colour on a button —
+ * including the vendored React Bits controls, which is how an armed send
+ * button could fill itself with the light ink and then draw its arrow in the
+ * same colour (a white square), and how the dictation pill could never show
+ * its listening colour. Utilities are meant to win over a reset; now they do. */
+@layer base {
+  input, textarea, select, button { font: inherit; color: inherit; }
+  input::placeholder, textarea::placeholder { color: var(--text-3); }
+}
 
 /* Rubber-band sheets */
 .sheet-scrim { background: var(--scrim); backdrop-filter: blur(6px); }
