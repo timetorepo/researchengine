@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+/*
+ * HeroUI components (Modal, Tabs) are real packages here, not look-alikes: the
+ * source of each is scanned so every class they use is generated, and the
+ * tokens the names refer to (`content1`, `foreground`, `divider` …) are mapped
+ * onto this app's palette below. That is the whole integration — no theme
+ * plugin, no second design system, no two copies of anything: the components
+ * arrive with their behaviour and take the colours of the surface they open on.
+ */
+@source "../../../node_modules/@heroui/modal/dist";
+@source "../../../node_modules/@heroui/tabs/dist";
+/* The slot classes come from `@heroui/theme`, which is a single file holding
+   every component — so the two we use are pinned by name instead of scanned.
+   Regenerate by running `node scripts/heroui-classes.mjs` (it rewrites the
+   block below in place) after upgrading HeroUI. */
+/* @heroui-classes:begin — generated, do not edit */
+/* 284 class candidates from @heroui/theme@2.4.26, pinned with
+   Tailwind v4 `@source inline` so only Modal and Tabs are paid for. */
+@source inline("!rounded-none absolute active:bg-default-200 after:absolute after:bottom-0 after:h-[2px] after:opacity-0 after:w-[80%] appearance-none backdrop-blur-md backdrop-opacity-disabled backdrop-saturate-150 bg-background bg-content1 bg-danger bg-danger/20 bg-default bg-default-100 bg-default/40 bg-foreground bg-foreground/10 bg-image bg-overlay/30 bg-overlay/50 bg-primary bg-primary/20 bg-secondary bg-secondary/20 bg-stripe-gradient-danger bg-stripe-gradient-default bg-stripe-gradient-primary bg-stripe-gradient-secondary bg-stripe-gradient-success bg-stripe-gradient-warning bg-success bg-success/20 bg-transparent bg-warning bg-warning/20 bg-white block blur border-danger border-default border-default-200 border-foreground border-medium border-primary border-secondary border-success border-w border-warning bordered bottom-0 bottom-center box-border cursor cursor-pointer danger dark:bg-default dark:bg-transparent dark:text-danger-500 dark:text-success dark:text-warning data-[animated=true]:duration-250 data-[animated=true]:ease-out data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-30 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 data-[focus-visible=true]:z-10 data-[hover-unselected=true]:opacity-disabled data-[inert=true]:hidden data-[initialized=true]:visible data-[selected=true]:after:bg-danger data-[selected=true]:after:bg-foreground data-[selected=true]:after:bg-primary data-[selected=true]:after:bg-secondary data-[selected=true]:after:bg-success data-[selected=true]:after:bg-warning data-[selected=true]:after:opacity-100 data-[selected=true]:bg-danger data-[selected=true]:bg-default data-[selected=true]:bg-primary data-[selected=true]:bg-secondary data-[selected=true]:bg-success data-[selected=true]:bg-warning data-[selected=true]:text-danger-foreground data-[selected=true]:text-default-foreground data-[selected=true]:text-primary-foreground data-[selected=true]:text-secondary-foreground data-[selected=true]:text-success-foreground data-[selected=true]:text-warning-foreground default disabled divider end-1 fade-out fixed flex flex-1 flex-col flex-col-reverse flex-initial flex-nowrap flex-row flex-row-reverse font-semibold font-size function gap-2 gap-3 group group-data-[selected=true]:text-danger group-data-[selected=true]:text-danger-foreground group-data-[selected=true]:text-default-foreground group-data-[selected=true]:text-foreground group-data-[selected=true]:text-primary group-data-[selected=true]:text-primary-foreground group-data-[selected=true]:text-secondary group-data-[selected=true]:text-secondary-foreground group-data-[selected=true]:text-success group-data-[selected=true]:text-success-foreground group-data-[selected=true]:text-warning group-data-[selected=true]:text-warning-foreground h-(--visual-viewport-height) h-[100dvh] h-[2px] h-7 h-8 h-9 h-fit h-screen hidden hover:bg-default-100 infinite inherit inline-flex inset-0 invisible items-center items-end items-start justify-center justify-end large left lg light line-height linear max-h-[calc(100%_-_8rem)] max-w-2xl max-w-3xl max-w-4xl max-w-5xl max-w-full max-w-lg max-w-md max-w-sm max-w-xl max-w-xs md medium min-h-[100dvh] mx-0 mx-1 my-0 my-1 my-16 none normal object opacity-disabled opaque outline-solid outline-transparent overflow-x-auto overflow-x-scroll overflow-y-auto overflow-y-hidden p-1 p-2 pointer-events-none primary px-1 px-3 px-6 py-0 py-1 py-2 py-3 py-4 relative rotate rounded-full rounded-large rounded-medium rounded-none rounded-small scrollbar-hide scrollbar-width secondary select-none shadow-danger/40 shadow-default/50 shadow-foreground/40 shadow-large shadow-lg shadow-medium shadow-none shadow-primary/40 shadow-secondary/40 shadow-small shadow-success/40 shadow-warning/40 shadow-xs sm sm:items-center sm:items-end sm:items-start sm:mx-0 sm:mx-6 sm:my-0 sm:my-16 small solid strict stroke success tab tabList tailwind-variants tap-highlight-transparent text-background text-danger text-danger-600 text-danger-foreground text-default-500 text-default-700 text-default-foreground text-foreground text-foreground-500 text-inherit text-large text-medium text-primary text-primary-600 text-primary-foreground text-secondary text-secondary-600 text-secondary-foreground text-small text-success text-success-700 text-success-foreground text-tiny text-warning text-warning-700 text-warning-foreground tiny top-1 top-center translate(140%) transparent underlined use var(--heroui-font-size-large) var(--heroui-font-size-medium) var(--heroui-font-size-small) var(--heroui-font-size-tiny) var(--heroui-line-height-large) var(--heroui-line-height-medium) var(--heroui-line-height-small) var(--heroui-line-height-tiny) w-[80%] w-full w-screen warning whitespace-nowrap z-0 z-10 z-50");
+/* @heroui-classes:end */
+
 /* ============================================================
    RESEARCH ENGINE — DESIGN TOKENS
    Shape scale (MD3): chip 8 / card 14 / modal 24 / pill 999
@@ -50,6 +70,125 @@
     linear-gradient(160deg, #1e2749 0%, #1d1f3d 55%, #251e46 100%);
 
   --font-scale: 1;
+}
+
+/* ============================================================
+   HEROUI TOKENS
+
+   HeroUI's components name their colours semantically (`bg-content1`,
+   `text-foreground-500`, `bg-overlay`), and those names are generated into
+   Tailwind from the block below. This is the entire theme integration: the
+   names point at the palette every other surface here already uses, so a
+   HeroUI modal in Catppuccin Latte is a Catppuccin Latte modal, and the same
+   component costs nothing in a new theme.
+
+   The numeric shades collapse onto the three text tones the app has, which is
+   deliberate — a design system with 400 greys cannot live inside one with
+   three, and pretending otherwise is how a component ends up the wrong colour.
+   ============================================================ */
+@theme {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-foreground-50: var(--text);
+  --color-foreground-100: var(--text);
+  --color-foreground-200: var(--text-2);
+  --color-foreground-300: var(--text-2);
+  --color-foreground-400: var(--text-3);
+  --color-foreground-500: var(--text-3);
+  --color-foreground-600: var(--text-2);
+  --color-foreground-700: var(--text-2);
+  --color-foreground-800: var(--text);
+  --color-foreground-900: var(--text);
+  --color-content1: var(--surface);
+  --color-content2: var(--elevated);
+  --color-content3: var(--elevated);
+  --color-content4: var(--surface-border);
+  --color-default: var(--elevated);
+  --color-default-50: var(--surface);
+  --color-default-100: var(--elevated);
+  --color-default-200: var(--surface-border);
+  --color-default-300: var(--surface-border);
+  --color-default-400: var(--text-3);
+  --color-default-500: var(--text-3);
+  --color-default-600: var(--text-2);
+  --color-default-700: var(--text-2);
+  --color-default-800: var(--text);
+  --color-default-900: var(--text);
+  --color-default-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-primary-50: color-mix(in srgb, var(--primary) 12%, transparent);
+  --color-primary-100: color-mix(in srgb, var(--primary) 18%, transparent);
+  --color-primary-200: color-mix(in srgb, var(--primary) 28%, transparent);
+  --color-primary-300: color-mix(in srgb, var(--primary) 42%, transparent);
+  --color-primary-400: color-mix(in srgb, var(--primary) 62%, transparent);
+  --color-primary-500: var(--primary);
+  --color-primary-600: var(--primary);
+  --color-primary-700: color-mix(in srgb, var(--primary) 82%, var(--text));
+  --color-primary-800: color-mix(in srgb, var(--primary) 70%, var(--text));
+  --color-primary-900: color-mix(in srgb, var(--primary) 58%, var(--text));
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: #ffffff;
+  --color-secondary-50: color-mix(in srgb, var(--secondary) 12%, transparent);
+  --color-secondary-100: color-mix(in srgb, var(--secondary) 18%, transparent);
+  --color-secondary-200: color-mix(in srgb, var(--secondary) 30%, transparent);
+  --color-secondary-300: color-mix(in srgb, var(--secondary) 46%, transparent);
+  --color-secondary-400: color-mix(in srgb, var(--secondary) 68%, transparent);
+  --color-secondary-500: var(--secondary);
+  --color-secondary-600: var(--secondary);
+  --color-secondary-700: color-mix(in srgb, var(--secondary) 80%, var(--text));
+  --color-secondary-800: color-mix(in srgb, var(--secondary) 68%, var(--text));
+  --color-secondary-900: color-mix(in srgb, var(--secondary) 56%, var(--text));
+  --color-success: var(--success);
+  --color-success-foreground: #ffffff;
+  --color-success-50: color-mix(in srgb, var(--success) 12%, transparent);
+  --color-success-100: color-mix(in srgb, var(--success) 20%, transparent);
+  --color-success-200: color-mix(in srgb, var(--success) 32%, transparent);
+  --color-success-300: color-mix(in srgb, var(--success) 48%, transparent);
+  --color-success-400: color-mix(in srgb, var(--success) 70%, transparent);
+  --color-success-500: var(--success);
+  --color-success-600: var(--success);
+  --color-success-700: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-foreground: #ffffff;
+  --color-warning-50: color-mix(in srgb, var(--warning) 12%, transparent);
+  --color-warning-100: color-mix(in srgb, var(--warning) 20%, transparent);
+  --color-warning-200: color-mix(in srgb, var(--warning) 32%, transparent);
+  --color-warning-300: color-mix(in srgb, var(--warning) 48%, transparent);
+  --color-warning-400: color-mix(in srgb, var(--warning) 70%, transparent);
+  --color-warning-500: var(--warning);
+  --color-warning-600: var(--warning);
+  --color-warning-700: var(--warning);
+  --color-danger: var(--danger);
+  --color-danger-foreground: #ffffff;
+  --color-danger-50: color-mix(in srgb, var(--danger) 12%, transparent);
+  --color-danger-100: color-mix(in srgb, var(--danger) 20%, transparent);
+  --color-danger-200: color-mix(in srgb, var(--danger) 32%, transparent);
+  --color-danger-300: color-mix(in srgb, var(--danger) 48%, transparent);
+  --color-danger-400: color-mix(in srgb, var(--danger) 70%, transparent);
+  --color-danger-500: var(--danger);
+  --color-danger-600: var(--danger);
+  --color-danger-700: var(--danger);
+  --color-divider: var(--surface-border);
+  --color-overlay: var(--scrim);
+  --color-backdrop: var(--scrim);
+  --color-focus: var(--primary);
+
+  /* Shape and depth, mapped onto the scale the rest of the app uses. */
+  --radius-small: var(--radius-chip);
+  --radius-medium: var(--radius-card);
+  --radius-large: var(--radius-modal);
+  --shadow-small: 0 2px 8px -4px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+  --shadow-large: 0 28px 80px -28px rgba(0, 0, 0, 0.65);
+}
+
+/* HeroUI's overlay uses `backdrop-opacity-disabled` to say "dim me with the
+   overlay colour, do not also filter me". In their Tailwind plugin that name
+   is registered as a neutral utility; without the plugin it would be dead —
+   and a dead class name is how a backdrop ends up as an opaque wall. */
+@utility backdrop-opacity-disabled {
+  --tw-backdrop-opacity: 1;
 }
 
 /* Theme-matched gradients — same mesh construction, but every stop is mixed

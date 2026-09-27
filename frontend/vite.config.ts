@@ -43,7 +43,19 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      /**
+       * One animation library, not two.
+       *
+       * The HeroUI components are written against `framer-motion` while this
+       * app uses its successor, `motion/react` — and npm was happy to install
+       * both (framer-motion 11 hoisted for HeroUI's peer range, 13.x nested
+       * under `motion`). Two copies means two animation engines and two React
+       * contexts, which is exactly how `AnimatePresence` exits stop firing.
+       * `framer-motion` is a declared dependency at the same 13.x the app uses,
+       * and it is deduped here so every import lands on one instance.
+       */
     },
+    dedupe: ['framer-motion', 'motion'],
   },
   server: {
     host: '0.0.0.0',
