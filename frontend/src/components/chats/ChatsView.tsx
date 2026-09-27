@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, PinOff, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'

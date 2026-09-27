@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus, UserRound,
   ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, Check, Swords,

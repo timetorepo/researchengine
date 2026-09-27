@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronDown, EyeOff, Filter, Loader2, Plus, RefreshCw, RotateCcw, Search, Settings2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { AlignJustify, Check, ChevronDown, EyeOff, Filter, Loader2, Plus, RefreshCw, RotateCcw, Search, Settings2, Waves } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { PROVIDERS, providerById } from '@/lib/providers/registry'
@@ -8,6 +8,9 @@ import { refreshAllModels, refreshProviderModels } from '@/lib/providers/refresh
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { ModelLogo, modelLogoLabel } from '@/components/shared/ModelLogo'
 import { modelTier, selectModels, TIER_REF, type TierFilter, type TierSort } from '@/lib/providers/tiers'
+// React Bits — Micro (added unmodified, see components/ui/reactbits/micro).
+import RubberSegment from '@/components/ui/reactbits/micro/RubberSegment'
+import GlideSelect from '@/components/ui/reactbits/micro/GlideSelect'
 
 /**
  * The model picker.
@@ -26,6 +29,11 @@ import { modelTier, selectModels, TIER_REF, type TierFilter, type TierSort } fro
  * And the hover: rows magnify like a dock as the pointer moves down the list —
  * the hovered row grows, its neighbours a little, the rest stay put. Only
  * `transform: scale` changes, so nothing reflows underneath the pointer.
+ *
+ * The dock is a preference, not a law: `settings.dockAnimation` turns it off and
+ * the list becomes a perfectly still one, which is what you want when you are
+ * scanning a long list rather than playing with it. The switch is in the picker
+ * itself (bottom bar) because that is where you notice you want it.
  */
 
 /** How much a row grows, and how far the effect reaches (in rows). */
@@ -64,8 +72,12 @@ export function ModelPicker() {
   const settings = useStore((s) => s.settings)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<TierFilter>('all')
-  const [sort, setSort] = useState<TierSort>('provider')
+  // The filter and the order are remembered between openings: re-picking your
+  // view every time the picker opens is exactly the clunkiness this replaced.
+  const filter = (settings.modelTierFilter ?? 'all') as TierFilter
+  const sort = (settings.modelSort ?? 'provider') as TierSort
+  const setFilter = (v: TierFilter) => patchSettings({ modelTierFilter: v })
+  const setSort = (v: TierSort) => patchSettings({ modelSort: v })
   const [showHidden, setShowHidden] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [hovered, setHovered] = useState<number | null>(null)
@@ -133,23 +145,28 @@ export function ModelPicker() {
   const freeCount = selection.counts.free
   const paidCount = selection.counts.paid
 
-  // The dock: row at `index` scales by its distance from the hovered row.
+  // The dock: row at `index` scales by its distance from the hovered row — when
+  // the dock is switched on. Off means scale stays exactly 1 and the rows are
+  // still (the hover background is then the only feedback).
+  const dockOn = settings.dockAnimation !== false
   let index = -1
   const renderRow = (row: Row) => {
     index += 1
     const i = index
     const distance = hovered === null ? Number.POSITIVE_INFINITY : Math.abs(i - hovered)
-    const scale = dockScaleFor(distance)
+    const scale = dockOn ? dockScaleFor(distance) : 1
     const active = settings.defaultModel === row.ref
     const isHidden = hidden.has(row.ref)
     return (
       <motion.div
         key={row.ref}
-        onMouseEnter={() => setHovered(i)}
+        onMouseEnter={() => (dockOn ? setHovered(i) : undefined)}
         className="relative flex items-center rounded-[10px]"
         style={{ originX: 0, zIndex: scale > 1.02 ? 5 : 1 }}
         animate={{ scale }}
-        transition={{ type: 'spring', stiffness: 480, damping: 30, mass: 0.6 }}
+        transition={dockOn
+          ? { type: 'spring', stiffness: 480, damping: 30, mass: 0.6 }
+          : { duration: 0 }}
       >
         <button
           role="option"
@@ -222,36 +239,46 @@ export function ModelPicker() {
                 {query && <button onClick={() => setQuery('')} aria-label="Clear model search" style={{ color: 'var(--text-3)' }}>×</button>}
               </div>
               {hasAnyModels && (
-                <div className="flex items-center gap-1 mt-1.5">
-                  {(['all', 'free', 'paid'] as TierFilter[]).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setFilter(f)}
-                      aria-pressed={filter === f}
-                      className="px-2 py-[3px] rounded-full text-[11px] font-medium capitalize transition-colors"
-                      style={{
-                        background: filter === f ? 'var(--primary)' : 'var(--surface)',
-                        color: filter === f ? '#fff' : 'var(--text-2)',
-                        border: '1px solid var(--surface-border)',
-                      }}
-                    >
-                      {f}{f === 'free' && freeCount ? ` ${freeCount}` : f === 'paid' && paidCount ? ` ${paidCount}` : ''}
-                    </button>
-                  ))}
-                  <label className="ml-auto flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  {/* Rubber Segment and Glide Select are React Bits — Micro
+                      components, used as published. */}
+                  <RubberSegment
+                    aria-label="Free or paid models"
+                    items={[
+                      { value: 'all', label: 'All' },
+                      { value: 'free', label: freeCount ? `Free ${freeCount}` : 'Free' },
+                      { value: 'paid', label: paidCount ? `Paid ${paidCount}` : 'Paid' },
+                    ]}
+                    value={filter}
+                    onChange={(v) => setFilter(v as TierFilter)}
+                    size="sm"
+                    trackColor="var(--surface)"
+                    thumbColor="var(--elevated)"
+                    textColor="var(--text-2)"
+                    activeTextColor="var(--text)"
+                    radius={999}
+                  />
+                  <span className="ml-auto flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
                     <Filter size={11} />
-                    <select
+                    <GlideSelect
+                      options={[
+                        { value: 'provider', label: 'By provider' },
+                        { value: 'name', label: 'By name' },
+                        { value: 'free-first', label: 'Free first' },
+                      ]}
                       value={sort}
-                      onChange={(e) => setSort(e.target.value as TierSort)}
-                      aria-label="Sort models"
-                      className="bg-transparent outline-none text-[11px]"
-                      style={{ color: 'var(--text-2)' }}
-                    >
-                      <option value="provider">By provider</option>
-                      <option value="name">By name</option>
-                      <option value="free-first">Free first</option>
-                    </select>
-                  </label>
+                      onChange={(v) => setSort(v as TierSort)}
+                      size="sm"
+                      placement="bottom"
+                      align="right"
+                      menuWidth={160}
+                      accentColor="var(--primary)"
+                      surfaceColor="var(--elevated)"
+                      highlightColor="var(--surface)"
+                      textColor="var(--text-2)"
+                      ariaLabel="Sort models"
+                    />
+                  </span>
                 </div>
               )}
             </div>
@@ -356,6 +383,32 @@ export function ModelPicker() {
                 style={{ color: 'var(--primary)' }}>
                 <Settings2 size={14} /> Manage providers…
               </button>
+              {hasAnyModels && (
+                <button
+                  onClick={() => patchSettings({ dockAnimation: !dockOn })}
+                  role="switch"
+                  aria-checked={dockOn}
+                  title={dockOn
+                    ? 'Rows grow under the pointer like a dock. Turn it off for a still list.'
+                    : 'The list is still. Turn the dock back on if you miss it.'}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px] hover:bg-[var(--surface)]"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  {dockOn ? <Waves size={14} /> : <AlignJustify size={14} />}
+                  Dock animation
+                  <span
+                    className="ml-auto relative w-[30px] h-[17px] rounded-full transition-colors shrink-0"
+                    style={{ background: dockOn ? 'var(--primary)' : 'var(--surface-border)' }}
+                  >
+                    <motion.span
+                      className="absolute top-[2px] w-[13px] h-[13px] rounded-full"
+                      style={{ background: '#fff' }}
+                      animate={{ left: dockOn ? 15 : 2 }}
+                      transition={{ type: 'spring', stiffness: 520, damping: 32 }}
+                    />
+                  </span>
+                </button>
+              )}
             </div>
           </motion.div>
         )}

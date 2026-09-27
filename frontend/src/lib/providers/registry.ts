@@ -75,10 +75,6 @@ export const PROVIDERS: ProviderMeta[] = [
     needsKey: true, hint: 'MiniMax-M3 — enter the model id manually, /models is not exposed',
   },
   {
-    id: 'freeroute', name: 'FreeRoute (free tiers)', kind: 'openai', baseUrl: '/api/freeroute/v1',
-    needsKey: false, hint: 'One route through every free tier, with automatic failover — set it up under Settings → FreeRoute',
-  },
-  {
     id: 'custom', name: 'Custom (OpenAI-compatible)', kind: 'openai', baseUrl: 'http://localhost:5000/v1',
     needsKey: false, hint: 'text-generation-webui, LocalAI, vLLM…',
   },

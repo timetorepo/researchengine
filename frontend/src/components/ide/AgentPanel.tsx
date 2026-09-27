@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSyncExternalStore } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   Sparkles, X, Square, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye,
   Plus, Send, CornerDownLeft, Bug, Hammer, Check, Search, Cpu, ChevronUp, Globe,

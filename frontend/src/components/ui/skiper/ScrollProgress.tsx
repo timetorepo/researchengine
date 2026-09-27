@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Lock, Unlock, EyeOff, RotateCcw, GripVertical, Circle, CircleDot, BarChart3, Minus } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'

@@ -8,7 +8,7 @@
  * anywhere gives the card rather than a screenshot of the page.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import { X, Download, Copy, Check, ImagePlus, Palette, Type, Trash2, Loader2 } from 'lucide-react'
 import { SHARE_STYLES, SHARE_W, SHARE_H, drawShareCard, type ShareOptions, type ShareStyleId, type ShareData } from '@/lib/quiz/shareCard'
 import { useStore } from '@/stores/useStore'

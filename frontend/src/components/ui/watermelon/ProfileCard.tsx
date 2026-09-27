@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { ChevronDown, Pencil, ShieldCheck } from 'lucide-react'
 import { clsx } from 'clsx'
 import { themeGradient, shuffled } from '@/lib/ui/skins'

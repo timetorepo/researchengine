@@ -2,7 +2,7 @@ export type ProviderId =
   | 'openai' | 'anthropic' | 'groq' | 'gemini' | 'ollama' | 'nim' | 'openrouter' | 'together' | 'mistral' | 'lmstudio' | 'custom'
   // 0.26.0: the six asked-for providers, plus the FreeRoute gateway that sits
   // in front of every free tier.
-  | 'mercury' | 'grok' | 'deepseek' | 'kimi' | 'glm' | 'minimax' | 'freeroute'
+  | 'mercury' | 'grok' | 'deepseek' | 'kimi' | 'glm' | 'minimax'
 
 export interface ProviderConfig {
   id: ProviderId
@@ -313,9 +313,30 @@ export interface Settings {
   defaultModel: string // "provider:model"
   modelDefaults: Record<string, { temperature: number; topP: number; maxTokens: number }>
   customSystemPrompts: Record<string, string>
-  searchBackend: 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg'
+  /**
+   * Which engine Search uses. `auto` is the ladder (your SearXNG → a public
+   * SearXNG → DuckDuckGo), which is why it is the default: search works before
+   * anything is configured.
+   */
+  searchBackend: 'auto' | 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg'
   searxngUrl: string
   searchRegion: string
+  /**
+   * Search finds an engine by itself: your instance, then a local one, then the
+   * public SearXNG instances (rotated until one answers). Nothing to set up.
+   */
+  searchAuto?: boolean
+  /**
+   * Search keys, entered in the UI. They travel with the request, so a backend
+   * started with no environment variables still searches.
+   */
+  searchKeys?: {
+    brave?: string
+    serper?: string
+    tavily?: string
+  }
+  /** Which engine actually answered last — shown next to the results. */
+  searchLastEngine?: string
   providers: Record<string, { apiKey: string; baseUrl: string; enabled: boolean }>
   /** Model ids fetched live from each provider API (never hardcoded). */
   providerModels: Record<string, string[]>
@@ -324,22 +345,14 @@ export interface Settings {
   /** Derive card gradients from the active theme instead of fixed hues. */
   themeGradients: boolean
   /**
-   * FreeRoute — one route through the free tiers. `order` is the failover
-   * order, `keys` holds keys for routes that do not map to a configured
-   * provider, and `disabled` are routes the user turned off.
-   */
-  freeRoute?: {
-    enabled: boolean
-    order: string[]
-    keys: Record<string, string>
-    disabled: string[]
-    lastProbe?: number
-  }
-  /**
    * Models the user has taken out of the picker. Refs are "provider:model", so
    * hiding one provider's model never hides another's.
    */
   hiddenModels?: string[]
+  /** Which tier filter the model picker opens with. */
+  modelTierFilter?: 'all' | 'free' | 'paid'
+  /** How the model picker orders rows. */
+  modelSort?: 'provider' | 'name' | 'free-first'
   /**
    * Free/paid, where the automatic answer is wrong or unknown. The detector
    * (lib/providers/tiers.ts) only knows what a provider publishes; this is the
@@ -358,6 +371,55 @@ export interface Settings {
     /** Version whose "update available" pill was dismissed. */
     dismissed?: string
     lastChecked?: number
+    /**
+     * Where updates come from. `github` reads the repository's releases;
+     * `manifest` reads a JSON file you host yourself, which is how a build
+     * that is not public on GitHub still gets updates.
+     */
+    source?: 'github' | 'manifest'
+    repo?: string
+    /** Read-only token, for a repository that is still private. */
+    token?: string
+    /** URL of an update manifest (see docs in the Updates tab). */
+    manifestUrl?: string
+    /** Last check result we showed, so a failure is visible without re-checking. */
+    lastError?: string
+  }
+  /**
+   * Dock magnification in the model picker. On by default; off gives a plain,
+   * still list for anyone who finds the moving rows fussy.
+   */
+  dockAnimation?: boolean
+  /**
+   * Free routing — the FreeRoute idea as a feature of chatting rather than a
+   * provider: when on, a chat with no model chosen uses the best free model
+   * among the providers you have configured, and falls back if it fails.
+   */
+  freeRouting?: boolean
+  /**
+   * How long the app waits for a provider before giving up, in seconds, per
+   * provider. This is our own patience, not the provider's server setting.
+   */
+  providerTimeouts?: Record<string, number>
+  /** Speech to text — dictation for the composer. */
+  voice?: {
+    enabled?: boolean
+    /** `browser` uses the Web Speech API; `provider` posts audio to a
+     *  transcription endpoint; `local` posts to a whisper.cpp server you run. */
+    mode?: 'browser' | 'provider' | 'local'
+    /** Provider id + model for `provider` mode. */
+    provider?: string
+    model?: string
+    /** whisper.cpp / faster-whisper base URL for `local` mode. */
+    localUrl?: string
+    language?: string
+    /** Keep the microphone glow (voice-glow by Jakub Antalik) around the composer. */
+    beam?: boolean
+    /** Palette for the microphone glow: Siri-like colourful, or one of the
+     *  single-hue variants. */
+    beamVariant?: 'colorful' | 'mono' | 'ocean' | 'sunset' | 'forest' | 'candy' | 'ice' | 'gold'
+    /** Push-to-talk: hold the mic instead of clicking it. */
+    pushToTalk?: boolean
   }
   /** Per-response token counts, shown in the message footer. */
   showTokenUsage?: boolean

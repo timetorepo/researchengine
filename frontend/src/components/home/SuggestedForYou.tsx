@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { ArrowRight, CornerDownRight, FileText, HelpCircle, Layers, ListChecks, Sparkles } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { runChat } from '@/lib/chat/runChat'

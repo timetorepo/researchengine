@@ -12,6 +12,7 @@
  * a thing.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useStore } from '@/stores/useStore'
 
 export interface UpdateAsset { name: string; urls: string[]; size: number }
 
@@ -51,19 +52,41 @@ export interface UpdateStatus {
   backupVersions: string[]
   outcome: { ok: boolean; from: string; to: string; at: number; restored?: boolean; reason?: string } | null
   progress: UpdateProgress
+  /** Which source the server is reading — a private repo, or your own manifest. */
+  source?: { kind: 'github' | 'manifest'; repo: string | null; manifestUrl: string | null; token: 'set' | 'none' }
 }
 
-async function jget<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+/**
+ * Where updates are read from. Sent with every update request, never stored on
+ * the server: the token is a credential for *this* call, and the manifest URL is
+ * the way to update without GitHub's API being reachable at all.
+ */
+export interface UpdateSource {
+  repo?: string
+  token?: string
+  manifestUrl?: string
+}
+
+function sourceHeaders(source?: UpdateSource): Record<string, string> {
+  const h: Record<string, string> = {}
+  if (!source) return h
+  if (source.repo?.trim()) h['x-re-update-repo'] = source.repo.trim()
+  if (source.token?.trim()) h['x-re-update-token'] = source.token.trim()
+  if (source.manifestUrl?.trim()) h['x-re-update-manifest'] = source.manifestUrl.trim()
+  return h
+}
+
+async function jget<T>(url: string, source?: UpdateSource): Promise<T> {
+  const res = await fetch(url, { headers: sourceHeaders(source) })
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error((body as any)?.error ?? `${res.status} ${res.statusText}`)
   return body as T
 }
 
-async function jpost<T>(url: string, payload?: unknown): Promise<T> {
+async function jpost<T>(url: string, payload?: unknown, source?: UpdateSource): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...sourceHeaders(source) },
     body: JSON.stringify(payload ?? {}),
   })
   const body = await res.json().catch(() => ({}))
@@ -72,12 +95,31 @@ async function jpost<T>(url: string, payload?: unknown): Promise<T> {
 }
 
 export const updateApi = {
-  status: () => jget<UpdateStatus>('/api/update/status'),
-  check: (force = false) => jget<UpdateCheck>(`/api/update/check${force ? '?force=1' : ''}`),
-  install: (version?: string) => jpost<any>('/api/update/install', version ? { version } : {}),
+  status: (source?: UpdateSource) => jget<UpdateStatus>('/api/update/status', source),
+  check: (force = false, source?: UpdateSource) => jget<UpdateCheck>(`/api/update/check${force ? '?force=1' : ''}`, source),
+  install: (version?: string, source?: UpdateSource) => jpost<any>('/api/update/install', version ? { version } : {}, source),
   restart: () => jpost<{ ok: boolean }>('/api/update/restart'),
   rollback: () => jpost<{ ok: boolean }>('/api/update/rollback'),
   dismiss: () => jpost<{ ok: boolean }>('/api/update/dismiss'),
+  /**
+   * Install an archive that is already on this machine. The file goes up as the
+   * raw body; the optional checksum text rides along in a header, which is what
+   * makes this work with no route to GitHub at all.
+   */
+  installFile: async (file: File, sumsText?: string) => {
+    const res = await fetch(`/api/update/install-file?name=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/octet-stream',
+        'x-re-file-name': file.name,
+        ...(sumsText?.trim() ? { 'x-re-sums': sumsText.trim() } : {}),
+      },
+      body: file,
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((body as any)?.error ?? `${res.status} ${res.statusText}`)
+    return body as { ok: boolean; restartRequired?: boolean }
+  },
 }
 
 /** "2.3 MB of 4.9 MB" — the size line under the progress bar. */
@@ -113,10 +155,19 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
   const [check, setCheck] = useState<UpdateCheck | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Where updates come from, straight from settings — so a private repository
+  // (with a token) or a self-hosted manifest works without a rebuild.
+  const configured = useStore((s) => s.settings.updates)
+  const source: UpdateSource = {
+    repo: configured?.repo,
+    token: configured?.token,
+    manifestUrl: configured?.manifestUrl,
+  }
+  const sourceKey = `${source.repo ?? ''}|${source.manifestUrl ?? ''}|${source.token ? 'tok' : ''}`
 
   const refreshStatus = useCallback(async () => {
     try {
-      const next = await updateApi.status()
+      const next = await updateApi.status(source)
       // A server that has never run an update (or an older build answering a
       // newer page) may omit these fields. Normalise once, here, so no consumer
       // has to defend itself.
@@ -131,30 +182,47 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
       setError(String(e?.message ?? e))
       return null
     }
-  }, [])
+  }, [sourceKey])
 
   const runCheck = useCallback(async (force = false) => {
     setError(null)
     try {
-      const next = await updateApi.check(force)
+      const next = await updateApi.check(force, source)
       setCheck(next)
       return next
     } catch (e: any) {
       setError(String(e?.message ?? e))
       return null
     }
-  }, [])
+  }, [sourceKey])
 
   const install = useCallback(async (version?: string) => {
     setBusy(true)
     setError(null)
     try {
-      await updateApi.install(version)
+      await updateApi.install(version, source)
       await refreshStatus()
       return true
     } catch (e: any) {
       // A failed install is not a silent thing: the reason goes back to the
       // server's progress record as well, and is shown from the status poll.
+      setError(String(e?.message ?? e))
+      await refreshStatus()
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }, [refreshStatus, sourceKey])
+
+  /** Install an archive the user already has. Same verification, same swap. */
+  const installFromFile = useCallback(async (file: File, sumsText?: string) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await updateApi.installFile(file, sumsText)
+      await refreshStatus()
+      return true
+    } catch (e: any) {
       setError(String(e?.message ?? e))
       await refreshStatus()
       return false
@@ -184,5 +252,5 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
     return () => window.clearTimeout(id)
   }, [options.autoCheck, runCheck])
 
-  return { status, check, error, busy, refreshStatus, runCheck, install, setError }
+  return { status, check, error, busy, refreshStatus, runCheck, install, installFromFile, setError }
 }

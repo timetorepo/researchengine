@@ -9,6 +9,7 @@ import { createFlowRun, shapeConfigFrom } from '@/lib/flow/engine'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
+import { freeCandidates, isFailoverWorthy, pickFreeModel, type FreeCandidate } from '@/lib/providers/free'
 import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
 import { CODING_RULES } from '@/lib/ide/coding-rules'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
@@ -92,18 +93,62 @@ export async function runChat(opts: RunOptions): Promise<void> {
   store.addMessage(chatId, userMsg)
 
   const asstId = nanoid(8)
-  const [providerId, model] = (opts.modelOverride ?? settings.defaultModel).split(':')
-  const providerMeta = providerById(providerId)
+
+  /**
+   * Free routing: the FreeRoute idea, without a provider pretending to exist.
+   * When it is on and no model is chosen — or the chosen one cannot run — the
+   * chat picks the best free model among the providers *you* configured, and a
+   * refusal (rate limit, capacity, a model that moved) walks to the next one
+   * instead of ending the turn.
+   */
+  const freeCandidatesNow = (): FreeCandidate[] => {
+    if (!settings.freeRouting) return []
+    const usable: Record<string, { name: string; ready: boolean }> = {}
+    for (const id of settings.addedProviders ?? []) {
+      const meta = providerById(id)
+      if (!meta) continue
+      const conf = settings.providers?.[id]
+      usable[id] = { name: meta.name, ready: !meta.needsKey || !!conf?.apiKey }
+    }
+    return freeCandidates({
+      added: settings.addedProviders ?? [],
+      models: settings.providerModels ?? {},
+      usable,
+      hidden: settings.hiddenModels ?? [],
+      overrides: settings.modelTiers,
+    })
+  }
+
+  const chosen = (opts.modelOverride ?? settings.defaultModel ?? '').split(':')
+  let providerId = chosen[0]
+  let model = chosen[1] ?? ''
+  let modelOverride = opts.modelOverride
+  let providerMeta = providerById(providerId)
+
+  const wantsFreeRouting = !!settings.freeRouting && (!opts.modelOverride || !providerId || !model)
+  if (wantsFreeRouting) {
+    const first = pickFreeModel(freeCandidatesNow())
+    if (first) {
+      modelOverride = first.ref
+      providerId = first.provider
+      model = first.model
+      providerMeta = providerById(providerId)
+      store.logConnection(`free://${first.provider}`, `Free routing · ${first.providerName}`, 0, 'ok')
+    }
+  }
 
   // A model was selected but is broken (unknown provider, or provider with no
   // model part): surface a clear, actionable error instead of pretending.
   // A completely empty defaultModel is the fresh/demo state — it falls
   // through to the fully-local demo pipeline below, by design.
   if (providerId && (!providerMeta || !model)) {
+    const hint = settings.freeRouting
+      ? 'Free routing is on but found no free model among your providers — add a provider with a free tier under Settings → Providers, or pick a model yourself.'
+      : 'The selected model is unavailable. Open the model picker (top bar) and pick a fetched model, or reconnect the provider under Settings → Providers.'
     store.addMessage(chatId, {
       id: asstId, role: 'assistant', content: '', createdAt: Date.now(), mode,
       model: model || 'none', provider: providerMeta?.name ?? providerId,
-      error: 'The selected model is unavailable. Open the model picker (top bar) and pick a fetched model, or reconnect the provider under Settings → Providers.',
+      error: hint,
     })
     return
   }
@@ -112,6 +157,8 @@ export async function runChat(opts: RunOptions): Promise<void> {
     id: asstId, role: 'assistant', content: '', createdAt: Date.now(),
     model, provider: providerMeta?.name ?? providerId, mode,
   }
+  /** Free-routing hops already refused in this turn (bounded below). */
+  const triedModels: string[] = modelOverride && settings.freeRouting ? [modelOverride] : []
   store.addMessage(chatId, asstMsg)
 
   streamState.chatId = chatId
@@ -358,6 +405,8 @@ export async function runChat(opts: RunOptions): Promise<void> {
         const res = await streamToCallback({
           providerId, model, apiKey,
           baseUrl: pconf?.baseUrl || undefined,
+          // Our own patience for this provider, in seconds, set by the user.
+          timeoutMs: (settings.providerTimeouts?.[providerId] ?? 45) * 1000,
           system: shieldedSystem.text,
           messages: current,
           temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
@@ -404,6 +453,21 @@ export async function runChat(opts: RunOptions): Promise<void> {
   } catch (e: any) {
     run.abort()
     useUI.setState({ flow: null })
+    // Free routing walks the list before it gives up: rate limits and capacity
+    // errors are exactly what routing is for. A bad key or a malformed request
+    // is not — those surface, so the real problem stays visible.
+    const status = Number((e as any)?.status ?? (e as any)?.code ?? 0) || null
+    const text = String(e?.message ?? e)
+    if (settings.freeRouting && isFailoverWorthy(status, text) && triedModels.length < 3) {
+      const next = pickFreeModel(freeCandidatesNow(), triedModels)
+      if (next) {
+        useStore.getState().updateMessage(chatId, asstId, { content: '', error: undefined, toolTrace: [] })
+        triedModels.push(next.ref)
+        store.logConnection(`free://${next.provider}`, `Free routing → ${next.providerName} (${next.why})`, 0, 'ok')
+        void runChat({ ...opts, modelOverride: next.ref })
+        return
+      }
+    }
     if (e.name === 'AbortError') {
       // Keep exactly what was rendered — the pacer's un-emitted queue is dropped.
       finish(chatId, asstId, '', { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true, usagePrompt, usageCompletion, usageReported })

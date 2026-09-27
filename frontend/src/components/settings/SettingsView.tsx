@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { ArrowLeft } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
 import { TABS, renderTab } from './settingsTabs'

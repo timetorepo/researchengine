@@ -22,6 +22,7 @@
  * person: **one click puts the page on screen.**
  */
 import { JSDOM } from 'jsdom'
+import { applyVoiceGlowShims } from './dom-shims.mjs'
 import React from 'react'
 
 let passed = 0
@@ -44,6 +45,9 @@ function makeBrowser(innerWidth = 1440) {
     pretendToBeVisual: true,
   })
   const w = dom.window as any
+  // The composer now ships Voice by Jakub Antalik, whose SVG animation frames
+  // cannot run in a layout-less DOM.
+  applyVoiceGlowShims(w)
   const g = globalThis as any
 
   g.window = w

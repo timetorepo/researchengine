@@ -2,7 +2,7 @@
 // definition, inline validation, variable injection, and a live single-node
 // test against a sample input.
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Braces, FlaskConical, X } from 'lucide-react'
 import type { Workflow, WorkflowNode } from '@/lib/workflows/types'
 import { nodeDef, type FieldDef } from '@/lib/workflows/library'

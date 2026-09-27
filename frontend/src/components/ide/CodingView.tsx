@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import {
   FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch,
   TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,

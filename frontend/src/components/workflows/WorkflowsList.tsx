@@ -1,7 +1,7 @@
 // Workflows home: your workflows, one-click run, and the template gallery.
 import React, { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Workflow as WorkflowIcon, Plus, Upload, Play, Trash2, Download, Pencil, CircleCheck, CircleX, Loader2 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'

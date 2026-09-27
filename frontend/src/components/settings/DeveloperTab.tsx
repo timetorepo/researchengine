@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { Terminal, PlayCircle, CheckCircle2, XCircle, Loader2, Copy, Trash2, RefreshCw, ShieldAlert, Bug } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'

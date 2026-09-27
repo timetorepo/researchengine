@@ -59,7 +59,8 @@ check('and it keeps the provider-tile API the Dynamic Island uses',
 check('the picker passes both model and provider', /\<ModelLogo model=\{row\.model\} provider=\{row\.provider\}/.test(pickerSrc))
 
 section('[2] free vs paid — every answer explainable, the user always wins')
-check('FreeRoute is free (it only routes to free tiers)', modelTier('freeroute', 'anything').tier === 'free')
+check('FreeRoute is not a provider any more — it is a chat routing feature',
+  !PROVIDERS.some((p) => p.id === 'freeroute') && !/freeroute/i.test(src('../src/lib/providers/registry.ts')))
 check('local models are free', modelTier('ollama', 'llama3.2').tier === 'free' && modelTier('lmstudio', 'qwen2.5').tier === 'free')
 check('an OpenRouter :free endpoint is free', modelTier('openrouter', 'deepseek/deepseek-r1:free').tier === 'free')
 check('a Together -Free endpoint is free', modelTier('together', 'meta-llama/Llama-3-70b-Free').tier === 'free')
@@ -165,12 +166,13 @@ check('the delete path is opt-in, not the default',
 check('the save/test/model-chip behaviour was preserved',
   providersSrc.includes('saveProvider(p.id)') && providersSrc.includes('refreshProviderModels(p.id)') && providersSrc.includes('encryptWithPassphrase'))
 check('providers still come from the one catalog', providersSrc.includes("from '@/lib/providers/registry'"))
-check('the catalog covers every provider this build ships', PROVIDERS.length >= 18, `${PROVIDERS.length} providers`)
-check('including the ones added in earlier rounds', ['mercury', 'grok', 'deepseek', 'kimi', 'glm', 'minimax', 'freeroute'].every((id) => PROVIDERS.some((p) => p.id === id)))
+check('the catalog covers every provider this build ships', PROVIDERS.length >= 17, `${PROVIDERS.length} providers`)
+check('including the ones added in earlier rounds', ['mercury', 'grok', 'deepseek', 'kimi', 'glm', 'minimax', 'openrouter', 'ollama'].every((id) => PROVIDERS.some((p) => p.id === id)))
 
 section('[7] token usage per response')
 check('usage is captured from OpenAI-dialect frames', streamSrc.includes('takeOpenAIUsage(json.usage)'))
-check('the OpenAI request asks for usage on the stream', streamSrc.includes('stream_options: { include_usage: true }'))
+check('the OpenAI request asks for usage on the stream',
+  src('../../backend/src/routes/chat.ts').includes('stream_options: { include_usage: true }'))
 check('Anthropic usage is read from message_start and message_delta',
   streamSrc.includes("json.type === 'message_start'") && streamSrc.includes("json.type === 'message_delta' && json.usage"))
 check('Gemini usage is read from usageMetadata', streamSrc.includes('usageMetadata'))

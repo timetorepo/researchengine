@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
 } from 'lucide-react'
@@ -260,6 +260,9 @@ export function Onboarding() {
   ]
 
   return (
+    // First-run only, and it must sit above the shell: a fixed overlay, never
+    // something that can grow the page underneath it.
+    <div className="fixed inset-0 z-[70]">
     <AuroraBackground className="h-full w-full">
       <div className="h-full flex flex-col">
         {/* progress */}
@@ -301,6 +304,7 @@ export function Onboarding() {
         </div>
       </div>
     </AuroraBackground>
+    </div>
   )
 }
 

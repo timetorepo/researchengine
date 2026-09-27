@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { ArrowLeft, Send, Sparkles, Image as ImageIcon, X, GraduationCap, MessageSquareText, Minimize2, Maximize2 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'

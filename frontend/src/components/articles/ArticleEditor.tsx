@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowLeft, GripVertical, Plus, Trash2, Type, AlignLeft, List, Quote, Code2,
   Eye, Pencil, Download, Wand2, ChevronUp, ChevronDown, Sparkles, Image as ImageIcon,

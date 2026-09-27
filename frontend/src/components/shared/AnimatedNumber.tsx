@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import NumberFlow from '@number-flow/react'
-import { useReducedMotion } from 'framer-motion'
+import { useReducedMotion } from 'motion/react'
 import { clsx } from 'clsx'
 
 /**

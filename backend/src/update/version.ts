@@ -83,6 +83,8 @@ export interface ReleaseLike {
   published_at?: string
   html_url?: string
   assets?: { name?: string; browser_download_url?: string; size?: number }[]
+  /** A self-hosted manifest may point at its own checksum list. */
+  sums?: string | null
 }
 
 export interface ReleaseInfo {
@@ -94,6 +96,8 @@ export interface ReleaseInfo {
   url: string
   prerelease: boolean
   assets: { name: string; url: string; size: number }[]
+  /** Where to read SHA256SUMS from, when the source says so explicitly. */
+  sums?: string | null
 }
 
 function toReleaseInfo(r: ReleaseLike): ReleaseInfo | null {

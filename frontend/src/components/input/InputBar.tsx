@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer, ListOrdered, ImagePlus, Plug, X, Loader2, FolderOpen, Mail, CalendarDays, HardDrive, SlidersHorizontal, Calculator, BookOpen } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, StopCircle, Hammer, ListOrdered, ImagePlus, Plug, X, Loader2, FolderOpen, Mail, CalendarDays, HardDrive, SlidersHorizontal, Calculator, BookOpen, Mic } from 'lucide-react'
+import { VoiceBeam } from 'voice-glow'
+import VoicePill from '@/components/ui/reactbits/micro/VoicePill'
+import { useDictation } from '@/hooks/useDictation'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { BorderBeam } from 'border-beam'
@@ -29,11 +32,30 @@ interface Props {
   big?: boolean
 }
 
+/**
+ * Voice by Jakub Antalik wraps the composer only when the glow is switched on —
+ * off means the component is not mounted at all, not merely invisible.
+ */
+function ComposerVoiceBeam({ on, children, ...rest }: React.ComponentProps<typeof VoiceBeam> & { on: boolean }) {
+  if (!on) return <div style={{ width: '100%' }}>{children}</div>
+  return <VoiceBeam {...rest} style={{ width: '100%' }}>{children}</VoiceBeam>
+}
+
 export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emptyHistory, chatId, autoFocus = true, big = false }: Props) {
   const [text, setText] = useState('')
   // The task panel (and anything else) can seed the composer: the seed is
   // consumed once, so editing afterwards is never overwritten.
   const seed = useUI((s) => s.composerSeed)
+  // Dictation appends to whatever is already typed, so you can talk mid-draft
+  // instead of choosing between the keyboard and the mic.
+  const appendDictation = useCallback((spoken: string) => {
+    setText((cur) => {
+      const base = cur.trim()
+      return base ? `${base} ${spoken}` : spoken
+    })
+    requestAnimationFrame(() => taRef.current?.focus())
+  }, [])
+  const dictation = useDictation(appendDictation)
   const [search, setSearch] = useState(false)
   const [quality, setQuality] = useState(false)
   const [replicate, setReplicate] = useState(false)
@@ -55,6 +77,13 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   // can still escape the composer box.
   const beamOn = useStore((s) => s.settings.composerBeam !== false)
   const beamVariant = useStore((s) => s.settings.composerBeamVariant ?? 'ocean')
+  // Voice by Jakub Antalik (voice-glow) paints the sound-reactive glow along the
+  // composer's bottom edge while the microphone is open. It only mounts while
+  // listening — an idle beam is decoration, a live one is feedback.
+  const voiceOn = useStore((s) => s.settings.voice?.enabled !== false)
+  const voiceVariant = useStore((s) => s.settings.voice?.beamVariant ?? 'colorful')
+  const voiceBeamOn = useStore((s) => s.settings.voice?.beam !== false)
+  const voicePushToTalk = useStore((s) => s.settings.voice?.pushToTalk === true)
   const theme = useStore((s) => s.settings.theme)
   const reduceMotion = useStore((s) => s.settings.reduceMotion)
   const [focused, setFocused] = useState(false)
@@ -169,6 +198,12 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             <span style={{ display: 'block', width: '100%', height: '100%' }} />
           </BorderBeam>
         )}
+        <ComposerVoiceBeam
+          on={voiceBeamOn}
+          theme={themeKind(theme)}
+          colorVariant={voiceVariant}
+          stream={dictation.stream}
+        >
         <div
           className={clsx('input-shell', glassMode !== 'off' && 'glass-chat')}
           style={{
@@ -267,6 +302,31 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
 
             <div className="flex-1" />
 
+            {/* Dictation — Voice Pill (React Bits Micro) driving the microphone.
+                Hold to talk by default; a click toggles when push-to-talk is
+                off in Settings → Voice. Slide left to cancel while recording. */}
+            {voiceOn && (
+              <VoicePill
+                mode={voicePushToTalk ? 'hold' : 'toggle'}
+                size={30}
+                shape="pill"
+                accentColor="var(--primary)"
+                ariaLabel={dictation.state === 'recording' ? 'Stop dictation' : 'Dictate'}
+                disabled={dictation.state === 'transcribing' || dictation.state === 'starting' || !!streaming}
+                onStart={() => { void dictation.start() }}
+                onStop={(info) => {
+                  const abandon = info.reason === 'escape' || info.reason === 'cancel' || info.reason === 'blur'
+                  if (abandon) dictation.cancel()
+                  else if (info.reason !== 'mic-denied' && info.reason !== 'disabled') dictation.stop()
+                }}
+              />
+            )}
+            {(dictation.state === 'recording' || dictation.state === 'transcribing') && (
+              <span className="hidden sm:inline text-[10.5px] tabular-nums" style={{ color: 'var(--primary)' }}>
+                {dictation.state === 'transcribing' ? 'Transcribing…' : 'Listening'}
+              </span>
+            )}
+
             <button className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors" style={{ color: 'var(--text-3)' }} aria-label="Attach document"
               onClick={() => { navigate('/quiz'); ui.toast('Read & Quiz', 'Drop a PDF, DOCX, TXT or Markdown file to study it.') }}>
               <Paperclip size={15} strokeWidth={1.5} />
@@ -333,6 +393,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             )}
           </div>
         </div>
+        </ComposerVoiceBeam>
         </div>
         <div className="text-center text-[10.5px] mt-2" style={{ color: 'var(--text-3)' }}>
           Responses run on your configured models. Without keys, a local demo model answers.

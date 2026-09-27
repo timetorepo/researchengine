@@ -44,6 +44,24 @@ win.cancelAnimationFrame = (id: any) => clearTimeout(id)
 win.scrollTo = () => {}
 win.HTMLElement.prototype.scrollIntoView = function () {}
 win.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }
+// voice-glow watches its own attributes to re-measure; a no-op observer keeps the
+// microphone card mountable here (there is no layout engine to react to anyway).
+win.MutationObserver = class { observe() {} unobserve() {} disconnect() {} takeRecords() { return [] } }
+globalThis.MutationObserver = win.MutationObserver as any
+// jsdom parses SVG but implements none of the animated-value interfaces, so a
+// library that drives feDisplacementMap per frame would crash here. Writes are
+// swallowed; there is nothing on screen to animate in this environment.
+const svgAnimatedNumber = () => ({
+  _v: 0,
+  get baseVal() { return this._v },
+  set baseVal(v: number) { this._v = v },
+})
+for (const prop of ['scale', 'dx', 'dy', 'baseFrequency', 'stdDeviation']) {
+  Object.defineProperty(win.SVGElement.prototype, prop, {
+    configurable: true,
+    get() { return svgAnimatedNumber() },
+  })
+}
 win.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} }
 
 for (const k of ['window', 'document', 'localStorage', 'matchMedia', 'requestAnimationFrame',
@@ -104,6 +122,18 @@ const nativeValue = (el: any, value: string) => {
   el.dispatchEvent(new win.Event('input', { bubbles: true }))
 }
 const fire = (el: any, type = 'click', init: any = {}) => el?.dispatchEvent(new win.MouseEvent(type, { bubbles: true, ...init }))
+/**
+ * React Bits Micro drives its controls with pointer events, not clicks (that is
+ * what makes the drag gestures work), so the checks below have to press them the
+ * way a hand does. jsdom has PointerEvent, so this is the real event shape.
+ */
+const pointer = (el: any, type: string, init: any = {}) => el?.dispatchEvent(new win.PointerEvent(type, {
+  bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+  button: type === 'pointerdown' ? 0 : -1, buttons: type === 'pointerdown' ? 1 : 0,
+  clientX: init.clientX ?? 0, clientY: init.clientY ?? 0, ...init,
+}))
+/** Press and release — what the components commit a selection on. */
+const tap = (el: any, init: any = {}) => { pointer(el, 'pointerdown', init); pointer(el, 'pointerup', init) }
 
 async function main() {
   const React = await import('react')
@@ -390,6 +420,114 @@ async function main() {
   })))
   await wait(200)
   check('chat composers stay plain', !c4.querySelector('[data-beam]'))
+
+  console.log('\n[8b] Voice: dictation in the composer, Voice Beam, and the three engines')
+  {
+    const stt = await import('../src/lib/voice/stt')
+    const { readFileSync: readVoiceSrc } = await import('node:fs')
+    const inputSrcVoice = readVoiceSrc(new URL('../src/components/input/InputBar.tsx', import.meta.url), 'utf8')
+    check('the composer uses the real React Bits Voice pill', /import VoicePill from '@\/components\/ui\/reactbits\/micro\/VoicePill'/.test(inputSrcVoice))
+    check('and the real Voice Beam from voice-glow, not a lookalike', /import \{ VoiceBeam \} from 'voice-glow'/.test(inputSrcVoice))
+    check('the pill is wired to the dictation hook', inputSrcVoice.includes('useDictation(appendDictation)'))
+    check('dictation appends to what is already typed', inputSrcVoice.includes('const base = cur.trim()'))
+    check('push-to-talk is a choice, not a rule', inputSrcVoice.includes("voicePushToTalk ? 'hold' : 'toggle'"))
+    check('cancel-by-slide is honoured', inputSrcVoice.includes("info.reason === 'cancel'"))
+    check('the beam is only mounted around the composer', inputSrcVoice.includes('<VoiceBeam') && inputSrcVoice.includes('stream={dictation.stream}'))
+
+    // Voice by Jakub Antalik is a dependency, not a re-implementation.
+    const pkgVoice = JSON.parse(readVoiceSrc(new URL('../package.json', import.meta.url), 'utf8'))
+    check('voice-glow is a real dependency', !!pkgVoice.dependencies?.['voice-glow'], String(pkgVoice.dependencies?.['voice-glow']))
+    check('with its version pinned', /^\^?\d+\.\d+\.\d+/.test(String(pkgVoice.dependencies?.['voice-glow'] ?? '')))
+
+    // Engine selection: the mode that works wins, the mode that cannot work says so.
+    check('with no Speech API and no recorder, it says so instead of pretending',
+      stt.browserSttSupported() ? true : stt.resolveMode({ mode: 'browser' }).reason.includes('microphone access'))
+    // Give the environment a recorder, which is what a WebKitGTK build has.
+    const fakeStream = { getTracks: () => [], getAudioTracks: () => [] }
+    Object.defineProperty(win.navigator, 'mediaDevices', {
+      configurable: true, value: { getUserMedia: async () => fakeStream },
+    })
+    win.MediaRecorder = class { static isTypeSupported() { return true } }
+    check('with a recorder but no Speech API, a provider is the fallback',
+      stt.browserSttSupported() ? true : stt.resolveMode({ mode: 'browser', provider: 'openai' }).mode === 'provider')
+    check('and a local whisper server wins over a provider when both are set',
+      stt.browserSttSupported() ? true
+        : stt.resolveMode({ mode: 'browser', provider: 'openai', localUrl: 'http://127.0.0.1:8080' }).mode === 'local')
+    check('a browser that can record is detected as such', stt.recorderSupported())
+    check('and the best format is chosen from what it supports', stt.pickMimeType().startsWith('audio/'))
+    check('an explicit provider choice is respected', stt.resolveMode({ mode: 'provider', provider: 'groq' }).mode === 'provider')
+    check('an explicit local choice is respected', stt.resolveMode({ mode: 'local', localUrl: 'http://127.0.0.1:8080' }).mode === 'local')
+    check('the description names the engine, never guesses',
+      stt.describeStt({ mode: 'provider', model: 'whisper-large-v3', provider: 'groq' }).includes('whisper-large-v3'))
+    check('no browser Speech API here, and it says exactly that',
+      stt.browserSttSupported() === false, `supported=${stt.browserSttSupported()}`)
+
+    // The microphone button, in the composer's DOM.
+    const { InputBar: IB } = await import('../src/components/input/InputBar')
+    const baseVoice = useStore.getState().settings
+    useStore.setState({ settings: { ...baseVoice, voice: { enabled: true, mode: 'browser', beam: true } } } as any)
+    const cv = win.document.createElement('div')
+    win.document.body.appendChild(cv)
+    const rootV = createRoot(cv)
+    rootV.render(React.createElement(MemoryRouter, null as any, React.createElement(IB as any, {
+      big: false, chatId: 'c-voice', emptyHistory: false, streaming: false, onStop: () => {},
+      mathMode: false, setMathMode: () => {}, onSend: () => {}, autoFocus: false,
+    })))
+    await wait(250)
+    const mic = cv.querySelector('button[aria-label="Dictate"]') as any
+    check('the composer carries a dictate button', !!mic, (cv.textContent ?? '').slice(0, 60))
+    check('it sits next to the other composer tools', !!mic && !!cv.querySelector('button[aria-label="Attach image"]'))
+    check('the input still renders under the beam', !!cv.querySelector('textarea[aria-label="Message input"]'))
+    check('the beam marks itself in the DOM', !!cv.querySelector('[data-voice-beam]'))
+
+    // The glow is switchable, and off means "not mounted" — the beam's own
+    // animation loop cannot run without an SVG layout engine, so this also
+    // keeps the composer testable here.
+    useStore.setState((cur) => ({ settings: { ...cur.settings, voice: { ...(cur.settings.voice ?? {}), enabled: true, beam: false } } }) as any)
+    rootV.render(React.createElement(MemoryRouter, null as any, React.createElement(IB as any, {
+      big: false, chatId: 'c-voice3', emptyHistory: false, streaming: false, onStop: () => {},
+      mathMode: false, setMathMode: () => {}, onSend: () => {}, autoFocus: false,
+    })))
+    await wait(200)
+    check('with the glow off the beam is not mounted at all',
+      !cv.querySelector('[data-voice-beam]') && !!cv.querySelector('button[aria-label="Dictate"]'),
+      (cv.innerHTML.match(/data-voice-[a-z-]+/g) ?? []).join(','))
+
+    useStore.setState({ settings: { ...baseVoice, voice: { enabled: false } } } as any)
+    rootV.render(React.createElement(MemoryRouter, null as any, React.createElement(IB as any, {
+      big: false, chatId: 'c-voice2', emptyHistory: false, streaming: false, onStop: () => {},
+      mathMode: false, setMathMode: () => {}, onSend: () => {}, autoFocus: false,
+    })))
+    await wait(200)
+    check('and it can be switched off entirely', !cv.querySelector('button[aria-label="Dictate"]'))
+    rootV.unmount()
+    useStore.setState({ settings: baseVoice } as any)
+
+    // The settings page that explains all of it.
+    const { VoiceTab } = await import('../src/components/settings/VoiceTab')
+    const cvt = win.document.createElement('div')
+    win.document.body.appendChild(cvt)
+    const rootVT = createRoot(cvt)
+    rootVT.render(React.createElement(VoiceTab as any))
+    await wait(200)
+    const vtText = cvt.textContent ?? ''
+    check('Voice has its own settings section', vtText.includes('Microphone in the composer'))
+    check('naming all three engines', /In this browser/.test(vtText) && /A provider/.test(vtText) && /Local whisper server/.test(vtText))
+    check('and saying which one is live right now', vtText.includes('Right now'))
+    check('the glow is credited to Jakub Antalik', vtText.includes('Jakub Antalik'))
+    check('and points at the library', cvt.querySelector('a[href="https://libraries.dev/voice"]') !== null)
+    check('push-to-talk is offered', vtText.includes('Push to talk'))
+    const sttMode = Array.from(cvt.querySelectorAll('button[role="button"], button'))
+      .find((b: any) => /^A provider/.test((b.textContent ?? '').trim())) as any
+    fire(sttMode)
+    await wait(120)
+    check('picking a provider engine reveals provider + model', (cvt.textContent ?? '').includes('Provider & model')
+      && !!cvt.querySelector('[aria-label="Transcription provider"]'))
+    check('the key is never asked for here — it comes from the Providers tab',
+      /read from the vault/.test(cvt.textContent ?? ''))
+    rootVT.unmount()
+    useStore.setState({ settings: baseVoice } as any)
+  }
 
   console.log('\n[9] About: credits, license and a stale-build warning')
   useStore.setState((s) => ({ settings: { ...s.settings, reduceMotion: false } }) as any)
@@ -825,7 +963,8 @@ async function main() {
   check('pointing at a connector lights it up and reveals its insert control',
     m16edgeSrc.includes('re-edge-line') && m16edgeSrc.includes('re-edge-add') && m16edgeSrc.includes('onPointerEnter'))
   check('the workflow list deals its cards in and animates the run state',
-    m16listSrc.includes('framer-motion') && m16listSrc.includes('re-wf-card') && m16listSrc.includes('AnimatePresence'))
+    (m16listSrc.includes('motion/react') || m16listSrc.includes('framer-motion'))
+    && m16listSrc.includes('re-wf-card') && m16listSrc.includes('AnimatePresence'))
 
   const m16vtSrc = m16readSrc(new URL('../src/hooks/useViewTransitions.ts', import.meta.url))
   const m16sideSrc = m16readSrc(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url))
@@ -1481,57 +1620,76 @@ async function main() {
     ['kimi', 'https://api.moonshot.ai/v1'],
     ['glm', 'https://api.z.ai/api/paas/v4'],
     ['minimax', 'https://api.minimax.io/v1'],
-    ['freeroute', '/api/freeroute/v1'],
   ]
   for (const [id, base] of wanted) {
     const p = R8PROVIDERS.find((x) => x.id === id)
     check(`provider "${id}" is offered`, !!p, p ? '' : 'missing from the registry')
     check(`  …and points at the right endpoint`, p?.baseUrl === base, p?.baseUrl ?? '')
   }
-  check('the six new keyed providers need a key', wanted.slice(0, 6).every(([id]) => R8PROVIDERS.find((p) => p.id === id)?.needsKey === true))
-  check('FreeRoute needs no key of its own', R8PROVIDERS.find((p) => p.id === 'freeroute')?.needsKey === false)
+  check('the new keyed providers all need a key', wanted.every(([id]) => R8PROVIDERS.find((p) => p.id === id)?.needsKey === true))
   const types8 = m16readSrc(new URL('../src/types/index.ts', import.meta.url))
   check('the ids are part of the ProviderId union',
     wanted.every(([id]) => types8.includes(`'${id}'`)))
 
-  // --- FreeRoute backend --------------------------------------------
-  const frSrc = m16readFile(new URL('../../backend/src/routes/freeroute.ts', import.meta.url), 'utf8')
-  const frEndpoints: [string, string][] = [
-    ['Z.ai GLM Flash', 'https://api.z.ai/api/paas/v4'],
-    ['OpenCode Zen', 'https://opencode.ai/zen/v1'],
-    ['Ollama', 'http://localhost:11434/v1'],
-    ['Groq', 'https://api.groq.com/openai/v1'],
-    ['Google AI Studio', 'https://generativelanguage.googleapis.com/v1beta/openai'],
-    ['Mistral', 'https://api.mistral.ai/v1'],
-    ['OpenRouter', 'https://openrouter.ai/api/v1'],
-  ]
-  for (const [name, url] of frEndpoints) {
-    check(`FreeRoute lists ${name}`, frSrc.includes(url), url)
-  }
-  check('it exposes an OpenAI-compatible endpoint', frSrc.includes("'/freeroute/v1/chat/completions'") && frSrc.includes("'/freeroute/v1/models'"))
-  check('it can probe health without a generation', frSrc.includes("'/freeroute/probe'") && frSrc.includes("'/freeroute/test'"))
-  check('free-only routes filter out paid model ids', frSrc.includes('freeOnly') && frSrc.includes('isFreeOn'))
-  check('a rate limit fails over to the next route', /for \(const route of routes\)/.test(frSrc) && frSrc.includes('attempts.push'))
-  check('a wrong key stops instead of trying every route', frSrc.includes('res.status === 401 || res.status === 403'))
-  check('route ids cannot become arbitrary URLs', frSrc.includes('const routeById = (id: string) => FREE_ROUTES.find'))
-  check('streaming is passed through, not buffered', frSrc.includes('new Response(out.res.body'))
-  check('keys travel per request, never stored', frSrc.includes('x-re-freeroute-keys') && !/freeroute.*writeFile/i.test(frSrc))
+  // --- FreeRoute is a feature, not a provider ------------------------
+  const { existsSync: frExists } = await import('node:fs')
   const beIndex = m16readFile(new URL('../../backend/src/index.ts', import.meta.url), 'utf8')
-  check('the routes are mounted in the server', beIndex.includes('freerouteRoutes'))
-
-  // --- FreeRoute in the app -----------------------------------------
   const streamSrc = m16readSrc(new URL('../src/lib/providers/stream.ts', import.meta.url))
-  check('the app streams through FreeRoute', streamSrc.includes('/api/freeroute/v1/chat/completions'))
-  check('and discovers its models from the live routes', streamSrc.includes("meta.id === 'freeroute'"))
-  check('keys are sent with the request only', streamSrc.includes('x-re-freeroute-keys') && streamSrc.includes('freeRouteHeaders'))
-  check('no top-level require survives in the browser bundle', !/\brequire\(/.test(streamSrc))
-  const frTab = m16readSrc(new URL('../src/components/settings/FreeRouteTab.tsx', import.meta.url))
-  check('there is a FreeRoute console in settings', frTab.includes('Probe all routes') && frTab.includes('Use as default model'))
-  check('the failover order is editable', frTab.includes('ArrowUp') && frTab.includes('reorderTasks') === false && frTab.includes('move(r.id, -1)'))
   const tabsSrc = m16readSrc(new URL('../src/components/settings/settingsTabs.tsx', import.meta.url))
-  check('and it is registered as a tab', tabsSrc.includes("id: 'freeroute'") && tabsSrc.includes('<FreeRouteTab />'))
-  const frType = types8.includes('freeRoute?:') && types8.includes('lastProbe')
-  check('the order and route keys are persisted in settings', frType)
+  check('FreeRoute is not in the provider list', !R8PROVIDERS.some((p) => p.id === 'freeroute'))
+  check('nor an id the app can choose', !/'freeroute'/.test(types8))
+  check('the backend route it used to need is gone, not orphaned',
+    !frExists(new URL('../../backend/src/routes/freeroute.ts', import.meta.url)))
+  check('the server no longer mounts it', !beIndex.includes('freerouteRoutes'))
+  check('and nothing calls /api/freeroute any more', !/\/api\/freeroute/.test(streamSrc) && !/freeRouteHeaders/.test(streamSrc))
+  check('its settings tab is gone too', !tabsSrc.includes('FreeRouteTab'))
+  check('the provider-shaped settings are retired', !/freeRoute\?:/.test(types8) && !types8.includes('lastProbe'))
+  check('free routing is now a switch on the chat path', /freeRouting\?: boolean/.test(types8))
+
+  // --- …and it behaves like a router ---------------------------------
+  const { freeCandidates, pickFreeModel, isFailoverWorthy, freeRouteSummary } = await import('../src/lib/providers/free')
+  const cands = freeCandidates({
+    added: ['openai', 'groq', 'ollama', 'lmstudio'],
+    models: {
+      openai: ['gpt-4o', 'gpt-4o-mini'],
+      groq: ['llama-3.3-70b-versatile'],
+      ollama: ['llama3.2:3b'],
+      lmstudio: ['qwen2.5-7b-instruct'],
+    },
+    usable: {
+      openai: { name: 'OpenAI', ready: true },
+      groq: { name: 'Groq', ready: true },
+      ollama: { name: 'Ollama', ready: true },
+      lmstudio: { name: 'LM Studio', ready: false },
+    },
+    hidden: [], overrides: {},
+  })
+  check('free routing only offers models that are actually free', cands.length > 0
+    && cands.every((c) => !/gpt-4o$/.test(c.model)), cands.map((c) => c.ref).join(', '))
+  check('a provider that is not ready is never offered', !cands.some((c) => c.provider === 'lmstudio'))
+  check('a model on this machine outranks a cloud free tier', cands[0]?.provider === 'ollama', cands[0]?.ref ?? 'none')
+  check('with a reason the user can read', /machine|free/i.test(cands[0]?.why ?? ''), cands[0]?.why ?? '')
+  check('the free tier of a keyed provider comes next', cands.some((c) => c.provider === 'groq'))
+  const tried = [cands[0].ref]
+  check('a model already tried is skipped on failover', pickFreeModel(cands, tried)?.ref !== cands[0].ref)
+  check('exhausting the list returns nothing rather than looping',
+    pickFreeModel(cands, cands.map((c) => c.ref)) === null)
+  check('rate limits and capacity errors are worth failing over',
+    isFailoverWorthy(429, 'rate limit exceeded') && isFailoverWorthy(503, 'overloaded'))
+  check('a bad key is not — that would just hide the real error',
+    !isFailoverWorthy(401, 'invalid api key') && !isFailoverWorthy(400, 'bad request'))
+  check('the pick reads as one line of prose', freeRouteSummary(cands[0]).includes(cands[0].providerName))
+
+  // --- the chat path uses it ------------------------------------------
+  const runChatSrc = m16readSrc(new URL('../src/lib/chat/runChat.ts', import.meta.url))
+  const voiceSrcPeek = m16readSrc(new URL('../src/lib/voice/stt.ts', import.meta.url))
+  check('the chat resolves a free model before it calls a provider', runChatSrc.includes('pickFreeModel'))
+  check('only when the user asked for it', runChatSrc.includes('settings.freeRouting'))
+  check('and a rate-limited answer fails over to the next free model', runChatSrc.includes('isFailoverWorthy'))
+  check('bounded, so a bad day is not an infinite loop', /triedModels.length < 3/.test(runChatSrc))
+  check('with the per-provider timeout the user set',
+    runChatSrc.includes('settings.providerTimeouts?.[providerId] ?? 45'))
+  check('the voice module knows its three engines', /'browser' \| 'provider' \| 'local'/.test(voiceSrcPeek))
 
   // --- Animated number (Skiper 37) ----------------------------------
   const numSrc = m16readSrc(new URL('../src/components/shared/AnimatedNumber.tsx', import.meta.url))
@@ -1650,17 +1808,33 @@ async function main() {
   check('and reads the setting without subscribing', smoothSrc.includes('useStore.getState().settings?.smoothCaret'))
   check('the hook variant exists for components', smoothSrc.includes('export function useSmoothCaret'))
   check('and is memoised on the value it reads', /useSmoothCaret[\s\S]{0,220}useMemo/.test(smoothSrc))
-  const frTabSrc = m16readSrc(new URL('../src/components/settings/FreeRouteTab.tsx', import.meta.url))
-  check('FreeRoute takes the caret once, at the top', frTabSrc.includes('const caret = useSmoothCaret()'))
-  check('and only ever spreads the value it captured', frTabSrc.includes('{...caret}') && !/smoothCaretProps\(/.test(frTabSrc))
   {
-    // The regression is a hooks-order violation, so prove the hook is called
-    // exactly once per render and never inside the branch it is used in.
-    const calls = frTabSrc.split('useSmoothCaret()').length - 1
-    check('exactly one call site', calls === 1, `${calls} call sites`)
-    const caretAt = frTabSrc.indexOf('const caret = useSmoothCaret()')
-    const branchAt = frTabSrc.indexOf('caret &&') >= 0 ? frTabSrc.indexOf('caret &&') : frTabSrc.indexOf('{...caret}')
-    check('declared before the field that uses it', caretAt > 0 && caretAt < branchAt, `${caretAt} < ${branchAt}`)
+    // The regression was a hooks-order violation (React #310): a hook called
+    // inside the conditional field it was used in. Mount a consumer that calls
+    // it the sanctioned way — once, at the top — and prove it renders clean.
+    const { useSmoothCaret, smoothCaretProps } = await import('../src/components/input/SmoothText')
+    const SmoothProbe = () => {
+      const caret = useSmoothCaret()
+      const [shown, setShown] = React.useState(false)
+      return React.createElement('div', null,
+        React.createElement('input', { ...caret, 'aria-label': 'probe' }),
+        React.createElement('button', { onClick: () => setShown(true), 'aria-label': 'reveal' }, 'reveal'),
+        shown ? React.createElement('input', { ...caret, 'aria-label': 'probe2' }) : null)
+    }
+    const cs = win.document.createElement('div')
+    win.document.body.appendChild(cs)
+    const rootS = createRoot(cs)
+    let crashed = ''
+    try { rootS.render(React.createElement(SmoothProbe as any)) } catch (e: any) { crashed = String(e?.message ?? e) }
+    await wait(120)
+    check('the hook spelling of the smooth caret mounts without a hooks-order crash', !crashed, crashed)
+    check('and it paints the smooth caret on the field', !!cs.querySelector('input[data-smooth-caret="true"]'))
+    fire(cs.querySelector('button[aria-label="reveal"]'))
+    await wait(120)
+    check('revealing a second field keeps the hook count stable', !!cs.querySelector('input[aria-label="probe2"]'))
+    rootS.unmount()
+    check('the non-hook helper is still there for conditional fields',
+      typeof smoothCaretProps === 'function' && typeof smoothCaretProps().className === 'string')
   }
 
   // --- The profile card header -----------------------------------------
@@ -1858,8 +2032,12 @@ async function main() {
   check('the top bar uses it', topSrc.includes('<ModelPicker />') && !topSrc.includes('modelQuery'))
   check('hovering a model magnifies it like a dock', pickSrc.includes('dockScaleFor'))
   check('the neighbours grow too, the far ones do not', /if \(d \* d\)/.test(pickSrc) === false && pickSrc.includes('Math.exp'))
-  check('free and paid can be separated', pickSrc.includes("(['all', 'free', 'paid']"))
-  check('and sorted', pickSrc.includes('Free first'))
+  check('the filter is a real React Bits rubber segment now', pickSrc.includes('<RubberSegment') && pickSrc.includes('RubberSegment'))
+  check('free and paid can still be separated', pickSrc.includes("value: 'free'") && pickSrc.includes("value: 'paid'"))
+  check('and sorted through a glide select, not a native select', pickSrc.includes('<GlideSelect') && !/<select/.test(pickSrc))
+  check('free-first survives the swap', pickSrc.includes("label: 'Free first'"))
+  check('the dock animation is behind a switch the user owns', pickSrc.includes('dockAnimation') && pickSrc.includes('role="switch"'))
+  check('and turning it off really stops the magnification', pickSrc.includes('dockOn') && pickSrc.includes('dockOn ? dockScaleFor'))
   check('each row carries a mark: family, else provider', pickSrc.includes('<ModelLogo model={row.model} provider={row.provider}'))
   check('a model can be unlisted from the row itself', pickSrc.includes('Unlist ${row.model}'))
   check('unlisted models are kept in a section, not deleted',
@@ -1893,7 +2071,7 @@ async function main() {
         providerModels: {
           openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
           anthropic: ['claude-sonnet-4-5', 'claude-opus-4-1'],
-          freeroute: ['deepseek-chat:free', 'llama-3.3-70b:free'],
+          openrouter: ['deepseek-chat:free', 'llama-3.3-70b:free'],
         },
       },
     } as any)
@@ -1911,29 +2089,65 @@ async function main() {
 
     const options = Array.from(host.querySelectorAll('button[role="option"]')) as any[]
     check('opening it shows the models', options.length === 7, `${options.length} rows`)
+    check('the free ones are labelled free, from the openrouter free tier',
+      options.some((o) => /:free/.test(o.textContent ?? '')))
     check('each row carries a logo mark', options.length > 0 && options.every((o) => !!o.querySelector('svg')))
     check('and the active model is marked as such',
       options.some((o) => o.getAttribute('aria-selected') === 'true' && (o.textContent ?? '').includes('gpt-4o')))
 
-    const chip = (word: string) => Array.from(host.querySelectorAll('button'))
+    // The filter is a React Bits RubberSegment: a radiogroup of role=radio buttons.
+    const seg = host.querySelector('[role="radiogroup"][aria-label="Free or paid models"]') as any
+    check('the free/paid filter is a segmented control', !!seg)
+    const chip = (word: string) => Array.from(seg?.querySelectorAll('button[role="radio"]') ?? [])
       .find((b: any) => new RegExp(`^${word}`, 'i').test((b.textContent ?? '').trim())) as any
     const paidChip = chip('paid')
     check('there is a paid filter with a live count on it', !!paidChip && /\d/.test(paidChip.textContent ?? ''))
-    fire(paidChip)
-    await wait(100)
+    tap(paidChip)
+    await wait(120)
+    check('the chosen segment is the checked one', paidChip?.getAttribute('aria-checked') === 'true')
     const paidNames = (Array.from(host.querySelectorAll('button[role="option"]')) as any[])
       .map((o) => (o.textContent ?? '').trim())
-    check('picking paid hides the free models', !paidNames.some((n) => /:free/.test(n)), paidNames.join(' | ').slice(0, 80))
-    fire(chip('free'))
-    await wait(100)
+    check('picking paid hides the free models', !paidNames.some((n) => /:free/.test(n)) && paidNames.length === 5,
+      paidNames.join(' | ').slice(0, 90))
+    check('and the paid list still has the ones it should', paidNames.some((n) => /gpt-4o/.test(n)))
+    tap(chip('free'))
+    await wait(120)
     const freeNames = (Array.from(host.querySelectorAll('button[role="option"]')) as any[])
       .map((o) => (o.textContent ?? '').trim())
     check('the free filter leaves only free ones',
       freeNames.length === 2 && freeNames.every((n) => /:free/.test(n)), freeNames.join(' | ').slice(0, 80))
     check('and keeps the paid ones', paidNames.some((n) => /claude-opus-4-1/.test(n)))
     check('while the free ones are the ones it removed', paidNames.length === 5, `${paidNames.length} left`)
-    fire(chip('all'))
-    await wait(80)
+    tap(chip('all'))
+    await wait(120)
+
+    // Sorting moved to a GlideSelect — drive it the way a person does.
+    const sortTrigger = Array.from(host.querySelectorAll('button[aria-haspopup="listbox"]'))
+      .find((b: any) => b.getAttribute('aria-label') === 'Sort models') as any
+    check('the sort control is a glide select', !!sortTrigger, (sortTrigger?.textContent ?? '').trim())
+    tap(sortTrigger)
+    await wait(150)
+    // The picker's own panel is also a listbox, so follow the trigger's own
+    // aria-controls to the glide menu rather than guessing.
+    const sortListId = sortTrigger?.getAttribute('aria-controls') ?? ''
+    const sortList = (sortListId ? win.document.getElementById(sortListId) : null) as any
+    check('the sort menu is described by the trigger', !!sortList, sortListId)
+    const sortOptions = Array.from(sortList?.querySelectorAll('[role="option"]') ?? []) as any[]
+    check('it offers the three orders', sortOptions.length === 3, sortOptions.map((o) => o.textContent).join(' | '))
+    // The glide list picks the row under the pointer; rows are 26px + 1px gap
+    // with a 4px pad, which is all the geometry it needs.
+    const freeFirstIndex = sortOptions.findIndex((o) => /Free first/.test(o.textContent ?? ''))
+    tap(sortList, { clientY: 4 + freeFirstIndex * 27 + 1 })
+    await wait(150)
+    const sorted = (Array.from(host.querySelectorAll('button[role="option"]')) as any[]).map((o) => (o.textContent ?? '').trim())
+    check('free-first really puts the free models on top', /:free/.test(sorted[0] ?? ''), sorted[0])
+    check('and the choice stuck in settings', useStore.getState().settings.modelSort === 'free-first',
+      String(useStore.getState().settings.modelSort))
+
+    // The dock animation switch: off means rows stay still.
+    const dockSwitch = host.querySelector('button[role="switch"]') as any
+    check('the dock animation has a switch in the footer', !!dockSwitch)
+    check('and it is on by default', dockSwitch?.getAttribute('aria-checked') === 'true')
 
     // The dock: hovering a row magnifies it and its neighbours, and only those.
     const boxes = Array.from(host.querySelectorAll('button[role="option"]')).map((o: any) => o.parentElement) as any[]
@@ -1954,9 +2168,24 @@ async function main() {
       `${scaleOf(boxes[0]).toFixed(3)} vs ${scaleOf(boxes[1]).toFixed(3)}`)
     check('and a row out of reach does not', scaleOf(boxes[6]) < 1.005, scaleOf(boxes[6]).toFixed(3))
 
+    fire(dockSwitch)
+    await wait(150)
+    check('turning the switch off is remembered', useStore.getState().settings.dockAnimation === false)
+    check('and it is the switch that says so', dockSwitch?.getAttribute('aria-checked') === 'false')
+    check('with the dock off, hovering magnifies nothing', scaleOf(boxes[0]) < 1.005, scaleOf(boxes[0]).toFixed(3))
+    fire(dockSwitch)
+    await wait(150)
+    check('turning it back on restores the dock', useStore.getState().settings.dockAnimation === true
+      && scaleOf(boxes[0]) > 1.02, scaleOf(boxes[0]).toFixed(3))
+
     // Unlisting is a toggle that hides, never deletes.
     const eye = host.querySelector('button[aria-label="Unlist o3-mini"]') as any
     check('a row can be unlisted from itself', !!eye)
+    {
+      const rows = host.querySelectorAll('button[role="option"]').length
+      const unlisters = host.querySelectorAll('button[aria-label^="Unlist "]').length
+      check('every row offers the unlist action beside it', rows > 0 && unlisters >= rows, `${unlisters} for ${rows} rows`)
+    }
     fire(eye)
     await wait(100)
     check('unlisting records the model', (useStore.getState().settings.hiddenModels ?? []).includes('openai:o3-mini'))
@@ -2091,6 +2320,221 @@ async function main() {
     off.unmount()
     useStore.setState({ settings: base } as any)
   }
+
+  /* ------------------------------------------------------------------ */
+  console.log('\n[31] 0.30.0 — free routing, working search, timeouts, dictation, private-repo updates')
+
+  const { existsSync: fileExists } = await import('node:fs')
+  const runChat30 = m16readSrc(new URL('../src/lib/chat/runChat.ts', import.meta.url))
+  const stream30 = m16readSrc(new URL('../src/lib/providers/stream.ts', import.meta.url))
+  const reg30 = m16readSrc(new URL('../src/lib/providers/registry.ts', import.meta.url))
+  const tabs30 = m16readSrc(new URL('../src/components/settings/settingsTabs.tsx', import.meta.url))
+
+  // --- FreeRoute is a routing feature, not a provider ---------------
+  const { PROVIDERS: PROV30 } = await import('../src/lib/providers/registry')
+  const { freeCandidates: cands30, pickFreeModel: pick30, isFailoverWorthy: fail30, freeRouteSummary: summary30 } =
+    await import('../src/lib/providers/free')
+  check('FreeRoute is gone from the provider registry', !PROV30.some((p) => p.id === 'freeroute'))
+  check('and from the provider ids', !/'freeroute'/.test(m16readSrc(new URL('../src/types/index.ts', import.meta.url))))
+  check('its backend route and its settings tab are deleted, not orphaned',
+    !fileExists(new URL('../../backend/src/routes/freeroute.ts', import.meta.url))
+    && !fileExists(new URL('../src/components/settings/FreeRouteTab.tsx', import.meta.url)))
+  check('nothing calls the old endpoint', !/\/api\/freeroute/.test(stream30) && !/freerouteRoutes/.test(m16readFile(new URL('../../backend/src/index.ts', import.meta.url), 'utf8')))
+
+  const seed30 = {
+    added: ['groq', 'ollama', 'openai', 'lmstudio'],
+    models: {
+      groq: ['llama-3.3-70b-versatile'],
+      ollama: ['llama3.2:3b'],
+      openai: ['gpt-4o', 'gpt-4o-mini'],
+      lmstudio: ['qwen2.5-7b'],
+    },
+    usable: {
+      groq: { name: 'Groq', ready: true },
+      ollama: { name: 'Ollama', ready: true },
+      openai: { name: 'OpenAI', ready: true },
+      lmstudio: { name: 'LM Studio', ready: false },
+    },
+    hidden: [], overrides: {},
+  }
+  const freeList = cands30(seed30)
+  check('free routing offers the free models of the providers you added',
+    freeList.length === 2 && freeList.every((c: any) => c.ref === 'groq:llama-3.3-70b-versatile' || c.ref === 'ollama:llama3.2:3b'),
+    freeList.map((c: any) => c.ref).join(', '))
+  check('the model on this machine wins', freeList[0].provider === 'ollama' && /machine/.test(freeList[0].why))
+  check('a paid-only provider is never used', !freeList.some((c: any) => c.provider === 'openai'))
+  check('a provider that is not ready is skipped', !freeList.some((c: any) => c.provider === 'lmstudio'))
+  const freeOn = cands30({ ...seed30, overrides: { 'openai:gpt-4o-mini': 'free' } })
+  check('and a model the user marks free is used', freeOn.some((c: any) => c.ref === 'openai:gpt-4o-mini'))
+  check('tried models are not offered twice', pick30(freeList, [freeList[0].ref])?.ref === freeList[1]?.ref)
+  check('a rate limit fails over, a bad key does not',
+    fail30(429, 'rate limit exceeded') && fail30(503, 'overloaded') && !fail30(401, 'invalid api key'))
+  check('the pick explains itself in one line', summary30(freeList[0]).includes(freeList[0].providerName))
+  check('the chat routes through free models only when asked', runChat30.includes('settings.freeRouting'))
+  check('and falls back at most three deep', /triedModels.length < 3/.test(runChat30))
+
+  // --- search: engines, keys, and an install that needs nothing ------
+  const adaptersSrc = m16readFile(new URL('../../backend/src/services/search/adapters.ts', import.meta.url), 'utf8')
+  const searchRoute = m16readFile(new URL('../../backend/src/routes/search.ts', import.meta.url), 'utf8')
+  const webSrc = m16readSrc(new URL('../src/lib/search/web.ts', import.meta.url))
+  check('SearXNG is found automatically, not configured',
+    /PUBLIC_SEARXNG/.test(adaptersSrc) && /localhost:8080/.test(adaptersSrc) && !/SEARXNG_URL/.test(adaptersSrc))
+  check('several public instances are tried in turn', (adaptersSrc.match(/https:\/\/[a-z0-9.-]+/g) ?? []).length >= 5)
+  check('the instance that answered is remembered for a few minutes',
+    /PREFERRED_TTL/.test(adaptersSrc) && /preferred = \{ url, at: Date\.now\(\) \}/.test(adaptersSrc))
+  check('search keys are taken from the request, per call', /x-re-search-keys/.test(searchRoute) && /keysFrom/.test(searchRoute))
+  check('the backend has a status endpoint the UI can trust', /search\/status/.test(searchRoute) || /'\/status'/.test(searchRoute))
+  check('and a request falls back instead of failing', /attempts/.test(searchRoute) && /demo/.test(searchRoute))
+  check('the browser sends its keys with the request, not to a settings table on the server',
+    webSrc.includes('x-re-search-keys') && webSrc.includes('searchKeys'))
+  check('the search timeout is the reader own setting, not a constant', /providerTimeouts/.test(webSrc))
+
+  // --- per-provider client-side timeouts -----------------------------
+  const provSrc30 = m16readSrc(new URL('../src/components/settings/ProvidersTab.tsx', import.meta.url))
+  check('every provider card carries a timeout in seconds', /timeout in seconds/.test(provSrc30) && /providerTimeouts/.test(provSrc30))
+  check('it is clamped to something sane', /600/.test(provSrc30) && /Math.max\(3/.test(provSrc30))
+  check('the chat hands that timeout to the fetch', /providerTimeouts\?\.\[providerId\]/.test(runChat30) && runChat30.includes('timeoutMs'))
+  check('and the stream layer honours it', /timeoutMs/.test(stream30))
+  {
+    const { ProvidersTab } = await import('../src/components/settings/ProvidersTab')
+    const baseP = useStore.getState().settings
+    useStore.setState({ settings: { ...baseP, addedProviders: ['groq'], providerTimeouts: {} } } as any)
+    const hostP = win.document.createElement('div')
+    win.document.body.appendChild(hostP)
+    const rootP = createRoot(hostP)
+    rootP.render(React.createElement(ProvidersTab as any))
+    await wait(200)
+    const field = hostP.querySelector('input[aria-label="Groq timeout in seconds"]') as any
+    check('the timeout is a field on the card', !!field, (hostP.textContent ?? '').slice(0, 80))
+    if (field) {
+      nativeValue(field, '12')
+      await wait(120)
+      check('typing a value stores it per provider',
+        useStore.getState().settings.providerTimeouts?.groq === 12,
+        String(useStore.getState().settings.providerTimeouts?.groq))
+    }
+    rootP.unmount()
+    useStore.setState({ settings: baseP } as any)
+  }
+  check('an empty list is the first thing you see', /No providers yet/.test(provSrc30) && /addedProviders/.test(provSrc30))
+  {
+    const { AppearanceTab } = await import('../src/components/settings/AppearanceTab')
+    const baseA = useStore.getState().settings
+    useStore.setState({ settings: { ...baseA, dockAnimation: true } } as any)
+    const hostA = win.document.createElement('div')
+    win.document.body.appendChild(hostA)
+    const rootA = createRoot(hostA)
+    rootA.render(React.createElement(AppearanceTab as any))
+    await wait(250)
+    const dockRow = [...hostA.querySelectorAll('button[role="switch"], button')]
+      .find((b: any) => /Dock animation/.test(b.closest('div')?.textContent ?? '')) as any
+    check('the dock animation has a switch in Appearance', !!dockRow, (hostA.textContent ?? '').slice(0, 60))
+    if (dockRow) {
+      fire(dockRow)
+      await wait(150)
+      check('and it really turns the dock off', useStore.getState().settings.dockAnimation === false,
+        String(useStore.getState().settings.dockAnimation))
+    }
+    rootA.unmount()
+    useStore.setState({ settings: baseA } as any)
+  }
+  check('removing offers to keep the key', /Keep my saved key/.test(provSrc30))
+
+  // --- dictation: three engines, and the real Voice component ---------
+  const stt30 = await import('../src/lib/voice/stt')
+  const inputSrc30 = m16readSrc(new URL('../src/components/input/InputBar.tsx', import.meta.url))
+  const hookSrc30 = m16readSrc(new URL('../src/hooks/useDictation.ts', import.meta.url))
+  const pkg30 = JSON.parse(m16readFile(new URL('../package.json', import.meta.url), 'utf8'))
+  check('the Voice component is a real dependency, not a copy', !!pkg30.dependencies['voice-glow'])
+  check('and its beam wraps the composer', inputSrc30.includes("from 'voice-glow'") && inputSrc30.includes('<VoiceBeam'))
+  check('the microphone uses the React Bits Voice Pill', inputSrc30.includes('micro/VoicePill'))
+  check('dictation is a setting, not a fixed pipeline',
+    /mode\?: 'browser' \| 'provider' \| 'local'/.test(m16readSrc(new URL('../src/types/index.ts', import.meta.url))))
+  check('the recogniser only runs in the page when the browser has one', stt30.browserSttSupported() === false
+    ? /SpeechRecognition/.test(m16readSrc(new URL('../src/lib/voice/stt.ts', import.meta.url)))
+    : true)
+  const sttSrc30 = m16readSrc(new URL('../src/lib/voice/stt.ts', import.meta.url))
+  check('recorded audio goes to one place on the server',
+    sttSrc30.includes('/api/voice/transcribe') && hookSrc30.includes('transcribeBlob'))
+  check('typing on after dictating keeps what was there', /cur\.trim\(\)/.test(inputSrc30))
+  check('a key is read from the vault at the moment it is used', hookSrc30.includes('usableKey'))
+  {
+    const { VoiceTab } = await import('../src/components/settings/VoiceTab')
+    const baseV = useStore.getState().settings
+    useStore.setState({ settings: { ...baseV, addedProviders: ['openai'], providers: {}, voice: { mode: 'provider' } } } as any)
+    const hostV = win.document.createElement('div')
+    win.document.body.appendChild(hostV)
+    const rootV = createRoot(hostV)
+    rootV.render(React.createElement(VoiceTab as any))
+    await wait(200)
+    const text = hostV.textContent ?? ''
+    check('Voice has its own settings section', /Voice/.test(text) && /Microphone in the composer/.test(text))
+    check('naming all three engines', /In this browser/.test(text) && /A provider/.test(text) && /Local whisper server/.test(text))
+    check('and crediting Jakub Antalik', /Jakub Antalik/.test(text))
+    check('push-to-talk is offered', /Push to talk/.test(text))
+    check('a provider you have added but not keyed says so',
+      /no key yet/.test((hostV.querySelector('select[aria-label="Transcription provider"]')?.textContent ?? '')))
+    rootV.unmount()
+    useStore.setState({ settings: baseV } as any)
+  }
+
+  // --- updates from a private repository -----------------------------
+  const upSrc30 = m16readSrc(new URL('../src/components/settings/UpdatesTab.tsx', import.meta.url))
+  const upClient30 = m16readSrc(new URL('../src/lib/updates/client.ts', import.meta.url))
+  const upRoute30 = m16readFile(new URL('../../backend/src/routes/update.ts', import.meta.url), 'utf8')
+  const upService30 = m16readFile(new URL('../../backend/src/update/service.ts', import.meta.url), 'utf8')
+  check('the answer to a private repo is written down', /private/i.test(upSrc30) && /read-only token/i.test(upSrc30))
+  check('a token can be given, and is sent only to GitHub', upClient30.includes('x-re-update-token')
+    && /GITHUB_HOSTS/.test(upService30))
+  check('a manifest URL is a first-class source', upClient30.includes('x-re-update-manifest')
+    && /manifestUrl/.test(upService30) && /manifestReleases/.test(upService30))
+  check('and an archive you already have can be installed', upClient30.includes('install-file')
+    && /installFromFile/.test(upService30) && upRoute30.includes("'/update/install-file'"))
+  check('installing from a file still checks the checksum first',
+    /refusing to install unverified/.test(upService30))
+  check('the status says which source is live', /source: \{/.test(upRoute30) && /manifestUrl/.test(upRoute30))
+  check('a TLS failure gets a real explanation', /NODE_EXTRA_CA_CERTS/.test(upSrc30))
+  {
+    const { UpdatesTab } = await import('../src/components/settings/UpdatesTab')
+    const baseU = useStore.getState().settings
+    useStore.setState({ settings: { ...baseU, updates: { autoCheck: false } } } as any)
+    const hostU = win.document.createElement('div')
+    win.document.body.appendChild(hostU)
+    const rootU = createRoot(hostU)
+    rootU.render(React.createElement(UpdatesTab as any))
+    await wait(250)
+    const tokenField = hostU.querySelector('input[aria-label="GitHub token for updates"]') as any
+    check('the token field is on the page', !!tokenField)
+    if (tokenField) {
+      nativeValue(tokenField, 'ghp_test_token')
+      await wait(120)
+      check('and lands in settings, not in a request log',
+        useStore.getState().settings.updates?.token === 'ghp_test_token')
+    }
+    const manField = hostU.querySelector('input[aria-label="Release manifest URL"]') as any
+    check('the manifest field is on the page too', !!manField)
+    check('the file path is offered', /Choose archive/.test(hostU.textContent ?? ''))
+    rootU.unmount()
+    useStore.setState({ settings: baseU } as any)
+  }
+
+  // --- pages that load fast ------------------------------------------
+  const app30 = m16readSrc(new URL('../src/App.tsx', import.meta.url))
+  const static30 = m16readFile(new URL('../../backend/src/static.ts', import.meta.url), 'utf8')
+  check('the animation library is no longer shipped twice',
+    !/from 'framer-motion'/.test(app30) && !pkg30.dependencies['framer-motion'])
+  check('settings is loaded when it is opened, not on first paint',
+    /React\.lazy\(\(\) => import\('@\/components\/settings\/SettingsSheet'\)/.test(app30))
+  check('the panels nobody opened yet are lazy too',
+    /React\.lazy\(.*TasksPanel/.test(app30) && /React\.lazy\(.*CommandPalette/.test(app30))
+  check('every route is warmed right after the first paint',
+    /requestAnimationFrame\(\(\) => \{[\s\S]{0,140}requestAnimationFrame/.test(app30) && /SettingsView/.test(app30))
+  check('the server compresses what it serves', /brotliCompressSync/.test(static30) && /gzipSync/.test(static30))
+  check('and answers a repeat request with 304 instead of the body',
+    /if-none-match/.test(static30) && /304/.test(static30))
+  check('hashed assets are immutable, the shell is not', /immutable/.test(static30) && /no-cache/.test(static30))
+  check('the theme props do not pull three.js into the first load',
+    !/from '@react-three\/fiber'/.test(m16readSrc(new URL('../src/components/layout/BackgroundLayer.tsx', import.meta.url))))
 
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))

@@ -1,7 +1,9 @@
 // Real web search with a resilient source ladder:
-//   1. Local backend (/api/search) — runs the configured engine
-//      (SearXNG / Brave / Serper / Tavily / DuckDuckGo). Works out of the box
-//      via keyless DuckDuckGo in deployments with internet access.
+//   1. Local backend (/api/search) — runs the engine ladder itself: your engine
+//      if you picked one, then keyless SearXNG (yours or a public instance),
+//      then keyless DuckDuckGo, and only then labelled placeholders. Keys you
+//      typed in Settings → Search ride along with the request, so search works
+//      without anyone configuring the server.
 //   2. Wikipedia search, called directly from the browser — keyless and
 //      CORS-open, so Search works even where the backend has no internet.
 //   3. Clearly-labeled offline placeholder sources.
@@ -30,10 +32,28 @@ export async function webSearch(query: string, count = 6): Promise<SearchOutcome
   let demoFromBackend: Source[] | null = null
   try {
     const { getPrivacyMode } = await import('@/lib/privacy/shield')
+    // The store is imported on demand: this module is pulled in by the chat
+    // pipeline, and a top-level store import here would close a cycle.
+    const { useStore } = await import('@/stores/useStore')
+    const settings = useStore.getState().settings
     const offline = getPrivacyMode() === 'topsecret' ? '&offline=1' : ''
+    const backend = settings.searchBackend && settings.searchBackend !== 'demo' ? settings.searchBackend : 'auto'
+    const own = settings.searxngUrl && !/^https?:\/\/(localhost|127\.0\.0\.1):8080/.test(settings.searxngUrl)
+      ? `&searxng=${encodeURIComponent(settings.searxngUrl)}`
+      : ''
+    const patience = Math.max(3, Number(settings.providerTimeouts?.search ?? 20)) * 1000
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 9000)
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}${offline}`, { signal: ctrl.signal })
+    const timer = setTimeout(() => ctrl.abort(), patience)
+    const res = await fetch(
+      `/api/search?q=${encodeURIComponent(query)}&backend=${encodeURIComponent(backend)}${own}${offline}`,
+      {
+        signal: ctrl.signal,
+        // Keys typed in the UI travel with the request; the server keeps none.
+        headers: settings.searchKeys && Object.keys(settings.searchKeys).length
+          ? { 'x-re-search-keys': JSON.stringify(settings.searchKeys) }
+          : undefined,
+      },
+    )
     clearTimeout(timer)
     if (res.ok) {
       const json = await res.json()
@@ -44,6 +64,11 @@ export async function webSearch(query: string, count = 6): Promise<SearchOutcome
         domain: r.domain ?? safeDomain(r.url),
         snippet: r.snippet ?? '',
         faviconHue: hue(r.domain ?? r.url),
+      }))
+      // Remember which engine answered, for the panel header and Settings →
+      // Search. A search that fell back must say it fell back.
+      useStore.setState((st) => ({
+        settings: { ...st.settings, searchLastEngine: String(json.backend ?? '') },
       }))
       if (results.length && json.backend && json.backend !== 'demo') {
         return { sources: results, backend: json.backend, live: true }

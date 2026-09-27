@@ -4,7 +4,7 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.29.0** also ships the **Tauri desktop app** — Windows
+Prefer an installer? **0.30.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically), Linux a `.deb`/`.AppImage`, macOS a `.dmg`. CI builds them from
 this tag and attaches them to the release you are reading; their hashes are in
@@ -25,10 +25,19 @@ You only need to do this once: from 0.29.0 on, the app updates itself.
 on its own is rolled back automatically. Source checkouts are told to
 `git pull && npm run build` instead, and the desktop app is handed the installer.
 
+0.30.0 answers the obvious question — *this repository is private, how does a
+user read its releases at all?* **Settings → Updates → Where updates come from**
+takes a **read-only token** (fine-grained, *Contents: read*; sent to GitHub and
+nowhere else), or a **manifest URL** (any static JSON listing releases — a gist,
+a bucket, your own server) if you would rather not hand out a token. And if you
+already have the archive, **install from file** takes `.tar.gz`/`.tgz`/`.zip`
+with the `SHA256SUMS` text, verifies the checksum before unpacking, and swaps it
+exactly like a network update.
+
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.29.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.29.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
+| `research-engine-0.30.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.30.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
 
 Verify either archive first:
 

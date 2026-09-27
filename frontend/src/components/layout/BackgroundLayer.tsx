@@ -1,5 +1,5 @@
 import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { BackgroundManager } from '@/components/backgrounds/BackgroundManager'
 import { ANIMATED_BG_KINDS } from '@/types'

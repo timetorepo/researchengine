@@ -2,7 +2,7 @@
 // violet→blue→teal gradient, beside a pipeline-aware label that cross-fades
 // through the actual stages of the request. No ellipsis animation.
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { ThinkingOrb } from 'thinking-orbs'
 import { STAGE_LABELS, type FlowStage } from '@/lib/flow/engine'
 import { useStore } from '@/stores/useStore'

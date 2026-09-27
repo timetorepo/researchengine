@@ -1,6 +1,6 @@
 import React, { memo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import {
   Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2, Gauge,
 } from 'lucide-react'

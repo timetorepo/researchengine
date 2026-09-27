@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
@@ -25,16 +25,22 @@ const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((
 const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 import { AppToaster } from '@/components/shared/AppToaster'
-import { CommandPalette } from '@/components/shared/CommandPalette'
-import { ShortcutsOverlay } from '@/components/shared/ShortcutsOverlay'
-import { SkillBuilderPanel } from '@/components/skills/SkillBuilderPanel'
-import { SkillRunModal } from '@/components/skills/SkillRunModal'
-import { StarField } from '@/components/easter/StarField'
-import { DiagnosticsOverlay } from '@/components/easter/DiagnosticsOverlay'
-import { Onboarding } from '@/components/onboarding/Onboarding'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { SettingsSheet } from '@/components/settings/SettingsSheet'
-import { TasksPanel } from '@/components/tasks/TasksPanel'
+/**
+ * On-demand overlays. None of these is on screen at first paint, so none of
+ * them belongs in the entry chunk: each is imported the moment its own flag
+ * turns on, and the idle preload below warms them so the first open is instant
+ * anyway. Settings alone is ~250 kB of tabs that used to load for every visit.
+ */
+const SettingsSheet = React.lazy(() => import('@/components/settings/SettingsSheet').then((m) => ({ default: m.SettingsSheet })))
+const TasksPanel = React.lazy(() => import('@/components/tasks/TasksPanel').then((m) => ({ default: m.TasksPanel })))
+const CommandPalette = React.lazy(() => import('@/components/shared/CommandPalette').then((m) => ({ default: m.CommandPalette })))
+const ShortcutsOverlay = React.lazy(() => import('@/components/shared/ShortcutsOverlay').then((m) => ({ default: m.ShortcutsOverlay })))
+const SkillBuilderPanel = React.lazy(() => import('@/components/skills/SkillBuilderPanel').then((m) => ({ default: m.SkillBuilderPanel })))
+const SkillRunModal = React.lazy(() => import('@/components/skills/SkillRunModal').then((m) => ({ default: m.SkillRunModal })))
+const Onboarding = React.lazy(() => import('@/components/onboarding/Onboarding').then((m) => ({ default: m.Onboarding })))
+const StarField = React.lazy(() => import('@/components/easter/StarField').then((m) => ({ default: m.StarField })))
+const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/DiagnosticsOverlay').then((m) => ({ default: m.DiagnosticsOverlay })))
 import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
 import { AppContextMenu } from '@/components/shared/AppContextMenu'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
@@ -48,6 +54,10 @@ import { wireAgentActivity } from '@/lib/ide/agents'
  *  but palette/navigation targets are warm by the time the user needs them. */
 function useRoutePreload() {
   useEffect(() => {
+    // Routes first: navigation should never wait on the network — and on a
+    // machine where the server is local or on the LAN, warming all of them is a
+    // disk read. Overlays follow, so the first open of Settings or the palette
+    // feels like it was always there.
     const load = () => {
       Promise.all([
         import('@/components/chat/ChatView'),
@@ -57,15 +67,22 @@ function useRoutePreload() {
         import('@/components/articles/ArticlesView'),
         import('@/components/library/LibraryView'),
         import('@/components/compare/CompareView'),
-      ]).catch(() => {})
+      ]).then(() => Promise.all([
+        import('@/components/settings/SettingsSheet'),
+        import('@/components/tasks/TasksPanel'),
+        import('@/components/shared/CommandPalette'),
+      ])).catch(() => {})
     }
-    const idle = (window as any).requestIdleCallback
-    if (typeof idle === 'function') {
-      const id = idle(load, { timeout: 4000 })
-      return () => (window as any).cancelIdleCallback?.(id)
-    }
-    const t = setTimeout(load, 2500)
-    return () => clearTimeout(t)
+    // Two frames after mount is "the shell is on screen": the user's first
+    // paint is never delayed, but the warm-up does not wait for a timeout
+    // either. The timer is a floor for a background tab, where rAF never fires.
+    let cancelled = false
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => { if (!cancelled) load() })
+    })
+    const t = setTimeout(() => { if (!cancelled) load() }, 1500)
+    return () => { cancelled = true; cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t) }
   }, [])
 }
 
@@ -148,6 +165,19 @@ function RouteLatch() {
 
 function RoutedApp() {
   const starfield = useUI((s) => s.starfield)
+  // One subscription for the overlay flags, so toggling any of them re-renders
+  // this component (and only mounts the overlay that turned on).
+  const overlay = useUI((s) => ({
+    settingsSheet: s.settingsSheet,
+    tasksPanel: s.tasksOpen,
+    paletteOpen: s.paletteOpen,
+    shortcutsOpen: s.shortcutsOpen,
+    skillBuilder: s.skillBuilderOpen,
+    skillRun: s.skillRun,
+    diagnostics: s.diagnostics,
+  }))
+  // First run only — a returning user never pays for the tour's chunk.
+  const firstRun = useStore((s) => s.settings.onboarded !== true)
   const location = useLocation()
   useGlobalShortcuts()
 
@@ -220,18 +250,28 @@ function RoutedApp() {
       </Shell>
       </ErrorBoundary>
       <AppToaster />
-      <SettingsSheet />
-      <TasksPanel />
-      {/* Skiper's scroll progress, adapted: it follows whichever surface is
-          scrolling and steps aside on tabs that have their own edge furniture. */}
-      <ScrollProgress />
+      {/* Always mounted: the vault prompt has to be able to appear over
+          anything, and the scroll rail follows whichever surface scrolls. */}
       <VaultUnlock />
-      <CommandPalette />
-      <ShortcutsOverlay />
-      <SkillBuilderPanel />
-      <SkillRunModal />
-      {starfield && <StarField />}
-      <DiagnosticsOverlay />
+      <ScrollProgress />
+      {/* Each overlay mounts only once its own flag is on, so the chunk is
+          fetched when it is actually wanted (and the idle preload has usually
+          fetched it already). */}
+      <Suspense fallback={null}>
+        {overlay && (
+          <>
+            {overlay.settingsSheet && <SettingsSheet />}
+            {overlay.tasksPanel && <TasksPanel />}
+            {overlay.paletteOpen && <CommandPalette />}
+            {overlay.shortcutsOpen && <ShortcutsOverlay />}
+            {overlay.skillBuilder && <SkillBuilderPanel />}
+            {overlay.skillRun && <SkillRunModal />}
+            {firstRun && <Onboarding />}
+            {starfield && <StarField />}
+            {overlay.diagnostics && <DiagnosticsOverlay />}
+          </>
+        )}
+      </Suspense>
     </>
   )
 }

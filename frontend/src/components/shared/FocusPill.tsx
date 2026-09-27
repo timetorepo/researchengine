@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Timer, Play, Pause, RotateCcw, SkipForward, GraduationCap, Code2, BookOpen, Sparkles, Flame } from 'lucide-react'
 import { useUI, type ActivityKind } from '@/stores/useUI'
 import { AnimatedNumber, useSteadyCountdown } from '@/components/shared/AnimatedNumber'

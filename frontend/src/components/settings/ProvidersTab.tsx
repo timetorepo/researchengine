@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Check, Eye, EyeOff, Loader2, RefreshCw, X, ShieldAlert, Plus, Search, Trash2, KeyRound, PackageOpen, MinusCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
+import { Check, Eye, EyeOff, Loader2, RefreshCw, X, ShieldAlert, Plus, Search, Timer, Trash2, KeyRound, PackageOpen, MinusCircle } from 'lucide-react'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { testConnection, ollamaTags } from '@/lib/providers/stream'
@@ -31,6 +31,10 @@ export function ProvidersTab() {
    * chooses "remove and delete the key", because losing a key you paid for
    * because you tidied a list would be a bad trade.
    */
+  /** Default patience: 45 s, and the field clamps to 3–600. */
+  const timeoutFor = (id: string) => settings.providerTimeouts?.[id] ?? 45
+  const patch = (p: Partial<typeof settings>) => useStore.setState((st) => ({ settings: { ...st.settings, ...p } }))
+
   const added = settings.addedProviders ?? []
   const addedMetas = PROVIDERS.filter((p) => added.includes(p.id))
   const available = useMemo(() => {
@@ -232,8 +236,9 @@ export function ProvidersTab() {
           <div className="text-[15px] font-semibold mb-1">No providers yet</div>
           <p className="text-[12.5px] max-w-[420px] mx-auto mb-4" style={{ color: 'var(--text-2)' }}>
             Research Engine ships {PROVIDERS.length} provider integrations — the big hosted labs, the fast
-            inference hosts, your own local models, and FreeRoute for the free tiers. Add the ones you have keys for
-            and their models appear in the picker immediately.
+            inference hosts, and your own local models. Add the ones you have keys for, and their models appear in
+            the picker immediately. Nothing else is required: free routing uses whatever free tiers those providers
+            already give you (see Models), and searching works without a key at all (see Search).
           </p>
           <button onClick={() => setAdding(true)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[12.5px] font-medium"
@@ -397,6 +402,27 @@ export function ProvidersTab() {
                   )}
                 </div>
                 <div className="flex sm:flex-col gap-2 items-stretch">
+                  {/* Your patience with this provider, in seconds. This is the
+                      app's own timeout, not a setting on their server. */}
+                  <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-[10px] text-[11.5px]"
+                    style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}
+                    title="How long the app waits for this provider before giving up on a reply. Your app's timeout — the provider's own server setting is not visible to us.">
+                    <Timer size={12} />
+                    <input
+                      type="number" min={3} max={600} step={1}
+                      aria-label={`${p.name} timeout in seconds`}
+                      value={timeoutFor(p.id)}
+                      onChange={(e) => {
+                        const n = Number(e.target.value)
+                        const next = { ...(settings.providerTimeouts ?? {}) }
+                        if (!Number.isFinite(n) || n <= 0) delete next[p.id]
+                        else next[p.id] = Math.min(600, Math.max(3, Math.round(n)))
+                        patch({ providerTimeouts: next })
+                      }}
+                      className="w-11 bg-transparent outline-none text-[11.5px] text-right tabular-nums"
+                    />
+                    <span style={{ color: 'var(--text-3)' }}>s</span>
+                  </label>
                   <button onClick={() => saveProvider(p.id)} className="px-3 py-1.5 rounded-[10px] text-[12px] font-medium"
                     style={{ background: 'var(--elevated)', color: 'var(--text)' }}>Save</button>
                   <button onClick={() => test(p.id)} disabled={state === 'busy'}

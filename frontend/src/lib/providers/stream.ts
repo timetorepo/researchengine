@@ -14,6 +14,12 @@ export interface StreamRequest {
   temperature?: number
   maxTokens?: number
   signal?: AbortSignal
+  /**
+   * How long to wait for the provider before giving up, in ms. This is *our*
+   * patience, set per provider in Settings → Providers — not the provider's own
+   * server-side limit, which we cannot see from here.
+   */
+  timeoutMs?: number
   onFirstByte?: () => void
   /** OpenAI-style tool specs; provider dialects are translated by the proxy. */
   tools?: any[]
@@ -155,40 +161,26 @@ export async function streamToCallback(
     const onOuter = () => ctrl.abort()
     req.signal?.addEventListener('abort', onOuter)
     let gotChunk = false
-    const timer = setTimeout(() => { if (!gotChunk && !req.signal?.aborted) ctrl.abort() }, 45000)
+    const patience = Math.max(3_000, req.timeoutMs ?? 45_000)
+    const timer = setTimeout(() => { if (!gotChunk && !req.signal?.aborted) ctrl.abort() }, patience)
     const chunk = (t: string) => {
       if (!gotChunk && t) { gotChunk = true; clearTimeout(timer) }
       onChunk(t)
     }
     try {
-      // FreeRoute is its own hop: the request goes to our own backend, which
-      // walks the free tiers and fails over for us. Same OpenAI dialect, so the
-      // parsing below is untouched.
-      const frHeaders = meta.id === 'freeroute' ? await freeRouteHeaders() : {}
-      const res = meta.id === 'freeroute'
-        ? await fetch('/api/freeroute/v1/chat/completions', {
-            method: 'POST', signal: ctrl.signal,
-            headers: { 'content-type': 'application/json', ...frHeaders },
-            body: JSON.stringify({
-              model: req.model,
-              messages: [{ role: 'system', content: req.system }, ...req.messages],
-              stream: true,
-              max_tokens: req.maxTokens ?? 1024,
-              temperature: req.temperature ?? 0.7,
-              stream_options: { include_usage: true },
-              ...(req.tools?.length ? { tools: req.tools } : {}),
-            }),
-          })
-        : await fetch('/api/chat', {
-            method: 'POST', signal: ctrl.signal,
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              kind: meta.kind, base, key: req.apiKey, model: req.model,
-              system: req.system, messages: req.messages,
-              maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
-              tools: req.tools?.length ? req.tools : undefined,
-            }),
-          })
+      // One hop: our own backend translates the dialect and streams it back.
+      // (FreeRoute used to need a branch here — it was a provider. It is a
+      // routing feature now, so every model goes the same way.)
+      const res = await fetch('/api/chat', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: meta.kind, base, key: req.apiKey, model: req.model,
+          system: req.system, messages: req.messages,
+          maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
+          tools: req.tools?.length ? req.tools : undefined,
+        }),
+      })
       if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
       req.onFirstByte?.()
       if (meta.kind === 'anthropic') {
@@ -306,34 +298,6 @@ export async function streamToCallback(
 }
 
 /**
- * FreeRoute sends the keys it needs for the routes the user configured, and the
- * order to try them in. Nothing is stored server-side — they live in the vault
- * on this machine and travel with the request only.
- */
-export async function freeRouteHeaders(): Promise<Record<string, string>> {
-  try {
-    // Imported on demand: this module is imported by the store's own callers,
-    // so a top-level import of the store here would close a cycle.
-    const { useStore } = await import('@/stores/useStore')
-    const fr = (useStore.getState().settings as any)?.freeRoute
-    const keys: Record<string, string> = {}
-    const providers = useStore.getState().settings.providers
-    for (const [id, conf] of Object.entries(providers)) {
-      if (conf?.apiKey) keys[id] = conf.apiKey
-    }
-    for (const [id, key] of Object.entries(fr?.keys ?? {})) {
-      if (key) keys[id] = String(key)
-    }
-    return {
-      'x-re-freeroute-keys': JSON.stringify(keys),
-      ...(Array.isArray(fr?.order) && fr.order.length ? { 'x-re-freeroute-order': fr.order.join(',') } : {}),
-    }
-  } catch {
-    return {}
-  }
-}
-
-/**
  * Discovery goes through the same-origin backend proxy: third-party APIs
  * (NVIDIA NIM, Anthropic, ...) block browser CORS, and the proxy also gives
  * us one fast, timeout-bounded hop for every provider.
@@ -361,16 +325,6 @@ export async function testConnection(providerId: string, apiKey: string, baseUrl
 export async function fetchProviderModels(providerId: string, apiKey: string, baseUrl?: string): Promise<string[]> {
   const meta = providerById(providerId)
   if (!meta) throw new Error('Unknown provider')
-  if (meta.id === 'freeroute') {
-    // The FreeRoute model list is the healthy free models across every route.
-    const res = await fetch('/api/freeroute/v1/models', { headers: await freeRouteHeaders() })
-    if (!res.ok) throw new Error(`FreeRoute discovery failed (${res.status})`)
-    const json: any = await res.json()
-    return (json.data ?? [])
-      .filter((m: any) => m.healthy !== false)
-      .map((m: any) => String(m.id))
-      .sort((a: string, b: string) => a.localeCompare(b))
-  }
   const base = (baseUrl || meta.baseUrl).replace(/\/$/, '')
   const out = await proxyDiscover(meta.kind, base, apiKey)
   return (out.models ?? []).sort((a, b) => a.localeCompare(b))

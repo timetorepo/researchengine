@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { AnimatePresence, Reorder, motion, useDragControls } from 'framer-motion'
+import { AnimatePresence, Reorder, motion, useDragControls } from 'motion/react'
 import { Check, GripVertical, Pin, PinOff, Shuffle, Trash2, Sparkles, ListChecks } from 'lucide-react'
 import { clsx } from 'clsx'
 import { shuffled } from '@/lib/ui/skins'

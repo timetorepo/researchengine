@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Loader2, Search, Users, Square, Wind, X } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
 import { useStore } from '@/stores/useStore'
@@ -58,12 +58,14 @@ export function DynamicIsland() {
   // Cross-fade config when motion is reduced, spring morph otherwise.
   // Exits are short and opacity-dominant; mode="wait" on the parent keeps the
   // outgoing face and incoming face from ever overlapping mid-resize.
+  // `ease` is typed as a known easing on motion v13 (the framer-motion v11
+  // string spelling is gone), so the easing names are literal types here.
   const contentAnim = reduced
     ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.12 } }
     : {
         initial: { opacity: 0, scale: 0.94 },
         animate: { opacity: 1, scale: 1 },
-        exit: { opacity: 0, scale: 0.97, transition: { duration: 0.12, ease: 'easeIn' } },
+        exit: { opacity: 0, scale: 0.97, transition: { duration: 0.12, ease: 'easeIn' as const } },
         transition: islandSpring,
       }
 

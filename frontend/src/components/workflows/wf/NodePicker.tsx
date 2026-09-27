@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { Search } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { NODE_LIBRARY, KIND_COLOR, KIND_LABEL, type NodeDef } from '@/lib/workflows/library'
 import type { NodeKind } from '@/lib/workflows/types'
 

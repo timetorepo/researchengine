@@ -80,6 +80,22 @@ export interface UpdateDeps {
   /** Override the API/raw hosts — the tests point these at a local server. */
   apiBase?: string
   rawBase?: string
+  /**
+   * Which repository to read. A private repo works exactly like a public one
+   * once a read-only token is supplied — the only difference is the header.
+   */
+  repo?: string
+  /**
+   * A read-only token for a private repository. Sent to GitHub hosts only, and
+   * never written to a log: a token is a credential, not a setting to echo.
+   */
+  token?: string
+  /**
+   * A release manifest you host yourself — a static JSON file anywhere. This is
+   * the way out of GitHub entirely: no API quota, no token, no visibility
+   * question, and it works from a LAN share or an internal server.
+   */
+  manifestUrl?: string
   log?: (message: string) => void
   now?: () => number
 }
@@ -173,6 +189,19 @@ export function clearOutcome(deps: UpdateDeps) {
 
 const apiBase = (deps: UpdateDeps) => deps.apiBase ?? 'https://api.github.com'
 const rawBase = (deps: UpdateDeps) => deps.rawBase ?? 'https://raw.githubusercontent.com'
+/** Which repo this build reads from. */
+export const repoOf = (deps: UpdateDeps) => deps.repo?.trim() || REPO
+
+/** Hosts that may see the token. A custom manifest host never does. */
+const GITHUB_HOSTS = new Set(['api.github.com', 'raw.githubusercontent.com', 'github.com', 'objects.githubusercontent.com', 'codeload.github.com'])
+function authFor(deps: UpdateDeps, url: string): Record<string, string> {
+  if (!deps.token) return {}
+  try {
+    const host = new URL(url).hostname
+    const base = new URL(apiBase(deps)).hostname
+    return GITHUB_HOSTS.has(host) || host === base ? { authorization: `Bearer ${deps.token}` } : {}
+  } catch { return {} }
+}
 
 /**
  * Two ways to read the same file out of the same immutable tag:
@@ -187,13 +216,13 @@ const rawBase = (deps: UpdateDeps) => deps.rawBase ?? 'https://raw.githubusercon
  */
 export function fileUrls(deps: UpdateDeps, version: string, name: string): string[] {
   return [
-    `${rawBase(deps)}/${REPO}/v${version}/downloads/${name}`,
-    `${apiBase(deps)}/repos/${REPO}/contents/downloads/${name}?ref=v${version}`,
+    `${rawBase(deps)}/${repoOf(deps)}/v${version}/downloads/${name}`,
+    `${apiBase(deps)}/repos/${repoOf(deps)}/contents/downloads/${name}?ref=v${version}`,
   ]
 }
 
 /** The same file, in the shape a fetch needs (the API path wants a different accept). */
-function requestFor(url: string): { url: string; init: RequestInit } {
+function requestFor(deps: UpdateDeps, url: string): { url: string; init: RequestInit } {
   const isApi = url.includes('/contents/')
   return {
     url,
@@ -201,6 +230,7 @@ function requestFor(url: string): { url: string; init: RequestInit } {
       headers: {
         accept: isApi ? 'application/vnd.github.raw' : 'application/octet-stream',
         'user-agent': 'research-engine-updater',
+        ...authFor(deps, url),
       },
     },
   }
@@ -208,16 +238,95 @@ function requestFor(url: string): { url: string; init: RequestInit } {
 
 async function getJson(deps: UpdateDeps, url: string): Promise<any> {
   const doFetch = deps.fetchImpl ?? fetch
-  const res = await doFetch(url, { headers: { accept: 'application/vnd.github+json', 'user-agent': 'research-engine-updater' } })
-  if (!res.ok) throw new Error(`GitHub replied ${res.status} for ${url}`)
+  const res = await doFetch(url, {
+    headers: { accept: 'application/vnd.github+json', 'user-agent': 'research-engine-updater', ...authFor(deps, url) },
+  })
+  if (!res.ok) {
+    // 404 on a private repo means "no token, or a token without repo access".
+    if (res.status === 404 && deps.token === undefined) throw new Error('GitHub replied 404 — if this repository is private, add a read-only token in Settings → Updates')
+    if (res.status === 401 || res.status === 403) throw new Error(`GitHub refused the token (${res.status}) — it needs read-only repository access`)
+    throw new Error(`GitHub replied ${res.status} for ${url}`)
+  }
   return await res.json()
+}
+
+/**
+ * A release manifest you host yourself.
+ *
+ * Accepted shapes, so it can be hand-written in ten seconds:
+ *
+ *   { "releases": [ { "tag_name": "v1.2.0", "body": "…", "assets": [...] } ] }
+ *   [ { "tag_name": "v1.2.0", … } ]
+ *   { "tag_name": "v1.2.0", "version": "1.2.0", "notes": "…",
+ *     "archive": "https://…/research-engine-1.2.0-linux-x64.tar.gz",
+ *     "sums":    "https://…/SHA256SUMS" }
+ *
+ * The single-release form is the one to reach for: it needs no per-platform
+ * asset table, because `archive` names the file directly.
+ */
+export function manifestReleases(json: any, fallbackUrl = ''): ReleaseLike[] {
+  const raw = Array.isArray(json) ? json : Array.isArray(json?.releases) ? json.releases : [json]
+  return raw.filter(Boolean).map((r: any) => {
+    const version = String(r.version ?? r.tag_name ?? r.tag ?? '').replace(/^v/, '')
+    const assets = Array.isArray(r.assets) ? r.assets : []
+    if (r.archive) {
+      assets.push({
+        name: String(r.archive).split('/').pop() ?? archiveNameFor(version, 'linux-x64'),
+        browser_download_url: String(r.archive),
+        size: Number(r.size ?? 0),
+      })
+    }
+    return {
+      tag_name: r.tag_name ?? `v${version}`,
+      name: r.name ?? `v${version}`,
+      body: r.body ?? r.notes ?? '',
+      published_at: r.published_at ?? r.publishedAt ?? '',
+      html_url: r.html_url ?? r.url ?? fallbackUrl,
+      prerelease: r.prerelease ?? true,
+      draft: r.draft ?? false,
+      assets,
+      sums: r.sums ?? r.sumsUrl ?? null,
+    }
+  })
 }
 
 /** Newest published release, prereleases included (see version.ts for why). */
 export async function latestRelease(deps: UpdateDeps): Promise<ReleaseInfo | null> {
-  const list = await getJson(deps, `${apiBase(deps)}/repos/${REPO}/releases?per_page=30`)
+  if (deps.manifestUrl) {
+    const json = await getJson(deps, deps.manifestUrl)
+    const list = manifestReleases(json, deps.manifestUrl)
+    const latest = pickLatest(list, 'beta')
+    if (latest && !latest.sums) latest.sums = findSumsIn(list)
+    return latest
+  }
+  const list = await getJson(deps, `${apiBase(deps)}/repos/${repoOf(deps)}/releases?per_page=30`)
   if (!Array.isArray(list)) throw new Error('unexpected release list from GitHub')
   return pickLatest(list as ReleaseLike[], 'beta')
+}
+
+/** A `sums` URL from any entry in the manifest, so a single-release file needs none. */
+function findSumsIn(list: ReleaseLike[]): string | null {
+  for (const r of list) if (r.sums) return r.sums
+  return null
+}
+
+/**
+ * The checksum list's URLs: the manifest's own `sums` link when it has one,
+ * otherwise the file committed beside the archive at the same tag.
+ */
+export function hashUrlsFor(deps: UpdateDeps, version: string, release?: ReleaseInfo | null): string[] {
+  if (release?.sums) return [release.sums]
+  return fileUrls(deps, version, 'SHA256SUMS')
+}
+
+/**
+ * Which archive URLs to try for a version: the manifest's own link when it
+ * named one, otherwise the committed archive and its asset twin.
+ */
+export function archiveUrlsFor(deps: UpdateDeps, version: string, release?: ReleaseInfo | null, asset?: { name: string; url?: string; urls?: string[] } | null): string[] {
+  if (asset?.urls?.length) return asset.urls
+  if (asset?.url) return [asset.url]
+  return fileUrls(deps, version, archiveNameFor(version, deps.platform))
 }
 
 export interface CheckResult {
@@ -251,9 +360,9 @@ export async function checkForUpdate(deps: UpdateDeps): Promise<CheckResult> {
     // The portable archive is committed inside the tagged tree, so the download
     // and its checksum come from the same immutable release.
     asset: latest && portable
-      ? { name, urls: fileUrls(deps, latest.version, name), size: asset?.size ?? 0 }
+      ? { name, urls: archiveUrlsFor(deps, latest.version, latest, asset), size: asset?.size ?? 0 }
       : asset ? { name: asset.name, urls: [asset.url], size: asset.size } : null,
-    hashUrls: latest ? fileUrls(deps, latest.version, 'SHA256SUMS') : [],
+    hashUrls: latest ? hashUrlsFor(deps, latest.version, latest) : [],
     kind: deps.kind,
     canSelfUpdate: portable,
     reason: portable ? undefined
@@ -314,7 +423,7 @@ export async function downloadAny(
   const errors: string[] = []
   for (const url of urls) {
     try {
-      const req = requestFor(url)
+      const req = requestFor(deps, url)
       const out = await download(deps, req.url, onProgress, maxBytes, req.init)
       return { ...out, url }
     } catch (e: any) {
@@ -330,7 +439,7 @@ export async function fetchTextAny(deps: UpdateDeps, urls: string[]): Promise<{ 
   const errors: string[] = []
   for (const url of urls) {
     try {
-      const req = requestFor(url)
+      const req = requestFor(deps, url)
       const res = await doFetch(req.url, req.init)
       if (!res.ok) { errors.push(`${new URL(url).hostname}: HTTP ${res.status}`); continue }
       return { text: await res.text(), url }
@@ -448,6 +557,109 @@ export function rollback(deps: UpdateDeps, reason: string): UpdateOutcome {
   const outcome: UpdateOutcome = { ok: false, from, to, at: (deps.now ?? Date.now)(), restored: true, reason }
   writeOutcome(deps, outcome)
   return outcome
+}
+
+/* ------------------------------------------------- install from a file ---- */
+
+/**
+ * Install an archive the user already has.
+ *
+ * This is the answer to "the repository is private — how does a user update?":
+ * they download the release archive from wherever they can reach it (the GitHub
+ * UI, a shared drive, an e-mail attachment), hand it to the app, and the app
+ * does exactly what the online path does — checks it against SHA256SUMS, unpacks
+ * it, verifies it is a real build, and swaps. The checksum still has to come
+ * from somewhere the user trusts, so it is either pasted in with the file or
+ * read from the same tag.
+ */
+export function versionFromArchiveName(name: string): string | null {
+  const m = name.match(/research-engine-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)-(?:linux|win|mac)/)
+  return m ? m[1] : null
+}
+
+export async function installFromFile(
+  deps: UpdateDeps,
+  file: { name: string; buffer: Buffer },
+  opts: { version?: string; sumsText?: string } = {},
+): Promise<{ ok: true; pending: PendingUpdate } | { ok: false; error: string }> {
+  if (busy) return { ok: false, error: 'an update is already running' }
+  if (deps.kind !== 'portable' || !deps.appRoot) {
+    return { ok: false, error: 'this build cannot update itself in place' }
+  }
+  busy = true
+  try {
+    const name = file.name.split(/[/\\]/).pop() ?? file.name
+    const version = opts.version?.trim() || versionFromArchiveName(name) || ''
+    if (!version) {
+      const error = `the file name "${name}" does not carry a version — rename it like research-engine-1.2.3-${deps.platform}.tar.gz, or pass the version`
+      setProgress({ phase: 'error', error, message: error })
+      return { ok: false, error }
+    }
+    setProgress({ phase: 'verifying', pct: 0, from: deps.currentVersion, to: version, message: `Checking ${name}…` })
+
+    // 1. The checksum. Pasted, or read from the release when the network allows.
+    let sumsText = opts.sumsText ?? ''
+    if (!sumsText) {
+      try {
+        sumsText = (await fetchTextAny(deps, hashUrlsFor(deps, version, null))).text
+      } catch (e: any) {
+        const error = `no checksum to check ${name} against — paste the SHA256SUMS line, or let this app reach the release (${e?.message ?? e})`
+        setProgress({ phase: 'error', error, message: error })
+        return { ok: false, error }
+      }
+    }
+    const want = expectedHash(sumsText, name)
+    if (!want) {
+      const error = `${name} is not listed in the checksums you gave — refusing to install unverified`
+      setProgress({ phase: 'error', error, message: error })
+      return { ok: false, error }
+    }
+
+    // 2. Verify the bytes before touching them.
+    const sha256 = createHash('sha256').update(file.buffer).digest('hex')
+    if (sha256 !== want) {
+      const error = `checksum mismatch — expected ${want.slice(0, 12)}…, got ${sha256.slice(0, 12)}… (nothing was changed)`
+      setProgress({ phase: 'error', error, message: error })
+      return { ok: false, error }
+    }
+
+    // 3. Unpack, then 4. check it is a real build of that version.
+    const stage = guard(deps.appRoot, deps.dataDir, stageDir(deps), 'the staging folder')
+    rmrf(stage)
+    mkdirSync(stage, { recursive: true })
+    setProgress({ phase: 'extracting', pct: 0, message: 'Unpacking…' })
+    try {
+      extractArchive(file.buffer, stage, { strip: 1 })
+    } catch (e: any) {
+      rmrf(stage)
+      const error = `the archive could not be unpacked: ${e?.message ?? e}`
+      setProgress({ phase: 'error', error, message: error })
+      return { ok: false, error }
+    }
+    const checkStage = validateStage(stage, version)
+    if (!checkStage.ok) {
+      rmrf(stage)
+      const error = `the archive is not a usable build: ${checkStage.reason}`
+      setProgress({ phase: 'error', error, message: error })
+      return { ok: false, error }
+    }
+
+    setProgress({ phase: 'swapping', pct: 100, message: 'Putting the new version in place…' })
+    const pending = swapIn(deps, stage, version, deps.currentVersion)
+    deps.log?.(`updated ${pending.from} → ${pending.to} from a local archive`)
+    setProgress({
+      phase: 'ready', pct: 100,
+      message: `Updated to ${version}. Restart to run it — your library was not touched.`,
+      from: pending.from, to: pending.to,
+    })
+    return { ok: true, pending }
+  } catch (e: any) {
+    const error = String(e?.message ?? e)
+    setProgress({ phase: 'error', error, message: error })
+    return { ok: false, error }
+  } finally {
+    busy = false
+  }
 }
 
 /* --------------------------------------------------------------- install ---- */

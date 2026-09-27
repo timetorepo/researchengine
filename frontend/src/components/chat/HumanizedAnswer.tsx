@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Check, Copy, Eye, Feather, History, Loader2, RotateCcw, Sparkles, X } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { Markdown } from './Markdown'

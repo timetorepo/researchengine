@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud, Search, Code2, Swords, Calculator } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'

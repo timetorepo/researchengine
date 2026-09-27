@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Lock, LockOpen } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
 import { useStore } from '@/stores/useStore'

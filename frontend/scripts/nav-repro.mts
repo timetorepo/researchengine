@@ -2,6 +2,7 @@
 // route transitions) with jsdom and verifies that nav clicks keep working after
 // the sequence: sidebar -> page -> home -> page ...
 import { JSDOM } from 'jsdom'
+import { applyVoiceGlowShims } from './dom-shims.mjs'
 
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
   url: 'http://localhost:5173/',
@@ -9,6 +10,7 @@ const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></
 })
 
 const w = dom.window as any
+applyVoiceGlowShims(w)
 // ---- wire globals BEFORE importing react/app ----
 for (const k of ['window', 'document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'Element', 'Node', 'SVGElement', 'MouseEvent', 'KeyboardEvent', 'Event', 'CustomEvent', 'PointerEvent', 'getComputedStyle', 'localStorage', 'sessionStorage', 'history', 'location', 'requestAnimationFrame', 'cancelAnimationFrame', 'CSS', 'Image', 'DocumentFragment', 'AbortController', 'AbortSignal']) {
   try { (globalThis as any)[k] = w[k] } catch {

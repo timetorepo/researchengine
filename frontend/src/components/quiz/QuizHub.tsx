@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   UploadCloud, FileText, Trash2, Play, ChevronRight, RotateCcw, BookOpen, Sparkles,
   GraduationCap, FileSearch, ScanText, Brain, AlertTriangle, Eye, X,

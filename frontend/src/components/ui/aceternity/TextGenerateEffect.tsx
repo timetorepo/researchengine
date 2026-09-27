@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { motion, useAnimate } from 'framer-motion'
+import { motion, useAnimate } from 'motion/react'
 
 /** Aceternity-style text generate effect — words materialize with blur + rise. */
 export function TextGenerateEffect({

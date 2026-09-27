@@ -6,7 +6,7 @@
  * has to guess what `/godmode` means before pressing Enter.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { Wand2 } from 'lucide-react'
 import { matchCommands, COMMAND_SOURCE_LABEL, type SlashCommand } from '@/lib/ide/commands'
 import { scrollChildIntoView } from '@/lib/dom/scroll'

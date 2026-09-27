@@ -237,6 +237,8 @@ export function AppearanceTab() {
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
         <Switch label="Composer border beam" description="Ring the home-screen chatbox with Border Beam by Jakubantalik. Brightens while you type."
           checked={settings.composerBeam !== false} onChange={(v) => update({ composerBeam: v })} />
+        <Switch label="Dock animation" description="Model rows grow toward the pointer and lift their neighbours, like a dock. Off: the list stays perfectly still."
+          checked={settings.dockAnimation !== false} onChange={(v) => update({ dockAnimation: v })} />
         <Switch label="Smooth caret" description="Text fields hide the native caret and spring an animated one to the cursor instead (Skiper UI's smooth caret input). On by default."
           checked={settings.smoothCaret !== false} onChange={(v) => update({ smoothCaret: v })} />
         <Switch label="Scroll progress" description="A thin indicator on the edge of every scrolling surface (Skiper UI's scroll progress). Right-click it to unlock and drag it anywhere; this switch is how you bring it back if you hide it."

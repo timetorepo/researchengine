@@ -7,7 +7,7 @@
  * rather than guessing an argument for you.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import {
   FileCode2, Bot, MonitorUp, TerminalSquare, Save, Search, GitBranch, Bug, Wand2, Cpu, Cloud, CornerDownLeft,
 } from 'lucide-react'

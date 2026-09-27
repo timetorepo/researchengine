@@ -9,7 +9,7 @@
  * one, and the chip on the task says which.
  */
 import React, { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import {
   Bot, Plus, Loader2, Check, X, GitMerge, Trash2, AlertTriangle, Cpu, Cloud,
   ChevronDown, ChevronRight, FileText, Play, Sparkles, Circle,

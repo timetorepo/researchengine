@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Sparkles, X, Maximize2, Minimize2, GripVertical } from 'lucide-react'
 import { AgentPanel } from './AgentPanel'
 import { isStreamingChat } from '@/lib/chat/runChat'

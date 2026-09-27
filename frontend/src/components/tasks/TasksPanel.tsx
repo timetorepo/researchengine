@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { X, Plus, ListChecks, Sparkles, Trash2, Pin } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'

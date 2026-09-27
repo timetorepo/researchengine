@@ -22,7 +22,7 @@ export interface TierInfo {
 }
 
 /** Providers that never bill per token: local models and the free-tier router. */
-const NEVER_BILLED = new Set(['freeroute', 'ollama', 'lmstudio', 'custom'])
+const NEVER_BILLED = new Set(['ollama', 'lmstudio', 'custom'])
 
 /** Providers that are known to bill per token, so anything from them is paid
  *  unless a free rule above applies. */
@@ -45,10 +45,9 @@ export function modelTier(
   if (NEVER_BILLED.has(providerId)) {
     return {
       tier: 'free',
-      why: providerId === 'freeroute' ? 'FreeRoute only routes to free tiers'
-        : providerId === 'ollama' ? 'runs on this machine'
+      why: providerId === 'ollama' ? 'runs on this machine'
         : providerId === 'lmstudio' ? 'runs on this machine'
-        : 'your own endpoint',
+        : 'your own endpoint, on this machine',
       source: 'auto',
     }
   }

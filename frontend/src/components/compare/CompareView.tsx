@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { Swords, Send, Crown, Merge, Loader2 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'

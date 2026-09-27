@@ -1,12 +1,11 @@
 import React from 'react'
 import {
   KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound,
-  Terminal, Route, ArrowDownToLine,
+  Terminal, ArrowDownToLine, Mic,
 } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
-import { FreeRouteTab } from './FreeRouteTab'
 import { IntegrationsTab } from './IntegrationsTab'
 import { SearchTab } from './SearchTab'
 import { AppearanceTab } from './AppearanceTab'
@@ -20,13 +19,14 @@ import { AboutTab } from './AboutTab'
 import { PerformanceTab } from './PerformanceTab'
 import { DeveloperTab } from './DeveloperTab'
 import { UpdatesTab } from './UpdatesTab'
+import { VoiceTab } from './VoiceTab'
 
 export const TABS = [
   { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'providers', label: 'Providers', icon: KeyRound },
   { id: 'updates', label: 'Updates', icon: ArrowDownToLine },
-  { id: 'freeroute', label: 'FreeRoute', icon: Route },
   { id: 'integrations', label: 'Integrations', icon: Plug },
+  { id: 'voice', label: 'Voice', icon: Mic },
   { id: 'search', label: 'Search', icon: Search },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'models', label: 'Models', icon: Cpu },
@@ -46,8 +46,8 @@ export function renderTab(tab: string): React.ReactNode {
     case 'profile': return <ProfileTab />
     case 'providers': return <ProvidersTab />
     case 'updates': return <UpdatesTab />
-    case 'freeroute': return <FreeRouteTab />
     case 'integrations': return <IntegrationsTab />
+    case 'voice': return <VoiceTab />
     case 'search': return <SearchTab />
     case 'appearance': return <AppearanceTab />
     case 'models': return <ModelsTab />

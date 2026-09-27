@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { BookMarked, Lightbulb, Download, Trash2, Search, Layers, Plus } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'

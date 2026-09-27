@@ -1,7 +1,7 @@
 import { Markdown } from '@/components/chat/Markdown'
 import { normalizeStepText } from '@/lib/reader/format'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { X, ChevronRight, Flame, Check, Sparkles, Timer as TimerIcon, BookOpen } from 'lucide-react'
 import type { QuizQuestion } from '@/types'
 import { useStore } from '@/stores/useStore'

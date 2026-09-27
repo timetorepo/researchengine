@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { Wrench, CheckCircle2, XCircle, ShieldAlert, TerminalSquare, ClipboardList, Send, Check, X, Code as CodeIcon } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { submitQuestionnaire, resolveExec } from '@/lib/chat/tools'

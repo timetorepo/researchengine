@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import {
   ArrowDownToLine, CheckCircle2, Download, HardDriveDownload, Loader2, RefreshCw, RotateCcw,
   ShieldCheck, Sparkles, TriangleAlert, FolderOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/heroui/Button'
+import { smoothCaretProps } from '@/components/input/SmoothText'
+import HoldButton from '@/components/ui/reactbits/micro/HoldButton'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -22,9 +24,26 @@ export function UpdatesTab() {
   const settings = useStore((s) => s.settings)
   const update = (patch: any) => useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
   const autoCheck = settings.updates?.autoCheck !== false
-  const { status, check, error, busy, refreshStatus, runCheck, install, setError } = useUpdates({ autoCheck: false })
+  const { status, check, error, busy, refreshStatus, runCheck, install, installFromFile, setError } = useUpdates({ autoCheck: false })
   const [checking, setChecking] = useState(false)
   const [justChecked, setJustChecked] = useState(false)
+  const [archive, setArchive] = useState<File | null>(null)
+  const [sums, setSums] = useState('')
+  const [localNote, setLocalNote] = useState('')
+  const fileRef = React.useRef<HTMLInputElement>(null)
+  const src = settings.updates ?? {}
+  const patchSource = (patch: Partial<NonNullable<typeof settings.updates>>) =>
+    update({ updates: { ...(settings.updates ?? {}), ...patch } })
+
+  /** Hand the chosen archive to the server, which verifies it before swapping. */
+  const doInstallFile = async () => {
+    if (!archive) return
+    setLocalNote('')
+    const okGo = await installFromFile(archive, sums || undefined)
+    setLocalNote(okGo
+      ? 'Installed — restart to run it. Your library was not touched.'
+      : 'The archive was refused. Nothing was changed.')
+  }
 
   const toast = (title: string, body: string, tone: 'success' | 'danger' | 'info' = 'info') =>
     useUI.getState().toast(title, body, tone)
@@ -199,7 +218,13 @@ export function UpdatesTab() {
         {(error || progress?.error) && (
           <div className="text-[12px] px-3 py-2 rounded-[10px] mb-3"
             style={{ background: 'color-mix(in srgb, var(--danger) 10%, transparent)', color: 'var(--danger)' }}>
-            {error ?? progress?.error}
+            <div>{error ?? progress?.error}</div>
+            {/UNABLE_TO_VERIFY|certificate|self.signed|SELF_SIGNED/i.test(String(error ?? progress?.error)) && (
+              <div className="mt-1" style={{ color: 'var(--text-2)' }}>
+                This network uses its own certificate authority. Start the server with
+                {' '}<code>NODE_EXTRA_CA_CERTS=/path/to/your-ca.pem</code>, or use a manifest URL or an archive file instead.
+              </div>
+            )}
           </div>
         )}
 
@@ -207,10 +232,31 @@ export function UpdatesTab() {
           <Button variant="flat" onClick={doCheck} disabled={checking || running}>
             {checking ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Check for updates
           </Button>
-          {check?.available && !pending && (
+          {check?.available && !pending && kind !== 'desktop' && (
+            /* Swapping the running app is worth a deliberate press: hold to
+               fill, then it installs. The desktop path below stays a plain
+               button — it only downloads an installer you then run yourself. */
+            <HoldButton
+              size="md"
+              holdTime={900}
+              radius={10}
+              wave
+              glow
+              disabled={busy || running}
+              backgroundColor="var(--primary)"
+              fillColor="color-mix(in srgb, var(--primary) 55%, #000)"
+              textColor="#fff"
+              fillTextColor="#fff"
+              icon={busy ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              onHold={doInstall}
+            >
+              {`Hold to install ${check.latest}`}
+            </HoldButton>
+          )}
+          {check?.available && !pending && kind === 'desktop' && (
             <Button onClick={doInstall} disabled={busy || running}>
               {busy ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-              {kind === 'desktop' ? `Download ${check.latest} installer` : `Install ${check.latest}`}
+              {`Download ${check.latest} installer`}
             </Button>
           )}
           {check?.url && (
@@ -220,6 +266,98 @@ export function UpdatesTab() {
               <HardDriveDownload size={13} /> Release notes
             </a>
           )}
+        </div>
+      </section>
+
+      {/* Where updates come from */}
+      <section className="surface p-4" style={{ borderRadius: 'var(--radius-card)' }}>
+        <h3 className="text-[14px] font-semibold mb-1">Where updates come from</h3>
+        <p className="text-[12px] mb-3" style={{ color: 'var(--text-3)' }}>
+          This project's repository is <b>private</b> while it is in beta, so an update needs one of three things.
+          Any of them works; pick whichever suits how you got the app.
+        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11.5px] block mb-1" style={{ color: 'var(--text-3)' }}>
+              1. A read-only token for the repository (works while it is private)
+            </label>
+            <input
+              type="password"
+              value={src.token ?? ''}
+              onChange={(e) => patchSource({ token: e.target.value || undefined })}
+              placeholder="github_pat_… or ghp_…"
+              aria-label="GitHub token for updates"
+              {...smoothCaretProps()}
+              className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
+              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }} />
+            <div className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
+              A fine-grained token with <b>Contents: read</b> on this repository is enough. It is sent to GitHub only,
+              never logged, and only used when checking or installing.
+            </div>
+          </div>
+          <div>
+            <label className="text-[11.5px] block mb-1" style={{ color: 'var(--text-3)' }}>
+              2. Repository (leave empty for the built-in one)
+            </label>
+            <input
+              value={src.repo ?? ''}
+              onChange={(e) => patchSource({ repo: e.target.value || undefined })}
+              placeholder="timetorepo/researchengine"
+              aria-label="Update repository"
+              {...smoothCaretProps()}
+              className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
+              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }} />
+          </div>
+          <div>
+            <label className="text-[11.5px] block mb-1" style={{ color: 'var(--text-3)' }}>
+              3. Your own release manifest — any static URL, no GitHub at all
+            </label>
+            <input
+              value={src.manifestUrl ?? ''}
+              onChange={(e) => patchSource({ manifestUrl: e.target.value || undefined })}
+              placeholder="https://example.com/research-engine/latest.json"
+              aria-label="Release manifest URL"
+              {...smoothCaretProps()}
+              className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
+              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }} />
+            <div className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>
+              <code>{'{"version":"0.30.0-beta.1","notes":"…","archive":"https://…/research-engine-0.30.0-beta.1-linux-x64.tar.gz"}'}</code>
+              {' '}— one JSON file answers every install. Set this and the GitHub paths are not used.
+            </div>
+          </div>
+          <div className="pt-1" style={{ borderTop: '1px solid var(--surface-border)' }}>
+            <div className="text-[11.5px] font-medium mt-3 mb-1">Or update from a file you already have</div>
+            <p className="text-[11.5px] mb-2" style={{ color: 'var(--text-3)' }}>
+              Download the release archive yourself (from the repo, a shared drive, anywhere) and hand it over —
+              it is checked against <code>SHA256SUMS</code> exactly like the online path, and your library is never touched.
+            </p>
+            <input ref={fileRef} type="file" accept=".tar.gz,.tgz,.zip" className="hidden"
+              aria-label="Release archive"
+              onChange={(e) => { setArchive(e.target.files?.[0] ?? null); setLocalNote(''); e.target.value = '' }} />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="flat" onClick={() => fileRef.current?.click()} disabled={busy}>
+                <FolderOpen size={13} /> Choose archive…
+              </Button>
+              {archive && <span className="text-[11.5px] font-mono" style={{ color: 'var(--text-2)' }}>{archive.name}</span>}
+              <Button onClick={doInstallFile} disabled={busy || !archive}>
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <ArrowDownToLine size={13} />} Install from file
+              </Button>
+            </div>
+            <textarea
+              value={sums}
+              onChange={(e) => setSums(e.target.value)}
+              rows={2}
+              placeholder="Optional: paste the SHA256SUMS line for that file (needed when this machine cannot reach the release)"
+              aria-label="Checksum text"
+              {...smoothCaretProps()}
+              className="w-full mt-2 px-3 py-2 rounded-[10px] text-[11.5px] font-mono outline-none resize-none"
+              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }} />
+            {localNote && <div className="text-[11.5px] mt-2" style={{ color: 'var(--text-2)' }}>{localNote}</div>}
+          </div>
+        </div>
+        <div className="text-[11px] mt-3" style={{ color: 'var(--text-3)' }}>
+          Reading from: <b>{status?.source?.manifestUrl ? 'your manifest' : (status?.source?.repo ?? 'timetorepo/researchengine')}</b>
+          {status?.source?.token === 'set' ? ' · token set' : ''}
         </div>
       </section>
 

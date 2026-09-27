@@ -8,7 +8,7 @@
  * each background agent.
  */
 import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import { FileText, FilePlus2, PencilLine, TerminalSquare, Search, FolderTree, AlertTriangle, Sparkles } from 'lucide-react'
 import type { IdeActivity } from '@/lib/chat/tools'
 import { describeActivity } from '@/lib/ide/agents'
