@@ -8,9 +8,9 @@ Prefer an installer? **0.29.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically), Linux a `.deb`/`.AppImage`, macOS a `.dmg`. CI builds them from
 this tag and attaches them to the release you are reading; their hashes are in
-`INSTALLERS.sha256` in this folder — taken from the reading CI published for the
-files it built and verified, cross-checked against the byte counts of the
-uploaded assets. A freshly built installer is never claimed here before it
+`INSTALLERS.sha256` in this folder, and they are GitHub's own sha256 readings of
+the uploaded assets (the API's `digest` for each file) — not a local copy that
+could have drifted. A freshly built installer is never claimed here before it
 exists; these ones do.
 
 Full hashes: `INSTALLERS.sha256` in this folder.

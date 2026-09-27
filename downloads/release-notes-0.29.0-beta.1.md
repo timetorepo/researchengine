@@ -101,7 +101,7 @@ it.
 |---|---|
 | `scripts/update-test.mts` | **93 checks, 0 failures** — including a real network update from the published release into a real install, and a packaged 0.29.0 build booted and probed as `portable` |
 | `scripts/models-test.mts` | **96 checks, 0 failures** |
-| `scripts/render-check.mts` | **607 checks, 0 failures** |
+| `scripts/render-check.mts` | **647 checks, 0 failures** — including the picker, the Providers tab and the token chip driven in a real DOM |
 | `scripts/nav-test.mts` | 20 checks, 0 failures |
 | `scripts/share-test.mts` | 18 checks, 0 failures |
 | `scripts/render-probe.mts` | 35 checks, 0 failures |
@@ -125,9 +125,17 @@ single requests, nothing left on disk. The report is in
 | Linux installer | `Research.Engine_0.29.0-beta.1_amd64.deb`, `…AppImage` | nothing |
 
 Unpack a portable archive, run it once, and every release after this one arrives
-through Settings → Updates. The installers are built by CI from this tag and
-attached to this release; `INSTALLERS.sha256` is updated with their hashes once
-CI has published them.
+through Settings → Updates. The installers were built by CI from this tag (run
+36288406493 — `Linux bundles` and `Windows installer`, both green) and are
+attached to this release; the hashes below are the ones GitHub reports for the
+uploaded bytes, which is the only reading of a file on GitHub's side that cannot
+be a local artifact. They are in `INSTALLERS.sha256` too.
+
+| Installer | sha256 |
+|---|---|
+| `Research.Engine_0.29.0-beta.1_amd64.AppImage` | `8f5a035515fbf0388bd31b51d2b0063c59ee601f6c694c6e695fb5c0bf5b4a80` |
+| `Research.Engine_0.29.0-beta.1_amd64.deb` | `7a81a1c391f9e28673e2e041eff6d2e92c289396872ff7773470ed6ac8411819` |
+| `Research.Engine_0.29.0-beta.1_x64-setup.exe` | `e2146bdca64188a87206390eb60b26cc3f50355c1621afa4e933e9a22e3833f5` |
 
 | File | sha256 |
 |---|---|
