@@ -114,3 +114,15 @@ Portable archives are also in `downloads/` in the repository, with hashes in
 - `research-engine-0.31.0-beta.1-win-x64.zip`
 
 Both are pure-JS portable builds: the only requirement is Node.js 20+.
+
+## Installers, built by CI from this tag
+
+| Asset | Bytes | sha256 |
+| --- | ---: | --- |
+| `Research.Engine_0.31.0-beta.1_x64-setup.exe` | 38,387,699 | `1cf5e088b33cd2d9e3070b5b356cd6cd084f0d6ab9eb9c9b80178002e198eb22` |
+| `Research.Engine_0.31.0-beta.1_amd64.deb` | 46,832,022 | `3121c136ff04717cee1b60efa1ed50866a597cfcb88cf63629bb52df26913f58` |
+| `Research.Engine_0.31.0-beta.1_amd64.AppImage` | 121,772,536 | `775279ffcfb65a2c1fb1fb82d074299f3f35d38c402864e0ba7693925c533473` |
+
+Those three digests are GitHub's own reading of the uploaded assets (the release
+API's `digest` field for each file); the same three lines are in
+`downloads/INSTALLERS.sha256`.
