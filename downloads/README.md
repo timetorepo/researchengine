@@ -15,9 +15,9 @@ drifted. A freshly built installer is never claimed here before it exists.
 
 | Installer | Platform | Size |
 |---|---|---|
-| `Research.Engine_0.32.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 38.9 MB |
-| `Research.Engine_0.32.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.3 MB |
-| `Research.Engine_0.32.0-beta.1_amd64.AppImage` | any x64 Linux | 122.2 MB |
+| `Research.Engine_0.33.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 38.9 MB |
+| `Research.Engine_0.33.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.4 MB |
+| `Research.Engine_0.33.0-beta.1_amd64.AppImage` | any x64 Linux | 122.3 MB |
 
 Full hashes: `INSTALLERS.sha256` in this folder.
 
