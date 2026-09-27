@@ -137,13 +137,17 @@ the repository is not public yet.
 
 | Installer | Platform | Size | sha256 (GitHub's own digest for the uploaded asset) |
 |---|---|---|---|
-| `Research.Engine_0.33.0-beta.1_x64-setup.exe` | Windows 10/11 x64, per-user, no language prompt, WebView2 fetched automatically | 38.9 MB | `427b3635…25481fd` |
-| `Research.Engine_0.33.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.4 MB | `210bdb4f…3aefb9` |
-| `Research.Engine_0.33.0-beta.1_amd64.AppImage` | any x64 Linux | 122.3 MB | `ba8f60cc…4548ece6` |
+| `Research.Engine_0.33.0-beta.1_x64-setup.exe` | Windows 10/11 x64, per-user, no language prompt, WebView2 fetched automatically | 38.9 MB | `890ebdf7…3b777b8` |
+| `Research.Engine_0.33.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.4 MB | `84a2953f…a85d9f` |
+| `Research.Engine_0.33.0-beta.1_amd64.AppImage` | any x64 Linux | 122.3 MB | `9d5af75b…6d93ba53` |
 
-Built and attached by the desktop workflow on this tag (run 36326236665,
+Built and attached by the desktop workflow on this tag (run 36327506823,
 success); `downloads/INSTALLERS.sha256` carries the same three digests in
-`sha256sum` form.
+`sha256sum` form. Installers are **not bit-reproducible** — every build embeds
+its own timestamp, so pushing the tag again produces different bytes with
+different digests. The three above are the ones currently attached to this
+release, which is the copy you download; the portable archives in
+`downloads/SHA256SUMS` are committed files and never change.
 
 There is no macOS runner in the workflow — the app builds and runs on macOS,
 but nobody here can produce or verify a `.dmg`, so none is offered.
