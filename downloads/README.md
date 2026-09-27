@@ -6,7 +6,7 @@ pure-JS portable builds: the only requirement on your machine is Node.js.
 
 Prefer an installer? **0.31.1** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
-automatically), Linux a `.deb`/`.AppImage`, macOS a `.dmg`. CI builds them from
+automatically) and Linux a `.deb`/`.AppImage`. There is no macOS build. CI builds them from
 this tag and attaches them to the release you are reading; their hashes are in
 `INSTALLERS.sha256` in this folder, and every one of them is **GitHub's own
 sha256 digest for the uploaded asset**, read back from the release API
@@ -80,7 +80,7 @@ restarts on Node 22.5+ (the server uses Node's built-in SQLite; no native
 modules are required). To run it as a background service, register the
 launcher with NSSM — see the root README, install method C.
 
-## Linux / macOS
+## Linux
 
 ```bash
 tar xzf research-engine-0.31.1-beta.1-linux-x64.tar.gz
@@ -89,8 +89,8 @@ chmod +x research-engine-linux-x64/research-engine
 ```
 
 Then open http://127.0.0.1:3847. Data lives in `~/.research-engine`
-(override with `RESEARCH_ENGINE_DATA_DIR`). systemd / launchd service
-templates are in the root README, install method C.
+(override with `RESEARCH_ENGINE_DATA_DIR`). systemd and NSSM service
+templates are in [docs/install.md](../docs/install.md).
 
 ## Does it actually work on this machine?
 

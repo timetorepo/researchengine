@@ -1,9 +1,13 @@
 # Research Engine — Desktop shell (Tauri 2)
 
 A native-feeling desktop app: the OS's own webview (WebView2 on Windows,
-WKWebView on macOS, WebKitGTK on Linux) around the Research Engine that runs
-locally on your machine. No Electron, no Chromium download, tiny RAM overhead —
-and **no Node.js requirement on the user's computer**.
+WebKitGTK on Linux) around the Research Engine that runs locally on your machine.
+No Electron, no Chromium download, tiny RAM overhead — and **no Node.js
+requirement on the user's computer**.
+
+**Shipped platforms: Windows 10/11 x64 and Linux x64.** There is no macOS build
+and no macOS runner in CI; the shell itself is portable, but nothing here
+promises a `.dmg`.
 
 ## How it is put together
 
@@ -36,8 +40,8 @@ chats, documents and projects survive restarts and app updates. Set
 - **Rust** stable — https://rustup.rs
 - **Bun** — https://bun.sh — used once to compile the sidecar. No Bun at runtime.
 - **Platform webview deps** — on Linux: `libwebkit2gtk-4.1-dev`,
-  `libappindicator3-dev`, `librsvg2-dev`, `patchelf`; on Windows/macOS nothing
-  extra. Full list: https://tauri.app/start/prerequisites/
+  `libappindicator3-dev`, `librsvg2-dev`, `patchelf`; on Windows nothing extra.
+  Full list: https://tauri.app/start/prerequisites/
 - Node 20+ (to build the frontend)
 
 ## Develop
@@ -66,7 +70,7 @@ npm run desktop:build        # → desktop/src-tauri/target/release/bundle/
   downloaded automatically if the machine does not have it, Start-menu entry and
   an uninstaller. No Rust or Node needed on the target machine.
 - **Linux** — `bundle/deb/*.deb` and `bundle/appimage/*.AppImage`.
-- **macOS** — `bundle/dmg/*.dmg`.
+- **macOS** — not built, not shipped, not supported yet.
 
 ## Check what ships before you ship it
 
