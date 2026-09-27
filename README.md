@@ -4,7 +4,7 @@
 
 ![Research Engine screenshot](docs/screenshot.png)
 
-[![Pre-release](https://img.shields.io/badge/release-v0.29.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Pre-release](https://img.shields.io/badge/release-v0.30.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license--credits)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#install-research-engine)
 

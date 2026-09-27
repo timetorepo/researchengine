@@ -158,3 +158,18 @@ and are doing real work in the app rather than sitting in a folder:
   shell around.
 - The right-click menu still never appears over the progress bar, the progress
   bar still offers all four modes, and Share Studio still draws every style.
+
+## Where the files are
+
+- **Installers for this release** are attached to this release page, built by CI
+  from the tag: `Research.Engine_0.30.0-beta.1_x64-setup.exe` (Windows, per-user,
+  no Node needed), the `.deb` and the `.AppImage` (Linux). GitHub's own SHA-256
+  readings of those three uploads are in `downloads/INSTALLERS.sha256`.
+- **Portable archives** — `research-engine-0.30.0-beta.1-linux-x64.tar.gz` and
+  `research-engine-0.30.0-beta.1-win-x64.zip` — ship in `downloads/` in the
+  source tree, with `downloads/SHA256SUMS` next to them. Both were unpacked and
+  booted before this release: the launcher serves the frontend, `/api/health`
+  reports `0.30.0-beta.1` in `portable` mode, hashed assets come back brotli
+  compressed with `immutable` caching and a 304 on a repeat request, and
+  `downloads/bench-report-0.30.0-beta.1.txt` is the create-path report that
+  packaged build produced.

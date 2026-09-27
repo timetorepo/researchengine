@@ -1,8 +1,8 @@
 Research Engine — create-path report
-when        : 2026-09-27T02:21:43.757Z
-app version : 0.29.0-beta.1
+when        : 2026-09-27T04:12:28.838Z
+app version : 0.30.0-beta.1
 build id    : dev
-served      : 0.29.0-beta.1 (2026-09-27T02:19:48.413Z)
+served      : 0.30.0-beta.1 (2026-09-27T04:08:25.264Z)
 source      : — (portable build has no source tree)
 mode        : portable
 browser     : Linux x86_64 · node 22.22.3
@@ -10,7 +10,7 @@ server      : linux/x64 · node v22.22.3
 
 test        : create a project
 verdict     : PASSED — a project can be created.
-duration    : 14 ms
+duration    : 11 ms
   POST: /api/ide/projects
   Payload: {"name":"dev-test-bench","fallback":"dev-test","unique":true,"files":{"README.md":"60 B"}}
   Projects already on disk: (none)
@@ -26,7 +26,7 @@ raw:
   "fallback": "dev-test",
   "attempts": 1,
   "ok": true,
-  "ms": 14,
+  "ms": 11,
   "browser": "Linux x86_64 · node 22.22.3",
   "server": "linux/x64 node v22.22.3",
   "mode": "portable"
@@ -35,10 +35,10 @@ raw:
 — and the sample app —
 
 Research Engine — create-path report
-when        : 2026-09-27T02:21:43.757Z
-app version : 0.29.0-beta.1
+when        : 2026-09-27T04:12:28.838Z
+app version : 0.30.0-beta.1
 build id    : dev
-served      : 0.29.0-beta.1 (2026-09-27T02:19:48.413Z)
+served      : 0.30.0-beta.1 (2026-09-27T04:08:25.264Z)
 source      : — (portable build has no source tree)
 mode        : portable
 browser     : Linux x86_64 · node 22.22.3
@@ -46,7 +46,7 @@ server      : linux/x64 · node v22.22.3
 
 test        : create the sample app
 verdict     : PASSED — the sample app can be created.
-duration    : 7 ms
+duration    : 6 ms
   POST: /api/ide/projects
   Payload: {"name":"sample-landing","fallback":"sample-app","unique":true,"files":{"index.html":"1963 B","styles.css":"1584 B","app.js":"528 B","icon.svg":"220 B","README.md":"458 B"}}
   Projects already on disk: (none)
@@ -62,7 +62,7 @@ raw:
   "fallback": "sample-app",
   "attempts": 1,
   "ok": true,
-  "ms": 7,
+  "ms": 6,
   "browser": "Linux x86_64 · node 22.22.3",
   "server": "linux/x64 node v22.22.3",
   "mode": "portable"
