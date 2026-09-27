@@ -183,6 +183,10 @@ fn spawn_sidecar(path: &Path, frontend: Option<&Path>) -> std::io::Result<Child>
     let mut cmd = Command::new(path);
     cmd.arg("serve").arg("--port").arg(port().to_string());
     cmd.env("RE_HOST", "127.0.0.1");
+    // Tell the server it is running inside the shell: it changes which update
+    // path is correct (the app cannot replace its own running binary, so the
+    // shell fetches the installer instead).
+    cmd.env("RE_SHELL", "desktop");
     if let Some(dir) = frontend {
         cmd.env("FRONTEND_DIST", dir);
     }

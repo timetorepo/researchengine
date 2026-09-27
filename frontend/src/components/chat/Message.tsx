@@ -2,11 +2,18 @@ import React, { memo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2,
+  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2, Gauge,
 } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+
+/** 1234 → 1.2k. Token counts are for orientation, not accounting. */
+export function formatTokens(n: number): string {
+  if (n < 1000) return String(n)
+  if (n < 100000) return `${(n / 1000).toFixed(1)}k`
+  return `${Math.round(n / 1000)}k`
+}
 import { Markdown } from './Markdown'
 import { ReplicateTimeline } from './ReplicateTimeline'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
@@ -134,6 +141,8 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   }
 
   const f = msg.flow
+  const usage = msg.usage
+  const showTokenUsage = useStore((st) => st.settings.showTokenUsage !== false)
   const Row: any = streaming ? motion.div : 'div'
   return (
     <Row
@@ -301,6 +310,18 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               ui.toast('Knowledge card saved', 'Find it in Library → Knowledge.')
             }}><Lightbulb size={13} /></HoverBtn>
             {f && <HoverBtn label="Transparency info" onClick={() => setShowInfo((v) => !v)}><Info size={13} /></HoverBtn>}
+            {/* What this answer cost. Providers that report counts are quoted
+                exactly; estimates are marked with ≈ so the two never blur. */}
+            {usage && usage.total > 0 && showTokenUsage && (
+              <span
+                className="ml-1 inline-flex items-center gap-1 px-2 py-[3px] rounded-full text-[10.5px] font-mono cursor-default"
+                style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}
+                title={`${usage.reported ? 'Reported by the provider' : 'Estimated from the text (this provider does not report usage)'}: ${usage.prompt} in · ${usage.completion} out`}
+              >
+                <Gauge size={11} />
+                {usage.reported ? '' : '≈'}{formatTokens(usage.total)} tokens
+              </span>
+            )}
           </div>
         )}
 

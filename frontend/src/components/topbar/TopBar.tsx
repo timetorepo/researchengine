@@ -1,61 +1,26 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronDown, Menu, Wind, Settings2, Plus, RefreshCw, Loader2, Search } from 'lucide-react'
+import React from 'react'
+import { Menu, Wind, ListChecks, ArrowDownToLine, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
-import { PROVIDERS } from '@/lib/providers/registry'
-import { refreshAllModels, refreshProviderModels } from '@/lib/providers/refresh'
-import { ProviderLogo } from '@/components/shared/ProviderLogo'
+import { useUpdates } from '@/lib/updates/client'
+import { ModelPicker } from '@/components/topbar/ModelPicker'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { FocusPill } from '@/components/shared/FocusPill'
-import { ListChecks } from 'lucide-react'
 import { APP_VERSION, BUILD_ID } from '@/components/settings/AboutTab'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
-import { fmt } from '@/lib/utils'
 
 export function TopBar() {
-  const navigate = useNavigate()
   const ui = useUI()
   const tasks = useStore((s) => s.tasks)
   const settings = useStore((s) => s.settings)
   const saved = useStore((s) => s.tokensSavedSession)
   const integrations = useStore((s) => s.integrations)
   const anyIntegration = Object.values(integrations).some((i) => i.connected)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [modelQuery, setModelQuery] = useState('')
-  const pickRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (pickRef.current && !pickRef.current.contains(e.target as Node)) setPickerOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [])
-
-  const [curProvider, curModel] = settings.defaultModel.split(':')
-  const providerModels = settings.providerModels ?? {}
-  const [refreshing, setRefreshing] = useState(false)
-
-  // Model lists come ONLY from live provider fetches (settings.providerModels).
-  const hasAnyModels = PROVIDERS.some((p) => (providerModels[p.id]?.length ?? 0) > 0)
-  const groups = PROVIDERS.map((p) => ({
-    provider: p,
-    models: (providerModels[p.id] ?? []).filter((m) => !modelQuery.trim() || m.toLowerCase().includes(modelQuery.trim().toLowerCase())),
-  })).filter(({ provider: p, models }) =>
-    models.length > 0 || (!modelQuery.trim() && (settings.providers[p.id]?.enabled || p.needsKey === false)))
-
-  const openProviders = () => {
-    setPickerOpen(false)
-    ui.openSettings('providers')
-  }
-
-  const refresh = async () => {
-    setRefreshing(true)
-    try { await refreshAllModels() } finally { setRefreshing(false) }
-  }
-
+  // Quiet update check (nothing downloads without a press) + a pill when there is
+  // something newer, so the fix for "I am tired of reinstalling" is visible.
+  const { check: updateCheck } = useUpdates({ autoCheck: settings.updates?.autoCheck !== false })
+  const updateDismissed = settings.updates?.dismissed === updateCheck?.latest
+  const showUpdatePill = !!updateCheck?.available && !updateDismissed
   return (
     <header
       className="re-vt-topbar flex items-center gap-2 px-3 h-12 shrink-0 relative z-30"
@@ -65,117 +30,8 @@ export function TopBar() {
         <Menu size={18} strokeWidth={1.5} />
       </button>
 
-      {/* Model selector */}
-      <div className="relative" ref={pickRef}>
-        <button
-          onClick={() => setPickerOpen((o) => !o)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[12.5px] font-medium transition-colors hover:bg-[var(--elevated)]"
-          style={{ border: '1px solid var(--surface-border)', color: 'var(--text)' }}
-          aria-haspopup="listbox" aria-expanded={pickerOpen}
-        >
-          {curProvider ? <ProviderLogo id={curProvider} size={14} /> : <Plus size={14} style={{ color: 'var(--text-3)' }} />}
-          <span className="max-w-[180px] truncate">{curModel || 'Add models'}</span>
-          <motion.span animate={{ rotate: pickerOpen ? 180 : 0 }} transition={{ duration: 0.18 }} className="inline-flex">
-            <ChevronDown size={13} style={{ color: 'var(--text-3)' }} />
-          </motion.span>
-        </button>
-
-        <AnimatePresence>
-          {pickerOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }}
-              transition={{ duration: 0.16 }}
-              className="absolute left-0 top-full mt-2 w-72 max-h-[60vh] overflow-y-auto surface-elevated p-1.5 z-50"
-              style={{ boxShadow: '0 16px 48px -12px rgba(0,0,0,0.5)' }}
-              role="listbox"
-            >
-              <div className="sticky top-0 z-10 px-1.5 pt-1.5 pb-1" style={{ background: 'var(--elevated)' }}>
-                <div className="flex items-center gap-2 px-2.5 py-2 rounded-[10px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-                  <Search size={13} style={{ color: 'var(--text-3)' }} />
-                  <input value={modelQuery} onChange={(e) => setModelQuery(e.target.value)} autoFocus={pickerOpen}
-                    placeholder="Search models" aria-label="Search models"
-                    className="w-full bg-transparent outline-none text-[12px]" />
-                  {modelQuery && <button onClick={() => setModelQuery('')} aria-label="Clear model search" style={{ color: 'var(--text-3)' }}>×</button>}
-                </div>
-              </div>
-              {!hasAnyModels ? (
-                /* Empty state — nothing fetched yet */
-                <div className="flex flex-col items-center text-center px-4 py-6">
-                  <button
-                    onClick={openProviders}
-                    aria-label="Add models"
-                    className="w-11 h-11 rounded-full flex items-center justify-center mb-2.5 transition-transform hover:scale-105"
-                    style={{ background: 'var(--primary)', color: '#fff' }}
-                  >
-                    <Plus size={18} />
-                  </button>
-                  <div className="text-[13px] font-medium mb-0.5">Add models</div>
-                  <div className="text-[11.5px] leading-snug mb-3" style={{ color: 'var(--text-3)' }}>
-                    Connect a provider — model names are fetched live, never hardcoded.
-                  </div>
-                  <button onClick={openProviders}
-                    className="px-3.5 py-1.5 rounded-full text-[12px] font-medium"
-                    style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
-                    Add API keys
-                  </button>
-                </div>
-              ) : (
-                groups.map(({ provider: g, models }) => {
-                  return (
-                    <div key={g.id} className="mb-1">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>
-                        <ProviderLogo id={g.id} size={12} /> {g.name}
-                        {models.length === 0 && (
-                          <button
-                            onClick={async (e) => { e.stopPropagation(); try { await refreshProviderModels(g.id) } catch { /* surfaced via toast elsewhere */ } }}
-                            className="ml-auto flex items-center gap-1 font-normal normal-case hover:underline" style={{ color: 'var(--primary)' }}>
-                            <Plus size={11} /> Add models
-                          </button>
-                        )}
-                      </div>
-                      {models.map((m) => {
-                        const ref = `${g.id}:${m}`
-                        const active = settings.defaultModel === ref
-                        return (
-                          <button
-                            key={ref}
-                            role="option" aria-selected={active}
-                            onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, defaultModel: ref } })); setPickerOpen(false) }}
-                            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[10px] text-[13px] text-left hover:bg-[var(--surface)]"
-                            style={{ color: active ? 'var(--primary)' : 'var(--text-2)' }}
-                          >
-                            <span className="flex-1 truncate font-mono text-[12px]">{m}</span>
-                            {active && <Check size={13} />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                })
-              )}
-              {hasAnyModels && modelQuery.trim() && groups.length === 0 && (
-                <div className="px-3 py-5 text-center text-[12px]" style={{ color: 'var(--text-3)' }}>No models match “{modelQuery}”.</div>
-              )}
-              <div className="mt-1 pt-1" style={{ borderTop: '1px solid var(--surface-border)' }}>
-                <button
-                  onClick={refresh} disabled={refreshing}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px] hover:bg-[var(--surface)] disabled:opacity-60"
-                  style={{ color: 'var(--text-2)' }}
-                >
-                  {refreshing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {refreshing ? 'Fetching models…' : 'Refresh models'}
-                </button>
-                <button
-                  onClick={openProviders}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px] hover:bg-[var(--surface)]"
-                  style={{ color: 'var(--primary)' }}
-                >
-                  <Settings2 size={14} /> Manage providers…
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* Model selector — its own component: dock hover, logos, free/paid, unlist */}
+      <ModelPicker />
 
       {/* Local badge */}
       <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
@@ -223,6 +79,26 @@ export function TopBar() {
           )
         })()}
       </button>
+      {showUpdatePill && (
+        <div className="flex items-center gap-0.5 rounded-full pl-2 pr-1 py-0.5 text-[11px]"
+          style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
+          <button
+            onClick={() => ui.openSettings('updates')}
+            className="flex items-center gap-1 pr-1 font-medium"
+            title={`${updateCheck?.latest} is available — ${updateCheck?.kind === 'desktop' ? 'download the installer' : 'install it from Settings → Updates'}`}
+          >
+            <ArrowDownToLine size={12} />
+            {updateCheck?.latest}
+          </button>
+          <button
+            aria-label="Dismiss update notice"
+            onClick={() => useStore.setState((s) => ({ settings: { ...s.settings, updates: { ...(s.settings.updates ?? {}), dismissed: updateCheck?.latest ?? undefined } } }))}
+            className="p-0.5 rounded-full hover:bg-[var(--elevated)]"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      )}
       <PrivacyShield compact amber={anyIntegration} />
 
       {/* Focus timer — same idea: it belongs to the shell, not the sidebar. */}

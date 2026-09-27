@@ -5,7 +5,7 @@
 // resolves its runtime (and therefore DB_PATH) before loading anything with
 // side effects, and it must stay safe to read the fingerprint at any point.
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export interface WebBuild { version: string; buildId: string; builtAt: string }
@@ -73,6 +73,31 @@ export function installMode(): 'checkout' | 'portable' {
   } catch {
     return 'checkout'
   }
+}
+
+/**
+ * Which of the three shapes this is:
+ *
+ *   checkout — a source tree (`git pull` is the update path)
+ *   portable — an unpacked release folder, or the packaged server (self-updating)
+ *   desktop  — the Tauri app's sidecar, which the shell marks with RE_SHELL
+ */
+export function installKind(): 'checkout' | 'portable' | 'desktop' {
+  if (process.env.RE_SHELL === 'desktop') return 'desktop'
+  return installMode()
+}
+
+/**
+ * The folder an updater may touch: the one holding `server/` and
+ * `frontend-dist/`. Null unless this is a portable install — a source checkout
+ * has no such folder, and refusing to guess is the point.
+ *
+ * `import.meta.url` is the bundle's own path (`<app>/server/index.js` packaged,
+ * `<repo>/backend/src/build-info.ts` in a checkout), so this is correct in both.
+ */
+export function appRoot(): string | null {
+  if (installMode() !== 'portable') return null
+  return resolve(moduleDir(), '..')
 }
 
 /** The version declared by the code that is running. */

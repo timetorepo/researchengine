@@ -1796,6 +1796,88 @@ async function main() {
   check('the report names the runtime honestly, in a terminal or a browser',
     devSrc28.includes('node ${node}') && devSrc28.includes(": 'browser'"))
 
+  /* ------------------------------------------------------------------ */
+  console.log('\n[29] 0.29.0 — the updater, and a model picker that behaves')
+
+  const topSrc = m16readSrc(new URL('../src/components/topbar/TopBar.tsx', import.meta.url))
+  const storeSrc = m16readSrc(new URL('../src/stores/useStore.ts', import.meta.url))
+  // --- The updater, wired end to end (behaviour is proved in update-test) ---
+  const updSvc = m16readSrc(new URL('../../backend/src/update/service.ts', import.meta.url))
+  const updRoutes = m16readSrc(new URL('../../backend/src/routes/update.ts', import.meta.url))
+  const updBoot = m16readSrc(new URL('../../backend/src/update/boot.ts', import.meta.url))
+  const updIndex = m16readSrc(new URL('../../backend/src/index.ts', import.meta.url))
+  check('the updater is served from the app it updates', updIndex.includes("app.route('/api', updateRoutes(rt))"))
+  check('and every path it touches goes through one guard',
+    updSvc.includes('export function guard') && (updSvc.match(/guard\(/g) ?? []).length >= 6)
+  check('the guard refuses anything inside the data directory',
+    updSvc.includes('inside the data directory'))
+  check('the checksum is verified before anything is unpacked',
+    updSvc.indexOf('sha256 !== want') < updSvc.indexOf('extractArchive(buffer, stage'))
+  check('a mismatch stops the update and says so', updSvc.includes('checksum mismatch'))
+  check('the previous version is kept for rollback', updSvc.includes("join(backup, name)"))
+  check('a half-finished swap is undone rather than left behind',
+    updSvc.includes('is exactly what must never be left behind'))
+  check('the new version gets one chance before it is rolled back',
+    updSvc.includes('export const MAX_BOOT_ATTEMPTS = 1'))
+  check('and serving pages is what makes an update permanent', updBoot.includes('scheduleHealthy'))
+  check('a version that cannot start is rolled back and restarted',
+    updBoot.includes('handleFatalWithPending') && updIndex.includes('handleFatalWithPending'))
+  check('a checkout and the desktop app are told what their update path is',
+    updRoutes.includes("deps.kind === 'checkout'") && updRoutes.includes("deps.kind === 'desktop'"))
+  check('the desktop path hands the installer to the OS instead of pretending',
+    updSvc.includes('openWithOs'))
+  check('GitHub is read from the release list, so prereleases count',
+    updSvc.includes('/releases?per_page=30'))
+  check('with a second source when a network blocks the first',
+    updSvc.includes('application/vnd.github.raw') && updSvc.includes('downloadAny'))
+  check('the shell marks itself so the server knows which path is right',
+    m16readSrc(new URL('../../desktop/src-tauri/src/main.rs', import.meta.url)).includes('RE_SHELL'))
+
+  // --- The update UI ---
+  const updTab = m16readSrc(new URL('../src/components/settings/UpdatesTab.tsx', import.meta.url))
+  check('Settings has an Updates tab', m16readSrc(new URL('../src/components/settings/settingsTabs.tsx', import.meta.url)).includes("case 'updates'"))
+  check('it states where the library lives and that an update cannot touch it',
+    updTab.includes('Your library is never part of an update') && updTab.includes('status?.dataDir'))
+  check('it shows download progress', updTab.includes('progress.received') && updTab.includes('formatBytes'))
+  check('it offers restart and rollback after an install',
+    updTab.includes('Restart now') && updTab.includes('Roll back to'))
+  check('and reports a rollback that happened on its own', updTab.includes('was rolled back'))
+  check('no update installs itself — the button is the consent',
+    updTab.includes('onClick={doInstall}') && m16readSrc(new URL('../src/lib/updates/client.ts', import.meta.url)).includes('automatic installing is not'))
+  check('the top bar shows a pill when something newer exists', topSrc.includes('showUpdatePill'))
+  check('and it can be dismissed', topSrc.includes('Dismiss update notice'))
+  check('the About check no longer asks the endpoint that skips prereleases',
+    !/fetch\(`\$\{REPO/.test(m16readSrc(new URL('../src/components/settings/AboutTab.tsx', import.meta.url)))
+    && m16readSrc(new URL('../src/components/settings/AboutTab.tsx', import.meta.url)).includes("fetch('/api/update/check')"));
+
+  // --- The model picker ---
+  const pickSrc = m16readSrc(new URL('../src/components/topbar/ModelPicker.tsx', import.meta.url))
+  const tierSrc = m16readSrc(new URL('../src/lib/providers/tiers.ts', import.meta.url))
+  const famSrc = m16readSrc(new URL('../src/lib/providers/families.ts', import.meta.url))
+  check('the picker is its own component now', pickSrc.includes('export function ModelPicker'))
+  check('the top bar uses it', topSrc.includes('<ModelPicker />') && !topSrc.includes('modelQuery'))
+  check('hovering a model magnifies it like a dock', pickSrc.includes('dockScaleFor'))
+  check('the neighbours grow too, the far ones do not', /if \(d \* d\)/.test(pickSrc) === false && pickSrc.includes('Math.exp'))
+  check('free and paid can be separated', pickSrc.includes("(['all', 'free', 'paid']"))
+  check('and sorted', pickSrc.includes('Free first'))
+  check('each row carries a mark: family, else provider', pickSrc.includes('<ModelLogo model={row.model} provider={row.provider}'))
+  check('a model can be unlisted from the row itself', pickSrc.includes('Unlist ${row.model}'))
+  check('unlisted models are kept in a section, not deleted',
+    pickSrc.includes('unlisted model') && pickSrc.includes('unhideModel(row.ref)'))
+  check('hidden models persist in settings', storeSrc.includes('hiddenModels: []'))
+  check('the tier rules are explainable, with the user winning', tierSrc.includes("source: 'user'") && tierSrc.includes('why'))
+  check('the family table covers the model marks', famSrc.includes("id: 'llama'") && famSrc.includes("id: 'deepseek'") && famSrc.includes("id: 'kimi'"))
+
+  // --- The providers tab ---
+  const provSrc = m16readSrc(new URL('../src/components/settings/ProvidersTab.tsx', import.meta.url))
+  check('the Providers tab opens empty and asks you to add one', provSrc.includes('No providers yet') && provSrc.includes('addedProviders'))
+  check('the catalog lists everything this build ships', provSrc.includes('PROVIDERS.filter((p) => !added.includes(p.id))'))
+  check('removing a provider offers to keep the key', provSrc.includes('Keep my saved key'))
+
+  // --- Token usage ---
+  check('responses carry their token cost', m16readSrc(new URL('../src/types/index.ts', import.meta.url)).includes('usage?: { prompt: number'))
+  check('and the message footer shows it', m16readSrc(new URL('../src/components/chat/Message.tsx', import.meta.url)).includes('formatTokens(usage.total)'))
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

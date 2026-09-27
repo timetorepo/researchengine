@@ -30,6 +30,8 @@ interface StoreState {
   connectionLog: ConnectionLogEntry[]
   settings: Settings
   tokensSavedSession: number
+  /** Tokens actually spent this session (reported by providers where given). */
+  tokensUsedSession: number
   tokensSavedLifetime: number
   totalRequests: number
 
@@ -48,6 +50,7 @@ interface StoreState {
   setActiveChat: (id: string | null) => void
   logConnection: (endpoint: string, purpose: string, bytes: number, status?: 'ok' | 'error' | 'local') => void
   addTokensSaved: (n: number) => void
+  addTokensUsed: (n: number) => void
   resetAll: () => void
 
   // tasks (shared by Research and Coding)
@@ -96,6 +99,11 @@ const defaultSettings: Settings = {
   onboarded: false,
   masterPromptOverrides: {},
   themeFavorites: ['dark', 'light', 'catppuccin-mocha'],
+  hiddenModels: [],
+  modelTiers: {},
+  addedProviders: [],
+  updates: { autoCheck: true },
+  showTokenUsage: true,
   profileName: 'Researcher',
   profile: DEFAULT_PROFILE,
   composerBeam: true,
@@ -139,6 +147,7 @@ export const useStore = create<StoreState>()(
       connectionLog: [],
       settings: defaultSettings,
       tokensSavedSession: 0,
+      tokensUsedSession: 0,
       tokensSavedLifetime: 0,
       totalRequests: 0,
 
@@ -259,6 +268,7 @@ export const useStore = create<StoreState>()(
         }
       }),
 
+      addTokensUsed: (n) => set((s) => ({ tokensUsedSession: s.tokensUsedSession + Math.max(0, Math.round(n)) })),
       addTokensSaved: (n) => set((s) => ({
         tokensSavedSession: s.tokensSavedSession + n,
         tokensSavedLifetime: s.tokensSavedLifetime + n,
@@ -278,7 +288,7 @@ export const useStore = create<StoreState>()(
       resetAll: () => set({
         chats: [], activeChatId: null, articles: [], citations: [], knowledge: [],
         documents: [], quizzes: [], connectionLog: [], workflows: [], workflowRuns: [],
-        tokensSavedSession: 0, tokensSavedLifetime: 0, totalRequests: 0,
+        tokensSavedSession: 0, tokensUsedSession: 0, tokensSavedLifetime: 0, totalRequests: 0,
         skills: builtinSkills, squads: builtinSquads, spaces: initialSpaces, integrations: {},
       }),
     }),

@@ -198,6 +198,9 @@ chatRoutes.post('/', async (c) => {
     payload = {
       model, stream: true, max_tokens: maxTokens, temperature,
       messages: toOpenAIMessages(system, messages),
+      // Ask for the token counts with the stream, so the UI can show what a
+      // response actually cost instead of guessing from character counts.
+      stream_options: { include_usage: true },
     }
     if (tools) {
       payload.tools = tools
@@ -212,12 +215,22 @@ chatRoutes.post('/', async (c) => {
     }
   }
 
-  const upstream = await fetch(url, {
+  const send = (body: any) => fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
     signal: c.req.raw.signal, // client abort kills the upstream call
   })
+  let upstream = await send(payload)
+  // A few OpenAI-compatible servers reject unknown fields outright. Usage is a
+  // nice-to-have, so drop it and ask again rather than failing the request.
+  if (!upstream.ok && payload.stream_options && upstream.status >= 400 && upstream.status < 500) {
+    const peek = await upstream.clone().text().catch(() => '')
+    if (/stream_options|unknown|unrecognized|additional propert|unsupported parameter/i.test(peek)) {
+      delete payload.stream_options
+      upstream = await send(payload)
+    }
+  }
 
   if (!upstream.ok || !upstream.body) {
     const errText = await upstream.text().catch(() => '')

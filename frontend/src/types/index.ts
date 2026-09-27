@@ -56,6 +56,11 @@ export interface ChatMessage {
   stopped?: boolean
   /** Vision: images attached by the user, sent to models that support them. */
   attachments?: { type: 'image'; name: string; dataUrl: string }[]
+  /**
+   * What this answer cost. `reported` means the provider told us the counts;
+   * false means they are an estimate from the text, and the UI marks them.
+   */
+  usage?: { prompt: number; completion: number; total: number; reported: boolean }
   /** Tool activity for this answer (shown as chips above the text). */
   toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
   /** AI-generated questionnaire awaiting the user's answers. */
@@ -330,6 +335,32 @@ export interface Settings {
     disabled: string[]
     lastProbe?: number
   }
+  /**
+   * Models the user has taken out of the picker. Refs are "provider:model", so
+   * hiding one provider's model never hides another's.
+   */
+  hiddenModels?: string[]
+  /**
+   * Free/paid, where the automatic answer is wrong or unknown. The detector
+   * (lib/providers/tiers.ts) only knows what a provider publishes; this is the
+   * user's correction, and it wins.
+   */
+  modelTiers?: Record<string, 'free' | 'paid'>
+  /**
+   * Providers the user has added. The Providers tab starts empty and fills up
+   * from the catalog — this list is the memory of that choice, and the only
+   * thing that decides which cards appear.
+   */
+  addedProviders?: string[]
+  /** The updater. Nothing installs without the user pressing the button. */
+  updates?: {
+    autoCheck?: boolean
+    /** Version whose "update available" pill was dismissed. */
+    dismissed?: string
+    lastChecked?: number
+  }
+  /** Per-response token counts, shown in the message footer. */
+  showTokenUsage?: boolean
   /** Smooth caret in text fields (Skiper UI's SmoothInput). */
   smoothCaret?: boolean
   /**

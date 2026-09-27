@@ -8,11 +8,19 @@ import { logger } from 'hono/logger'
 import { resolveRuntime, type Runtime } from './runtime'
 import { staticHandler } from './static'
 // Pure helpers — safe to import eagerly; the route itself is wired below.
-import { sourceVersion, webBuild } from './build-info'
+import { appRoot, installKind, sourceVersion, webBuild } from './build-info'
+import { updateRoutes } from './routes/update'
+import { bootUpdateCheck, handleFatalWithPending, rollbackAndRestart, scheduleHealthy } from './update/boot'
+import { EXIT_RESTART } from './update/service'
+
+/** Resolved by `main` before it can fail, so the fatal handler knows where the
+ *  library is and therefore which paths a rollback may not touch. */
+let fatalDataDir = ''
 
 async function main() {
   // Resolve the runtime FIRST — db/index.ts reads DB_PATH at import time.
   const rt = await resolveRuntime(process.argv.slice(2))
+  fatalDataDir = rt.dataDir
 
   const { healthRoutes } = await import('./routes/health')
   const { searchRoutes } = await import('./routes/search')
@@ -56,6 +64,8 @@ async function main() {
   app.route('/api', providerRoutes)
   // FreeRoute — one OpenAI-compatible endpoint in front of the free tiers.
   app.route('/api', freerouteRoutes)
+  // The updater. Everything it can touch is guarded inside update/service.ts.
+  app.route('/api', updateRoutes(rt))
 
   app.onError((err, c) => {
     // Surface the real error to the client — the UI shows it verbatim.
@@ -68,6 +78,20 @@ async function main() {
     app.get('*', handler)
   }
 
+  // An update may be on trial (files swapped, this is the first boot of them).
+  // Count the attempt; if this is a repeated failure, put the old version back
+  // and restart into it instead of serving something that cannot stay up.
+  const updateDeps = {
+    appRoot: appRoot(), dataDir: rt.dataDir, currentVersion: sourceVersion() || '0.0.0.0',
+    platform: process.platform, kind: installKind(),
+    log: (m: string) => console.log(`[re] update: ${m}`),
+  }
+  const boot = bootUpdateCheck(updateDeps)
+  if (rollbackAndRestart(updateDeps, boot)) {
+    console.log('[re] rolled back a failed update — restarting the previous version')
+    process.exit(EXIT_RESTART)
+  }
+
   serve({ fetch: app.fetch, port: rt.port, hostname: rt.host }, (info) => {
     console.log(`Research Engine listening on http://${rt.host}:${info.port}`)
     console.log(`  data dir : ${rt.dataDir}`)
@@ -75,6 +99,9 @@ async function main() {
     console.log(`  frontend : ${rt.frontendDist ?? 'not found — API only (run `npm run build` in frontend/ for single-process mode)'}${rt.frontendDist ? webBuildNote(rt) : ''}`)
     console.log(`  database : ${rt.dbPath}`)
     if (rt.rememberedPort) console.log(`  note     : preferred port was busy — using ${info.port} (remembered in config.json)`)
+    if (boot.pending) console.log(`  update   : ${boot.pending.from} → ${boot.pending.to} on trial (attempt ${boot.attempts}) — kept once this build serves pages`)
+    // Serving pages is the test. Only then does the swap become permanent.
+    scheduleHealthy(updateDeps, boot)
   })
 }
 
@@ -101,5 +128,16 @@ for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
 
 main().catch((e) => {
   console.error('[re] fatal:', e)
+  // If we are a freshly installed version that cannot even start, undo the
+  // update and start the version that was working. Never leave the user with a
+  // broken install after asking for an update.
+  if (handleFatalWithPending({
+    appRoot: appRoot(), dataDir: fatalDataDir, currentVersion: sourceVersion() || '0.0.0',
+    platform: process.platform, kind: installKind(),
+    log: (m: string) => console.log(`[re] update: ${m}`),
+  }, e)) {
+    console.log('[re] update rolled back — restarting the previous version')
+    process.exit(EXIT_RESTART)
+  }
   process.exit(1)
 })

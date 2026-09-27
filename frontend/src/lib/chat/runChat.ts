@@ -254,6 +254,13 @@ export async function runChat(opts: RunOptions): Promise<void> {
   let completionText = ''
   let promptTokens = 0
   let completionTokens = 0
+  // Token accounting: some rounds report their counts, some do not. Totals are
+  // summed per round, and `usageReported` records whether *any* round gave real
+  // numbers — a mixed answer is honest about being partly estimated (in practice
+  // a provider is consistent about this within a conversation).
+  let usagePrompt = 0
+  let usageCompletion = 0
+  let usageReported = false
   let usedDemo = false
   let lastIslandUpdate = 0
   const bumpIsland = () => {
@@ -360,6 +367,9 @@ export async function runChat(opts: RunOptions): Promise<void> {
         }, pushChunk)
         promptTokens = res.promptEstimate
         completionTokens += res.completionTokens
+        usagePrompt += res.usage?.prompt ?? res.promptEstimate
+        usageCompletion += res.usage?.completion ?? res.completionTokens
+        if (res.usage?.reported) usageReported = true
         const calls = res.toolCalls ?? []
         if (!toolsAllowed || !calls.length || round >= MAX_TOOL_ROUNDS) break
         current = [...current, { role: 'assistant', content: '', toolCalls: calls }]
@@ -383,6 +393,9 @@ export async function runChat(opts: RunOptions): Promise<void> {
       await streamDemo(prompt, { math: mode.math, quality: mode.quality, search: mode.search }, pushChunk, controller.signal)
       promptTokens = pruned.prunedTokens
       completionTokens = estimateTokens(completionText)
+      usagePrompt = promptTokens
+      usageCompletion = completionTokens
+      usageReported = false // the on-device demo never leaves the machine, so it is always an estimate
       run.endRaw()
       await drained
       run.finish()
@@ -393,7 +406,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     useUI.setState({ flow: null })
     if (e.name === 'AbortError') {
       // Keep exactly what was rendered — the pacer's un-emitted queue is dropped.
-      finish(chatId, asstId, '', { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true })
+      finish(chatId, asstId, '', { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true, usagePrompt, usageCompletion, usageReported })
       drainQueue(chatId)
       return
     }
@@ -404,13 +417,16 @@ export async function runChat(opts: RunOptions): Promise<void> {
   }
 
   if (flowEnabled && !cached) cacheSet(prompt + JSON.stringify(mode), completionText)
-  finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned })
+  finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned, usagePrompt, usageCompletion, usageReported })
   drainQueue(chatId)
 }
 
 function finish(
   chatId: string, msgId: string, text: string,
-  ctx: { sources?: Source[]; usedDemo: boolean; promptTokens: number; completionTokens: number; pruned: any; aborted?: boolean },
+  ctx: {
+    sources?: Source[]; usedDemo: boolean; promptTokens: number; completionTokens: number; pruned: any
+    aborted?: boolean; usagePrompt?: number; usageCompletion?: number; usageReported?: boolean
+  },
 ) {
   const store = useStore.getState()
   const settings = store.settings
@@ -421,11 +437,22 @@ function finish(
     : 0
   if (settings.flowEnabled && savedTokens > 0) store.addTokensSaved(savedTokens)
 
+  // Every response carries what it cost, whether or not the AIFlowEngine is on.
+  const usage = {
+    prompt: Math.max(0, Math.round(ctx.usagePrompt ?? ctx.promptTokens)),
+    completion: Math.max(0, Math.round(ctx.usageCompletion ?? ctx.completionTokens)),
+    total: 0,
+    reported: !!ctx.usageReported,
+  }
+  usage.total = usage.prompt + usage.completion
+  if (usage.total > 0) store.addTokensUsed(usage.total)
+
   const followUps = DEMO_FOLLOW_UPS
     .sort(() => Math.random() - 0.5)
     .slice(0, 3)
 
   store.updateMessage(chatId, msgId, {
+    usage,
     content: text || (ctx.aborted ? store.chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === msgId)?.content ?? '' : text),
     sources: ctx.sources,
     followUps,

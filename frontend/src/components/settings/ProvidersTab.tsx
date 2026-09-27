@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
-import { Check, Eye, EyeOff, Loader2, RefreshCw, X, ShieldAlert, Plus } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Check, Eye, EyeOff, Loader2, RefreshCw, X, ShieldAlert, Plus, Search, Trash2, KeyRound, PackageOpen, MinusCircle } from 'lucide-react'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { testConnection, ollamaTags } from '@/lib/providers/stream'
@@ -19,6 +20,52 @@ export function ProvidersTab() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [passPrompt, setPassPrompt] = useState(false)
   const [pass, setPass] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [catalogQuery, setCatalogQuery] = useState('')
+  const [removeFor, setRemoveFor] = useState<string | null>(null)
+
+  /**
+   * The catalog starts empty, as asked: `addedProviders` is the only thing that
+   * decides which cards appear, and it begins as an empty list. Adding a provider
+   * never touches its key — and *removing* one doesn't either unless the user
+   * chooses "remove and delete the key", because losing a key you paid for
+   * because you tidied a list would be a bad trade.
+   */
+  const added = settings.addedProviders ?? []
+  const addedMetas = PROVIDERS.filter((p) => added.includes(p.id))
+  const available = useMemo(() => {
+    const q = catalogQuery.trim().toLowerCase()
+    return PROVIDERS.filter((p) => !added.includes(p.id))
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.id.includes(q) || (p.hint ?? '').toLowerCase().includes(q))
+  }, [added, catalogQuery])
+
+  const addProvider = (id: string) => {
+    useStore.setState((s) => ({ settings: { ...s.settings, addedProviders: [...(s.settings.addedProviders ?? []), id] } }))
+    setAdding(false)
+    setCatalogQuery('')
+    useUI.getState().toast('Provider added', `${meta(id).name} is ready for a key — models are fetched live once it is saved.`, 'success')
+  }
+
+  const removeProvider = (id: string, alsoDeleteKey = false) => {
+    useStore.setState((s) => {
+      const next = { ...s.settings, addedProviders: (s.settings.addedProviders ?? []).filter((x) => x !== id) }
+      if (alsoDeleteKey) {
+        const conf = { ...(s.settings.providers ?? {}) }
+        delete conf[id]
+        next.providers = conf
+        const models = { ...(s.settings.providerModels ?? {}) }
+        delete models[id]
+        next.providerModels = models
+      }
+      return { settings: next }
+    })
+    setRemoveFor(null)
+    useUI.getState().toast(
+      alsoDeleteKey ? 'Provider removed' : `Removed ${meta(id).name} from the list`,
+      alsoDeleteKey ? `${meta(id).name} and its saved key were deleted.` : 'The saved key was kept — add it back any time.',
+      'info',
+    )
+  }
   const log = useStore.getState().logConnection
 
   const get = (id: string): any => settings.providers[id] ?? { apiKey: '', baseUrl: '', enabled: false, imageApiKey: '', voiceApiKey: '' }
@@ -118,8 +165,108 @@ export function ProvidersTab() {
         </div>
       )}
 
+      {/* The catalog, shown only when it is being used. */}
+      <AnimatePresence>
+        {adding && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }} className="overflow-hidden mb-4">
+            <div className="surface p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-[10px]"
+                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+                  <Search size={13} style={{ color: 'var(--text-3)' }} />
+                  <input value={catalogQuery} onChange={(e) => setCatalogQuery(e.target.value)} autoFocus
+                    placeholder={`Search ${PROVIDERS.length} providers`} aria-label="Search providers"
+                    className="w-full bg-transparent outline-none text-[12.5px]" />
+                </div>
+                <button onClick={() => { setAdding(false); setCatalogQuery('') }}
+                  className="px-2.5 py-1.5 rounded-[10px] text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+                  Close
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[46vh] overflow-y-auto">
+                {available.map((p) => {
+                  const conf = settings.providers[p.id]
+                  return (
+                    <button key={p.id} onClick={() => addProvider(p.id)}
+                      className="flex items-center gap-2.5 p-2.5 rounded-[12px] text-left transition-colors hover:bg-[var(--elevated)]"
+                      style={{ border: '1px solid var(--surface-border)' }}>
+                      <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
+                        style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
+                        <ProviderLogo id={p.id} size={16} />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-medium truncate">{p.name}</span>
+                        <span className="block text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
+                          {p.hint ?? (p.needsKey ? 'Requires an API key' : 'No key required')}
+                        </span>
+                      </span>
+                      {conf?.apiKey && (
+                        <span title="key already saved" className="inline-flex" style={{ color: 'var(--success)' }}>
+                          <KeyRound size={12} />
+                        </span>
+                      )}
+                      <Plus size={14} style={{ color: 'var(--primary)' }} />
+                    </button>
+                  )
+                })}
+                {!available.length && (
+                  <div className="col-span-full px-3 py-6 text-center text-[12.5px]" style={{ color: 'var(--text-3)' }}>
+                    {catalogQuery ? `Nothing matches “${catalogQuery}”.` : 'Every provider this build ships with is already in your list.'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Empty until you add something — the tab used to open as a wall of cards. */}
+      {!added.length && !adding && (
+        <div className="surface p-8 text-center" style={{ borderRadius: 'var(--radius-card)' }}>
+          <span className="w-12 h-12 rounded-[16px] inline-flex items-center justify-center mb-3"
+            style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
+            <PackageOpen size={22} />
+          </span>
+          <div className="text-[15px] font-semibold mb-1">No providers yet</div>
+          <p className="text-[12.5px] max-w-[420px] mx-auto mb-4" style={{ color: 'var(--text-2)' }}>
+            Research Engine ships {PROVIDERS.length} provider integrations — the big hosted labs, the fast
+            inference hosts, your own local models, and FreeRoute for the free tiers. Add the ones you have keys for
+            and their models appear in the picker immediately.
+          </p>
+          <button onClick={() => setAdding(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[12.5px] font-medium"
+            style={{ background: 'var(--primary)', color: '#fff' }}>
+            <Plus size={14} /> Add your first provider
+          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-5" aria-hidden>
+            {PROVIDERS.slice(0, 12).map((p) => (
+              <span key={p.id} className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: 'var(--elevated)', color: 'var(--text-3)' }} title={p.name}>
+                <ProviderLogo id={p.id} size={15} />
+              </span>
+            ))}
+            <span className="text-[11.5px] px-2" style={{ color: 'var(--text-3)' }}>+{PROVIDERS.length - 12} more</span>
+          </div>
+        </div>
+      )}
+
+      {!!added.length && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[12.5px]" style={{ color: 'var(--text-2)' }}>
+            {added.length} provider{added.length === 1 ? '' : 's'} in your list
+          </span>
+          <button onClick={() => setAdding(true)}
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium"
+            style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
+            <Plus size={12} /> Add provider
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3">
-        {PROVIDERS.map((p) => {
+        {addedMetas.map((p) => {
           const conf = get(p.id)
           const d = drafts[p.id] ?? { key: '', url: conf.baseUrl || p.baseUrl, imageKey: '', voiceKey: '' }
           const state = testing[p.id] ?? 'idle'
@@ -140,7 +287,39 @@ export function ProvidersTab() {
                   <Check size={13} /> {latency[p.id] ? `${latency[p.id]}ms` : 'online'}</span>}
                 {state === 'busy' && <Loader2 size={15} className="animate-spin" style={{ color: 'var(--primary)' }} />}
                 {state === 'err' && <span className="flex items-center gap-1 text-[11.5px]" style={{ color: 'var(--danger)' }}><X size={13} /> failed</span>}
+                <button
+                  onClick={() => setRemoveFor(removeFor === p.id ? null : p.id)}
+                  aria-label={`Remove ${p.name}`}
+                  title="Remove this provider from the list"
+                  className="p-1.5 rounded-[8px] hover:bg-[var(--elevated)]"
+                  style={{ color: 'var(--text-3)' }}
+                >
+                  <MinusCircle size={14} />
+                </button>
               </div>
+
+              <AnimatePresence>
+                {removeFor === p.id && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden mb-3">
+                    <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-[12px] text-[12px]"
+                      style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+                      <span className="flex-1 min-w-[200px]" style={{ color: 'var(--text-2)' }}>
+                        Take {p.name} out of the list. It stops showing up in the model picker.
+                      </span>
+                      <button onClick={() => removeProvider(p.id, false)}
+                        className="px-2.5 py-1.5 rounded-[10px] text-[12px]" style={{ background: 'var(--surface)', color: 'var(--text)' }}>
+                        Keep my saved key
+                      </button>
+                      <button onClick={() => removeProvider(p.id, true)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[12px]"
+                        style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', color: 'var(--danger)' }}>
+                        <Trash2 size={12} /> Remove and delete the key
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                 <div className="space-y-2">
