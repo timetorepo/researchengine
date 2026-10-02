@@ -9,11 +9,11 @@ gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically) and Linux a `.deb`/`.AppImage`. There is no macOS build. CI builds them from
 this tag and attaches them to the release you are reading:
 
-| Installer | Platform |
-|---|---|
-| `Research.Engine_0.34.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) |
-| `Research.Engine_0.34.0-beta.1_amd64.deb` | Debian/Ubuntu x64 |
-| `Research.Engine_0.34.0-beta.1_amd64.AppImage` | any x64 Linux |
+| Installer | Platform | Size |
+|---|---|---|
+| `Research.Engine_0.34.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 39.0 MB |
+| `Research.Engine_0.34.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.4 MB |
+| `Research.Engine_0.34.0-beta.1_amd64.AppImage` | any x64 Linux | 122.4 MB |
 
 Their sizes and hashes are recorded in `INSTALLERS.sha256` in this folder as soon
 as the build finishes, and every one of them is **GitHub's own sha256 digest for
