@@ -1,3 +1,2 @@
-8ba8a061731096dc60cb8e951c54ee12a1b325dde61a24c20342845a56e65d11  Research.Engine_0.34.0-beta.1_x64-setup.exe
-c173aa012ff05a9175b81e65602be67535bfc0c029ce18944a929f39ce994010  Research.Engine_0.34.0-beta.1_amd64.deb
-85f72b227d1cc6d291d43b7b8041563a18f8136c61cf4ebf22e15c7341c43860  Research.Engine_0.34.0-beta.1_amd64.AppImage
+# Filled in from the release API once CI has attached the installers for
+# 0.35.0-beta.1 (GitHub's own sha256 `digest` for each uploaded asset).

@@ -11,9 +11,6 @@ import { staticHandler } from './static'
 import { appRoot, installKind, sourceVersion, webBuild } from './build-info'
 import { updateRoutes } from './routes/update'
 import { linkRoutes } from './routes/link'
-import { feedbackRoutes } from './routes/feedback'
-import { libraryRoutes } from './routes/library'
-import { skillsRoutes } from './routes/skills'
 import { bootUpdateCheck, handleFatalWithPending, rollbackAndRestart, scheduleHealthy } from './update/boot'
 import { EXIT_RESTART } from './update/service'
 
@@ -26,7 +23,16 @@ async function main() {
   const rt = await resolveRuntime(process.argv.slice(2))
   fatalDataDir = rt.dataDir
 
+  // NOTE: every module that touches `db` must be imported *after*
+  // `resolveRuntime`, because `db/index.ts` opens its database at import time
+  // from `DB_PATH` — and that variable is only set once the runtime is
+  // resolved. A static import above would open the database in the process's
+  // working directory instead of the user's library. It did exactly that for
+  // these three routes until the packaged-install test caught it.
   const { healthRoutes } = await import('./routes/health')
+  const { feedbackRoutes } = await import('./routes/feedback')
+  const { libraryRoutes } = await import('./routes/library')
+  const { skillsRoutes } = await import('./routes/skills')
   const { searchRoutes } = await import('./routes/search')
   const { chatRoutes } = await import('./routes/chat')
   const { documentRoutes } = await import('./routes/documents')

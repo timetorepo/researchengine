@@ -4,16 +4,16 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.34.0** also ships the **Tauri desktop app** — Windows
+Prefer an installer? **0.35.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically) and Linux a `.deb`/`.AppImage`. There is no macOS build. CI builds them from
 this tag and attaches them to the release you are reading:
 
 | Installer | Platform | Size |
 |---|---|---|
-| `Research.Engine_0.34.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 39.0 MB |
-| `Research.Engine_0.34.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.4 MB |
-| `Research.Engine_0.34.0-beta.1_amd64.AppImage` | any x64 Linux | 122.4 MB |
+| `Research.Engine_0.35.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | built by CI from this tag |
+| `Research.Engine_0.35.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | built by CI from this tag |
+| `Research.Engine_0.35.0-beta.1_amd64.AppImage` | any x64 Linux | built by CI from this tag |
 
 Their sizes and hashes are recorded in `INSTALLERS.sha256` in this folder as soon
 as the build finishes, and every one of them is **GitHub's own sha256 digest for
@@ -31,14 +31,25 @@ You only need to do this once: from 0.29.0 on, the app updates itself.
 on its own is rolled back automatically. Source checkouts are told to
 `git pull && npm run build` instead, and the desktop app is handed the installer.
 
+0.35.0 fixes the gooey search (the component was fine — none of its eleven
+classes had a rule, so its glyph was an unsized 300x150 SVG), adds **removerAlpha**
+(a local, no-token pass that tells you what reads as AI, with the full list and
+the exact spans), routes **skill imports through NVIDIA's SkillSpector** (with
+`--no-llm`, so a scan never uploads the skill), gives answers **link previews**
+that check `robots.txt` first, adds a **feedback** screen whose notes are stored
+locally, a **setting-up** onboarding step backed by real work, **design-mode
+pointing** with your own avatar, **tooltip cards as a tool call**, the **Library
+search** (Wikipedia + trusted sources + your documents, folders, tags, RSS), a
+**notification bell**, and **resumable update downloads**. The portable archives
+below are built from this tag and report `0.35.0-beta.1` from `/api/health`.
+
 0.34.0 is the round that gives every one of the seven Aceternity components you
 named a job: onboarding grew from five steps to eight and now ends by *running*
 the app (type a question on the last step and it opens the chat and answers),
 Developer Mode gained a **UI lab** for the interface built here, forking a chat
 now compresses it into a capsule (63% fewer tokens on a 30-turn fixture, with the
 task, the constraints and the code intact), and a frame-budget governor steps the
-expensive canvases down when the machine cannot keep up. The portable archives
-below are built from this tag and report `0.34.0-beta.1` from `/api/health`.
+expensive canvases down when the machine cannot keep up.
 
 0.32.0 is the round that fixes the two things you could see failing, and adopts
 the components that were asked for by name. **The update download works again:**

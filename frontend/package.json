@@ -1,7 +1,7 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "0.34.0-beta.1",
+  "version": "0.35.0-beta.1",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -11,6 +11,8 @@
     "preview": "vite preview",
     "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts",
     "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts",
+    "r17-test": "tsx scripts/r17-test.mts",
+    "r17-ui-test": "tsx scripts/r17-ui-test.mts",
     "sample-test": "tsx scripts/sample-test.mts",
     "smoke": "tsx scripts/smoke.mts",
     "ui-lab-test": "tsx --tsconfig tsconfig.json scripts/ui-lab-test.mts",
