@@ -369,7 +369,16 @@ async function main() {
   check('every vendored component is imported by the page', unused.length === 0, unused.map((u: any) => u.id).join(', '))
 
   const shots = readdirSync(join(siteDir, 'public', 'shots')).filter((f) => f.endsWith('.webp'))
-  check('the screenshots are served from this origin, optimised', shots.length >= 4 && shots.every((f) => f.endsWith('.webp')), shots.join(', '))
+  check('the screenshots are served from this origin, optimised', shots.length >= 5 && shots.every((f) => f.endsWith('.webp')), shots.join(', '))
+  check(
+    'every screenshot the page references exists',
+    ['shot-1.webp', 'reveal.webp'].every((f) => shots.includes(f)) && sourceText.includes('/shots/shot-1.webp') && sourceText.includes('/shots/reveal.webp'),
+    shots.join(', '),
+  )
+  check(
+    'the reveal section uses the repository’s own hero image',
+    readFileSync(join(siteDir, 'src/components/site/Showcase.tsx'), 'utf8').includes('/shots/reveal.webp'),
+  )
   check('nothing hotlinks the image host the sources came from', !sourceText.includes('i.ibb.co'))
   check('the avatars are local too', readdirSync(join(siteDir, 'public', 'avatars')).length === 3)
 
