@@ -93,33 +93,74 @@ export interface StarState {
   loading: boolean
 }
 
+const EMPTY_STARS: StarState = { count: 0, stargazers: [], live: false, loading: true }
+
+/**
+ * One request per visit, not one per component.
+ *
+ * Three parts of the page show the star count (the nav, the band under the hero
+ * and the footer). GitHub's unauthenticated API allows 60 requests an hour per
+ * address, and a public page is exactly where that limit gets hit — so the fetch
+ * is shared: the first caller starts it, everybody else subscribes to the result.
+ */
+let starsInFlight: Promise<StarState> | null = null
+let starsValue: StarState = EMPTY_STARS
+const starsListeners = new Set<(state: StarState) => void>()
+
+function loadStars(repo: string): Promise<StarState> {
+  if (starsInFlight) return starsInFlight
+  const headers = { accept: 'application/vnd.github+json' }
+  starsInFlight = Promise.all([
+    fetch(`https://api.github.com/repos/${repo}`, { headers }),
+    fetch(`https://api.github.com/repos/${repo}/stargazers?per_page=8`, { headers }),
+  ])
+    .then(async ([info, people]) => {
+      if (!info.ok) throw new Error(`GitHub answered ${info.status}`)
+      const data = (await info.json()) as { stargazers_count?: number }
+      const list = people.ok ? ((await people.json()) as StarState['stargazers']) : []
+      return {
+        count: typeof data.stargazers_count === 'number' ? data.stargazers_count : 0,
+        stargazers: Array.isArray(list) ? list.slice(0, 8) : [],
+        live: true,
+        loading: false,
+      } satisfies StarState
+    })
+    // A refused/failed lookup is a finished lookup: keep `loading` false so the
+    // band settles on its honest fallback instead of pulsing forever.
+    .catch(() => ({ ...EMPTY_STARS, loading: false }))
+    .then((state) => {
+      starsValue = state
+      for (const listener of starsListeners) listener(state)
+      return state
+    })
+  return starsInFlight
+}
+
+/**
+ * Forget the cached answer. Only the site test uses this: a real page loads the
+ * stars once and never needs to reload them. It exists so the test can exercise
+ * both branches (GitHub answering, and a repository that is not public yet)
+ * without reloading the browser.
+ */
+export function resetStarsCacheForTests() {
+  starsInFlight = null
+  starsValue = EMPTY_STARS
+  starsListeners.clear()
+}
+
 export function useStars(repo = REPO): StarState {
-  const [state, setState] = useState<StarState>({ count: 0, stargazers: [], live: false, loading: true })
+  const [state, setState] = useState<StarState>(starsValue)
 
   useEffect(() => {
     let alive = true
-    const headers = { accept: 'application/vnd.github+json' }
-    Promise.all([
-      fetch(`https://api.github.com/repos/${repo}`, { headers }),
-      fetch(`https://api.github.com/repos/${repo}/stargazers?per_page=8`, { headers }),
-    ])
-      .then(async ([info, people]) => {
-        if (!info.ok) throw new Error(`GitHub answered ${info.status}`)
-        const data = (await info.json()) as { stargazers_count?: number }
-        const list = people.ok ? ((await people.json()) as StarState['stargazers']) : []
-        if (!alive) return
-        setState({
-          count: typeof data.stargazers_count === 'number' ? data.stargazers_count : 0,
-          stargazers: Array.isArray(list) ? list.slice(0, 8) : [],
-          live: true,
-          loading: false,
-        })
-      })
-      .catch(() => {
-        if (alive) setState({ count: 0, stargazers: [], live: false, loading: false })
-      })
+    const listener = (next: StarState) => {
+      if (alive) setState(next)
+    }
+    starsListeners.add(listener)
+    void loadStars(repo).then(listener)
     return () => {
       alive = false
+      starsListeners.delete(listener)
     }
   }, [repo])
 

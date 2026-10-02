@@ -163,6 +163,19 @@ async function main() {
     check(`#${id} is on the page`, !!page.querySelector(`#${id}`))
   }
 
+  const githubCalls = seen.filter((u) => u.startsWith('https://api.github.com/repos/'))
+  check(
+    'the star count is fetched once for the whole page, not once per component',
+    githubCalls.length <= 2,
+    `${githubCalls.length} calls: ${githubCalls.join(', ')}`,
+  )
+  check(
+    'three parts of the page show it from that one answer',
+    ['src/components/site/Nav.tsx', 'src/components/site/StarsStrip.tsx', 'src/components/site/Footer.tsx'].every((f) =>
+      readFileSync(join(siteDir, f), 'utf8').includes('useStars('),
+    ),
+  )
+
   const headline = page.querySelector('h1')
   check(
     'the hero headline is the depth-parallax headline',
@@ -244,8 +257,13 @@ async function main() {
   /* ------------------------------------------------------------ 3 · stars -- */
 
   console.log('\n[3] The stars band, honest in both directions')
-  check('with GitHub silent, the band does not invent a number', /New on GitHub/.test(text(page)))
+  const quietBand = await waitFor(() => /New on GitHub/.test(text(win.document.body)), 4000)
+  check('with GitHub silent, the band does not invent a number', quietBand, text(page).slice(0, 220))
   check('and it still offers the star', !!page.querySelector('a[href="https://github.com/timetorepo/researchengine"]'))
+  check(
+    'a failed lookup settles instead of pulsing forever',
+    !page.innerHTML.includes('animate-pulse') || /New on GitHub/.test(text(page)),
+  )
   check('the github-stars-animation component is the one used', /github-stars-animation/.test(readFileSync(join(repoDir, 'website/src/components/site/StarsStrip.tsx'), 'utf8')))
 
   github = {
@@ -256,6 +274,8 @@ async function main() {
   win.document.body.appendChild(starsHost)
   const starsRoot = createRoot(starsHost)
   const { StarsStrip } = await import('../src/components/site/StarsStrip')
+  const { resetStarsCacheForTests } = await import('../src/lib/release')
+  resetStarsCacheForTests()
   starsRoot.render(React.createElement(StarsStrip))
   await waitFor(() => /128/.test(text(starsHost)), 4000)
   check('when GitHub answers, the real count is shown', /128/.test(text(starsHost)), text(starsHost))

@@ -48,6 +48,7 @@ researchengine/
 ├── desktop/         # Tauri 2 shell (Rust) + packaging config
 ├── downloads/       # prebuilt portable archives + checksums + bench report
 ├── scripts/         # dev.mjs, package-binary.mjs, desktop-sidecar.mjs, …
+├── website/         # the public site (Vite, static, deploys to Netlify)
 ├── Dockerfile.single
 └── compose.slim.yml
 ```
@@ -78,6 +79,9 @@ where one exists (root `npm run render-probe`, `npm run smoke`).
 | `workflow-test.mts`, `engine-test.mts` | Workflow execution and the AIFlowEngine pacing/pruning logic |
 | `render-probe.mts`, `bg-props-test.mts` | Render probes and background properties across all themes |
 | `bench-report.mts` | The create-path bench, run against a *running* instance (this is the report shipped in `downloads/`) |
+| `r17-test.mts`, `r18-test.mts` | The R17 and R18 contracts: link previews, feedback, skill scanning, notifications, the update resume, the Library search route, the vendored shadcnspace blocks |
+| `r17-ui-test.mts`, `r18-ui-test.mts` | The same rounds mounted in jsdom: the search's three paths, the vanish input's exit, and every vendored block doing its job |
+| `website/scripts/site-test.mts` | The public site mounted in jsdom (78 checks): the eleven vendored components, the quotes, the download built from this repository, Lenis, and the Netlify configuration |
 
 Gates used on every release: TypeScript strict check on both workspaces, the
 production build, the suites above, and the create-path bench against the
@@ -113,6 +117,51 @@ CI (`.github/workflows/desktop.yml`) builds those bundles on every version tag,
 boots the compiled server on the runner, verifies the installer before uploading,
 and attaches the artifacts to the release. **Windows and Linux only — no macOS
 runner is configured.**
+
+## The website
+
+`website/` is the public site: what the app does, what people said, why it is
+free, and the download. It is a static Vite page — no functions, no server, no
+secrets — built from the SmoothUI, Aceternity UI and shadcnspace registries the
+rounds name.
+
+```bash
+npm run site:dev       # vite dev server on :5188 (npm --prefix website run dev)
+npm run site:build     # → website/dist
+npm run site:test      # 78 checks, mounted in jsdom
+npm run site:vendor    # re-verify the vendored files against their digests
+```
+
+Two things are worth knowing before touching it:
+
+- **Every component is vendored with provenance.** `website/scripts/
+  site-sources.json` records each file's origin, the digest it was vendored from,
+  the digest as it sits in this repository, and every local edit with the reason
+  it exists. `site-vendor.mjs --verify` re-checks all of it offline and re-fetches
+  the upstream copy when the network allows, so a mismatch is reported rather than
+  silently absorbed. Do not edit a vendored file without recording the patch and
+  the new digest.
+- **The download is generated from this repository, not typed by hand.**
+  `website/scripts/prepare-assets.mjs` runs before Vite on every dev start and
+  build: it reads the version from the root `package.json`, copies the portable
+  archives out of `downloads/`, reads their digests from `SHA256SUMS` and the
+  installer digests from `INSTALLERS.sha256`, and writes
+  `website/public/release.json`. The installers link to the GitHub release for
+  that exact tag; the portables are served by the site itself. Nothing to keep in
+  sync by hand — but it does mean **the site only shows a new version after it is
+  rebuilt and redeployed**, so a release is not finished until the site has been
+  rebuilt (a push to the branch, or "Trigger deploy" in Netlify).
+
+Deploying: connect the repository in Netlify and accept the defaults. The root
+`netlify.toml` sets the base directory to `website`, the command to
+`npm ci && npm run build`, the publish directory to `dist`, the SPA fallback, the
+cache headers for hashed assets and images, and `NODE_VERSION=22`.
+
+The screenshots are this repository's own. `.github/workflows/site-assets.yml` is
+a maintainer-run job (push a `site-assets-*` tag) that fetches the originals onto a
+scratch branch, because the build environment this branch is developed in cannot
+reach an image host; the optimisation to 1600 px WebP happens where ImageMagick
+is available, and only the WebP files are committed.
 
 ## Releases
 
