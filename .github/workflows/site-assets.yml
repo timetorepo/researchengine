@@ -37,8 +37,17 @@ jobs:
           fetch() {
             local url="$1" out="$2" width="$3"
             curl -fsSL --retry 3 --retry-delay 2 -A "ResearchEngine-Website/1.0" -o "website/.asset-src/$out" "$url"
-            head -c 8 "website/.asset-src/$out" | grep -q $'x89PNG' || { echo "not a PNG: $out"; exit 1; }
+            # The PNG signature, checked byte by byte: a redirect page saved as
+            # .png would otherwise sail through ImageMagick as an error and only
+            # surface much later as a blank screenshot.
+            local magic
+            magic=$(head -c 8 "website/.asset-src/$out" | od -An -tx1 | tr -d ' \n')
+            case "$magic" in
+              89504e470d0a1a0a*) ;;
+              *) echo "not a PNG: $out (magic $magic)"; exit 1 ;;
+            esac
             convert "website/.asset-src/$out" -resize "${width}x" -quality 82 "website/public/shots/${out%.png}.webp"
+            test -s "website/public/shots/${out%.png}.webp" || { echo "conversion produced nothing: $out"; exit 1; }
             echo "${out%.png}.webp  $(stat -c%s "website/public/shots/${out%.png}.webp") bytes  from $url"
           }
           fetch "https://i.ibb.co/WNvrsrJ5/2-20260927-195621-0000.png" "shot-1.png" 1600
