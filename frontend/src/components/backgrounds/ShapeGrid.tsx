@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import type { BgThemeProps } from '@/lib/backgrounds/themeProps'
+import { frameLevel, subscribeFrameHealth } from '@/lib/system/frame-budget'
 
 /**
  * ShapeGrid — a slowly drifting field of small geometric shapes.
@@ -81,9 +82,16 @@ export default function ShapeGrid({ theme, intensity = 0.6 }: { theme: BgThemePr
       ctx.restore()
     }
 
+    /**
+     * Adaptive quality: on a machine the governor reports as 'minimal', the
+     * field is drawn once and left alone — a drifting background is the first
+     * thing that should give way to a frame budget, and the still frame looks
+     * the same at a glance.
+     */
     let start = performance.now()
     const frame = (now: number) => {
       if (!running) return
+      if (frameLevel() === 'minimal') { running = false; return }
       const t = (now - start) / 1000
       ctx.clearRect(0, 0, w, h)
       for (let gy = 0; gy < rows; gy++) {
@@ -118,10 +126,17 @@ export default function ShapeGrid({ theme, intensity = 0.6 }: { theme: BgThemePr
     }
     document.addEventListener('visibilitychange', onVis)
 
+    // A downgrade that lands after mount stops the loop too, without waiting
+    // for the tab to be hidden and shown again.
+    const unsubscribe = subscribeFrameHealth(() => {
+      if (frameLevel() === 'minimal') { running = false; cancelAnimationFrame(raf) }
+    })
+
     return () => {
       running = false
       cancelAnimationFrame(raf)
       ro.disconnect()
+      unsubscribe()
       document.removeEventListener('visibilitychange', onVis)
     }
   }, [theme.isLight, intensity])

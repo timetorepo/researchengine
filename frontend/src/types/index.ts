@@ -61,6 +61,21 @@ export interface ChatMessage {
    * false means they are an estimate from the text, and the UI marks them.
    */
   usage?: { prompt: number; completion: number; total: number; reported: boolean }
+  /**
+   * This message *is* the compressed context a fork carried over, not something
+   * a model said. It is ordinary content as far as the request is concerned —
+   * which is the point: the continuation sees it — but the chat renders it as a
+   * card with the numbers, collapsed, instead of as a wall of prose.
+   */
+  capsule?: {
+    fromChatId: string
+    fromTitle: string
+    savedPct: number
+    sourceTokens: number
+    capsuleTokens: number
+    turns: number
+    facts: number
+  }
   /** Tool activity for this answer (shown as chips above the text). */
   toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
   /** AI-generated questionnaire awaiting the user's answers. */
@@ -437,6 +452,18 @@ export interface Settings {
     /** Push-to-talk: hold the mic instead of clicking it. */
     pushToTalk?: boolean
   }
+  /**
+   * Forking a chat. The capsule carried into the new chat is compressed on
+   * this device (lib/chat/fork), and this remembers how hard: `compact`
+   * trades detail for tokens, `faithful` errs the other way. Nothing here
+   * costs a model call.
+   */
+  fork?: {
+    level?: 'compact' | 'balanced' | 'faithful'
+    /** Turns at the end carried close to verbatim. */
+    keepLast?: number
+    includeCode?: boolean
+  }
   /** Per-response token counts, shown in the message footer. */
   showTokenUsage?: boolean
   /** Smooth caret in text fields (Skiper UI's SmoothInput). */
@@ -486,6 +513,12 @@ export interface Settings {
   quizAutoAdvance: boolean
   readerImages: boolean
   performanceProfile: 'eco' | 'balanced' | 'performance'
+  /**
+   * Adaptive quality: sample the real frame rate and let the animated layers
+   * thin themselves out on a machine that cannot hold frames (lib/system/
+   * frame-budget). On by default; off means every layer always draws fully.
+   */
+  adaptiveQuality?: boolean
   highMemoryMode: boolean
   flowShaping: 'off' | 'subtle' | 'standard' | 'cinematic'
   thinkingStyle: 'minimal' | 'standard' | 'verbose'

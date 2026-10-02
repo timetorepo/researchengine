@@ -2,7 +2,7 @@ import React, { memo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import {
-  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2, Gauge,
+  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2, Gauge, Scissors,
 } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { useStore } from '@/stores/useStore'
@@ -27,6 +27,7 @@ import { themeKind } from '@/lib/themes/meta'
 // SmoothUI — the message frame (avatar, bubble, timestamp, copy / vote / retry
 // actions that fade in from the side the bubble is anchored to).
 import AIMessage from '@/components/smoothui/ai-message'
+import { ForkPanel, CapsuleCard } from '@/components/chat/ForkPanel'
 import AIDiff from '@/components/smoothui/ai-diff'
 import AIReasoning from '@/components/smoothui/ai-reasoning'
 import { timeAgo } from '@/lib/utils'
@@ -41,7 +42,15 @@ interface Props {
 
 export const Message = memo(function Message({ chatId, msg, streaming, onRegenerate }: Props) {
   const navigate = useNavigate()
-  const ui = useUI()
+  /**
+   * Deliberately *not* a subscription. Every use of `ui` here is an imperative
+   * action (a toast, opening a panel), and subscribing to the whole UI store
+   * meant every toast, queue change and overlay flag re-rendered every message
+   * in the transcript — which is most of the cost of a long chat. Each message
+   * now re-renders only for its own props, and the streaming one for its
+   * tokens.
+   */
+  const ui = useUI.getState
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(msg.content)
@@ -54,18 +63,12 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   const theme = useStore((st) => st.settings.theme)
   const reduceMotion = useStore((st) => st.settings.reduceMotion)
   const contextExhausted = !!msg.error && /(context|token|maximum|limit|length).{0,24}(window|capacity|exceed|long|limit|token)|too many tokens/i.test(msg.error)
-  const forkWithSummary = () => {
-    const source = store.getState().chats.find((c) => c.id === chatId)
-    if (!source) return
-    const turns = source.messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-10)
-    const compact = turns.map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.replace(/\s+/g, ' ').slice(0, 420)}`).join('\n')
-    const forkId = store.getState().newChat()
-    store.getState().renameChat(forkId, `Fork · ${source.title}`.slice(0, 80))
-    store.getState().addMessage(forkId, { id: nanoid(8), role: 'assistant', content: `## Conversation capsule\n\nThis is a simplified continuation of **${source.title}**. The earlier context was compressed because the model context window was full.\n\n${compact}`, createdAt: Date.now(), model: 'local summary', provider: 'Research Engine' })
-    store.getState().addMessage(forkId, { id: nanoid(8), role: 'user', content: 'Continue from this simplified conversation capsule. Ask me to clarify anything that was lost.', createdAt: Date.now() })
-    navigate(`/chat/${forkId}`)
-    ui.toast('Conversation forked', 'A compact context capsule was carried into a new chat.', 'success')
-  }
+  /**
+   * Forking is a panel now, not a 420-character-per-turn truncation: it shows
+   * what the compression keeps and what it saves before anything is created
+   * (components/chat/ForkPanel.tsx).
+   */
+  const [forkOpen, setForkOpen] = useState(false)
 
   /** Humanize is a Chat affordance — never offered inside Coding mode. */
   const chatTitle = store((s) => s.chats.find((c) => c.id === chatId)?.title ?? '')
@@ -88,7 +91,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
       // the model ran into its output limit — say so instead of quietly losing
       // half an answer.
       const clipped = msg.content.length > 800 && res.text.length < msg.content.length * 0.55
-      ui.toast(
+      ui().toast(
         clipped ? 'Humanized — check the length' : res.local ? 'Humanized on device' : 'Humanized',
         clipped
           ? 'The rewrite is much shorter than the original: the model may have been cut off. Press Humanize again for another pass.'
@@ -158,7 +161,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           )}
           <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
             <HoverBtn label="Edit" onClick={() => { setDraft(msg.content); setEditing(true) }}><Pencil size={13} /></HoverBtn>
-            <HoverBtn label="Build skill" onClick={() => ui.set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
+            <HoverBtn label="Build skill" onClick={() => ui().set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
           </div>
         </div>
       </div>
@@ -195,6 +198,10 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         transition: { layout: { type: 'spring', damping: 26, stiffness: 320 }, opacity: { duration: 0.2 }, y: { duration: 0.2 } },
       } : {})}
       className={`msg-row group py-4 ${streaming ? 'msg-streaming' : 'msg-settle'}`}>
+      {/* The fork panel lives with the message that opened it; HeroUI's Modal
+          renders nothing until it is open, so an idle chat carries no extra
+          DOM. */}
+      <ForkPanel chatId={chatId} exhausted={contextExhausted} open={forkOpen} onClose={() => setForkOpen(false)} />
       <div className="max-w-[760px] mx-auto px-4">
         <AIMessage
           avatar={(
@@ -255,12 +262,12 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                   className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
                   Retry
                 </button>
-                {contextExhausted && <button onClick={forkWithSummary}
+                {contextExhausted && <button onClick={() => setForkOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
                   <Sparkles size={12} /> Simplify &amp; fork
                 </button>}
                 <button
-                  onClick={() => ui.set({ settingsSheet: true, settingsTab: 'providers' })}
+                  onClick={() => ui().set({ settingsSheet: true, settingsTab: 'providers' })}
                   className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--danger)', color: '#fff' }}
                 >Fix in Settings</button>
               </div>
@@ -274,7 +281,9 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
             <ExecApproval chatId={chatId} msg={msg} />
             <QuestionnaireCard chatId={chatId} msg={msg} />
             {msg.humanizing && !msg.humanized && <HumanizingIndicator onCancel={() => void runHumanize()} />}
-            {msg.humanized ? (
+            {msg.capsule ? (
+              <CapsuleCard msg={msg} />
+            ) : msg.humanized ? (
               <HumanizedAnswer
                 msg={msg}
                 onRestore={() => store.getState().updateMessage(chatId, msg.id, { humanized: undefined, humanizedBy: undefined, humanizeError: undefined })}
@@ -339,6 +348,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               {copied ? <Check size={13} /> : <Copy size={13} />}
             </HoverBtn>
             <HoverBtn label="Regenerate" onClick={() => onRegenerate(msg)}><RefreshCw size={13} /></HoverBtn>
+            <HoverBtn label="Fork with a compressed prompt" onClick={() => setForkOpen(true)}><Scissors size={13} /></HoverBtn>
             <HoverBtn label="Branch into new chat" onClick={() => {
               const chat = store.getState().chats.find((c) => c.id === chatId)!
               const idx = chat.messages.findIndex((m) => m.id === msg.id)
@@ -351,12 +361,12 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               }
               useStore.setState((s) => ({ chats: [branch, ...s.chats] }))
               navigate(`/chat/${branch.id}`)
-              ui.toast('Branched', 'This response now lives in its own research thread.')
+              ui().toast('Branched', 'This response now lives in its own research thread.')
             }}><GitBranch size={13} /></HoverBtn>
             <HoverBtn label="Bookmark" onClick={() => store.getState().updateMessage(chatId, msg.id, { bookmarked: !msg.bookmarked })}>
               <Bookmark size={13} fill={msg.bookmarked ? 'currentColor' : 'none'} />
             </HoverBtn>
-            <HoverBtn label="Build skill" onClick={() => ui.set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
+            <HoverBtn label="Build skill" onClick={() => ui().set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
             <HoverBtn label="Extract insight" onClick={() => {
               const firstLine = msg.content.split('\n').find((l) => l.trim().length > 12)?.replace(/[#*>`]/g, '').trim() ?? 'Insight'
               useStore.setState((s) => ({
@@ -366,7 +376,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                   tags: ['extracted'], confidence: 'medium', createdAt: Date.now(),
                 }, ...s.knowledge],
               }))
-              ui.toast('Knowledge card saved', 'Find it in Library → Knowledge.')
+              ui().toast('Knowledge card saved', 'Find it in Library → Knowledge.')
             }}><Lightbulb size={13} /></HoverBtn>
             {f && <HoverBtn label="Transparency info" onClick={() => setShowInfo((v) => !v)}><Info size={13} /></HoverBtn>}
             {/* What this answer cost. Providers that report counts are quoted

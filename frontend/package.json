@@ -1,19 +1,21 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "0.33.0-beta.1",
+  "version": "0.34.0-beta.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "smoke": "tsx scripts/smoke.mts",
     "design-test": "tsx scripts/design-test.mts",
-    "sample-test": "tsx scripts/sample-test.mts",
-    "ui-test": "tsx scripts/ui-test.mts",
+    "dev": "vite",
+    "fork-test": "tsx --tsconfig tsconfig.json scripts/fork-test.mts",
+    "preview": "vite preview",
     "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts",
-    "updates-ui-test": "tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts",
-    "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts"
+    "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts",
+    "sample-test": "tsx scripts/sample-test.mts",
+    "smoke": "tsx scripts/smoke.mts",
+    "ui-lab-test": "tsx --tsconfig tsconfig.json scripts/ui-lab-test.mts",
+    "ui-test": "tsx scripts/ui-test.mts",
+    "updates-ui-test": "tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts"
   },
   "dependencies": {
     "@blobatar/react": "^2.7.0",

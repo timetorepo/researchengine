@@ -49,7 +49,7 @@ export function ThinkingIndicator({ stage, inline = false }: { stage: FlowStage;
   const label = STAGE_LABELS[shown] || 'Thinking'
 
   return (
-    <div className={`flex items-center gap-2.5 ${inline ? '' : 'py-1'}`}>
+    <div data-ui="thinking" className={`flex items-center gap-2.5 ${inline ? '' : 'py-1'}`}>
       <motion.div layoutId="re-flow-orb" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', damping: 26, stiffness: 320 }}>
         {/* ThinkingOrb by Jakubantalik — the live state of the engine, drawn. */}

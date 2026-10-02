@@ -111,7 +111,7 @@ export function RevolvingText({
   const Icon = current?.icon
 
   return (
-    <div ref={outerRef} data-fit-scale={scale.toFixed(2)} className={`w-full flex justify-center overflow-visible ${className}`}>
+    <div ref={outerRef} data-ui="revolving-hero" data-fit-scale={scale.toFixed(2)} className={`w-full flex justify-center overflow-visible ${className}`}>
       <div
         ref={rowRef}
         className="inline-flex items-center justify-center gap-x-2 whitespace-nowrap will-change-transform"

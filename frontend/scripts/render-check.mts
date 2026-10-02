@@ -2841,6 +2841,125 @@ async function main() {
         .every((n) => { try { return readSUdir(`../frontend/src/components/smoothui/${n}`).length > 0 } catch { return false } }))
   }
 
+  /* ---------------- Aceternity: installed *and* used (R16) ----------------
+     Same rule as SmoothUI above: vendored components must be imported by a
+     host outside their own folder, and the place they are used has to be the
+     place the request asked for. */
+  {
+    const { readFileSync: readAX } = await import('node:fs')
+    const aceternity = (f: string) => readAX(`../frontend/src/${f}`, 'utf8')
+
+    const AX_WIRED: [string, string, string][] = [
+      ['GooeyInput', 'components/chats/ChatsView.tsx', 'the chats search box'],
+      ['DottedGlowBackground', 'components/onboarding/Onboarding.tsx', 'the "free, unlike these apps" step'],
+      ['ImagesBadge', 'components/chat/ToolUI.tsx', 'attachments on a message'],
+      ['ColourfulText', 'components/onboarding/Onboarding.tsx', 'the welcome tagline'],
+      ['ContainerTextFlip', 'components/onboarding/Onboarding.tsx', 'the modes step'],
+      ['CanvasRevealEffect', 'components/onboarding/Onboarding.tsx', 'the modes stage'],
+      ['AppleCardsCarousel', 'components/onboarding/onboarding-features.tsx', 'the features carousel'],
+    ]
+    for (const [name, host, why] of AX_WIRED) {
+      const src = aceternity(host)
+      check(`Aceternity ${name} is used for ${why}`,
+        src.includes(`@/components/ui/aceternity/${name}`) || src.includes(`aceternity/${name}`))
+    }
+
+    const onboarding = aceternity('components/onboarding/Onboarding.tsx')
+    const paid = aceternity('components/onboarding/paid-apps.tsx')
+    const features = aceternity('components/onboarding/onboarding-features.tsx')
+
+    check('the welcome line is the requested sentence, with AI Research coloured',
+      /The swiss knife of <ColourfulText text="AI Research" \/>\./.test(onboarding))
+    check('the paid-apps step says it, word for word',
+      onboarding.includes('ResearchEngine is free, unlike these apps.'))
+    check('every look-alike is drawn as a favicon, from the app itself',
+      /export function Favicon/.test(paid) && /PAID_APPS/.test(paid) && (paid.match(/^\s{4}id: '/gm) ?? []).length >= 6)
+    check('the favicons are bundled, not fetched from the vendors on first run',
+      !/https?:\/\/(?!ui\.aceternity)/.test(paid.replace(/https:\/\/blobatar[^'"\s]*/g, '')) &&
+      !/favicon\.ico|s2\/favicons|google\.com\/s2/.test(paid))
+    check('the features carousel uses drawn art, never stock photography',
+      /art: ART\./.test(features) && !/https?:\/\/[^'"\s]+\.(?:jpe?g|png|webp|avif)/.test(features))
+    check('onboarding gained the steps it was asked for',
+      ['label: \'Welcome\'', 'label: \'Privacy\'', 'label: \'Modes\'', 'label: \'Features\'', 'label: \'Free\'', 'label: \'Provider\'', 'label: \'Try the demo\'', 'label: "You\'re set"']
+        .every((line) => onboarding.includes(line)))
+    check('the last step runs a real question instead of only describing the app',
+      /runFirst\s*=/.test(onboarding) && onboarding.includes('runChat({ chatId: id, prompt: text'))
+    check('and the carousel step is exempt from the wrapper transform that would trap the opened card',
+      /still : fade/.test(onboarding) && /isCarousel/.test(onboarding))
+  }
+
+  /* ---------------- R16: the fork compresses, and it is proven ---------------- */
+  {
+    const { readFileSync: readFK } = await import('node:fs')
+    const forkLib = readFK('../frontend/src/lib/chat/fork.ts', 'utf8')
+    const forkPanel = readFK('../frontend/src/components/chat/ForkPanel.tsx', 'utf8')
+    const message = readFK('../frontend/src/components/chat/Message.tsx', 'utf8')
+    check('the fork compressor is local, deterministic and documented',
+      forkLib.includes('export function compressConversation') && forkLib.includes('export function estimateTokens'))
+    check('foreign-currency heuristic: nothing in the compressor calls a model',
+      !/fetch\(|runChat|provider/i.test(forkLib.split('export function compressConversation')[0].split('/*')[0] || '') ||
+      !/\bfetch\(/.test(forkLib))
+    check('the fork panel shows the numbers before anything is created',
+      forkPanel.includes('savedPct') && forkPanel.includes('sourceTokens') && forkPanel.includes('capsuleTokens'))
+    check('the forked chat renders the capsule as a card, not as prose',
+      forkPanel.includes('export function CapsuleCard') && message.includes('<CapsuleCard msg={msg} />') && message.includes('msg.capsule'))
+    check('the old truncating fork is gone',
+      !/forkWithSummary/.test(message) && !/Conversation capsule/.test(message))
+    check('there is a suite that measures the saving and the survivors',
+      readFK('../frontend/scripts/fork-test.mts', 'utf8').includes('file names must be lowercased'))
+  }
+
+  /* ---------------- R16: the UI lab previews agent-made interface only ---------------- */
+  {
+    const { readFileSync: readUL } = await import('node:fs')
+    const lab = readUL('../frontend/src/components/settings/UILab.tsx', 'utf8')
+    const devTab = readUL('../frontend/src/components/settings/DeveloperTab.tsx', 'utf8')
+    const components = [...lab.matchAll(/component: '([^']+)'/g)].map((m) => m[1])
+    check('the UI lab previews real components, and it has some',
+      components.length >= 5 && components.every((c) => c.startsWith('@/components/') || c.startsWith('@/lib/')))
+    check('the UI lab is scoped to agent-made interface — no vendored provider may appear in it',
+      components.every((c) => !/(aceternity|smoothui|skiper|watermelon|heroui|reactbits|border-beam)/.test(c)))
+    check('the exclusion is stated in the file, not implied',
+      /Agent-made only|only interface built for this app|vendor folders/i.test(lab))
+    check('the UI lab is reachable from Settings → Developer while Developer Mode is on',
+      devTab.includes("from '@/components/settings/UILab'") && /settings\.developerMode && \([\s\S]{0,120}<UILab/.test(devTab))
+    check('every previewed component carries the data-ui anchor the flash jump needs',
+      ['composer', 'thinking', 'mode-menu', 'route-skeleton', 'revolving-hero'].every((id) =>
+        readUL('../frontend/src/components/chat/ThinkingIndicator.tsx', 'utf8').includes(id) ||
+        readUL('../frontend/src/components/input/InputBar.tsx', 'utf8').includes(id) ||
+        readUL('../frontend/src/components/input/ModeMenu.tsx', 'utf8').includes(id) ||
+        readUL('../frontend/src/components/shared/RouteSkeleton.tsx', 'utf8').includes(id) ||
+        readUL('../frontend/src/components/home/RevolvingText.tsx', 'utf8').includes(id)))
+    check('the jump ring is themed, not a hard-coded highlight',
+      readUL('../frontend/src/styles/globals.css', 'utf8').includes('.re-ui-flash')
+      && readUL('../frontend/src/styles/globals.css', 'utf8').includes('.re-ui-grid'))
+  }
+
+  /* ---------------- R16: the app measures its own frame budget ---------------- */
+  {
+    const { readFileSync: readPF } = await import('node:fs')
+    const budget = readPF('../frontend/src/lib/system/frame-budget.ts', 'utf8')
+    const app = readPF('../frontend/src/App.tsx', 'utf8')
+    const perfTab = readPF('../frontend/src/components/settings/PerformanceTab.tsx', 'utf8')
+    const shapeGrid = readPF('../frontend/src/components/backgrounds/ShapeGrid.tsx', 'utf8')
+    const dotted = readPF('../frontend/src/components/ui/aceternity/DottedGlowBackground.tsx', 'utf8')
+    const reveal = readPF('../frontend/src/components/ui/aceternity/CanvasRevealEffect.tsx', 'utf8')
+    check('the frame budget is measured, not guessed, and the measurement stops', /measureFrameBudget/.test(budget) && /cancelAnimationFrame/.test(budget))
+    check('it is started once, from the app shell', app.includes('watchFrameBudget()'))
+    check('it can be turned off, and re-measured, from Settings → Performance',
+      perfTab.includes('remeasure()') && perfTab.includes('adaptiveQuality') && perfTab.includes('useFrameHealth'))
+    check('the expensive canvases consult it before drawing',
+      ['ShapeGrid.tsx', 'DottedGlowBackground.tsx', 'CanvasRevealEffect.tsx'].length === 3 &&
+      shapeGrid.includes('frameLevel()') && dotted.includes('frameLevel()') && reveal.includes('useFrameLevel()'))
+    check('and they stop while the window is hidden',
+      shapeGrid.includes('visibilitychange') && dotted.includes('visibilitychange') && reveal.includes('visibilitychange'))
+    check('the long-chat hot path no longer subscribes the whole UI store',
+      readPF('../frontend/src/components/chat/Message.tsx', 'utf8').includes('const ui = useUI.getState')
+      && readPF('../frontend/src/components/input/InputBar.tsx', 'utf8').includes('const ui = useUI.getState'))
+    check('regenerating a message cannot re-render the transcript on every token',
+      readPF('../frontend/src/components/chat/ChatView.tsx', 'utf8').includes('React.useCallback((msg: { id: string; content: string })'))
+  }
+
   console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed:', fails.join(' | '))
   process.exit(failed ? 1 : 0)

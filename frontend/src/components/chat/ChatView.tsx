@@ -93,16 +93,29 @@ export function ChatView() {
     return () => window.removeEventListener('re:send-prompt', h)
   }, [id, mathMode])
 
-  const regenerate = (msg: { id: string; content: string }) => {
-    if (!chat || !id) return
-    const idx = chat.messages.findIndex((m) => m.id === msg.id)
-    const prevUser = [...chat.messages.slice(0, idx)].reverse().find((m) => m.role === 'user')
+  /**
+   * Stable on purpose.
+   *
+   * `<Message>` is memoised, but this callback used to close over `chat` — a
+   * new array on every token — so every streaming tick re-rendered the entire
+   * transcript and re-parsed every answer's markdown. Reading the chat from the
+   * store at click time instead of from the render closure costs nothing and
+   * keeps the memo intact, so a long chat only re-renders the message being
+   * written.
+   */
+  const regenerate = React.useCallback((msg: { id: string; content: string }) => {
+    if (!id) return
+    const live = useStore.getState().chats.find((c) => c.id === id)
+    if (!live) return
+    const idx = live.messages.findIndex((m) => m.id === msg.id)
+    if (idx < 0) return
+    const prevUser = [...live.messages.slice(0, idx)].reverse().find((m) => m.role === 'user')
     if (!prevUser) return
     useStore.setState((s) => ({
       chats: s.chats.map((c) => c.id === id ? { ...c, messages: c.messages.slice(0, idx) } : c),
     }))
-    runChat({ chatId: id, prompt: prevUser.content, mode: prevUser.mode, overrideHistory: chat.messages.slice(0, idx - 1) })
-  }
+    runChat({ chatId: id, prompt: prevUser.content, mode: prevUser.mode, overrideHistory: live.messages.slice(0, idx - 1) })
+  }, [id])
 
   if (!chat) {
     return (

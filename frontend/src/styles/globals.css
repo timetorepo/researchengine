@@ -662,6 +662,33 @@ body {
 .pane-scroll:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-3) 42%, transparent); }
 .pane-scroll::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text-3) 68%, transparent); }
 
+/* Settings → Developer → UI lab.
+   `.re-ui-flash` is the ring the lab puts around a component in the running
+   app when it takes you to where that component lives; `.re-ui-grid` draws a
+   12px grid behind a preview so alignment problems are visible rather than
+   guessed at. Both are keyed to the app's own variables, so they read
+   correctly in all thirteen themes. */
+@keyframes re-ui-flash {
+  0%, 100% { outline-color: transparent; }
+  25%, 75% { outline-color: var(--primary); }
+}
+.re-ui-flash {
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  border-radius: var(--radius-card, 14px);
+  animation: re-ui-flash 1.4s ease-in-out 2;
+  scroll-margin-block: 30vh;
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-ui-flash { animation: none; outline-color: var(--primary); }
+}
+.re-ui-grid {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--text-3) 16%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--text-3) 16%, transparent) 1px, transparent 1px) !important;
+  background-size: 12px 12px !important;
+}
+
 /* 16ms press acknowledgement — primary actions compress slightly on tap */
 .press-tap { transition: transform 0.016s ease; }
 .press-tap:active { transform: scale(0.98); }

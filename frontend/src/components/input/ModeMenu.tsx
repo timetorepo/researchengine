@@ -64,6 +64,7 @@ export function ModeMenu({
         role="menu"
         aria-label="Choose mode"
         data-mode-menu=""
+        data-ui="mode-menu"
         onPointerDown={(e) => e.stopPropagation()}
         className="re-mode-menu fixed z-[80] max-h-[min(70vh,420px)] overflow-y-auto rounded-[16px] p-1.5"
         style={{

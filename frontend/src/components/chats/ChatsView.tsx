@@ -6,6 +6,10 @@ import { Tabs, Tab } from '@heroui/tabs'
 import { useStore } from '@/stores/useStore'
 import { download, timeAgo } from '@/lib/utils'
 import { navigateNow } from '@/lib/routes/registry'
+// Aceternity's Gooey Input — the search affordance. It collapses to a search
+// bubble and *gooey*-expands into the field when you reach for it, which is a
+// better fit for a page header than a permanently-open input.
+import { GooeyInput } from '@/components/ui/aceternity/GooeyInput'
 
 type Kind = 'all' | 'research' | 'coding'
 
@@ -150,10 +154,21 @@ export function ChatsView() {
             <div className="flex items-center gap-2"><MessageSquare size={20} style={{ color: 'var(--primary)' }} /><h1 className="text-[24px] font-semibold tracking-tight">Chats</h1></div>
             <p className="text-[13px] mt-1" style={{ color: 'var(--text-2)' }}>Research and coding conversations, kept apart and on this device.</p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-[11px] min-w-[210px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-            <Search size={14} style={{ color: 'var(--text-3)' }} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search chats" className="bg-transparent outline-none text-[12.5px] flex-1" />
-          </div>
+          {/* Search: pick it up and it opens. The input carries the app's own
+              surface through `classNames`, so the gooey blob is themed. */}
+          <GooeyInput
+            aria-label="Search chats"
+            className="shrink-0"
+            classNames={{
+              root: 'text-[12.5px]',
+              trigger: 'text-[var(--text-2)]',
+              input: 'bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--text-3)] ring-[var(--surface-border)]',
+              bubbleSurface: 'bg-[var(--primary)] text-white',
+            }}
+            onValueChange={setQuery}
+            placeholder="Search chats"
+            value={query}
+          />
         </div>
 
         {/* HeroUI Tabs — the real component, not a lookalike.

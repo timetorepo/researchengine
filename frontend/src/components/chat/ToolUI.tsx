@@ -5,6 +5,8 @@ import type { ChatMessage } from '@/types'
 import { submitQuestionnaire, resolveExec } from '@/lib/chat/tools'
 // SmoothUI's AIToolCall — the tool that is running right now, as a card.
 import AIToolCall from '@/components/smoothui/ai-tool-call'
+// Aceternity's Images Badge — a folder whose papers fan out under the pointer.
+import { ImagesBadge } from '@/components/ui/aceternity/ImagesBadge'
 
 /* ---------- tool activity chips ---------- */
 export function ToolTraceChips({ msg, streaming = false }: { msg: ChatMessage; streaming?: boolean }) {
@@ -180,13 +182,29 @@ export function QuestionnaireCard({ chatId, msg }: { chatId: string; msg: ChatMe
 /* ---------- attachment strip (vision) ---------- */
 export function AttachmentStrip({ msg }: { msg: ChatMessage }) {
   if (!msg.attachments?.length) return null
+  const images = msg.attachments.filter((a) => a.type === 'image')
   return (
-    <div className="flex flex-wrap gap-2 mb-2">
-      {msg.attachments.map((a, i) => (
-        <img key={i} src={a.dataUrl} alt={a.name} title={a.name}
-          className="max-h-40 max-w-[240px] object-contain rounded-[10px]"
-          style={{ border: '1px solid var(--surface-border)' }} />
-      ))}
+    <div className="flex flex-col items-end gap-2 mb-2">
+      {/* What you attached, as the papers of a folder: the badge keeps a thread
+          with three screenshots in it from turning into three full-size images
+          above every message. Hover it and they fan out. */}
+      {images.length > 0 && (
+        <ImagesBadge
+          className="self-end"
+          folderSize={{ width: 40, height: 30 }}
+          hoverImageSize={{ width: 74, height: 50 }}
+          images={images.map((a) => a.dataUrl)}
+          teaserImageSize={{ width: 24, height: 17 }}
+          text={`${images.length} attachment${images.length === 1 ? '' : 's'}`}
+        />
+      )}
+      <div className="flex flex-wrap justify-end gap-2">
+        {msg.attachments.map((a, i) => (
+          <img key={i} src={a.dataUrl} alt={a.name} title={a.name}
+            className="max-h-40 max-w-[240px] object-contain rounded-[10px]"
+            style={{ border: '1px solid var(--surface-border)' }} />
+        ))}
+      </div>
     </div>
   )
 }

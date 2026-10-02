@@ -114,7 +114,9 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const theme = useStore((s) => s.settings.theme)
   const reduceMotion = useStore((s) => s.settings.reduceMotion)
   const [focused, setFocused] = useState(false)
-  const ui = useUI()
+  // Actions only — see the note in components/chat/Message.tsx: subscribing
+  // the composer to the entire UI store made every toast re-render it.
+  const ui = useUI.getState
   const navigate = useNavigate()
 
   // auto-expand
@@ -162,11 +164,11 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     if (!raw) return
 
     // ---- Easter eggs (strict rules) ----
-    if (raw === '-404') { ui.set({ notFound: true }); setText(''); return }
+    if (raw === '-404') { ui().set({ notFound: true }); setText(''); return }
     if (raw === '/konami') {
       const on = !useUI.getState().starfield
-      ui.set({ starfield: on })
-      ui.toast(on ? 'Konami accepted' : 'Star field dismissed', on ? 'Star field active for this session. Type /konami again to dismiss.' : 'Back to solid ground.')
+      ui().set({ starfield: on })
+      ui().toast(on ? 'Konami accepted' : 'Star field dismissed', on ? 'Star field active for this session. Type /konami again to dismiss.' : 'Back to solid ground.')
       setText('')
       return
     }
@@ -187,8 +189,8 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   }
 
   const attachImage = (file: File) => {
-    if (imgs.length >= 3) { ui.toast('Attachment limit', 'Up to 3 images per message.', 'warning'); return }
-    if (file.size > 4 * 1024 * 1024) { ui.toast('Image too large', 'Images are capped at 4 MB.', 'warning'); return }
+    if (imgs.length >= 3) { ui().toast('Attachment limit', 'Up to 3 images per message.', 'warning'); return }
+    if (file.size > 4 * 1024 * 1024) { ui().toast('Image too large', 'Images are capped at 4 MB.', 'warning'); return }
     const r = new FileReader()
     r.onload = () => setImgs((cur) => [...cur, { name: file.name, dataUrl: String(r.result) }])
     r.readAsDataURL(file)
@@ -230,7 +232,9 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const beam = big && beamOn && !reduceMotion
 
   return (
-    <div className={clsx('shrink-0 px-3 pb-3 pt-1', big && 'pb-6')}>
+    // `data-ui` is the anchor Settings → Developer → UI lab uses to flash this
+    // component in place (see components/settings/UILab.tsx).
+    <div data-ui="composer" className={clsx('shrink-0 px-3 pb-3 pt-1', big && 'pb-6')}>
       <div className={clsx('mx-auto', big ? 'max-w-[720px]' : 'max-w-[760px]')}>
         <div className="relative">
         {beam && (
@@ -365,7 +369,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             )}
 
             <button className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors" style={{ color: 'var(--text-3)' }} aria-label="Attach document"
-              onClick={() => { navigate('/quiz'); ui.toast('Read & Quiz', 'Drop a PDF, DOCX, TXT or Markdown file to study it.') }}>
+              onClick={() => { navigate('/quiz'); ui().toast('Read & Quiz', 'Drop a PDF, DOCX, TXT or Markdown file to study it.') }}>
               <Paperclip size={15} strokeWidth={1.5} />
             </button>
 

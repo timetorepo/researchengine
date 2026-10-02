@@ -49,6 +49,7 @@ import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 import { installViewTransitions } from '@/hooks/useViewTransitions'
 import { markVisited, routePathOf } from '@/lib/routes/registry'
 import { installFramePin } from '@/lib/dom/scroll'
+import { watchFrameBudget } from '@/lib/system/frame-budget'
 import { wireAgentActivity } from '@/lib/ide/agents'
 
 /** Preload every lazy route chunk during idle time — first paint stays lean,
@@ -190,6 +191,11 @@ function RoutedApp() {
 
   // Agent tasks and the chat share one activity feed (coding mode only).
   useEffect(() => { wireAgentActivity() }, [])
+
+  // Adaptive quality: one short sample of the real frame rate a few seconds in,
+  // and again whenever the window comes back from being hidden. The animated
+  // canvases read the level; Settings → Performance shows it.
+  useEffect(() => watchFrameBudget(), [])
 
   // Transient overlays must never survive navigation: any leftover full-screen
   // scrim would silently swallow every click until a refresh. Close them all

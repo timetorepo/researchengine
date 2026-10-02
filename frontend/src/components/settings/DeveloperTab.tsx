@@ -8,6 +8,9 @@ import { BUILD_ID } from '@/components/settings/AboutTab'
 import { runningVersion, useRunningVersion } from '@/lib/appVersion'
 import { Button } from '@/components/ui/heroui/Button'
 import { SAMPLE_PROJECT } from '@/lib/ide/sample'
+// The UI lab: previews of the interface this repository builds. Agent-made
+// only — vendored components are deliberately out of scope (see UILab.tsx).
+import { UILab } from '@/components/settings/UILab'
 import { createProjectRobust, postJson, type PostJson } from '@/lib/ide/create'
 
 /**
@@ -197,7 +200,8 @@ export function DeveloperTab() {
           <h3 className="text-[14px] font-semibold">Developer Mode</h3>
         </div>
         <p className="text-[12px] mb-3" style={{ color: 'var(--text-2)' }}>
-          Adds a build fingerprint to the top bar, keeps the create-project test bench below, and shows
+          Adds a build fingerprint to the top bar, opens the <b>UI lab</b> below (preview the interface
+          this repository builds, at any width and theme), keeps the create-project test bench, and shows
           the raw status and response body in failure messages instead of a summary.
         </p>
         <Switch
@@ -207,6 +211,15 @@ export function DeveloperTab() {
           description="Same app, more of its working parts showing."
         />
       </section>
+
+      {/* The UI lab. It is shown only while Developer Mode is on: it swaps
+          themes and widths while you look at it, which is not something the
+          quiet interface should offer by accident. */}
+      {settings.developerMode && (
+        <section className="surface-elevated p-4" style={{ borderRadius: 'var(--radius-card)' }}>
+          <UILab />
+        </section>
+      )}
 
       <section className="surface-elevated p-4" style={{ borderRadius: 'var(--radius-card)' }}>
         <div className="flex items-center gap-2 mb-1">

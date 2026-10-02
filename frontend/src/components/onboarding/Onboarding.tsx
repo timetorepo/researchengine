@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
+  Layers, LayoutGrid, Gift, Send,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -20,6 +21,23 @@ import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-termin
 import FolderReveal from '@/components/smoothui/folder-reveal'
 import GitHubStarsAnimation from '@/components/smoothui/github-stars-animation'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
+// R16 — the rest of the Aceternity set, each on the step it was picked for.
+// Provenance and digests: frontend/scripts/aceternity-sources.json.
+import { ColourfulText } from '@/components/ui/aceternity/ColourfulText'
+import { ContainerTextFlip } from '@/components/ui/aceternity/ContainerTextFlip'
+// The canvas reveal brings three.js with it (~880 kB, its own chunk). The
+// modes step is the second screen of a first run, so it is loaded when that
+// step is reached rather than when the wizard opens — and if it never arrives
+// (a slow disk, a machine with no WebGL) the step still looks finished, because
+// the fallback below is the same dot field drawn with plain CSS.
+const LazyCanvasReveal = React.lazy(() =>
+  import('@/components/ui/aceternity/CanvasRevealEffect').then((m) => ({ default: m.CanvasRevealEffect })))
+import { DottedGlowBackground } from '@/components/ui/aceternity/DottedGlowBackground'
+import { Carousel as AppleCarousel, Card as AppleCardView } from '@/components/ui/aceternity/AppleCardsCarousel'
+import { ONBOARDING_FEATURES } from '@/components/onboarding/onboarding-features'
+import { PAID_APPS, Favicon } from '@/components/onboarding/paid-apps'
+import { beginHandoff } from '@/lib/ui/handoff'
+import { runChat } from '@/lib/chat/runChat'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { refreshProviderModels } from '@/lib/providers/refresh'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
@@ -29,7 +47,43 @@ import { setVaultPassphrase } from '@/lib/crypto/session'
 import type { ThemeId } from '@/types'
 import { clsx } from 'clsx'
 
-const STEPS = ['Welcome', 'Privacy', 'Provider', 'Try the demo', "You're set"]
+/**
+ * The rounds of first run.
+ *
+ * Five steps used to carry a user to a finished install and stop there. That
+ * is a tour of the settings, not of the app: the user still had to find out
+ * what Research Engine is for. So the middle of the wizard now shows the thing
+ * itself — the modes, the features, and what it costs compared with the apps
+ * it replaces — and the last step asks a real question and runs it. `cta`
+ * marks the steps that advance with the footer button (the welcome, the demo
+ * and the final step carry their own), `skip` adds the second, quieter button
+ * for the one step that is genuinely optional.
+ */
+interface StepMeta {
+  label: string
+  cta: boolean
+  skip?: string
+}
+
+const STEPS: StepMeta[] = [
+  { label: 'Welcome', cta: false },
+  { label: 'Privacy', cta: true },
+  { label: 'Modes', cta: true },
+  { label: 'Features', cta: true },
+  { label: 'Free', cta: true },
+  { label: 'Provider', cta: true, skip: 'Skip for now' },
+  { label: 'Try the demo', cta: false },
+  { label: "You're set", cta: false },
+]
+
+const LAST = STEPS.length - 1
+
+/** Suggestions for the first run, written the way a person asks, not prompts. */
+const FIRST_QUESTIONS = [
+  'Explain CRISPR like I have an exam tomorrow',
+  'Compare Rust and Go for a CLI tool',
+  'What changed in fusion energy this year?',
+]
 
 export function Onboarding() {
   const settings = useStore((s) => s.settings)
@@ -44,6 +98,7 @@ export function Onboarding() {
   const [testMsg, setTestMsg] = useState('')
   const lowRam = typeof navigator !== 'undefined' && (navigator as any).deviceMemory !== undefined && (navigator as any).deviceMemory <= 8
   const [eco, setEco] = useState(lowRam)
+  const [firstPrompt, setFirstPrompt] = useState('')
 
   useEffect(() => { applyTheme(theme, {}) }, [theme])
 
@@ -97,6 +152,27 @@ export function Onboarding() {
   }
 
   /**
+   * The last step runs a real question.
+   *
+   * "Just go and run it" is the whole point of the extra steps, so the end of
+   * onboarding is not a summary screen with a button on it — it is the app,
+   * already working. The prompt is handed to the chat pages exactly the way
+   * the home screen hands one over (lib/ui/handoff), so the very first answer
+   * arrives through the same blur-in transition every later answer will use.
+   */
+  const runFirst = (prompt: string) => {
+    const text = prompt.trim()
+    if (!text) return
+    const id = useStore.getState().newChat()
+    beginHandoff(id, text)
+    // Onboarding renders outside the HashRouter (see tryDemo) — set the hash
+    // first, then mark it done; the router mounts once this unmounts.
+    window.location.hash = `#/chat/${id}`
+    void finish()
+    void runChat({ chatId: id, prompt: text, mode: {} })
+  }
+
+  /**
    * What the connection test is actually doing, printed line by line. The
    * terminal replays from scratch whenever the provider, the key or the result
    * changes (`key` below), so the lines on screen are never stale.
@@ -128,6 +204,22 @@ export function Onboarding() {
     exit: { opacity: 0, scale: 1.01 },
   }
 
+  /**
+   * A transform-free fade, for the carousel step only.
+   *
+   * An opened Apple Card is `position: fixed`. Any transform on an ancestor —
+   * including the scale in `fade` — makes that ancestor the containing block,
+   * so the card would open inside the scrolling step instead of over the app.
+   * Fading with opacity alone leaves the stack free of transforms.
+   */
+  const still = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  }
+
+  const isCarousel = STEPS[step].label === 'Features'
+
   const body = [
     /* 0 — Welcome */
     <div key="s0" className="text-center max-w-[520px] mx-auto">
@@ -140,6 +232,12 @@ export function Onboarding() {
         </svg>
       </motion.div>
       <h1 className="text-[30px] font-bold leading-tight" style={{ letterSpacing: '-0.03em' }}>Research Engine</h1>
+      {/* Aceternity's Colourful Text, on the one line that should be colourful:
+          the letters of "AI Research" step through the ramp on a beat, and
+          reduce-motion gets the sentence once, in colour, holding still. */}
+      <h2 className="mt-2.5 text-[17px] font-semibold" style={{ letterSpacing: '-0.02em', color: 'var(--text-2)' }}>
+        The swiss knife of <ColourfulText text="AI Research" />.
+      </h2>
       {/* the three promises build word-by-word in the centre, hold, then hand over */}
       <KineticCenterBuild
         phrases={[
@@ -215,8 +313,129 @@ export function Onboarding() {
       </div>
     </div>,
 
-    /* 2 — Provider (skippable) */
-    <div key="s2" className="max-w-[520px] mx-auto">
+    /* 2 — Modes: what you ask for, in plain words */
+    <div key="s2" className="max-w-[640px] mx-auto">
+      <StepHeader icon={Layers} title="One app, every mode" sub="Say what you want in a sentence — a mode is a click, not a configuration." />
+      <div className="relative overflow-hidden rounded-[20px] mb-3" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
+        {/* Aceternity's Canvas Reveal Effect: the dot matrix the words flip on.
+            Local patches: it pauses itself the moment the step scrolls away,
+            settles into a still grid when the machine asks for less motion or
+            when the frame budget says this machine is struggling, and it
+            streams in (with the CSS dot field as its fallback) so the step's
+            text never waits for a WebGL context. */}
+        <React.Suspense fallback={<StaticDotField />}>
+          <LazyCanvasReveal
+            animationSpeed={3.4}
+            colors={[[99, 102, 241], [45, 212, 191]]}
+            containerClassName="bg-transparent"
+            dotSize={2.6}
+          />
+        </React.Suspense>
+        <div className="relative px-6 py-12 text-center">
+          <p className="text-[12.5px] mb-3" style={{ color: 'var(--text-2)' }}>Ask it to</p>
+          {/* Aceternity's Container Text Flip — one slot, one mode at a time,
+              sized to the widest word so the line never jumps. */}
+          <ContainerTextFlip
+            interval={2600}
+            className="mx-auto"
+            textClassName="text-[21px] font-semibold"
+            words={['read a 60-page paper', 'build a quiz from it', 'search with citations', 'write and run code', 'flood a topic with agents']}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {[
+          { t: 'Read & Quiz', d: 'Drop in a PDF, get a reader and a quiz' },
+          { t: 'Search', d: 'SearXNG by itself, citations attached' },
+          { t: 'New Tech', d: 'Cheap, fast models answer first' },
+          { t: 'Coding', d: 'Parallel agents, inline multi-file edits' },
+          { t: 'Agent Flood', d: 'A checklist of agents on one question' },
+          { t: 'Master Prompts', d: 'Your own rules, applied everywhere' },
+        ].map((m, i) => (
+          <motion.div key={m.t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 + i * 0.06 }}
+            className="p-3 rounded-[13px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+            <div className="text-[12.5px] font-medium">{m.t}</div>
+            <div className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>{m.d}</div>
+          </motion.div>
+        ))}
+      </div>
+    </div>,
+
+    /* 3 — Features: the drawn-card carousel */
+    <div key="s3" className="max-w-[760px] mx-auto">
+      <StepHeader icon={LayoutGrid} title="What's inside" sub="Six things this app does, that usually take six subscriptions. Tap a card to open it." />
+      {/* Aceternity's Apple Cards Carousel. Local patch: no stock photography —
+          every card face is a small diagram drawn from this app's variables. */}
+      <div className="-mx-6">
+        <AppleCarousel items={ONBOARDING_FEATURES.map((card, i) => (
+          <AppleCardView key={card.title} card={card} index={i} />
+        ))} />
+      </div>
+      <p className="text-[11.5px] mt-3 text-center" style={{ color: 'var(--text-3)' }}>Drag it sideways — every card opens on a tap.</p>
+    </div>,
+
+    /* 4 — Free, unlike these apps */
+    <div key="s4" className="max-w-[660px] mx-auto">
+      <StepHeader icon={Gift} title="The same job, without the bill" sub="Each of these apps does what Research Engine does. Every one of them charges by the month." />
+      <div className="relative overflow-hidden rounded-[20px] p-4 sm:p-5" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
+        {/* Aceternity's Dotted Glow Background, themed by variable rather than
+            by a `.dark` class — this app has thirteen themes, not two. */}
+        <DottedGlowBackground
+          className="absolute inset-0"
+          colorLightVar="--text-3"
+          colorDarkVar="--text-3"
+          glowColorLightVar="--primary"
+          glowColorDarkVar="--primary"
+          opacity={0.45}
+          backgroundOpacity={0}
+          speedScale={0.8}
+        />
+        <div className="relative grid grid-cols-2 gap-2">
+          {PAID_APPS.map((a, i) => (
+            <motion.div key={a.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.05 }}
+              className="flex items-start gap-2.5 p-2.5 rounded-[13px]"
+              style={{ background: 'color-mix(in srgb, var(--surface) 86%, transparent)', border: '1px solid var(--surface-border)' }}>
+              <Favicon app={a} />
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium truncate">{a.name}</div>
+                <div className="text-[10.5px] leading-snug" style={{ color: 'var(--text-3)' }}>{a.does}</div>
+                <div className="text-[10px] font-mono mt-1 px-1.5 py-0.5 rounded-full inline-block"
+                  style={{ background: 'color-mix(in srgb, var(--warning) 16%, transparent)', color: 'var(--text-2)' }}>{a.price}</div>
+              </div>
+            </motion.div>
+          ))}
+          {/* the eighth tile, so the grid has no hole in it: this app */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+            className="flex items-start gap-2.5 p-2.5 rounded-[13px]"
+            style={{ background: 'color-mix(in srgb, var(--success) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--success) 34%, transparent)' }}>
+            <span className="inline-flex items-center justify-center shrink-0 rounded-[11px]" style={{ width: 38, height: 38, background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+              <svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden>
+                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
+                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <div className="text-[12px] font-medium truncate">Research Engine</div>
+              <div className="text-[10.5px] leading-snug" style={{ color: 'var(--text-3)' }}>Everything above, on your own machine</div>
+              <div className="text-[10px] font-mono mt-1 px-1.5 py-0.5 rounded-full inline-block"
+                style={{ background: 'color-mix(in srgb, var(--success) 18%, transparent)', color: 'var(--text)' }}>free</div>
+            </div>
+          </motion.div>
+        </div>
+        <div className="relative mt-4 flex items-center justify-center gap-2.5 rounded-[14px] px-4 py-3.5"
+          style={{ background: 'color-mix(in srgb, var(--success) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--success) 32%, transparent)' }}>
+          <Sparkles size={15} style={{ color: 'var(--success)' }} />
+          <span className="text-[14.5px] font-semibold">ResearchEngine is free, unlike these apps.</span>
+        </div>
+      </div>
+      <p className="text-[11.5px] mt-3 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+        Free means the app is free. If you connect a provider you pay that provider, never us — and a local model costs nothing at all.
+        Their icons are bundled as drawings: nothing on this screen pings those companies.
+      </p>
+    </div>,
+
+    /* 5 — Provider (skippable) */
+    <div key="s5" className="max-w-[520px] mx-auto">
       <StepHeader icon={KeyRound} title="Bring your own key" sub="Optional — everything works on the local demo model until you're ready." />
       <div className="flex flex-wrap gap-1.5 mb-4">
         {PROVIDERS.filter((p) => p.id !== 'custom').map((p) => (
@@ -264,8 +483,8 @@ export function Onboarding() {
       )}
     </div>,
 
-    /* 3 — Try the demo */
-    <div key="s3" className="max-w-[520px] mx-auto text-center">
+    /* 6 — Try the demo */
+    <div key="s6" className="max-w-[520px] mx-auto text-center">
       <StepHeader icon={BookOpen} title="See it working — no key required" sub="A bundled study demo: a genuine DNA primer, AI study rewrite, three-tier highlights, and a hand-tuned quiz. Fully offline." />
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         className="rounded-[18px] p-5 text-left mb-5 flex flex-col sm:flex-row items-center gap-5"
@@ -301,8 +520,8 @@ export function Onboarding() {
       </div>
     </div>,
 
-    /* 4 — You're set */
-    <div key="s4" className="text-center max-w-[480px] mx-auto">
+    /* 7 — You're set */
+    <div key="s7" className="text-center max-w-[480px] mx-auto">
       <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 16, stiffness: 240 }}
         className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-5"
         style={{ background: 'color-mix(in srgb, var(--success) 16%, transparent)' }}>
@@ -331,7 +550,39 @@ export function Onboarding() {
           <span className="block text-[10.5px]" style={{ color: 'var(--text-3)' }}>1 stream at a time, lighter background work{lowRam ? ' — this machine reports 8 GB RAM or less' : ''}</span>
         </span>
       </button>
-      <div className="mt-6">
+      {/* "Just go and run it": the wizard ends by running something. Type a
+          question here and it opens as a real chat, on the demo model if no
+          key was given, through the same handover the home screen uses. */}
+      <div className="mt-6 text-left rounded-[16px] p-4" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+        <div className="text-[12.5px] font-medium mb-2">Ask your first question</div>
+        <div className="flex items-center gap-2">
+          <input
+            value={firstPrompt}
+            onChange={(e) => setFirstPrompt(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') runFirst(firstPrompt) }}
+            placeholder="What should I look into first?"
+            aria-label="Your first question"
+            className="flex-1 min-w-0 bg-transparent outline-none text-[13px] px-3 py-2.5 rounded-[11px]"
+            style={{ background: 'var(--elevated)' }}
+          />
+          <Button size="md" onClick={() => runFirst(firstPrompt)} disabled={!firstPrompt.trim()} startContent={<Send size={14} />}>
+            Run it
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
+          {FIRST_QUESTIONS.map((q) => (
+            <button key={q} onClick={() => setFirstPrompt(q)}
+              className="px-2.5 py-1 rounded-full text-[11.5px] text-left transition-colors hover:opacity-80"
+              style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+              {q}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] mt-2" style={{ color: 'var(--text-3)' }}>
+          Runs on {apiKey.trim() ? `your ${PROVIDERS.find((p) => p.id === provider)?.name} key` : 'the local demo model'} — no key needed to try.
+        </p>
+      </div>
+      <div className="mt-4">
         <Button size="lg" fullWidth onClick={finish} startContent={<Rocket size={16} />}>
           Enter Research Engine
         </Button>
@@ -347,8 +598,8 @@ export function Onboarding() {
       <div className="h-full flex flex-col">
         {/* progress */}
         <div className="flex items-center justify-center gap-1.5 pt-8">
-          {STEPS.map((label, i) => (
-            <button key={label} onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${label}`} title={label}
+          {STEPS.map((s, i) => (
+            <button key={s.label} onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${s.label}`} title={s.label}
               className="h-1.5 rounded-full transition-all"
               style={{ width: i === step ? 28 : 8, background: i <= step ? 'var(--primary)' : 'var(--elevated)' }} />
           ))}
@@ -359,7 +610,7 @@ export function Onboarding() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
-                variants={fade}
+                variants={isCarousel ? still : fade}
                 initial="initial" animate="animate" exit="exit"
                 transition={{ duration: 0.28, ease: 'easeInOut' }}
                 className="w-full py-8"
@@ -372,12 +623,12 @@ export function Onboarding() {
 
         {/* footer nav */}
         <div className="flex items-center justify-between px-8 pb-8 max-w-[720px] mx-auto w-full">
-          {step > 0 && step < STEPS.length - 1 ? (
+          {step > 0 && step < LAST ? (
             <Button variant="ghost" color="default" size="sm" onClick={back} startContent={<ArrowLeft size={13} />}>Back</Button>
           ) : <span />}
-          {step > 0 && step < 3 ? (
+          {STEPS[step].cta ? (
             <div className="flex items-center gap-2">
-              {step === 2 && <Button variant="ghost" color="default" size="sm" onClick={next}>Skip for now</Button>}
+              {STEPS[step].skip && <Button variant="ghost" color="default" size="sm" onClick={next}>{STEPS[step].skip}</Button>}
               <Button size="sm" onClick={next}>Continue <ArrowRight size={13} className="inline" /></Button>
             </div>
           ) : <span />}
@@ -385,6 +636,21 @@ export function Onboarding() {
       </div>
     </AuroraBackground>
     </div>
+  )
+}
+
+/** The canvas reveal's stand-in: the same dot field, drawn with CSS only. */
+function StaticDotField() {
+  return (
+    <div
+      aria-hidden
+      className="h-full w-full"
+      style={{
+        backgroundImage: 'radial-gradient(var(--primary) 1.4px, transparent 1.4px)',
+        backgroundSize: '14px 14px',
+        opacity: 0.22,
+      }}
+    />
   )
 }
 
