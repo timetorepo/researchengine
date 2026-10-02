@@ -1,11 +1,9 @@
-# The installers for v0.36.0-beta.1 are built by .github/workflows/desktop.yml
-# from the tag and attached to the release. This file is filled in from the
-# release API once they exist — GitHub's own sha256 digest for each uploaded
-# asset, not a hash of a local build folder that could have drifted.
-#
-#   gh api repos/timetorepo/researchengine/releases/tags/v0.36.0-beta.1 \
-#     -q '.assets[] | "\(.digest)" + "  " + .name'
-#
-# Until then, verify against the release page itself. The digests from
-# v0.35.0-beta.1 are deliberately not carried over: an installer that does not
-# exist yet has no digest, and pretending otherwise is worse than saying nothing.
+# Installers attached to the v0.36.0-beta.1 release by .github/workflows/desktop.yml.
+# Same three artifacts the release page offers, with the digests GitHub records
+# for the bytes it is actually serving. Verify with:
+#   sha256sum -c INSTALLERS.sha256        (Linux: .deb / .AppImage)
+#   certutil -hashfile <file> SHA256     (Windows: setup.exe)
+
+e36506c82cb9b6eaf78994a34e67cd61c71a34e3d506db130f3a82c7f25f2504  Research.Engine_0.36.0-beta.1_amd64.AppImage
+b8e41d59a60d4ce0d2db61b0b78e61d7336b7eb4ef8de8bd4bcbd57ae99b81a8  Research.Engine_0.36.0-beta.1_amd64.deb
+23dc83423375f8b9bc8c71a92fd651776f0428cabd18b8b81ab4e8b8ca1262fa  Research.Engine_0.36.0-beta.1_x64-setup.exe
