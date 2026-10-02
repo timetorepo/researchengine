@@ -20,7 +20,11 @@
     "package:binary": "node scripts/package-binary.mjs",
     "desktop:sidecar": "node scripts/desktop-sidecar.mjs",
     "desktop:check": "node scripts/desktop-check.mjs --run",
-    "render-probe": "npm run render-probe --workspace frontend"
+    "render-probe": "npm run render-probe --workspace frontend",
+    "site:dev": "npm --prefix website run dev",
+    "site:build": "npm --prefix website run build",
+    "site:test": "npm --prefix website run site-test",
+    "site:vendor": "npm --prefix website run vendor"
   },
   "engines": {
     "node": ">=20"

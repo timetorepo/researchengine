@@ -1,0 +1,37 @@
+{
+  "name": "research-engine-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The public website for Research Engine: what it does, why it is free, and the download.",
+  "scripts": {
+    "dev": "node scripts/prepare-assets.mjs && vite",
+    "build": "node scripts/prepare-assets.mjs && vite build",
+    "preview": "vite preview --port 4173 --host 0.0.0.0",
+    "vendor": "node scripts/site-vendor.mjs --verify",
+    "site-test": "tsx scripts/site-test.mts"
+  },
+  "dependencies": {
+    "@fontsource/geist-mono": "^5.3.0",
+    "@fontsource/geist-sans": "^5.3.0",
+    "clsx": "^2.1.1",
+    "lenis": "^1.3.26",
+    "lucide-react": "^0.454.0",
+    "motion": "^13.4.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "@types/jsdom": "^21.1.7",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react-swc": "^3.8.0",
+    "jsdom": "^30.1.1",
+    "tailwindcss": "^4.1.4",
+    "tsx": "^4.23.13",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.7"
+  }
+}

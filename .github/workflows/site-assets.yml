@@ -1,21 +1,20 @@
 name: site assets
 
-# One-off, maintainer-run: pull the screenshots the website links to onto a
-# branch, so the site can serve them from its own origin instead of hotlinking
-# an image host. The build environment this branch is developed in can reach
-# github.com and the npm registry and nothing else, so the download happens on a
-# runner that can reach the internet, and the branch is fetched from here.
+# Maintainer-run, one-off: bring the website's images onto the branch, optimised.
+#
+# The site must serve its own pictures rather than hotlink an image host, and it
+# should not ship 3.8 MB PNGs to a visitor. This downloads the originals the
+# round was given (four app screenshots and the repository's own hero image) to
+# a scratch folder outside `public/`, converts each to a 1600 px WebP, and
+# commits only the WebP files the site actually serves.
 #
 # It is triggered by a tag, not by workflow_dispatch: a workflow can only be
-# dispatched by hand when it already exists on the default branch, and this one
-# deliberately lives on the working branch until the images are in. A push event
-# reads the workflow from the ref that was pushed, which is the mechanism the
-# release workflow already relies on.
+# dispatched by hand once it exists on the default branch, and this one lives on
+# the working branch until the round is merged. A push event reads the workflow
+# from the ref that was pushed, which is the mechanism the release workflow
+# already relies on.
 #
-#   git tag site-assets-1 && git push origin site-assets-1
-#
-# It writes only under website/public/shots/ and pushes to the branch it is
-# given (default: site-shots), never to a release branch.
+#   git tag site-assets-2 && git push origin site-assets-2
 
 on:
   push:
@@ -31,32 +30,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download the screenshots
+      - name: Download and optimise the images
         run: |
           set -euo pipefail
-          mkdir -p website/public/shots
+          mkdir -p website/.asset-src website/public/shots
           fetch() {
-            local url="$1" out="$2"
-            curl -fsSL --retry 3 --retry-delay 2 -A "ResearchEngine-Website/1.0" -o "website/public/shots/$out" "$url"
-            head -c 8 "website/public/shots/$out" | grep -q $'\x89PNG' || { echo "not a PNG: $out"; exit 1; }
-            local bytes
-            bytes=$(stat -c%s "website/public/shots/$out")
-            echo "$out  $bytes bytes  sha256=$(sha256sum "website/public/shots/$out" | cut -d' ' -f1)"
+            local url="$1" out="$2" width="$3"
+            curl -fsSL --retry 3 --retry-delay 2 -A "ResearchEngine-Website/1.0" -o "website/.asset-src/$out" "$url"
+            head -c 8 "website/.asset-src/$out" | grep -q $'x89PNG' || { echo "not a PNG: $out"; exit 1; }
+            convert "website/.asset-src/$out" -resize "${width}x" -quality 82 "website/public/shots/${out%.png}.webp"
+            echo "${out%.png}.webp  $(stat -c%s "website/public/shots/${out%.png}.webp") bytes  from $url"
           }
-          fetch "https://i.ibb.co/WNvrsrJ5/2-20260927-195621-0000.png" "shot-1.png"
-          fetch "https://i.ibb.co/4wVh8Wvf/3-20260927-195621-0001.png" "shot-2.png"
-          fetch "https://i.ibb.co/yc97WZfv/4-20260927-195621-0002.png" "shot-3.png"
-          fetch "https://i.ibb.co/0pCjsbwX/5-20260927-195621-0003.png" "shot-4.png"
+          fetch "https://i.ibb.co/WNvrsrJ5/2-20260927-195621-0000.png" "shot-1.png" 1600
+          fetch "https://i.ibb.co/4wVh8Wvf/3-20260927-195621-0001.png" "shot-2.png" 1600
+          fetch "https://i.ibb.co/yc97WZfv/4-20260927-195621-0002.png" "shot-3.png" 1600
+          fetch "https://i.ibb.co/0pCjsbwX/5-20260927-195621-0003.png" "shot-4.png" 1600
+          fetch "https://i.ibb.co/NnT9vHnL/latestprojectreveal.png" "reveal.png" 1600
           ls -la website/public/shots
 
-      - name: Commit to the branch
-        env:
-          REF: site-shots
+      - name: Commit the optimised images
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$REF"
-          git add website/public/shots
-          git commit -m "website: bundle the screenshots the site shows"
-          git push --force origin "$REF"
+          git checkout -B site-shots
+          git add -f website/public/shots
+          git commit -m "website: bundle the images the site shows (webp, 1600px)"
+          git push --force origin site-shots
