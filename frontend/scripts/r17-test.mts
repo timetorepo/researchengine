@@ -121,7 +121,10 @@ async function main() {
     check('the screen shows every rule it can check, fired or not',
       /analyzeAlpha/.test(screen) && /report\.catalog/.test(screen) && /The full list/.test(screen))
     check('the route and the rail entry exist', /path="\/alpha"/.test(read('src/App.tsx')) && /to: '\/alpha'/.test(read('src/components/sidebar/Sidebar.tsx')))
-    check('a chat answer can hand its text to it', /handOffToAlpha/.test(screen) && /AlphaChip/.test(screen))
+    check('a chat answer can hand its text to it, and the chip is hosted in the chat',
+      /handOffToAlpha/.test(screen) && /AlphaChip/.test(screen)
+      && /AlphaChip/.test(read('src/components/chat/Message.tsx'))
+      && /handOffToAlpha\(/.test(read('src/components/chat/Message.tsx')))
   }
 
   /* ------------------------------------------------------------------ 4 */

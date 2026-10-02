@@ -18,6 +18,7 @@ import { Markdown } from './Markdown'
 import { ReplicateTimeline } from './ReplicateTimeline'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
 import { TooltipCardStrip } from '@/components/ui/aceternity/TooltipCard'
+import { AlphaChip, handOffToAlpha } from '@/components/alpha/RemoverAlpha'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { SourceStrip } from './SourceStrip'
 import { HumanizedAnswer, HumanizingIndicator, HumanizeError } from './HumanizedAnswer'
@@ -367,6 +368,13 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               navigate(`/chat/${branch.id}`)
               ui().toast('Branched', 'This response now lives in its own research thread.')
             }}><GitBranch size={13} /></HoverBtn>
+            {/* removerAlpha: hand this answer's own text to the local pass. It
+                only appears when the pass actually found something, so it is a
+                result rather than a decoration. */}
+            <AlphaChip
+              text={msg.humanized ?? msg.content}
+              onOpen={() => handOffToAlpha(msg.humanized ?? msg.content)}
+            />
             <HoverBtn label="Bookmark" onClick={() => store.getState().updateMessage(chatId, msg.id, { bookmarked: !msg.bookmarked })}>
               <Bookmark size={13} fill={msg.bookmarked ? 'currentColor' : 'none'} />
             </HoverBtn>
