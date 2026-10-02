@@ -238,6 +238,21 @@
     transform: scaleX(1);
   }
 
+
+  /* Token-level softening, not a patch to a vendored file.
+     The SmoothUI accordion paints its hover state with the shadcn `primary`
+     token; mapped onto this site that token is solid violet, so a question turns
+     into a filled block under the pointer. A tenth of it reads as hover and keeps
+     the title readable. The component's own classes still win everywhere they are
+     more specific — this only softens the one that is not. */
+  #faq [aria-expanded]:hover {
+    background: rgb(124 92 255 / 0.1);
+  }
+
+  #faq [aria-expanded] h3 {
+    font-weight: 500;
+  }
+
   .glow-ring {
     box-shadow:
       0 0 0 1px rgb(124 92 255 / 0.25),

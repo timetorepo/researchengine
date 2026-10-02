@@ -221,6 +221,8 @@ In the Quiz, `Space` or `Enter` moves on to the next question. On the Workflow c
 
 Made by **dnishh**, in the open, with no company behind it.
 
+The public website in [`website/`](website) is the same story for people who will never open GitHub: the features, what people said, why it is free, and the download. It is a static Vite page assembled from the SmoothUI, Aceternity UI and shadcnspace registries — with every vendored file's provenance and digest recorded in `website/scripts/site-sources.json` — and it deploys to Netlify from the root `netlify.toml` with no functions and no configuration. `npm run site:build` and `npm run site:test` (75 checks) run it.
+
 The interface is built with components from [React Bits](https://reactbits.dev), [HeroUI](https://www.heroui.com), [Aceternity UI](https://ui.aceternity.com), [skiper/ui](https://skiper-ui.com) and [Watermelon UI](https://ui.watermelon.sh), with [Border Beam](https://beam.jakubantalik.com), [Orbs](https://orbs.jakubantalik.com) and [Voice](https://libraries.dev/voice) by Jakub Antalik, the [Blobatar](https://blobatar.dev) avatars, and design references from [Refero](https://styles.refero.design). Everything is credited inside the app under **Settings → About**.
 
 Built on the shoulders of excellent open source: React, Vite, Hono, Zustand, Motion, esbuild, KaTeX, pdf.js, Mammoth, Lucide and Tauri. Their licenses travel with their packages.
@@ -229,6 +231,6 @@ Built on the shoulders of excellent open source: React, Vite, Hono, Zustand, Mot
 
 **If Research Engine is useful to you, a star helps other people find it.** ⭐
 
-[Download the latest release](https://github.com/timetorepo/researchengine/releases) · [Install guide](docs/install.md) · [For developers](docs/development.md) · [Prebuilt archives](downloads)
+[Download the latest release](https://github.com/timetorepo/researchengine/releases) · [Install guide](docs/install.md) · [For developers](docs/development.md) · [Prebuilt archives](downloads) · [The website](website)
 
 </div>
