@@ -6,18 +6,21 @@ name: site assets
 # github.com and the npm registry and nothing else, so the download happens on a
 # runner that can reach the internet, and the branch is fetched from here.
 #
-#   gh workflow run site-assets.yml --ref <branch>
+# It is triggered by a tag, not by workflow_dispatch: a workflow can only be
+# dispatched by hand when it already exists on the default branch, and this one
+# deliberately lives on the working branch until the images are in. A push event
+# reads the workflow from the ref that was pushed, which is the mechanism the
+# release workflow already relies on.
+#
+#   git tag site-assets-1 && git push origin site-assets-1
 #
 # It writes only under website/public/shots/ and pushes to the branch it is
 # given (default: site-shots), never to a release branch.
 
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: Branch to commit the downloaded files to
-        required: false
-        default: site-shots
+  push:
+    tags:
+      - "site-assets-*"
 
 permissions:
   contents: write
@@ -48,7 +51,7 @@ jobs:
 
       - name: Commit to the branch
         env:
-          REF: ${{ inputs.ref }}
+          REF: site-shots
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
