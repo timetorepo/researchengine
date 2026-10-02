@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '@/stores/useStore'
+import { notifyUpdate } from '@/lib/notifications/store'
 
 export interface UpdateAsset { name: string; urls: string[]; size: number }
 
@@ -209,6 +210,12 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
     try {
       const next = await updateApi.check(force, source)
       setCheck(next)
+      // A release found is a fact the user asked to be told about (Settings →
+      // Notifications, on by default). The store dedupes by version, so the
+      // same release is announced exactly once however often this runs.
+      if (next?.available && next.latest && useStore.getState().settings.notifyUpdates !== false) {
+        notifyUpdate(String(next.latest), next.notes)
+      }
       return next
     } catch (e: any) {
       setError(String(e?.message ?? e))

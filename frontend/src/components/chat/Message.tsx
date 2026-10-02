@@ -17,6 +17,7 @@ export function formatTokens(n: number): string {
 import { Markdown } from './Markdown'
 import { ReplicateTimeline } from './ReplicateTimeline'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
+import { TooltipCardStrip } from '@/components/ui/aceternity/TooltipCard'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { SourceStrip } from './SourceStrip'
 import { HumanizedAnswer, HumanizingIndicator, HumanizeError } from './HumanizedAnswer'
@@ -280,6 +281,9 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
             <CodingModeCard project={msg.promotedTo?.project} reason={msg.promotedTo?.reason} />
             <ExecApproval chatId={chatId} msg={msg} />
             <QuestionnaireCard chatId={chatId} msg={msg} />
+            {/* Cards the model summoned with the `show_tooltip_card` tool.
+                Deliberately tool-driven: no tool call, no card. */}
+            {msg.tooltipCards?.length ? <TooltipCardStrip cards={msg.tooltipCards} /> : null}
             {msg.humanizing && !msg.humanized && <HumanizingIndicator onCancel={() => void runHumanize()} />}
             {msg.capsule ? (
               <CapsuleCard msg={msg} />

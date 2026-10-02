@@ -80,6 +80,21 @@ export interface ChatMessage {
   toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
   /** AI-generated questionnaire awaiting the user's answers. */
   questionnaire?: Questionnaire
+  /**
+   * Cards the model summoned with the `show_tooltip_card` tool.
+   *
+   * Deliberately a tool call and not a hover on a highlighted span: an answer
+   * can only put a card on screen if the conversation can call tools at all, so
+   * a model running without them simply never shows one. Nothing renders these
+   * by matching text.
+   */
+  tooltipCards?: {
+    title: string
+    body?: string
+    image?: string
+    source?: string
+    url?: string
+  }[]
   /** Command awaiting explicit user approval (Coding mode safety). */
   pendingExec?: { toolCallId: string; command: string; reason?: string }
   /**
@@ -156,6 +171,39 @@ export interface Skill {
   category: string
   icon: string
   builtin?: boolean
+}
+
+/**
+ * The report a security scan produced for an imported skill.
+ *
+ * `scanner` is deliberately explicit: `skillspector` means NVIDIA's tool ran and
+ * this is its verdict; `local-static` means only this app's own read-through
+ * happened. A verdict is never shown without saying which of the two produced
+ * it.
+ */
+export interface SkillSecurityFinding {
+  id?: string
+  severity?: string
+  title?: string
+  why?: string
+  file?: string
+  line?: number
+  evidence?: string
+  description?: string
+}
+export interface SkillSecurity {
+  scanner: 'skillspector' | 'local-static'
+  scannerNote?: string
+  install?: string
+  score: number
+  severity: string
+  recommendation: string
+  safeToInstall?: boolean
+  llmUsed?: boolean
+  at: number
+  findings: SkillSecurityFinding[]
+  /** Files that were scanned, so an empty report is not mistaken for silence. */
+  files?: string[]
 }
 
 export type AgentRole = 'Researcher' | 'Builder' | 'Critic' | 'Synthesizer' | 'Verifier' | 'Explainer' | 'Quizzer' | 'Note-taker' | 'Custom'
@@ -512,6 +560,13 @@ export interface Settings {
   profile: import('@/lib/profile').Profile
   quizAutoAdvance: boolean
   readerImages: boolean
+  /**
+   * Notifications. `notifyUpdates` is on by default — an app that updates
+   * itself should say when there is something to install — and
+   * `notifyRecommendations` is off, because an interest is opted into.
+   */
+  notifyUpdates?: boolean
+  notifyRecommendations?: boolean
   performanceProfile: 'eco' | 'balanced' | 'performance'
   /**
    * Adaptive quality: sample the real frame rate and let the animated layers

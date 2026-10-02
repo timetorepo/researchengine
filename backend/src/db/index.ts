@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, chat_id TEXT, role TEX
 CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, name TEXT, kind TEXT, text TEXT, added_at INTEGER);
 CREATE TABLE IF NOT EXISTS skills (id TEXT PRIMARY KEY, name TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS citations (id TEXT PRIMARY KEY, title TEXT, url TEXT, collection TEXT, saved_at INTEGER);
+CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, kind TEXT, text TEXT, contact TEXT, app_version TEXT, created_at INTEGER);
+CREATE TABLE IF NOT EXISTS library_items (id TEXT PRIMARY KEY, kind TEXT, title TEXT, url TEXT, snippet TEXT, tags TEXT, folder_id TEXT, saved_at INTEGER, extra TEXT);
+CREATE TABLE IF NOT EXISTS library_folders (id TEXT PRIMARY KEY, name TEXT, created_at INTEGER);
 `
 
 let sqlite: any = null
@@ -41,6 +44,9 @@ try {
 const mem = {
   chats: new Map<string, any>(),
   documents: new Map<string, any>(),
+  feedback: new Map<string, any>(),
+  libraryItems: new Map<string, any>(),
+  libraryFolders: new Map<string, any>(),
 }
 
 export const db = {
@@ -57,6 +63,61 @@ export const db = {
     if (sqlite) return sqlite.prepare('SELECT id, name, kind, added_at as addedAt FROM documents ORDER BY added_at DESC').all()
     return [...mem.documents.values()]
   },
+
+  /* ---------------------------------------------------------- feedback ---- */
+  // Kept on the user's own machine, in the same database as everything else:
+  // "send feedback" here means "write it down", not "post it somewhere".
+  insertFeedback(f: any) {
+    if (sqlite) sqlite.prepare('INSERT OR REPLACE INTO feedback VALUES (?,?,?,?,?,?)').run(f.id, f.kind, f.text, f.contact ?? null, f.appVersion ?? null, f.createdAt)
+    else mem.feedback.set(f.id, f)
+  },
+  listFeedback() {
+    if (sqlite) return sqlite.prepare('SELECT id, kind, text, contact, app_version as appVersion, created_at as createdAt FROM feedback ORDER BY created_at DESC').all()
+    return [...mem.feedback.values()].sort((a, b) => b.createdAt - a.createdAt)
+  },
+  deleteFeedback(id: string) {
+    if (sqlite) sqlite.prepare('DELETE FROM feedback WHERE id = ?').run(id)
+    else mem.feedback.delete(id)
+  },
+
+  /* ----------------------------------------------------- library items --- */
+  insertLibraryItem(it: any) {
+    if (sqlite) sqlite.prepare('INSERT OR REPLACE INTO library_items VALUES (?,?,?,?,?,?,?,?,?)').run(
+      it.id, it.kind, it.title, it.url ?? null, it.snippet ?? null, JSON.stringify(it.tags ?? []), it.folderId ?? null, it.savedAt, JSON.stringify(it.extra ?? null))
+    else mem.libraryItems.set(it.id, it)
+  },
+  listLibraryItems() {
+    const rows = sqlite
+      ? sqlite.prepare('SELECT id, kind, title, url, snippet, tags, folder_id as folderId, saved_at as savedAt, extra FROM library_items ORDER BY saved_at DESC').all()
+      : [...mem.libraryItems.values()].sort((a, b) => b.savedAt - a.savedAt)
+    return (rows as any[]).map((r) => ({
+      ...r,
+      tags: typeof r.tags === 'string' ? safeJson(r.tags, []) : (r.tags ?? []),
+      extra: typeof r.extra === 'string' ? safeJson(r.extra, null) : (r.extra ?? null),
+    }))
+  },
+  deleteLibraryItem(id: string) {
+    if (sqlite) sqlite.prepare('DELETE FROM library_items WHERE id = ?').run(id)
+    else mem.libraryItems.delete(id)
+  },
+  insertLibraryFolder(f: any) {
+    if (sqlite) sqlite.prepare('INSERT OR REPLACE INTO library_folders VALUES (?,?,?)').run(f.id, f.name, f.createdAt)
+    else mem.libraryFolders.set(f.id, f)
+  },
+  listLibraryFolders() {
+    if (sqlite) return sqlite.prepare('SELECT id, name, created_at as createdAt FROM library_folders ORDER BY created_at ASC').all()
+    return [...mem.libraryFolders.values()]
+  },
+  deleteLibraryFolder(id: string) {
+    if (sqlite) {
+      sqlite.prepare('DELETE FROM library_folders WHERE id = ?').run(id)
+      sqlite.prepare('UPDATE library_items SET folder_id = NULL WHERE folder_id = ?').run(id)
+    } else mem.libraryFolders.delete(id)
+  },
+}
+
+function safeJson<T>(text: string, fallback: T): T {
+  try { return JSON.parse(text) as T } catch { return fallback }
 }
 
 export function dbStats() {

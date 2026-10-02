@@ -156,6 +156,45 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'show_tooltip_card',
+    description: 'Put one or more small reference cards in the answer, attached to a term, a definition, a date or a source the reader may want to open. Use it when a specific thing in your answer deserves more context than a sentence: a person, a place, a paper, a term of art, a figure. Each card has a title and any of body (one supporting line), image (a URL, only when you know one that exists), source (the site or paper it comes from) and url. The card appears as a chip under the answer and opens on hover or focus. Do NOT use this for decoration, and do not invent image URLs: a card with a title and a source is more useful than a broken picture. If you cannot call tools, no card appears, which is intended.',
+    parameters: {
+      type: 'object',
+      properties: {
+        cards: {
+          type: 'array',
+          description: '1 to 5 cards',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'The term, name or fact the card is about' },
+              body: { type: 'string', description: 'One line of context: a definition, a date, a caveat' },
+              image: { type: 'string', description: 'Optional image URL you are confident exists' },
+              source: { type: 'string', description: 'Where the information comes from: site, paper, book' },
+              url: { type: 'string', description: 'Optional link the reader can open' },
+            },
+            required: ['title'],
+          },
+        },
+      },
+      required: ['cards'],
+    },
+    run: async (args, ctx) => {
+      const cards = (Array.isArray(args?.cards) ? args.cards : []).slice(0, 5).map((c: any) => ({
+        title: String(c?.title ?? '').slice(0, 120),
+        body: c?.body ? String(c.body).slice(0, 240) : undefined,
+        image: c?.image ? String(c.image) : undefined,
+        source: c?.source ? String(c.source).slice(0, 120) : undefined,
+        url: c?.url ? String(c.url) : undefined,
+      })).filter((c: any) => c.title)
+      if (!cards.length) return 'No cards were provided.'
+      const current = useStore.getState().chats.find((ch) => ch.id === ctx.chatId)?.messages.find((m) => m.id === ctx.asstId)
+      const existing = current?.tooltipCards ?? []
+      useStore.getState().updateMessage(ctx.chatId, ctx.asstId, { tooltipCards: [...existing, ...cards].slice(0, 8) })
+      return `Showed ${cards.length} card${cards.length === 1 ? '' : 's'}: ${cards.map((c: any) => c.title).join('; ')}`
+    },
+  },
+  {
     name: 'integration_search',
     description: 'Search the user\'s CONNECTED ACCOUNTS — Google Drive, Gmail, Google Calendar, GitHub, Notion, Slack — plus their local Research Engine files. Returns real items with ids you can open with integration_read. If an account is not connected the call says so: tell the user which one to connect instead of guessing at its contents.',
     parameters: {

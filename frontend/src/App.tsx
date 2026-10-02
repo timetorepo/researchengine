@@ -24,6 +24,8 @@ const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowE
 const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
 const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
+const RemoverAlpha = React.lazy(() => import('@/components/alpha/RemoverAlpha').then((m) => ({ default: m.RemoverAlpha })))
+const FeedbackView = React.lazy(() => import('@/components/feedback/FeedbackView').then((m) => ({ default: m.FeedbackView })))
 import { AppToaster } from '@/components/shared/AppToaster'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 /**
@@ -250,6 +252,8 @@ function RoutedApp() {
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/code" element={<CodingView />} />
           <Route path="/chats" element={<ChatsView />} />
+          <Route path="/alpha" element={<RemoverAlpha />} />
+          <Route path="/feedback" element={<FeedbackView />} />
           <Route path="/secrets" element={<SecretsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

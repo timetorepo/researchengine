@@ -1,5 +1,6 @@
 import React, { memo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { LinkPreview } from '@/components/ui/aceternity/LinkPreview'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -56,10 +57,18 @@ export const Markdown = memo(function Markdown({ content, streaming = false }: {
           // Links in an answer are the way out of it, so they get the real
           // treatment: the rule is drawn in CSS instead of by the browser, the
           // external marker arrives on hover, and citations read as chips.
+          //
+          // A link that leaves the app also becomes a preview: hovering it asks
+          // the local server what the page says about itself (robots.txt first,
+          // then its own Open Graph tags) and shows a card. Everything stays a
+          // link, so it is never a dead end if the preview is refused.
           a({ href, children }) {
             const text = Array.isArray(children) ? children.join('') : String(children ?? '')
             const cite = /^\s*\[?\d{1,2}\]?\s*$/.test(text)
-            return <CssLink href={href ?? '#'} variant={cite ? 'chip' : 'inline'}>{children}</CssLink>
+            const link = <CssLink href={href ?? '#'} variant={cite ? 'chip' : 'inline'}>{children}</CssLink>
+            const external = !!href && /^https?:\/\//i.test(href) && !href.startsWith(window.location.origin)
+            if (!external || cite) return link
+            return <LinkPreview url={href}>{link}</LinkPreview>
           },
         }}
       >

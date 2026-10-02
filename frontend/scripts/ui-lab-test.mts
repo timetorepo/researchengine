@@ -6,7 +6,7 @@
  * Three pieces of R16 are new interface rather than new plumbing, and `tsc`
  * cannot tell an interface that renders from one that throws on mount:
  *
- *   1. the revamped onboarding — eight steps, the drawn favicons of the paid
+ *   1. the revamped onboarding — nine steps, the drawn favicons of the paid
  *      apps, the feature carousel, and a last step that really runs a question;
  *   2. the fork panel — the token numbers, the capsule preview, and a fork that
  *      creates a chat carrying the capsule;
@@ -121,7 +121,7 @@ async function main() {
   const { UILab, AGENT_UI } = await import('../src/components/settings/UILab')
 
   /* ---------------------------------------------------------------- 1 */
-  console.log('\n[1] Onboarding: eight steps, and the last one runs')
+  console.log('\n[1] Onboarding: nine steps, and the last one runs')
   useStore.setState({ settings: { ...useStore.getState().settings, onboarded: false } } as any)
   const host = win.document.createElement('div')
   win.document.body.appendChild(host)
@@ -130,7 +130,8 @@ async function main() {
   await wait(120)
 
   const dots = [...host.querySelectorAll('button[aria-label^="Step "]')]
-  check('the wizard has eight steps, all reachable', dots.length === 8, `${dots.length}`)
+  // Nine since R17: the "setting up" step was added in front of the last one.
+  check('the wizard has nine steps, all reachable', dots.length === 9, `${dots.length}`)
   check('the welcome screen carries the requested tagline',
     text(host).includes('The swiss knife of') && text(host).includes('AI Research'))
   check('and the colourful letters are real elements, not one text node',
@@ -169,6 +170,17 @@ async function main() {
   check('the provider step still offers the providers and a skip', !!byText(host, 'Skip for now') && text(host).includes('Bring your own key'))
   await goTo('Try the demo')
   check('the demo step still opens the reader', !!byText(host, 'Open the reading demo'))
+
+  // R17: the step before the last one is a real setup pass, animated by
+  // Aceternity's MultiStepLoader and backed by work that actually runs.
+  await goTo('Setting up')
+  check('the setting-up step names the animation the app is running',
+    text(host).includes('Setting things up'))
+  check('its states describe real work, not decoration',
+    text(host).includes('Applying your theme') && text(host).includes('Writing your settings'))
+  await wait(5400)
+  check('and it only offers to continue once both halves have finished',
+    !!byText(host, 'Continue'))
 
   await goTo("You're set")
   const box = host.querySelector('input[aria-label="Your first question"]')

@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/*
+ ---break---
+ */
+@custom-variant dark (&:is(.dark *));
 
 /*
  * HeroUI components (Modal, Tabs) are real packages here, not look-alikes: the
@@ -70,6 +74,49 @@
     linear-gradient(160deg, #1e2749 0%, #1d1f3d 55%, #251e46 100%);
 
   --font-scale: 1;
+
+  /*
+   * The palette the SmoothUI components name (installed via
+   * `npx shadcn@latest add @smoothui/...`). The registry ships literal light
+   * values in `:root` and a `.dark` block to go with them; a second, parallel
+   * theme system is exactly the "dark island" this app does not have, so the
+   * neutral ramp is expressed in terms of the app's own surfaces and text
+   * instead. The result is one vocabulary: a SmoothUI component recolours with
+   * every theme in the picker, because it is reading the same variables
+   * everything else reads.
+   */
+  --smooth-50: var(--bg);
+  --smooth-100: var(--surface);
+  --smooth-200: var(--elevated);
+  --smooth-300: color-mix(in srgb, var(--text) 10%, var(--surface));
+  --smooth-400: color-mix(in srgb, var(--text) 22%, var(--surface));
+  --smooth-500: color-mix(in srgb, var(--text) 34%, var(--surface));
+  --smooth-600: color-mix(in srgb, var(--text) 46%, var(--surface));
+  --smooth-700: color-mix(in srgb, var(--text) 58%, var(--surface));
+  --smooth-800: color-mix(in srgb, var(--text) 70%, var(--surface));
+  --smooth-900: color-mix(in srgb, var(--text) 84%, var(--surface));
+  --smooth-950: color-mix(in srgb, var(--text) 94%, var(--surface));
+  --smooth-1000: var(--text);
+
+  --amber: oklch(0.77 0.16 75);
+
+  --amber-fg: oklch(0.22 0 0);
+
+  --amber-hover: oklch(0.71 0.17 70);
+
+  --blue: oklch(0.62 0.19 256);
+
+  --blue-fg: #fff;
+
+  --blue-hover: oklch(0.56 0.2 256);
+
+  --green: oklch(0.7 0.17 152);
+
+  --green-fg: #fff;
+
+  --green-hover: oklch(0.64 0.18 152);
+
+
 }
 
 /* ============================================================
@@ -310,7 +357,6 @@
     radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 70%, var(--grad-base)) 0%, transparent 58%),
     linear-gradient(160deg, color-mix(in srgb, var(--primary) 28%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--secondary) 24%, var(--grad-base)) 100%);
 }
-
 
 /* Light palettes: the same gradients, mixed into ink instead of page. */
 :root[data-grad="theme"][data-theme="light"],
@@ -1589,7 +1635,6 @@ body {
   [data-sonner-toast] { animation-duration: 1ms !important; transition-duration: 1ms !important; }
 }
 
-
 /* ================================================================== */
 /* Icon entrance + micro-motion                                        */
 /*                                                                     */
@@ -2649,4 +2694,178 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
 }
 @media (prefers-reduced-motion: reduce) {
   .re-mode-menu, .re-int-menu { animation: none; }
+}
+/*
+ ---break---
+ */
+@theme inline {
+  --color-brand: var(--brand, oklch(0.72 0.2 352.53));
+  --color-brand-light: var(--brand-light, oklch(0.78 0.15 352.53));
+  --color-brand-lighter: var(--brand-lighter, oklch(0.85 0.1 352.53));
+  --color-brand-secondary: var(--brand-secondary, oklch(0.66 0.21 354.31));
+  --color-amber: var(--amber);
+  --color-amber-fg: var(--amber-fg);
+  --color-amber-hover: var(--amber-hover);
+  --color-blue: var(--blue);
+  --color-blue-fg: var(--blue-fg);
+  --color-blue-hover: var(--blue-hover);
+  --color-green: var(--green);
+  --color-green-fg: var(--green-fg);
+  --color-green-hover: var(--green-hover);
+  --color-smooth-50: var(--smooth-50);
+  --color-smooth-100: var(--smooth-100);
+  --color-smooth-200: var(--smooth-200);
+  --color-smooth-300: var(--smooth-300);
+  --color-smooth-400: var(--smooth-400);
+  --color-smooth-500: var(--smooth-500);
+  --color-smooth-600: var(--smooth-600);
+  --color-smooth-700: var(--smooth-700);
+  --color-smooth-800: var(--smooth-800);
+  --color-smooth-900: var(--smooth-900);
+  --color-smooth-950: var(--smooth-950);
+  --color-smooth-1000: var(--smooth-1000);
+}
+/*
+ ---break---
+ */
+
+/*
+ * Gooey Input (Aceternity).
+ *
+ * The vendored component only names its classes; this is the layout those names
+ * were written against. It lives in `@layer components` on purpose: an
+ * unlayered rule would outrank every Tailwind utility and override the colours
+ * the caller passes through `classNames` (that is exactly what made a vendored
+ * control white-on-white in 0.31.1).
+ *
+ * The sizes here are the whole bug fix: without a width and height the search
+ * glyph stretched to fill its bubble and the "field" was a 500px square. Every
+ * box is 34px tall, the icon is 15px, and nothing is unbounded.
+ */
+@layer components {
+  .gooey-input {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 34px;
+  }
+  /* The filter definition itself draws nothing. */
+  .gooey-input__filter {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+  .gooey-input__filter-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 34px;
+  }
+  .gooey-input__button-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 34px;
+  }
+  .gooey-input__trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 34px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .gooey-input__open-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+    padding: 0 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 12.5px;
+    white-space: nowrap;
+    cursor: text;
+  }
+  .gooey-input__open-button:hover { color: var(--text); }
+  .gooey-input__icon {
+    display: block;
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+  .gooey-input__field {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    padding: 0 14px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+  }
+  /* The expanded modifier is where the input is at its widest; the pill has
+     already grown by then, so nothing else has to change — but the class exists
+     in the markup, so it exists here too. */
+  .gooey-input__field--expanded { text-overflow: ellipsis; }
+  .gooey-input__field::placeholder { color: var(--text-3); }
+  .gooey-input__field::-webkit-search-cancel-button { display: none; }
+  /* The detached bubble overlaps the pill so the goo filter can bridge them. */
+  .gooey-input__bubble {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    margin-left: -12px;
+  }
+  .gooey-input__bubble-surface {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+  }
+  .gooey-input__surface {
+    background: var(--elevated);
+    border: 1px solid var(--surface-border);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* The goo is decoration; the control itself must still be readable. */
+    .gooey-input__filter-wrap { filter: none !important; }
+  }
+}
+
+
+/* ------------------------------------------------------------ notifications */
+/* The bell in the sidebar rail, and the count SmoothUI's Notification Badge
+   draws on it. The badge itself positions absolutely; this only has to give it
+   a box with a little room, and give the button the same hover language as the
+   other rail controls. */
+@layer components {
+  .re-notify-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    color: var(--text-3);
+    transition: color .18s ease, background-color .18s ease, transform .18s ease;
+  }
+  .re-notify-btn:hover { color: var(--text); background: var(--elevated); }
+  .re-notify-btn:active { transform: scale(.96); }
+  .re-notify-btn.compact { width: 100%; height: 100%; background: transparent; }
+  .re-notify-btn.compact:hover { background: transparent; }
 }

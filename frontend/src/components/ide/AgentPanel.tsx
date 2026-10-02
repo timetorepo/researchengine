@@ -197,11 +197,37 @@ export function AgentPanel({
       textareaRef.current?.focus()
     }
     const onHandoff = (e: Event) => { pendingHandoff.current = (e as CustomEvent).detail?.to === 'cloud' ? 'cloud' : 'local' }
+    /**
+     * Design mode's pointer.
+     *
+     * The user pointed at one thing on the screen with their own avatar as the
+     * cursor. The draft they land in names that thing the way the inspector
+     * does — selector, role, the words on it — so "this" is never ambiguous,
+     * and the sentence is left open for them to finish rather than guessed at.
+     */
+    const onPointer = (e: Event) => {
+      const d = (e as CustomEvent).detail ?? {}
+      const bits: string[] = []
+      if (d.sel) bits.push(`\`${d.sel}\``)
+      if (d.role && d.role !== d.sel) bits.push(`role=${d.role}`)
+      const said = String(d.name || d.text || '').trim().replace(/\s+/g, ' ').slice(0, 80)
+      if (said) bits.push(`says "${said}"`)
+      const body = bits.length ? bits.join(' · ') : 'the element I clicked'
+      setText(`I'm pointing at ${body} in the live preview — `)
+      if (!design) setShowActions(false)
+      setTimeout(() => {
+        const el = textareaRef.current
+        el?.focus()
+        try { el?.setSelectionRange(el.value.length, el.value.length) } catch { /* older engines */ }
+      }, 60)
+    }
     window.addEventListener('re:ide-command', onCommand)
     window.addEventListener('re:ide-handoff', onHandoff)
+    window.addEventListener('re:ide-pointer', onPointer)
     return () => {
       window.removeEventListener('re:ide-command', onCommand)
       window.removeEventListener('re:ide-handoff', onHandoff)
+      window.removeEventListener('re:ide-pointer', onPointer)
     }
   }, [])
 

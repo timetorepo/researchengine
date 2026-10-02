@@ -612,18 +612,45 @@ function Mark({ span, mark, style }: { span: string; mark: Highlight; style: { b
 }
 
 /** Markdown-ish block rendering for the reader column. */
+/**
+ * Inline markdown, rendered.
+ *
+ * A study rewrite, a pasted abstract or an imported document can all carry
+ * `**bold**`, and a reader that prints the asterisks is showing the source
+ * language instead of the text. Emphasis is drawn; a marker left unpaired
+ * (which happens when a stored rewrite is truncated) is dropped rather than
+ * shown, so no document ever reads like a diff of itself.
+ */
+function renderInline(text: string): React.ReactNode {
+  if (!text.includes('*')) return text
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/g).filter((p) => p !== '')
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+          return <strong key={i} style={{ fontWeight: 650 }}>{part.slice(2, -2)}</strong>
+        }
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+          return <em key={i}>{part.slice(1, -1)}</em>
+        }
+        return <React.Fragment key={i}>{part.replace(/\*\*/g, '').replace(/\*/g, '')}</React.Fragment>
+      })}
+    </>
+  )
+}
+
 function renderBlock(text: string): React.ReactNode {
   const t = text.trim()
-  if (t.startsWith('# ')) return <h2 className="text-[26px] font-semibold mt-2 mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.02em' }}>{t.slice(2)}</h2>
-  if (t.startsWith('## ')) return <h3 className="text-[20px] font-semibold mt-6 mb-3" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.015em' }}>{t.slice(3)}</h3>
-  if (t.startsWith('### ')) return <h4 className="text-[17px] font-semibold mt-5 mb-2" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>{t.slice(4)}</h4>
+  if (t.startsWith('# ')) return <h2 className="text-[26px] font-semibold mt-2 mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.02em' }}>{renderInline(t.slice(2))}</h2>
+  if (t.startsWith('## ')) return <h3 className="text-[20px] font-semibold mt-6 mb-3" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.015em' }}>{renderInline(t.slice(3))}</h3>
+  if (t.startsWith('### ')) return <h4 className="text-[17px] font-semibold mt-5 mb-2" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>{renderInline(t.slice(4))}</h4>
   if (t.split('\n').every((l) => l.startsWith('|'))) {
     return <pre className="my-4 text-[15px] leading-relaxed overflow-x-auto" style={{ fontFamily: 'Lora, Georgia, serif' }}>{t}</pre>
   }
   if (t.startsWith('- ')) {
-    return <p>{t}</p>
+    return <p>{renderInline(t)}</p>
   }
-  return <p>{t}</p>
+  return <p>{renderInline(t)}</p>
 }
 
 /* ---------- floating reading chatbox ---------- */

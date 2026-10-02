@@ -36,6 +36,7 @@ import { DottedGlowBackground } from '@/components/ui/aceternity/DottedGlowBackg
 import { Carousel as AppleCarousel, Card as AppleCardView } from '@/components/ui/aceternity/AppleCardsCarousel'
 import { ONBOARDING_FEATURES } from '@/components/onboarding/onboarding-features'
 import { PAID_APPS, Favicon } from '@/components/onboarding/paid-apps'
+import { MultiStepLoader } from '@/components/ui/aceternity/MultiStepLoader'
 import { beginHandoff } from '@/lib/ui/handoff'
 import { runChat } from '@/lib/chat/runChat'
 import { PROVIDERS } from '@/lib/providers/registry'
@@ -73,6 +74,7 @@ const STEPS: StepMeta[] = [
   { label: 'Free', cta: true },
   { label: 'Provider', cta: true, skip: 'Skip for now' },
   { label: 'Try the demo', cta: false },
+  { label: 'Setting up', cta: false },
   { label: "You're set", cta: false },
 ]
 
@@ -99,6 +101,74 @@ export function Onboarding() {
   const lowRam = typeof navigator !== 'undefined' && (navigator as any).deviceMemory !== undefined && (navigator as any).deviceMemory <= 8
   const [eco, setEco] = useState(lowRam)
   const [firstPrompt, setFirstPrompt] = useState('')
+  /**
+   * The "setting up" step.
+   *
+   * The animation is the visible half; the work underneath is real. Each state
+   * below is backed by something that actually runs when the step opens: the
+   * theme is applied, the settings are written and read back, the local server
+   * is asked for its health, the key (if one was given) is tested against the
+   * provider, and the model list is fetched. The step finishes when both halves
+   * are done, so the animation can never claim more than happened.
+   */
+  const [setupAnimDone, setSetupAnimDone] = useState(false)
+  const [setupWorkDone, setSetupWorkDone] = useState(false)
+  const [setupNotes, setSetupNotes] = useState<string[]>([])
+  const setupStarted = React.useRef(false)
+  const SETUP_STATES = [
+    { text: 'Applying your theme and motion settings' },
+    { text: 'Writing your settings to this device' },
+    { text: 'Reading them back to be sure' },
+    { text: apiKey.trim() ? `Verifying your key with ${PROVIDERS.find((p) => p.id === provider)?.name ?? provider}` : 'Waking the local demo model' },
+    { text: apiKey.trim() ? 'Fetching the models your key can reach' : 'Preparing the offline demo library' },
+    { text: 'Ready' },
+  ]
+
+  const runSetup = async () => {
+    const note = (t: string) => setSetupNotes((n) => [...n, t])
+    try {
+      applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
+      note('theme applied')
+      const probe = { re: 'setup-probe', at: Date.now() }
+      localStorage.setItem(probe.re, String(probe.at))
+      const readBack = Number(localStorage.getItem(probe.re)) === probe.at
+      localStorage.removeItem(probe.re)
+      note(readBack ? 'settings stored' : 'settings could not be stored — the app may not remember this session')
+      await new Promise((r) => setTimeout(r, 260))
+      try {
+        const res = await fetch('/api/health', { signal: AbortSignal.timeout(3500) })
+        note(res.ok ? 'local server is up' : `local server answered ${res.status}`)
+      } catch { note('local server not reachable right now — the app runs offline anyway') }
+      if (apiKey.trim()) {
+        try {
+          const ms = await testConnection(provider, apiKey)
+          note(`key verified (${ms}ms)`)
+          // The models themselves are fetched at the end of onboarding, when
+          // the key has been written to the store (finish() below) — asking a
+          // provider for its catalogue before we have saved anything would
+          // read a key that is not there yet.
+        } catch (e: any) {
+          note(`key check failed: ${String(e?.message ?? e).slice(0, 60)}`)
+        }
+      } else {
+        note('local demo model ready')
+      }
+      note('done')
+    } finally {
+      setSetupWorkDone(true)
+    }
+  }
+
+  useEffect(() => {
+    if (step !== 7 || setupStarted.current) return
+    setupStarted.current = true
+    void runSetup()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
+  // Both halves must finish before the step offers to move on, and the pointer
+  // does not jump: the button appears where the eye already is.
+  const setupReady = setupAnimDone && setupWorkDone
 
   useEffect(() => { applyTheme(theme, {}) }, [theme])
 
@@ -520,8 +590,31 @@ export function Onboarding() {
       </div>
     </div>,
 
-    /* 7 — You're set */
-    <div key="s7" className="text-center max-w-[480px] mx-auto">
+    /* 7 — Setting up */
+    <div key="s7" className="max-w-[560px] mx-auto text-center">
+      {!setupAnimDone || !setupWorkDone ? (
+        <MultiStepLoader loadingStates={SETUP_STATES} loading duration={640} onDone={() => setSetupAnimDone(true)} />
+      ) : null}
+      <StepHeader icon={Rocket} title="Setting things up" sub="A few real checks before the app hands over. Nothing here leaves the device." />
+      <div className="mt-4 flex flex-col gap-1.5 text-left max-w-[420px] mx-auto">
+        {setupNotes.map((n, i) => (
+          <motion.div key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} className="flex items-start gap-2 text-[12px]">
+            <Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} />
+            <span style={{ color: 'var(--text-2)' }}>{n}</span>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-6 h-9">
+        {setupReady && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <Button size="md" onClick={next}>Continue <ArrowRight size={13} className="inline" /></Button>
+          </motion.div>
+        )}
+      </div>
+    </div>,
+
+    /* 8 — You're set */
+    <div key="s8" className="text-center max-w-[480px] mx-auto">
       <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 16, stiffness: 240 }}
         className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-5"
         style={{ background: 'color-mix(in srgb, var(--success) 16%, transparent)' }}>

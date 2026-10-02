@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSyncExternalStore } from 'react'
+import { AnimatePresence, useMotionValue } from 'motion/react'
 import {
   MonitorUp, Play, RefreshCw, Square, ExternalLink, Crosshair, Camera, Smartphone, Tablet, Monitor,
   Maximize2, ChevronRight, Search, AlertTriangle, CheckCircle2, XCircle, Loader2, Terminal, Bug,
   Image as ImageIcon, Send, Sparkles, Download, X, Layers, ListChecks, Activity,
 } from 'lucide-react'
 import { AgentPanel } from './AgentPanel'
+import { FollowPointer } from '@/components/ui/aceternity/FollowingPointer'
+import { UserAvatar } from '@/components/shared/UserAvatar'
+import { useStore } from '@/stores/useStore'
 import { AIFloat, FocusButton } from './AIFloat'
 import { TestPanel } from './TestPanel'
 import {
@@ -28,6 +32,9 @@ function useCaptures(): Capture[] {
 export function DesignStudio({ project, tree, onExit }: { project: string; tree: TreeNode[]; onExit: () => void }) {
   const [state, setState] = useState<PreviewState | null>(null)
   const [starting, setStarting] = useState(false)
+  // The pointer carries the real user: their display name, their initials or
+  // blobatar, exactly as the sidebar shows them.
+  const pointerName = useStore((s) => s.settings.profileName) || 'You'
   const [device, setDevice] = useState<DeviceId>('fill')
   const [size, setSize] = useState({ w: 1440, h: 900 })
   const [zoom, setZoom] = useState(1)
@@ -78,6 +85,20 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
   }
   const [tab, setTab] = useState<Tab>('assistant')
   const [picking, setPicking] = useState(false)
+  // "Point at it" — design mode's own gesture. The cursor is replaced by the
+  // user's avatar and name (their profile, not a stock pointer) and the next
+  // click on the screen writes what they pointed at straight into the
+  // assistant's draft, so pointing is a sentence they only have to finish.
+  const [pointing, setPointing] = useState(false)
+  // Read inside the bridge listener, which is registered once.
+  const pointingRef = useRef(false)
+  pointingRef.current = pointing
+  // Where the user's cursor is, in this pane's coordinates. The frame reports
+  // it across (a mouse over an iframe is invisible to the parent), and the
+  // avatar is drawn at that point rather than at the browser's own arrow.
+  const pointerX = useMotionValue(0)
+  const pointerY = useMotionValue(0)
+  const [pointerAt, setPointerAt] = useState<{ x: number; y: number } | null>(null)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [controls, setControls] = useState<ControlInfo[]>([])
   const [selected, setSelected] = useState<any>(null)
@@ -184,10 +205,44 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
       if (e.type === 'idle' && e.payload?.findings) {
         setSnapshot((s) => (s ? { ...s, findings: e.payload.findings } : s))
       }
+      // The frame's own mouse position, translated into pane coordinates so
+      // the follower sits exactly under the cursor no matter the zoom or scroll.
+      if (e.type === 'pointer' && pointingRef.current) {
+        const pane = previewPaneRef.current
+        const frame = frameRef.current
+        if (pane && frame) {
+          const pr = pane.getBoundingClientRect()
+          const fr = frame.getBoundingClientRect()
+          const x = fr.left - pr.left + pane.scrollLeft + (e.payload?.x ?? 0)
+          const y = fr.top - pr.top + pane.scrollTop + (e.payload?.y ?? 0)
+          pointerX.set(x); pointerY.set(y)
+          setPointerAt({ x, y })
+        }
+      }
       if (e.type === 'picked') {
         setPicking(false)
         setSelected(e.payload)
-        setTab('inspect')
+        if (pointingRef.current) {
+          endPointing()
+          // The draft is built from what was actually picked: the selector, the
+          // role, and the words on screen. The AI receives the same element
+          // identity the inspector shows, so "this" is never ambiguous.
+          const d = e.payload ?? {}
+          window.dispatchEvent(new CustomEvent('re:ide-pointer', {
+            detail: {
+              sel: d.sel ?? '',
+              tag: d.tag ?? '',
+              role: d.role ?? '',
+              name: d.name ?? '',
+              text: String(d.text ?? '').slice(0, 120),
+              by: pointerName,
+            },
+          }))
+          setTab('assistant')
+          setBanner('Pointed at it — finish the sentence in the assistant below.')
+        } else {
+          setTab('inspect')
+        }
       }
       if (e.type === 'unloading') { setSnapshot(null); setControls([]) }
     })
@@ -200,6 +255,38 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
     window.addEventListener('re:ide-changed', h)
     return () => window.removeEventListener('re:ide-changed', h)
   }, [state?.kind, frameSrc])
+
+  /* ---------------- design pointer ---------------- */
+  /**
+   * Point at it.
+   *
+   * Design mode already had "Pick", which selects an element for the
+   * inspector. Pointing is the same gesture aimed at the AI instead: the
+   * cursor becomes the user's own avatar with their name on it (their profile,
+   * from Settings → Profile), and the click writes the element into the
+   * assistant's draft as a sentence to finish. The system arrow is hidden
+   * inside the preview frame by the bridge, because a cursor rule cannot cross
+   * an iframe boundary — that is the one thing this needs from the backend.
+   */
+  const startPointing = async () => {
+    setPointing(true)
+    pointingRef.current = true
+    await Promise.allSettled([
+      designSession.call('cursor', { on: true }, 6000),
+      designSession.call('pick', { on: true }, 6000),
+    ])
+    setPicking(true)
+    setTab('assistant')
+    setBanner(`${pointerName} is pointing — click the thing on the screen the AI should look at.`)
+  }
+
+  const endPointing = () => {
+    setPointing(false)
+    pointingRef.current = false
+    setPicking(false)
+    void designSession.call('cursor', { on: false }, 6000).catch(() => null)
+    void designSession.call('pick', { on: false }, 6000).catch(() => null)
+  }
 
   /* ---------------- actions ---------------- */
   const call = async (name: string, fn: () => Promise<any>) => {
@@ -225,10 +312,13 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
     setBanner('Screenshot attached — send your next message and the AI will see it.')
   })
 
-  const togglePick = () => call('pick', async () => {
-    const out = await designSession.call('pick', { on: !picking }, 8000)
-    setPicking(!!out?.picking)
-  })
+  const togglePick = () => {
+    if (pointing) { endPointing(); setBanner(''); return }
+    return call('pick', async () => {
+      const out = await designSession.call('pick', { on: !picking }, 8000)
+      setPicking(!!out?.picking)
+    })
+  }
 
   const highlight = (sel: string) => call('hl', async () => {
     const out = await designSession.call('highlight', { target: sel, keep: true }, 8000)
@@ -395,7 +485,17 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           </div>
 
           {/* the screen */}
-          <div ref={previewPaneRef} data-preview-pane className="flex-1 min-h-0 overflow-auto p-4 grid place-items-center" style={{ background: 'var(--ide-bg)' }}>
+          <div ref={previewPaneRef} data-preview-pane className="relative flex-1 min-h-0 overflow-auto p-4 grid place-items-center"
+            style={{ background: 'var(--ide-bg)', cursor: pointing ? 'none' : undefined }}>
+            {/* The pointer carries the user's own avatar and name — their
+                profile, not a stock cursor — and only exists while they are
+                pointing, so it can never be mistaken for the system arrow. */}
+            <AnimatePresence>
+              {pointing && pointerAt && (
+                <FollowPointer x={pointerX} y={pointerY}
+                  title={<span className="flex items-center gap-1.5"><UserAvatar size={15} /> {pointerName}</span>} />
+              )}
+            </AnimatePresence>
             {!port ? (
               <div className="max-w-[420px] text-center flex flex-col items-center gap-3 py-10">
                 <MonitorUp size={30} style={{ color: 'var(--ide-faint)' }} />

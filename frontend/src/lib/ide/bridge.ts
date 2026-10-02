@@ -53,7 +53,7 @@ export interface ControlInfo {
 }
 
 export interface BridgeEvent {
-  type: 'ready' | 'idle' | 'unloading' | 'picked' | 'status'
+  type: 'ready' | 'idle' | 'unloading' | 'picked' | 'status' | 'pointer'
   payload?: any
 }
 
@@ -128,6 +128,9 @@ class DesignBridge {
       return
     }
     if (d.type === 'picked') { this.emit({ type: 'picked', payload: d.payload }); return }
+    // Design mode's pointer: the frame reports where the mouse is, because the
+    // parent page cannot see it once it is over an iframe.
+    if (d.type === 'pointer') { this.emit({ type: 'pointer', payload: d.payload }); return }
   }
 
   private failPending(reason: string) {

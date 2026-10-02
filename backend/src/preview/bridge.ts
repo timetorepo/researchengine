@@ -502,12 +502,53 @@ export const BRIDGE_JS = String.raw`
   }
   window.addEventListener('scroll', function () { if (overlay) { overlay.style.width = '0px'; overlay.style.height = '0px'; } }, true);
 
+  /* ---------------- pointer cursor ---------------- */
+  // The design-mode pointer draws the user's own avatar where the mouse is, so
+  // the system arrow has to go away while it is on. The parent page cannot do
+  // that: this document is a different origin, and a cursor rule does not
+  // cross the frame boundary. One injected rule does.
+  var cursorStyle = null;
+  var pointerWatch = false;
+  var pointerMove = null;
+  var pointerLast = 0;
+  // The parent page cannot see the mouse once it is over this frame: mouse
+  // events do not cross the boundary. Design mode's pointer needs them, so the
+  // bridge reports them across, throttled to roughly one frame, and only while
+  // the pointer is actually switched on.
+  function watchPointer(on) {
+    pointerWatch = !!on;
+    if (pointerMove) { document.removeEventListener('mousemove', pointerMove, true); pointerMove = null; }
+    if (!pointerWatch) return;
+    pointerMove = function (e) {
+      var now = Date.now();
+      if (now - pointerLast < 40) return;
+      pointerLast = now;
+      send('pointer', { x: e.clientX, y: e.clientY, target: e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '' });
+    };
+    document.addEventListener('mousemove', pointerMove, true);
+  }
+  function setPointerCursor(on) {
+    if (on) {
+      if (!cursorStyle) {
+        cursorStyle = document.createElement('style');
+        cursorStyle.setAttribute('data-re-pointer', '1');
+        cursorStyle.textContent = 'html, body, *, *::before, *::after { cursor: none !important; }';
+        (document.head || document.documentElement).appendChild(cursorStyle);
+      }
+    } else if (cursorStyle) {
+      try { cursorStyle.parentNode && cursorStyle.parentNode.removeChild(cursorStyle); } catch (e) {}
+      cursorStyle = null;
+    }
+    watchPointer(on);
+    return { ok: true, pointerCursor: !!on };
+  }
+
   /* ---------------- element picker ---------------- */
   var pickHandler = null, pickHover = null;
   function setPick(on) {
     pickMode = !!on;
     if (pickHandler) { document.removeEventListener('mousemove', pickHover, true); document.removeEventListener('click', pickHandler, true); pickHandler = null; }
-    if (!pickMode) return { ok: true, picking: false };
+    if (!pickMode) { return { ok: true, picking: false }; }
     pickHover = function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-re-overlay')) return; highlight(e.target, true); };
     pickHandler = function (e) {
       e.preventDefault(); e.stopPropagation();
@@ -728,6 +769,7 @@ export const BRIDGE_JS = String.raw`
         }
         case 'highlight': { return done(highlight(args.target ? resolve(args.target) : null, !!args.keep)); }
         case 'pick': return done(setPick(args.on !== false));
+        case 'cursor': return done(setPointerCursor(args.on !== false));
         case 'console': { var tail = consoleTail(args.limit || 40); if (args.clear) { consoleLog = []; networkLog = []; } return done({ entries: tail, network: networkLog.slice(-10) }); }
         case 'metrics': return done(metrics());
         case 'controls': return done(interactiveMap());

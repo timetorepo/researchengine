@@ -24,7 +24,7 @@
  */
 import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { extractArchive, rmrf } from './archive'
 import {
@@ -435,6 +435,146 @@ export async function download(
 }
 
 /**
+ * A download that survives a dropped connection.
+ *
+ * "When an update accidentally disconnects it can automatically continue where
+ * the progress was from" is a property of *where the bytes are written*, not of
+ * a retry counter: a loop that starts from zero every time is not a resume, it
+ * is a re-download that happens to sometimes work. So the bytes go to a partial
+ * file in the data directory as they arrive, the next attempt asks the server
+ * for `Range: bytes=<have>-` and appends what comes back, and the only thing
+ * thrown away is a partial nobody can use.
+ *
+ * A server that ignores Range (some CDNs do) answers 200 with the whole file;
+ * that is detected and the partial is truncated and started over, which is
+ * exactly what the old behaviour did — only now the progress line says so.
+ */
+function partialPathFor(deps: UpdateDeps, name: string): string {
+  const dir = join(deps.dataDir, 'updates', 'partial')
+  mkdirSync(dir, { recursive: true })
+  return join(dir, `${name.replace(/[^\w.-]+/g, '_')}.part`)
+}
+
+export function clearPartial(deps: UpdateDeps, name: string) {
+  try { rmSync(partialPathFor(deps, name), { force: true }) } catch { /* nothing to clear */ }
+}
+
+export async function downloadResumable(
+  deps: UpdateDeps,
+  url: string,
+  onProgress: (received: number, total: number) => void,
+  maxBytes = 200 * 1024 * 1024,
+  init?: RequestInit,
+  partialName?: string,
+): Promise<DownloadResult & { resumed: boolean }> {
+  const doFetch = deps.fetchImpl ?? fetch
+  const path = partialName ? partialPathFor(deps, partialName) : null
+  let have = 0
+  if (path) {
+    try {
+      have = existsSync(path) ? statSync(path).size : 0
+      // A partial bigger than the cap is garbage from another build; drop it.
+      if (have > maxBytes) { rmSync(path, { force: true }); have = 0 }
+    } catch { have = 0 }
+  }
+
+  const headers: Record<string, string> = { accept: 'application/octet-stream', 'user-agent': 'research-engine-updater', ...(init?.headers as any) }
+  if (have > 0) headers.range = `bytes=${have}-`
+  let res = await doFetch(url, { ...(init ?? {}), headers })
+
+  // 416 means our partial is already the whole file (or longer) — nothing more
+  // to fetch, so let the checksum decide whether it is usable.
+  if (res.status === 416 && path && have > 0) {
+    const buffer = readFileSync(path)
+    return { buffer, sha256: createHash('sha256').update(buffer).digest('hex'), resumed: true }
+  }
+  if (!res.ok) throw new Error(`download failed: ${res.status} ${res.statusText}`)
+
+  const partial = res.status === 206
+  if (!partial && have > 0 && path) {
+    // The server ignored the range and is sending the whole file.
+    try { writeFileSync(path, '') } catch { /* fall through: we still have the bytes below */ }
+    have = 0
+  }
+
+  const rangeTotal = (() => {
+    const cr = res.headers.get('content-range')
+    const m = cr?.match(/\/(\d+)\s*$/)
+    return m ? Number(m[1]) : 0
+  })()
+  const len = Number(res.headers.get('content-length') ?? 0)
+  const total = rangeTotal || (len ? len + have : 0)
+
+  let received = have
+  const chunks: Buffer[] = []
+  onProgress(received, total)
+  if (res.body) {
+    const reader = (res.body as any).getReader()
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const buf = Buffer.from(value)
+      received += buf.length
+      if (received > maxBytes) throw new Error(`download exceeded ${maxBytes} bytes — refusing it`)
+      // Written before it is reported, so a crash between the two loses nothing
+      // that the next attempt would have to fetch again.
+      if (path) appendFileSync(path, buf)
+      else chunks.push(buf)
+      onProgress(received, total)
+    }
+  } else {
+    const buf = Buffer.from(await res.arrayBuffer())
+    received += buf.length
+    if (path) appendFileSync(path, buf)
+    else chunks.push(buf)
+    onProgress(received, total)
+  }
+
+  // The whole file, whether it came from the partial on disk (the usual case
+  // when a connection dropped) or straight from the wire.
+  const buffer = path && existsSync(path) ? readFileSync(path) : Buffer.concat(chunks)
+  if (buffer.length > maxBytes) throw new Error(`download exceeded ${maxBytes} bytes — refusing it`)
+  return { buffer, sha256: createHash('sha256').update(buffer).digest('hex'), resumed: have > 0 }
+}
+
+/** How many times a dropped download is picked back up before giving up. */
+const RESUME_ATTEMPTS = Number(process.env.RE_UPDATE_ATTEMPTS ?? 4)
+
+export async function downloadAnyResumable(
+  deps: UpdateDeps,
+  urls: string[],
+  onProgress: (received: number, total: number, attempt: number) => void,
+  maxBytes = 200 * 1024 * 1024,
+  name = 'update',
+): Promise<DownloadResult & { url: string; resumed: boolean; attempts: number }> {
+  const errors: string[] = []
+  for (const url of urls) {
+    const req = requestFor(deps, url)
+    let attempt = 0
+    while (attempt < RESUME_ATTEMPTS) {
+      attempt++
+      try {
+        const out = await downloadResumable(deps, req.url, (r, t) => onProgress(r, t, attempt), maxBytes, req.init, name)
+        clearPartial(deps, name)
+        return { ...out, url, attempts: attempt }
+      } catch (e: any) {
+        const msg = `${new URL(url).hostname}: ${e?.message ?? e}`
+        if (attempt >= RESUME_ATTEMPTS || attempt >= urls.length * RESUME_ATTEMPTS) {
+          errors.push(msg)
+          break
+        }
+        // A short breath, then continue from the bytes already on disk. The
+        // pause grows a little, because an immediate retry against a network
+        // that just dropped tends to drop again.
+        errors.push(msg)
+        await new Promise((r) => setTimeout(r, 600 * attempt))
+      }
+    }
+  }
+  throw new Error(`could not download from any source — ${errors.slice(-4).join('; ')}`)
+}
+
+/**
  * Download from the first source that answers. Records which one worked, so a
  * failure message can say what was tried.
  */
@@ -739,22 +879,34 @@ export async function installUpdate(deps: UpdateDeps, opts: { version?: string }
     const want = expectedHash(sumsText, name)
     if (!want) return { ok: false, error: `${name} is not listed in SHA256SUMS for ${target} — refusing to update unverified` }
 
-    // 2. Download, with progress.
-    const { buffer, sha256 } = await downloadAny(deps, urls, (received, total) => {
+    // 2. Download, with progress — and if the connection drops, pick the file
+    //    back up from the bytes already on disk instead of starting over.
+    const { buffer, sha256, resumed, attempts } = await downloadAnyResumable(deps, urls, (received, total, attempt) => {
+      const pct = total ? Math.min(99, Math.round((received / total) * 100)) : Math.min(95, Math.round(received / 200_000))
+      const mb = (received / 1e6).toFixed(1)
       setProgress({
-        phase: 'downloading', received, total,
-        pct: total ? Math.min(99, Math.round((received / total) * 100)) : Math.min(95, Math.round(received / 200_000)),
-        message: total ? `Downloading ${name} — ${Math.round((received / total) * 100)}%` : `Downloading ${name} — ${(received / 1e6).toFixed(1)} MB`,
+        phase: 'downloading', received, total, pct,
+        message: total
+          ? `${attempt > 1 ? 'Continuing' : 'Downloading'} ${name} — ${pct}%${attempt > 1 ? ` (attempt ${attempt})` : ''}`
+          : `${attempt > 1 ? 'Continuing' : 'Downloading'} ${name} — ${mb} MB`,
       })
-    })
+    }, 200 * 1024 * 1024, name)
+    if (attempts > 1) {
+      setProgress({ phase: 'downloading', message: `The connection dropped; picked ${name} back up where it stopped.` })
+    }
+    void resumed
 
     // 3. Verify before anything is unpacked or moved.
     setProgress({ phase: 'verifying', pct: 100, message: 'Checking the download against the release checksum…' })
     if (sha256 !== want) {
+      // The bytes on disk do not match the release, so they are not worth
+      // resuming from: clearing them makes the next attempt honest.
+      clearPartial(deps, name)
       const error = `checksum mismatch — expected ${want.slice(0, 12)}…, got ${sha256.slice(0, 12)}… (nothing was changed)`
       setProgress({ phase: 'error', error, message: error })
       return { ok: false, error }
     }
+    clearPartial(deps, name)
 
     // 4. Unpack into the app's own staging folder.
     const stage = guard(deps.appRoot, deps.dataDir, stageDir(deps), 'the staging folder')
@@ -857,7 +1009,7 @@ export async function downloadInstaller(deps: UpdateDeps, downloadDir: string): 
       // browser forms are tried in turn. This used to call `download()` with the
       // bare browser URL and no Authorization header, which is a guaranteed 404
       // on a private repository — the "download failed" report.
-      const { buffer, sha256 } = await downloadAny(deps, assetUrlsFor(deps, installer), onProgress(installer.name), MAX_INSTALLER_BYTES)
+      const { buffer, sha256 } = await downloadAnyResumable(deps, assetUrlsFor(deps, installer), (r, t) => onProgress(installer.name)(r, t), MAX_INSTALLER_BYTES, installer.name)
       const file = join(downloadDir, installer.name)
       writeFileSync(file, buffer)
       writeFileSync(`${file}.sha256`, `${sha256}  ${installer.name}\n`)
@@ -885,8 +1037,9 @@ export async function downloadInstaller(deps: UpdateDeps, downloadDir: string): 
     if (want === null && !asset) return { ok: false, error: `${name} is not part of the ${version} release` }
 
     setProgress({ phase: 'downloading', message: `Downloading ${name}…`, pct: 0, received: 0, total: asset?.size ?? 0, to: version })
-    const { buffer, sha256 } = await downloadAny(deps, urls, onProgress(name), MAX_INSTALLER_BYTES)
+    const { buffer, sha256 } = await downloadAnyResumable(deps, urls, (r, t) => onProgress(name)(r, t), MAX_INSTALLER_BYTES, name)
     if (want && sha256 !== want) {
+      clearPartial(deps, name)
       const error = `checksum mismatch — expected ${want.slice(0, 12)}…, got ${sha256.slice(0, 12)}… (nothing was written)`
       setProgress({ phase: 'error', error, message: error })
       return { ok: false, error }

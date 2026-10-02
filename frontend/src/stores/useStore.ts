@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { DEFAULT_PROFILE, migrateProfile } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
-  Article, Chat, ChatMessage, Citation, ConnectionLogEntry, DocumentRecord, FlowStats, IntegrationState, KnowledgeCard, QuizRecord, Settings, Skill, Source, Space, Squad, Task,
+  Article, Chat, ChatMessage, Citation, ConnectionLogEntry, DocumentRecord, FlowStats, IntegrationState, KnowledgeCard, QuizRecord, Settings, Skill, SkillSecurity, Source, Space, Squad, Task,
 } from '@/types'
 import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
@@ -15,6 +15,15 @@ interface StoreState {
   chats: Chat[]
   activeChatId: string | null
   skills: Skill[]
+  /**
+   * The scan report attached to an imported skill, by skill id.
+   *
+   * A skill a user brought in is code that will run with this app's
+   * permissions, so the verdict from the security scan travels with it and is
+   * visible in the Skills list from then on — not shown once during import and
+   * forgotten.
+   */
+  skillSecurity: Record<string, SkillSecurity>
   articles: Article[]
   spaces: Space[]
   citations: Citation[]
@@ -122,6 +131,8 @@ const defaultSettings: Settings = {
   composerBeamVariant: 'ocean',
   quizAutoAdvance: false,
   readerImages: true,
+  notifyUpdates: true,
+  notifyRecommendations: false,
   performanceProfile: 'balanced',
   adaptiveQuality: true,
   highMemoryMode: false,
@@ -146,6 +157,7 @@ export const useStore = create<StoreState>()(
       chats: [],
       activeChatId: null,
       skills: builtinSkills,
+      skillSecurity: {},
       articles: [],
       spaces: initialSpaces,
       citations: [],

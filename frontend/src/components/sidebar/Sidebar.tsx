@@ -4,10 +4,11 @@ import { AnimatePresence, motion } from 'motion/react'
 import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus, UserRound,
   ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, Check, Swords,
-  Sun, Moon, RotateCcw, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon,
+  Sun, Moon, RotateCcw, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon, ScanText, MessageSquarePlus,
   ChevronRight,
 } from 'lucide-react'
 import { download } from '@/lib/utils'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { THEMES } from '@/lib/themes/meta'
 import { useStore } from '@/stores/useStore'
 import { UserAvatar } from '@/components/shared/UserAvatar'
@@ -32,6 +33,8 @@ const NAV = [
   { to: '/compare', label: 'Compare', icon: Swords },
   { to: '/workflows', label: 'Workflows', icon: WorkflowIcon },
   { to: '/flood', label: 'Agent Flood', icon: Users },
+  { to: '/alpha', label: 'removerAlpha', icon: ScanText },
+  { to: '/feedback', label: 'Feedback', icon: MessageSquarePlus },
 ]
 
 export function Sidebar({ floating = false }: { floating?: boolean }) {
@@ -89,14 +92,20 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
         {!collapsed && <AppLogo size={26} />}
         {collapsed && <AppLogo size={26} withName={false} />}
         {!collapsed && (
-          <button
-            className="ml-auto p-1.5 rounded-lg hover:bg-[var(--elevated)]"
-            style={{ color: 'var(--text-3)' }}
-            onClick={() => ui.toggleSidebar()}
-            aria-label="Collapse sidebar"
-          >
-            <PanelLeftClose size={16} strokeWidth={1.5} />
-          </button>
+          <>
+            {/* Notifications live where the app is: in the rail, next to the
+                name, so a released update or a recommendation is visible from
+                every screen without a second window. */}
+            <div className="ml-auto"><NotificationBell /></div>
+            <button
+              className="p-1.5 rounded-lg hover:bg-[var(--elevated)]"
+              style={{ color: 'var(--text-3)' }}
+              onClick={() => ui.toggleSidebar()}
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose size={16} strokeWidth={1.5} />
+            </button>
+          </>
         )}
       </div>
 
@@ -127,10 +136,13 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
           <DockItem index={NAV.length + 2} label="Theme" onClick={() => useUI.getState().openSettings('appearance')}>
             <DockThemeIcon />
           </DockItem>
-          <DockItem index={NAV.length + 3} label="Settings" onClick={() => useUI.getState().openSettings()}>
+          <DockItem index={NAV.length + 3} label="Notifications" onClick={() => useUI.getState().openSettings('notifications')}>
+            <NotificationBell compact />
+          </DockItem>
+          <DockItem index={NAV.length + 4} label="Settings" onClick={() => useUI.getState().openSettings()}>
             <Settings size={18} strokeWidth={1.5} />
           </DockItem>
-          <DockItem index={NAV.length + 4} label="Profile" onClick={() => useUI.getState().openSettings('profile')}>
+          <DockItem index={NAV.length + 5} label="Profile" onClick={() => useUI.getState().openSettings('profile')}>
             <UserAvatar size={22} />
           </DockItem>
         </DockRail>

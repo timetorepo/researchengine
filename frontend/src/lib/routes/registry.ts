@@ -38,6 +38,8 @@ const ROUTES: { test: (path: string) => boolean; load: Loader }[] = [
   { test: (p) => p.startsWith('/quiz'), load: () => import('@/components/quiz/QuizHub') },
   { test: (p) => p.startsWith('/articles/'), load: () => import('@/components/articles/ArticleEditor') },
   { test: (p) => p.startsWith('/articles'), load: () => import('@/components/articles/ArticlesView') },
+  { test: (p) => p.startsWith('/alpha'), load: () => import('@/components/alpha/RemoverAlpha') },
+  { test: (p) => p.startsWith('/feedback'), load: () => import('@/components/feedback/FeedbackView') },
   { test: (p) => p.startsWith('/library'), load: () => import('@/components/library/LibraryView') },
   { test: (p) => p.startsWith('/compare'), load: () => import('@/components/compare/CompareView') },
   { test: (p) => p.startsWith('/workflows/'), load: () => import('@/components/workflows/WorkflowEditor') },

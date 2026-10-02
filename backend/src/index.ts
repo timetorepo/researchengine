@@ -10,6 +10,10 @@ import { staticHandler } from './static'
 // Pure helpers — safe to import eagerly; the route itself is wired below.
 import { appRoot, installKind, sourceVersion, webBuild } from './build-info'
 import { updateRoutes } from './routes/update'
+import { linkRoutes } from './routes/link'
+import { feedbackRoutes } from './routes/feedback'
+import { libraryRoutes } from './routes/library'
+import { skillsRoutes } from './routes/skills'
 import { bootUpdateCheck, handleFatalWithPending, rollbackAndRestart, scheduleHealthy } from './update/boot'
 import { EXIT_RESTART } from './update/service'
 
@@ -65,6 +69,10 @@ async function main() {
   app.route('/api', providerRoutes)
   // The updater. Everything it can touch is guarded inside update/service.ts.
   app.route('/api', updateRoutes(rt))
+  app.route('/api', linkRoutes)
+  app.route('/api/feedback', feedbackRoutes)
+  app.route('/api/library', libraryRoutes)
+  app.route('/api/skills', skillsRoutes)
 
   app.onError((err, c) => {
     // Surface the real error to the client — the UI shows it verbatim.
