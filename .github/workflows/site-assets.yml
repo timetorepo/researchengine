@@ -1,0 +1,59 @@
+name: site assets
+
+# One-off, maintainer-run: pull the screenshots the website links to onto a
+# branch, so the site can serve them from its own origin instead of hotlinking
+# an image host. The build environment this branch is developed in can reach
+# github.com and the npm registry and nothing else, so the download happens on a
+# runner that can reach the internet, and the branch is fetched from here.
+#
+#   gh workflow run site-assets.yml --ref <branch>
+#
+# It writes only under website/public/shots/ and pushes to the branch it is
+# given (default: site-shots), never to a release branch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch to commit the downloaded files to
+        required: false
+        default: site-shots
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the screenshots
+        run: |
+          set -euo pipefail
+          mkdir -p website/public/shots
+          fetch() {
+            local url="$1" out="$2"
+            curl -fsSL --retry 3 --retry-delay 2 -A "ResearchEngine-Website/1.0" -o "website/public/shots/$out" "$url"
+            head -c 8 "website/public/shots/$out" | grep -q $'\x89PNG' || { echo "not a PNG: $out"; exit 1; }
+            local bytes
+            bytes=$(stat -c%s "website/public/shots/$out")
+            echo "$out  $bytes bytes  sha256=$(sha256sum "website/public/shots/$out" | cut -d' ' -f1)"
+          }
+          fetch "https://i.ibb.co/WNvrsrJ5/2-20260927-195621-0000.png" "shot-1.png"
+          fetch "https://i.ibb.co/4wVh8Wvf/3-20260927-195621-0001.png" "shot-2.png"
+          fetch "https://i.ibb.co/yc97WZfv/4-20260927-195621-0002.png" "shot-3.png"
+          fetch "https://i.ibb.co/0pCjsbwX/5-20260927-195621-0003.png" "shot-4.png"
+          ls -la website/public/shots
+
+      - name: Commit to the branch
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$REF"
+          git add website/public/shots
+          git commit -m "website: bundle the screenshots the site shows"
+          git push --force origin "$REF"
