@@ -27,11 +27,11 @@ export function Compare() {
             The honest comparison
           </Badge>
           <h2 className="text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.1] font-semibold">
-            Research Engine is free, unlike the apps it replaces
+            ResearchEngine is free, unlike:
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-[var(--text-2)]">
-            Plenty of tools do part of this, and they are good tools. But they charge every month, they keep your work on
-            their servers, and they decide what you are allowed to do with it.
+            These are the apps it replaces. Plenty of tools do part of this, and they are good tools, but they charge
+            every month, they keep your work on their servers, and they decide what you are allowed to do with it.
           </p>
         </motion.header>
 
