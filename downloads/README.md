@@ -11,14 +11,14 @@ this tag and attaches them to the release you are reading:
 
 | Installer | Platform | Size |
 |---|---|---|
-| `Research.Engine_0.35.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | built by CI from this tag |
-| `Research.Engine_0.35.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | built by CI from this tag |
-| `Research.Engine_0.35.0-beta.1_amd64.AppImage` | any x64 Linux | built by CI from this tag |
+| `Research.Engine_0.35.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 37.3 MB |
+| `Research.Engine_0.35.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 45.3 MB |
+| `Research.Engine_0.35.0-beta.1_amd64.AppImage` | any x64 Linux | 116.8 MB |
 
-Their sizes and hashes are recorded in `INSTALLERS.sha256` in this folder as soon
-as the build finishes, and every one of them is **GitHub's own sha256 digest for
-the uploaded asset**, read back from the release API (`digest` on the asset),
-not a hash of a local build folder that could have drifted. A freshly built
+Their hashes are recorded in `INSTALLERS.sha256` in this folder, and every one
+of them is **GitHub's own sha256 digest for the uploaded asset**, read back from
+the release API (`digest` on the asset), not a hash of a local build folder that
+could have drifted. A freshly built
 installer is never claimed here before it exists.
 
 See `desktop/README.md` for how the shell boots the local server, and

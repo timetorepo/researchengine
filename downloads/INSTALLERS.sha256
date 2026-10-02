@@ -1,2 +1,9 @@
-# Filled in from the release API once CI has attached the installers for
-# 0.35.0-beta.1 (GitHub's own sha256 `digest` for each uploaded asset).
+# Installers attached to the v0.35.0-beta.1 release by .github/workflows/desktop.yml.
+# Same three artifacts the release page offers, with the digests GitHub records
+# for the bytes it is actually serving. Verify with:
+#   sha256sum -c INSTALLERS.sha256        (Linux: .deb / .AppImage)
+#   certutil -hashfile <file> SHA256     (Windows: setup.exe)
+
+1511e9071329eee1c853ec2bf11674e1134392423dfd24ad5982f495a331d6f3  Research.Engine_0.35.0-beta.1_amd64.AppImage
+bf89d255f3b4a35ee7d51f3a051e14fce6d8680babf66b452da281a44ac84c0d  Research.Engine_0.35.0-beta.1_amd64.deb
+f647a077d0222b73634a17d24d27b5d763e2abc15e7896ae99e0a0a811d80fde  Research.Engine_0.35.0-beta.1_x64-setup.exe
