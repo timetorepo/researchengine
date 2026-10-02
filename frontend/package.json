@@ -1,7 +1,7 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "0.35.0-beta.1",
+  "version": "0.36.0-beta.1",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -9,10 +9,12 @@
     "dev": "vite",
     "fork-test": "tsx --tsconfig tsconfig.json scripts/fork-test.mts",
     "preview": "vite preview",
-    "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts",
-    "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts",
     "r17-test": "tsx scripts/r17-test.mts",
     "r17-ui-test": "tsx scripts/r17-ui-test.mts",
+    "r18-test": "tsx scripts/r18-test.mts",
+    "r18-ui-test": "tsx scripts/r18-ui-test.mts",
+    "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts",
+    "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts",
     "sample-test": "tsx scripts/sample-test.mts",
     "smoke": "tsx scripts/smoke.mts",
     "ui-lab-test": "tsx --tsconfig tsconfig.json scripts/ui-lab-test.mts",
@@ -20,6 +22,7 @@
     "updates-ui-test": "tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@blobatar/react": "^2.7.0",
     "@fontsource/geist-mono": "^5.3.0",
     "@fontsource/geist-sans": "^5.3.0",

@@ -10,9 +10,20 @@ import { spawn } from 'node:child_process'
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const dist = join(root, 'dist', 'index.js')
+const bundled = join(root, 'server', 'index.js')
+const frontendDist = join(root, 'frontend-dist')
 
 if (existsSync(dist)) {
   await import(dist)
+} else if (existsSync(bundled)) {
+  // Packaged tree: `bin/` sits beside the bundled `server/`, and the frontend is
+  // the sibling `frontend-dist/`. The `research-engine` script at the root is the
+  // documented entry point, but this file is what it calls, so make the two agree
+  // when someone runs `node bin/research-engine.mjs` in an extracted archive.
+  if (!process.env.FRONTEND_DIST && existsSync(join(frontendDist, 'index.html'))) {
+    process.env.FRONTEND_DIST = frontendDist
+  }
+  await import(bundled)
 } else {
   // Dev tree: run under tsx if available. Check the backend-local install
   // first, then the hoisted workspace root (npm workspaces lift packages up).

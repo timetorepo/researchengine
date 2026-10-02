@@ -4,16 +4,16 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.35.0** also ships the **Tauri desktop app** — Windows
+Prefer an installer? **0.36.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically) and Linux a `.deb`/`.AppImage`. There is no macOS build. CI builds them from
 this tag and attaches them to the release you are reading:
 
 | Installer | Platform | Size |
 |---|---|---|
-| `Research.Engine_0.35.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 37.3 MB |
-| `Research.Engine_0.35.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 45.3 MB |
-| `Research.Engine_0.35.0-beta.1_amd64.AppImage` | any x64 Linux | 116.8 MB |
+| `Research.Engine_0.36.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | built by CI from this tag |
+| `Research.Engine_0.36.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | built by CI from this tag |
+| `Research.Engine_0.36.0-beta.1_amd64.AppImage` | any x64 Linux | built by CI from this tag |
 
 Their hashes are recorded in `INSTALLERS.sha256` in this folder, and every one
 of them is **GitHub's own sha256 digest for the uploaded asset**, read back from
@@ -31,7 +31,19 @@ You only need to do this once: from 0.29.0 on, the app updates itself.
 on its own is rolled back automatically. Source checkouts are told to
 `git pull && npm run build` instead, and the desktop app is handed the installer.
 
-0.35.0 fixes the gooey search (the component was fine — none of its eleven
+0.36.0 makes the Library search **answer**. The server replies inside a 200 ms
+budget — your documents and saved items immediately, Wikipedia and the search
+ladder as lanes that name their state, their count and their time, with the slow
+ones collected by one follow-up call — and every failure comes with a sentence
+instead of a blank screen. The feedback field no longer shows its own text while
+it animates away. And five shadcn-space blocks each do a job: the reading/quiz
+loader (animated-list-02, animating the pipeline's real stages), the quiz streak
+(badge-13), a hold-to-erase guard on Settings → Data (button-28), the coding
+toolbar's run/save group (button-group-12), and a formatted text block in the
+article editor (button-group-10). The portable archives below are built from this
+tag and report `0.36.0-beta.1` from `/api/health`.
+
+0.35.0 fixed the gooey search (the component was fine — none of its eleven
 classes had a rule, so its glyph was an unsized 300x150 SVG), adds **removerAlpha**
 (a local, no-token pass that tells you what reads as AI, with the full list and
 the exact spans), routes **skill imports through NVIDIA's SkillSpector** (with

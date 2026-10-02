@@ -16,6 +16,12 @@ import { ReaderView, type ReaderDoc } from '@/components/reader/ReaderView'
 import { QuizPlay, type PlayResult } from './QuizPlay'
 import { QuizResults } from './QuizResults'
 import { Select } from '@/components/ui/watermelon/Select'
+// shadcn-space @shadcn-space/animated-list-02 — the setup-steps animation, used
+// for the two loading paths that read like a pipeline: parsing and analysing a
+// document for the reader, and building the questions for a quiz. The step
+// labels are the pipeline's own stages, so the animation cannot invent a step
+// that is not happening; the true percentage stays underneath it.
+import { SetupSteps } from '@/components/shadcn-space/animated-list/animated-list-02'
 
 type Stage = { id: string; label: string; icon: any; pct: number; done: boolean }
 
@@ -190,6 +196,8 @@ export function QuizHub() {
   }
 
   /* ---------- views ---------- */
+  const active = stages.find((s) => !s.done) ?? stages[stages.length - 1]
+
   if (view === 'processing') {
     return (
       <div className="h-full flex items-center justify-center px-5">
@@ -206,25 +214,29 @@ export function QuizHub() {
             </button>
           </div>
           {!procError ? (
-            <div className="space-y-3">
-              {stages.map((s) => (
-                <div key={s.id} className="surface p-3.5 flex items-center gap-3">
-                  <motion.span animate={s.done ? { scale: 1 } : { rotate: 360 }} transition={s.done ? {} : { duration: 1.4, repeat: Infinity, ease: 'linear' }}
+            <div>
+              <SetupSteps
+                duration={1400}
+                steps={stages.map((s) => ({ id: s.id, title: s.label }))}
+              />
+              {active && (
+                <div className="surface p-3.5 flex items-center gap-3 mt-1">
+                  <motion.span animate={active.done ? { scale: 1 } : { rotate: 360 }} transition={active.done ? {} : { duration: 1.4, repeat: Infinity, ease: 'linear' }}
                     className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
-                    style={{ background: s.done ? 'color-mix(in srgb, var(--success) 16%, transparent)' : 'var(--elevated)', color: s.done ? 'var(--success)' : 'var(--text-2)' }}>
-                    <s.icon size={15} strokeWidth={1.5} />
+                    style={{ background: active.done ? 'color-mix(in srgb, var(--success) 16%, transparent)' : 'var(--elevated)', color: active.done ? 'var(--success)' : 'var(--text-2)' }}>
+                    <active.icon size={15} strokeWidth={1.5} />
                   </motion.span>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between text-[12px] mb-1">
-                      <span className="font-medium">{s.label}</span>
-                      <span className="tabular-nums" style={{ color: 'var(--text-3)' }}>{Math.round(s.pct)}%</span>
+                      <span className="font-medium">{active.label}</span>
+                      <span className="tabular-nums" style={{ color: 'var(--text-3)' }}>{Math.round(active.pct)}%</span>
                     </div>
                     <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--elevated)' }}>
-                      <div className="h-full rounded-full transition-all duration-200" style={{ width: `${s.pct}%`, background: s.done ? 'var(--success)' : 'var(--primary)' }} />
+                      <div className="h-full rounded-full transition-all duration-200" style={{ width: `${active.pct}%`, background: active.done ? 'var(--success)' : 'var(--primary)' }} />
                     </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           ) : (
             <div className="surface p-4">

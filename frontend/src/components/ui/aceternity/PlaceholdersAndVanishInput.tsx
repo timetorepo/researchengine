@@ -15,7 +15,11 @@
  *   2. Theme tokens instead of `bg-white dark:bg-zinc-800`: this app has
  *      thirteen themes and no `.dark` class, so a fixed pair would be wrong in
  *      eleven of them.
- *   3. The canvas is skipped entirely under `prefers-reduced-motion`, where the
+ *   3. The entered text is hidden for the length of the exit: the value stays
+ *      put until the pixels finish scattering, so the input's own colour is set
+ *      to `transparent` inline (a class cannot beat an inline style) and the
+ *      spellcheck squiggles go with it.
+ *   4. The canvas is skipped entirely under `prefers-reduced-motion`, where the
  *      submit simply clears the field.
  *
  * Provenance and the upstream package digest: scripts/aceternity-sources.json.
@@ -161,6 +165,13 @@ export function PlaceholdersAndVanishInput({
         ref={canvasRef}
         className={cn('absolute pointer-events-none text-base transform scale-50 top-[20%] left-2 origin-top-left pr-20', !animating ? 'opacity-0' : 'opacity-100')}
       />
+      {/* While the pixels scatter, the input still holds the text in its value
+          (it is cleared only when the animation ends), so the glyphs are made
+          invisible here — in the inline style, because an inline `color` always
+          wins over a class. That was the bug: the class asked for transparent
+          text and the inline style overruled it, leaving the entered text
+          visible on top of its own pixels. Spellcheck goes too, so no red
+          squiggles sit under text that is on its way out. */}
       <input
         ref={inputRef}
         value={value}
@@ -168,9 +179,13 @@ export function PlaceholdersAndVanishInput({
         onChange={(e) => { if (!animating) { setValue(e.target.value); onChange?.(e) } }}
         onKeyDown={(e) => { if (e.key === 'Enter' && !animating) { e.preventDefault(); submit() } }}
         type="text"
+        spellCheck={!animating}
         aria-label={placeholders[0] || 'Input'}
-        className={cn('w-full relative text-[13.5px] z-50 border-none bg-transparent h-full rounded-[999px] focus:outline-none focus:ring-0 pl-4 sm:pl-10 pr-20', animating && 'text-transparent')}
-        style={{ color: 'var(--text)' }}
+        className="w-full relative text-[13.5px] z-50 border-none bg-transparent h-full rounded-[999px] focus:outline-none focus:ring-0 pl-4 sm:pl-10 pr-20"
+        style={{
+          color: animating ? 'transparent' : 'var(--text)',
+          caretColor: animating ? 'transparent' : undefined,
+        }}
       />
       <button
         disabled={!value}

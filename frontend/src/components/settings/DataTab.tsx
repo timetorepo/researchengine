@@ -7,6 +7,10 @@ import { download } from '@/lib/utils'
 // SmoothUI's AIApproval — the card you decide in, with the destructive option
 // marked as destructive.
 import AIApproval from '@/components/smoothui/ai-approval'
+// shadcn-space @shadcn-space/button-28 — the hold-to-charge button. This is the
+// only place it is used, and the only action in the app that erases everything:
+// a click is too cheap for it, so it asks for a press that is held on purpose.
+import { HoldToChargeButton } from '@/components/shadcn-space/button/button-28'
 
 const COLLECTIONS = ['chats', 'articles', 'documents', 'quizzes', 'skills', 'spaces', 'citations', 'knowledge'] as const
 type Col = typeof COLLECTIONS[number]
@@ -181,10 +185,23 @@ export function DataTab() {
           </p>
         </AIApproval>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setConfirmClear(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
-            style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', color: 'var(--danger)' }}>
-            <Trash2 size={15} /> Clear all data
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hold to erase. A click is too cheap for the one irreversible
+              action in the app, so this one charges up while held (1.5 s) and
+              lets go the moment the pointer leaves. */}
+          <HoldToChargeButton
+            label="Hold to erase everything"
+            holdingLabel="Keep holding…"
+            completedLabel="Everything erased"
+            holdDuration={1500}
+            autoResetDelay={2500}
+            variant="destructive"
+            onComplete={clearAll}
+          />
+          <button onClick={() => { exportJson(); ui.toast('Backup downloaded', 'Keep it somewhere safe.', 'success') }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
+            style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+            <Download size={15} /> Export a backup first
           </button>
           <button onClick={() => ui.toast('Tip', 'Importing merges — it never overwrites your existing chats.', 'info')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"

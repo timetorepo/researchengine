@@ -17,7 +17,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   BookOpen, Globe, FileText, Plus, Trash2, Tag, Rss, Upload, RefreshCw, FolderPlus,
-  Folder as FolderIcon, Check, Star, Sparkles, AlertTriangle, BookMarked,
+  Folder as FolderIcon, Check, Star, Sparkles, AlertTriangle, BookMarked, Loader2,
 } from 'lucide-react'
 import { GooeyInput } from '@/components/ui/aceternity/GooeyInput'
 import AnimatedTags from '@/components/smoothui/animated-tags'
@@ -53,12 +53,33 @@ interface Item {
 }
 
 interface Folder { id: string; name: string; createdAt: number }
+interface SourceStatus { id: string; label: string; state: 'pending' | 'ok' | 'error'; count: number; ms: number; reason?: string }
 interface Recommendation { title: string; link: string; summary?: string; reason: string; favicon?: string }
 
 const KIND_META: Record<string, { label: string; Icon: React.ElementType; tone: string }> = {
   wikipedia: { label: 'Wikipedia', Icon: BookOpen, tone: 'var(--primary)' },
   source: { label: 'Trusted sources', Icon: Globe, tone: 'var(--secondary)' },
   document: { label: 'Your documents', Icon: FileText, tone: 'var(--success)' },
+}
+
+/**
+ * Why a search fetch itself failed. The server's own messages are already
+ * sentences; this only handles the case where the request never got an answer
+ * at all, which is exactly the case that used to leave the screen empty.
+ */
+function describeFetchError(e: unknown, url: string): string {
+  const err = e as any
+  if (err instanceof TypeError) {
+    return `Could not reach the local server for ${url} (${String(err.message || 'the request failed')}). The backend may not be running — Settings → About has a health row.`
+  }
+  return String(err?.message ?? err)
+}
+
+/** The honest one-liner for a lane, used under the results. */
+function sourceLine(s: SourceStatus): string {
+  if (s.state === 'pending') return `${s.label}: still looking…`
+  if (s.state === 'error') return `${s.label}: ${s.reason ?? 'failed'}`
+  return `${s.label}: ${s.count} result${s.count === 1 ? '' : 's'} · ${s.ms} ms`
 }
 
 const WATCH_KEY = 're.library.watchTags'
@@ -68,8 +89,15 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
   const ui = useUI()
   const [hits, setHits] = useState<Hit[]>([])
   const [notes, setNotes] = useState<string[]>([])
+  const [sources, setSources] = useState<SourceStatus[]>([])
+  const [pending, setPending] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [ranFor, setRanFor] = useState('')
+  const [tookMs, setTookMs] = useState<number | null>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const seq = useRef(0)
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const polls = useRef(0)
   const [items, setItems] = useState<Item[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
   const [watchTags, setWatchTags] = useState<string[]>(() => {
@@ -109,17 +137,21 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
     try {
       const qs = watchTags.length ? `?tags=${encodeURIComponent(watchTags.join(','))}` : ''
       const res = await fetch(`/api/library/recommendations${qs}`)
-      const json = await res.json() as { recommendations: Recommendation[]; hint?: string }
+      if (!res.ok) throw new Error(`HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`)
+      const json = await res.json() as { recommendations: Recommendation[]; hint?: string; notes?: string[] }
       setRecs(json.recommendations ?? [])
-      setRecHint(json.hint ?? '')
+      // The server says which feeds or tags it could not reach, and that is
+      // more useful than a shrug — it is the difference between "nothing to
+      // recommend" and "the source refused to answer".
+      setRecHint(json.hint ?? (json.notes?.length ? json.notes.join(' · ') : ''))
       // The bell only hears about this when the user switched it on. The store
       // keeps one per day, so opening the Library five times is not five
       // notifications.
       if (useStore.getState().settings.notifyRecommendations === true && (json.recommendations?.length ?? 0) > 0) {
         notifyRecommendations(json.recommendations.length, json.recommendations.slice(0, 3).map((r) => r.title))
       }
-    } catch {
-      setRecs([]); setRecHint('Could not reach the local server for recommendations.')
+    } catch (e) {
+      setRecs([]); setRecHint(describeFetchError(e, '/api/library/recommendations'))
     } finally { setRecBusy(false) }
   }, [watchTags])
 
@@ -129,28 +161,67 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
 
   /* -------------------------------------------------------------- search --- */
 
-  const runSearch = useCallback(async (q: string) => {
+  /**
+   * One search. The server answers inside ~200 ms with whatever is ready and
+   * names the lanes that are still running, so this paints something
+   * immediately and then asks once more to collect the slow sources.
+   *
+   * Every exit path writes `ranFor`, including the failures. That was the bug
+   * behind "I type and nothing happens": the error path never set it, and the
+   * empty state was gated on it, so a failed search rendered nothing at all —
+   * no results, no reason, no way back.
+   */
+  const runSearch = useCallback(async (q: string, opts: { refresh?: boolean; poll?: number } = {}) => {
     const clean = q.trim()
     if (clean.length < 2) return
+    const run = ++seq.current
     lastQuery.current = clean
-    setBusy(true)
     onQuery(clean)
+    setBusy(true)
+    setSearchError(null)
+    const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now())
     try {
-      const res = await fetch(`/api/library/search?q=${encodeURIComponent(clean)}`)
-      const json = await res.json() as { hits: Hit[]; notes?: string[] }
-      setHits(json.hits ?? [])
-      setNotes(json.notes ?? [])
+      const url = `/api/library/search?q=${encodeURIComponent(clean)}${opts.refresh ? '&refresh=1' : ''}`
+      const res = await fetch(url)
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        throw new Error(`HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}${body ? ` — ${body.slice(0, 160)}` : ''}`)
+      }
+      let json: any
+      try { json = await res.json() } catch { throw new Error(`The local server answered ${url} with something that was not JSON.`) }
+      if (run !== seq.current) return
+      setHits(Array.isArray(json.hits) ? json.hits : [])
+      setNotes(Array.isArray(json.notes) ? json.notes : [])
+      setSources(Array.isArray(json.sources) ? json.sources : [])
+      setPending(Array.isArray(json.pending) ? json.pending : [])
       setRanFor(clean)
-    } catch {
-      setHits([]); setNotes(['The local server did not answer, so nothing could be searched.'])
-    } finally { setBusy(false) }
+      setTookMs(typeof json.tookMs === 'number' ? json.tookMs : Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0))
+      const stillRunning: string[] = Array.isArray(json.pending) ? json.pending : []
+      if (stillRunning.length && (opts.poll ?? 0) < 6) {
+        // The lanes are already running on the server; this only picks them up.
+        const next = (opts.poll ?? 0) + 1
+        setTimeout(() => { if (run === seq.current) void runSearch(clean, { poll: next }) }, next === 1 ? 420 : 700)
+      }
+    } catch (e) {
+      if (run !== seq.current) return
+      setHits([]); setSources([]); setPending([]); setNotes([])
+      setSearchError(describeFetchError(e, `/api/library/search?q=${encodeURIComponent(clean)}`))
+      setRanFor(clean)
+      setTookMs(Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0))
+    } finally {
+      if (run === seq.current) setBusy(false)
+    }
   }, [onQuery])
 
-  // The header input is shared with the other tabs; when it changes because of
-  // something typed elsewhere, run it here too — the search screen and the
-  // filters should never show different queries.
+  // Typing runs the search too, debounced — the field and the results should
+  // never disagree, and pressing Enter only skips the wait.
   useEffect(() => {
-    if (query.trim().length >= 2 && query.trim() !== ranFor) void runSearch(query)
+    const clean = query.trim()
+    if (clean.length < 2) return
+    if (clean === ranFor && !searchError) return
+    if (debounce.current) clearTimeout(debounce.current)
+    debounce.current = setTimeout(() => { void runSearch(clean) }, 220)
+    return () => { if (debounce.current) clearTimeout(debounce.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
 
@@ -289,11 +360,56 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
         </button>
       </div>
 
-      {busy && <div className="text-[12px]" style={{ color: 'var(--text-3)' }}>Searching Wikipedia, the web, and your documents…</div>}
+      {/* What happened, in one line per source. This is the part that used to
+          be invisible: a failed search rendered nothing at all. */}
+      {(busy || ranFor) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+          {busy && <span className="flex items-center gap-1.5"><Loader2 size={11} className="animate-spin" /> Searching…</span>}
+          {!busy && tookMs !== null && <span>Answered in {tookMs} ms</span>}
+          {/* The lane chips stay up while the follow-up poll runs, so "still
+              looking" is visible rather than implied by a spinner. */}
+          {sources.map((s) => (
+            <span key={s.id} className="flex items-center gap-1.5"
+              style={{ color: s.state === 'error' ? 'var(--warning)' : 'var(--text-3)' }}>
+              {s.state === 'error' ? <AlertTriangle size={11} /> : s.state === 'ok' ? <Check size={11} /> : <Loader2 size={11} className="animate-spin" />}
+              {sourceLine(s)}
+            </span>
+          ))}
+        </div>
+      )}
 
-      {!busy && ranFor && hits.length === 0 && (
-        <div className="surface p-4 text-[12.5px]" style={{ color: 'var(--text-2)' }}>
-          Nothing for “{ranFor}” yet. Try fewer words{notes.length ? ` — ${notes.join(' ')}` : '.'}
+      {searchError && (
+        <div className="surface p-4" style={{ borderColor: 'color-mix(in srgb, var(--danger) 40%, var(--surface-border))' }}>
+          <div className="flex items-center gap-2 text-[13px] font-medium mb-1" style={{ color: 'var(--danger)' }}>
+            <AlertTriangle size={14} /> Search could not run
+          </div>
+          <p className="text-[12.5px] leading-relaxed mb-3" style={{ color: 'var(--text-2)' }}>{searchError}</p>
+          <button onClick={() => void runSearch(ranFor, { refresh: true })}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12.5px] font-medium"
+            style={{ background: 'var(--primary)', color: '#fff' }}>
+            <RefreshCw size={12} /> Try again
+          </button>
+        </div>
+      )}
+
+      {!busy && !searchError && ranFor && hits.length === 0 && (
+        <div className="surface p-4">
+          <div className="text-[12.5px] font-medium mb-1">Nothing for “{ranFor}” yet</div>
+          <p className="text-[12px] leading-relaxed mb-2" style={{ color: 'var(--text-2)' }}>
+            {pending.length
+              ? 'Some sources are still answering — the results appear here as they land.'
+              : 'Try fewer words, or check the reasons below. Your own documents and anything saved are always searched, offline.'}
+          </p>
+          {notes.length > 0 && (
+            <ul className="text-[11.5px] mb-3 space-y-0.5" style={{ color: 'var(--text-3)' }}>
+              {notes.map((n, i) => <li key={i} className="flex items-start gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /> {n}</li>)}
+            </ul>
+          )}
+          <button onClick={() => void runSearch(ranFor, { refresh: true })} disabled={busy}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12.5px] font-medium disabled:opacity-50"
+            style={{ background: 'var(--primary)', color: '#fff' }}>
+            <RefreshCw size={12} /> Search again
+          </button>
         </div>
       )}
 
@@ -432,7 +548,14 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
               </div>
             ))}
             {!recs.length && !recBusy && (
-              <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>{recHint || 'Nothing to recommend yet.'}</p>
+              <div className="flex items-start gap-2">
+                <p className="text-[11px] flex-1" style={{ color: recHint && /could not|did not|refused|dropped|offline|HTTP/i.test(recHint) ? 'var(--warning)' : 'var(--text-3)' }}>
+                  {recHint || 'Nothing to recommend yet.'}
+                </p>
+                <button onClick={() => void recommendations()} title="Look again" className="shrink-0 text-[11px] flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
+                  <RefreshCw size={10} /> Retry
+                </button>
+              </div>
             )}
           </div>
         </div>

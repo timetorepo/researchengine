@@ -2869,3 +2869,34 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
   .re-notify-btn.compact { width: 100%; height: 100%; background: transparent; }
   .re-notify-btn.compact:hover { background: transparent; }
 }
+
+
+/* ------------------------------------------------- formatted article blocks */
+/* shadcn-space's button-group-10 toolbar drives a contentEditable this app
+   owns, so the surface itself needs a little styling: lists have to be lists,
+   links have to look like links, and an empty block needs a placeholder. The
+   toolbar's own buttons come from the vendored primitives and the token ramp. */
+@layer components {
+  .re-rich-editor,
+  .re-rich-block {
+    font-family: var(--font-body);
+  }
+  .re-rich-editor ul,
+  .re-rich-block ul { list-style: disc; padding-left: 1.3rem; margin: .35rem 0; }
+  .re-rich-editor ol,
+  .re-rich-block ol { list-style: decimal; padding-left: 1.3rem; margin: .35rem 0; }
+  .re-rich-editor li,
+  .re-rich-block li { margin: .15rem 0; }
+  .re-rich-editor p,
+  .re-rich-block p { margin: .35rem 0; }
+  .re-rich-editor a,
+  .re-rich-block a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .re-rich-editor:focus { box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
+  .re-rich-editor:empty::before {
+    content: 'Write, or paste something in — the toolbar formats the selection.';
+    color: var(--text-3);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .re-rich-editor, .re-rich-block { transition: none; }
+  }
+}

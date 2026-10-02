@@ -164,7 +164,11 @@ async function main() {
   check('bottom panel offers terminal / problems / git / preview', wb.includes('Terminal') && wb.includes('Problems') && wb.includes('Preview'))
   check('status bar reports preview + file state', wb.includes('preview') && wb.includes('local'))
   check('AI assistant dock is present', wb.includes('AI pair-programmer') || wb.includes('ide-composer'))
-  check('unsaved-changes affordances exist', wb.includes('Save'))
+  // R18 moved Save into the run group's menu (the primary button runs the
+  // project). What must still be visible is the unsaved state and the group
+  // itself; the menu's own entries are asserted in r18-ui-test.
+  check('unsaved-changes affordances exist',
+    wb.includes('unsaved') || wb.includes('Save') || /More actions — save/.test(wb))
 
   console.log('\n[4] IDE theme tokens are wired')
   const { readFileSync } = await import('node:fs')

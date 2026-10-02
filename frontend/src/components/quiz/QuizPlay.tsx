@@ -7,6 +7,10 @@ import type { QuizQuestion } from '@/types'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { burstConfetti } from '@/lib/quiz/confetti'
+// shadcn-space @shadcn-space/badge-13 — the streak display. The quiz's own
+// thump (a spring on the wrapper) is kept; the number itself rolls over with
+// NumberFlow instead of swapping digits.
+import { StreakBadge } from '@/components/shadcn-space/badge/badge-13'
 
 const LETTERS = ['A', 'B', 'C', 'D']
 const spring = { type: 'spring', damping: 25, stiffness: 300 } as const
@@ -202,14 +206,19 @@ export function QuizPlay({ questions, timed, onQuit, onFinish, onSeeSource, titl
                 <span className="text-[10.5px] font-bold tabular-nums">{Math.ceil(timeLeft)}</span>
               </motion.span>
             )}
-            {/* streak pill */}
+            {/* streak — badge-13 once there is something to count */}
             <motion.div
               animate={thump ? { scale: [1, 1.35, 0.92, 1.15, 1], rotate: [0, -6, 5, -3, 0] } : { scale: 1 }}
               transition={{ duration: 0.55 }}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] font-semibold tabular-nums"
-              style={{ background: streak >= 3 ? 'color-mix(in srgb, var(--warning) 18%, transparent)' : 'var(--surface)', color: streak >= 3 ? 'var(--warning)' : 'var(--text-3)', border: '1px solid var(--surface-border)' }}>
-              {streak >= 3 && <Flame size={12} fill="currentColor" />}
-              {streak > 0 ? `${streak} streak` : 'Streak'}
+              title={streak > 0 ? `${streak} correct in a row` : 'Answer a few in a row to start a streak'}>
+              {streak > 0 ? (
+                <StreakBadge value={streak} label="streak" />
+              ) : (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] font-semibold"
+                  style={{ background: 'var(--surface)', color: 'var(--text-3)', border: '1px solid var(--surface-border)' }}>
+                  Streak
+                </span>
+              )}
             </motion.div>
           </div>
         </div>

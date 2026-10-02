@@ -23,9 +23,20 @@ import { searchDdg, searchSearxngAuto } from '../services/search/adapters'
 
 export const libraryRoutes = new Hono()
 
-const UA = 'ResearchEngine/0.35 (+https://github.com/timetorepo/researchengine)'
+const UA = 'ResearchEngine/0.36 (+https://github.com/timetorepo/researchengine)'
 const TIMEOUT = 7000
 const CACHE_TTL = 10 * 60 * 1000
+/** A failed lane is remembered for a moment so a retry is instant. */
+const ERROR_TTL = 30 * 1000
+/**
+ * How long a search request is allowed to wait for the network before it
+ * answers with what it has. The user asked for 200 ms, and 200 ms is what this
+ * is: local documents are already in the response, Wikipedia and the web lanes
+ * are still running and are reported as `pending`, and the client asks once
+ * more to pick them up. Nothing is ever withheld silently — a lane that fails
+ * carries the reason it failed.
+ */
+const BUDGET_MS = 200
 
 type Hit = {
   id: string
@@ -39,7 +50,153 @@ type Hit = {
   icon?: string
 }
 
-const cache = new Map<string, { at: number; hits: Hit[] }>()
+type LaneId = 'wikipedia' | 'sources'
+
+interface Lane {
+  id: LaneId
+  label: string
+  state: 'pending' | 'ok' | 'error'
+  hits: Hit[]
+  ms: number
+  startedAt: number
+  reason?: string
+}
+
+interface Session {
+  query: string
+  key: string
+  at: number
+  local: Hit[]
+  lanes: Record<LaneId, Lane>
+  work: Promise<unknown>[]
+  settled: boolean
+}
+
+const sessions = new Map<string, Session>()
+const SESSIONS_MAX = 60
+
+const LANE_LABEL: Record<LaneId, string> = {
+  wikipedia: 'Wikipedia',
+  sources: 'Trusted sources',
+}
+
+/**
+ * A sentence someone can act on, not a stack trace. The code is worth keeping
+ * (ENOTFOUND and 429 are different problems) but it belongs after the words.
+ */
+function why(e: unknown, what: string, host?: string): string {
+  const err = e as any
+  const code = err?.cause?.code ?? err?.code
+  const where = host ? ` (${host})` : ''
+  if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+    return `${what} did not answer within ${Math.round(TIMEOUT / 1000)}s${where}`
+  }
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return `${what} could not resolve its host${where} — this machine looks offline to it`
+  if (code === 'ECONNREFUSED') return `${what} refused the connection${where}`
+  if (code === 'ECONNRESET' || code === 'UND_ERR_SOCKET') return `${what} dropped the connection${where}`
+  if (code === 'CERT_HAS_EXPIRED' || code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || code === 'SELF_SIGNED_CERT_IN_CHAIN') return `${what} has a certificate problem${where}`
+  const http = /HTTP (\d{3})/.exec(String(err?.message ?? ''))
+  if (http) return `${what} answered HTTP ${http[1]}${where}`
+  return `${what}: ${String(err?.message ?? err).replace(/\s+/g, ' ').slice(0, 140)}${where}`
+}
+
+/** An error that already knows how to describe itself to a person. */
+class LaneError extends Error {
+  reason: string
+  constructor(reason: string) { super(reason); this.reason = reason }
+}
+
+function newLane(id: LaneId): Lane {
+  return { id, label: LANE_LABEL[id], state: 'pending', hits: [], ms: 0, startedAt: Date.now() }
+}
+
+function startSession(query: string, searxng: string | null): Session {
+  const key = query.toLowerCase()
+  const s: Session = {
+    query, key, at: Date.now(),
+    local: localHits(query),
+    lanes: { wikipedia: newLane('wikipedia'), sources: newLane('sources') },
+    work: [],
+    settled: false,
+  }
+
+  const run = (id: LaneId, fn: () => Promise<Hit[]>) => {
+    const lane = s.lanes[id]
+    const started = Date.now()
+    const job = fn().then((hits) => {
+      lane.state = 'ok'; lane.hits = hits; lane.ms = Date.now() - started
+    }).catch((e) => {
+      lane.state = 'error'
+      lane.reason = e instanceof LaneError ? e.reason : why(e, lane.label, id === 'wikipedia' ? 'en.wikipedia.org' : 'html.duckduckgo.com')
+      lane.ms = Date.now() - started
+    })
+    s.work.push(job)
+  }
+
+  run('wikipedia', () => wikipedia(query))
+  run('sources', () => trustedSources(query, searxng))
+  Promise.allSettled(s.work).then(() => { s.settled = true; s.at = Date.now() })
+  sessions.set(key, s)
+  while (sessions.size > SESSIONS_MAX) sessions.delete(sessions.keys().next().value as string)
+  return s
+}
+
+/** The same session, reused while it is fresh (or while a failure is cooling). */
+function sessionFor(query: string, searxng: string | null, refresh: boolean): Session {
+  const key = query.toLowerCase()
+  const found = sessions.get(key)
+  if (found && !refresh) {
+    const fresh = found.settled ? Date.now() - found.at < CACHE_TTL : found.lanes.wikipedia.state === 'pending' || found.lanes.sources.state === 'pending'
+    if (fresh) return found
+    const cool = Object.values(found.lanes).some((l) => l.state === 'error' && Date.now() - l.startedAt < ERROR_TTL)
+    if (cool) return found
+  }
+  return startSession(query, searxng)
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** What the machine already knows: imported documents and anything saved. */
+function localHits(q: string): Hit[] {
+  const needle = q.toLowerCase()
+  const out = ownDocuments(q)
+  const seen = new Set(out.map((h) => h.id))
+  const hitsOfItem = (it: any): Hit => ({
+    id: `doc_${it.id}`,
+    kind: 'document',
+    title: String(it.title ?? it.name ?? 'Untitled'),
+    url: it.url ?? undefined,
+    snippet: String(it.snippet ?? '').slice(0, 300),
+    source: 'Your library',
+    icon: 'local',
+  })
+  // Saved items of any kind: a note, an article the reader imported, a paper.
+  for (const it of (db.listLibraryItems() as any[])) {
+    const hay = `${it.title} ${it.snippet ?? ''} ${(it.tags ?? []).join(' ')} ${it.url ?? ''}`.toLowerCase()
+    if (!hay.includes(needle)) continue
+    const hit = hitsOfItem(it)
+    if (seen.has(hit.id)) continue
+    seen.add(hit.id)
+    out.push(hit)
+  }
+  // Documents imported through the quiz / reader lane live in their own table.
+  for (const d of (db.listDocuments() as any[])) {
+    const hay = `${d.name} ${String(d.text ?? '').slice(0, 4000)}`.toLowerCase()
+    if (!hay.includes(needle)) continue
+    const hit: Hit = {
+      id: `doc_${d.id}`,
+      kind: 'document',
+      title: String(d.name ?? 'Untitled'),
+      snippet: String(d.text ?? '').replace(/\s+/g, ' ').slice(0, 300),
+      source: 'Your documents',
+      icon: 'local',
+    }
+    if (seen.has(hit.id)) continue
+    seen.add(hit.id)
+    out.push(hit)
+  }
+  return out.slice(0, 12)
+}
 
 async function get(url: string, accept = 'application/json') {
   const res = await fetch(url, {
@@ -79,14 +236,20 @@ async function wikipedia(q: string): Promise<Hit[]> {
 
 async function trustedSources(q: string, searxng: string | null): Promise<Hit[]> {
   // Prefer a self-hosted instance when the user has one; otherwise let the
-  // ladder pick. Both are keyless, so Library search never needs a key to work.
+  // ladder pick — and when every rung fails, keep the reason instead of
+  // reporting an empty search as a success. "Nothing was found" and "nothing
+  // could be asked" are different answers and the screen says which.
+  const problems: string[] = []
   let results: any[] = []
-  if (searxng) {
-    try { results = (await searchSearxngAuto(q, { own: searxng, timeoutMs: TIMEOUT })).results } catch { results = [] }
+  try {
+    results = (await searchSearxngAuto(q, { own: searxng, timeouts: searxng ? 1 : 2, timeoutMs: searxng ? 6000 : 4000 })).results
+  } catch (e) {
+    problems.push(why(e, searxng ? 'your SearXNG instance' : 'SearXNG'))
   }
   if (!results.length) {
-    try { results = await searchDdg(q, TIMEOUT) } catch { results = [] }
+    try { results = await searchDdg(q, TIMEOUT) } catch (e) { problems.push(why(e, 'DuckDuckGo', 'html.duckduckgo.com')) }
   }
+  if (!results.length && problems.length) throw new LaneError(problems.join(' · '))
   return results.slice(0, 8).map((r, i) => ({
     id: `src_${i}_${encodeURIComponent(String(r.url ?? '')).slice(-24)}`,
     kind: 'source' as const,
@@ -116,25 +279,60 @@ function ownDocuments(q: string): Hit[] {
     }))
 }
 
+/**
+ * GET /api/library/search?q=&budget=200&refresh=1
+ *
+ * Answers inside `budget` milliseconds, always. Three lanes run at once —
+ * Wikipedia, the search ladder, and everything already on this machine — and
+ * each one reports its own state, because "no results" and "the network said no"
+ * are different answers and the screen has to be able to say which happened:
+ *
+ *   { hits, sources: [{ id, label, state, count, ms, reason? }], pending, notes }
+ *
+ * When the network is slower than the budget the lanes come back as `pending`,
+ * the work keeps running, and the next call picks the results up from the same
+ * session — so the first paint is never blocked by the slowest source.
+ */
 libraryRoutes.get('/search', async (c) => {
   const q = (c.req.query('q') ?? '').trim()
-  if (q.length < 2) return c.json({ query: q, hits: [], note: 'Type at least two characters.' })
-  const cached = cache.get(q.toLowerCase())
-  if (cached && Date.now() - cached.at < CACHE_TTL) {
-    return c.json({ query: q, hits: cached.hits, cached: true })
+  const t0 = Date.now()
+  if (q.length < 2) {
+    return c.json({ query: q, hits: [], notes: ['Type at least two characters.'], note: 'Type at least two characters.', sources: [], pending: [], tookMs: Date.now() - t0, cached: false })
   }
   const searxng = c.req.query('searxng') || process.env.SEARXNG_URL || null
-  const settled = await Promise.allSettled([wikipedia(q), trustedSources(q, searxng)])
-  const hits: Hit[] = []
-  const notes: string[] = []
-  const [wiki, web] = settled
-  if (wiki.status === 'fulfilled') hits.push(...wiki.value)
-  else notes.push('Wikipedia could not be reached (offline?).')
-  if (web.status === 'fulfilled') hits.push(...web.value)
-  else notes.push('Web sources could not be reached; your own documents were still searched.')
-  hits.push(...ownDocuments(q))
-  cache.set(q.toLowerCase(), { at: Date.now(), hits })
-  return c.json({ query: q, hits, notes })
+  const refresh = c.req.query('refresh') === '1'
+  const budget = Math.min(Math.max(Number(c.req.query('budget')) || BUDGET_MS, 0), 5000)
+
+  const session = sessionFor(q, searxng, refresh)
+  const wasSettled = session.settled
+  if (!session.settled) await Promise.race([Promise.allSettled(session.work), sleep(budget)])
+
+  const lanes = Object.values(session.lanes)
+  const hits = [
+    ...session.local,
+    ...session.lanes.wikipedia.hits,
+    ...session.lanes.sources.hits,
+  ]
+  const sources = lanes.map((l) => ({
+    id: l.id,
+    label: l.label,
+    state: l.state,
+    count: l.hits.length,
+    ms: l.ms,
+    reason: l.state === 'error' ? l.reason : undefined,
+  }))
+  const pending = lanes.filter((l) => l.state === 'pending').map((l) => l.id)
+  const notes = lanes.filter((l) => l.state === 'error').map((l) => l.reason!)
+
+  return c.json({
+    query: q,
+    hits,
+    sources,
+    pending,
+    notes,
+    tookMs: Date.now() - t0,
+    cached: wasSettled && !refresh,
+  })
 })
 
 /* ------------------------------------------------------------- saved items - */
@@ -289,6 +487,7 @@ libraryRoutes.get('/recommendations', async (c) => {
   const tags = [...new Set([...asked, ...items.flatMap((i) => i.tags ?? [])])].slice(0, 6)
   const feeds = items.filter((i) => i.kind === 'feed').slice(0, 5)
   const out: (FeedItem & { reason: string; source: string; favicon?: string })[] = []
+  const startedAt = Date.now()
   const notes: string[] = []
 
   const feedWork = feeds.map(async (f) => {
@@ -297,7 +496,7 @@ libraryRoutes.get('/recommendations', async (c) => {
       for (const it of feed.items.slice(0, 4)) {
         out.push({ ...it, reason: `new in ${feed.title || f.title}`, source: f.url, favicon: faviconFor(f.url) })
       }
-    } catch { notes.push(`${f.title} did not load.`) }
+    } catch (e) { notes.push(`${f.title} did not load — ${why(e, 'the feed', (() => { try { return new URL(f.url).hostname } catch { return undefined } })())}`) }
   })
 
   const tagWork = tags.map(async (tag) => {
@@ -306,7 +505,7 @@ libraryRoutes.get('/recommendations', async (c) => {
       for (const h of hits.slice(0, 3)) {
         out.push({ title: h.title, link: h.url ?? '', summary: h.snippet, reason: `matches your tag #${tag}`, source: h.url ?? '', favicon: h.favicon })
       }
-    } catch { notes.push(`Could not search for #${tag}.`) }
+    } catch (e) { notes.push(`#${tag}: ${why(e, 'Wikipedia', 'en.wikipedia.org')}`) }
   })
 
   await Promise.allSettled([...feedWork, ...tagWork])
@@ -323,6 +522,7 @@ libraryRoutes.get('/recommendations', async (c) => {
     recommendations: unique,
     watching: { tags, feeds: feeds.map((f) => ({ id: f.id, title: f.title, url: f.url })) },
     notes,
+    tookMs: Date.now() - startedAt,
     hint: tags.length || feeds.length ? undefined : 'Add tags to something you saved, or an RSS feed, and recommendations will follow those.',
   })
 })

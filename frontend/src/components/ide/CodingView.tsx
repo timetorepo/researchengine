@@ -27,6 +27,11 @@ import { createProjectRobust, postJson } from '@/lib/ide/create'
 import { normalizeProjectName } from '@/lib/ide/names'
 import { fmt, timeAgo } from '@/lib/utils'
 import { scrollToEnd, scrollChildIntoView } from '@/lib/dom/scroll'
+// shadcn-space @shadcn-space/button-group-12 — the Execute button group, with
+// its animated chevron and staggered menu. Here it is the coding toolbar's
+// run/save pair: the primary button runs the project, the menu holds the things
+// you would otherwise hunt for (save, save and run, open the preview).
+import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/button-group-12'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
@@ -670,26 +675,37 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         {dirty && <span className="ide-badge warn">unsaved</span>}
         <div className="flex-1" />
 
-        {/* preview + hand-off to Design mode, mirroring the reference's segmented bar */}
-        <button onClick={() => void startPreview()} disabled={starting} className="ide-btn outlined"
-          title={previewLive ? `Preview running on port ${preview.port}` : 'Run the project and start the preview'}>
-          {starting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Run
-        </button>
-        {previewLive && preview.port && (
-          <button onClick={() => window.open(previewUrlFor(preview.port!, designSession.token), '_blank')}
-            className="ide-icon-btn" title="Open the preview in a new tab">
-            <ExternalLink size={12} />
-          </button>
-        )}
+        {/* run / save — one grouped control, with the rest of the pair's
+            actions one click away in the menu */}
+        <ActionExecuteButtonGroup
+          disabled={starting}
+          label={previewLive ? 'Run again' : 'Run'}
+          icon={starting
+            ? <Loader2 size={12} className="animate-spin" />
+            : <Play size={12} />}
+          onPrimary={() => void startPreview()}
+          menuLabel="More actions — save, save and run, terminal"
+          items={[
+            { id: 'save', label: dirty ? 'Save the active file' : 'Nothing to save', icon: <Save size={12} />, disabled: !dirty },
+            { id: 'save-run', label: 'Save, then run', icon: <Play size={12} />, disabled: !dirty && !previewLive },
+            { id: 'terminal', label: 'Run a command in the terminal', icon: <TerminalSquare size={12} /> },
+            ...(previewLive && preview.port
+              ? [{ id: 'open', label: 'Open the preview in a tab', icon: <ExternalLink size={12} /> }]
+              : []),
+          ]}
+          onAction={(id: string) => {
+            if (id === 'save') void save()
+            else if (id === 'save-run') void (async () => { await save(); await startPreview() })()
+            else if (id === 'terminal') { setPanel('terminal'); setPanelOpen(true) }
+            else if (id === 'open' && preview.port) window.open(previewUrlFor(preview.port, designSession.token), '_blank')
+          }}
+        />
         <div className="ide-seg" role="tablist" aria-label="Workspace mode">
           <button data-active="true" role="tab" aria-selected="true" title="Edit the code">Code</button>
           <button className="design" data-active="false" role="tab" onClick={onDesign} title="Let the AI see and fix the running app">
             <span className="inline-flex items-center gap-1"><MonitorUp size={11} /> Design</span>
           </button>
         </div>
-        <button onClick={() => void save()} disabled={!dirty} className="ide-btn primary" title="Save the active file (⌘S)">
-          <Save size={12} /> Save
-        </button>
         <FocusButton focus={focus} onToggle={() => setFocus((v) => !v)} />
       </div>
 

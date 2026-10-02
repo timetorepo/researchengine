@@ -226,7 +226,10 @@ export interface Squad {
 
 export interface ArticleBlock {
   id: string
-  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code' | 'image'
+  // 'rich' is a formatted block: `content` is a small allow-list of inline
+  // HTML (bold/italic/underline/link, ordered and bulleted lists), edited with
+  // the shadcn-space editor toolbar and sanitised on the way in and out.
+  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code' | 'image' | 'rich'
   content: string
   // image block metadata
   imageUrl?: string
