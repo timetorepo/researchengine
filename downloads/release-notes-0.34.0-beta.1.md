@@ -122,8 +122,11 @@ screen.
 - **Linux** `Research.Engine_0.34.0-beta.1_amd64.deb` and
   `…_amd64.AppImage`.
 - **Portable archives** (`research-engine-0.34.0-beta.1-linux-x64.tar.gz`,
-  `research-engine-0.34.0-beta.1-win-x64.zip`) run on any Node 20+ machine and
-  are what the in-app updater verifies and installs against `SHA256SUMS`.
+  5.0 MB, and `research-engine-0.34.0-beta.1-win-x64.zip`, 6.9 MB) run on any
+  Node 20+ machine and are what the in-app updater verifies and installs against
+  `SHA256SUMS`. Both are built from this tag, hashed above, and the Linux one was
+  unpacked and booted before it was committed: `/api/health` reports
+  `0.34.0-beta.1` and the app shell answers `200`.
 
 There is **no macOS build** — no macOS runner is configured, and this release
 does not pretend otherwise. CI builds the Windows and Linux installers from this

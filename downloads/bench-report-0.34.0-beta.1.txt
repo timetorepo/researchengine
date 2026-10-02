@@ -1,16 +1,16 @@
 Research Engine — create-path report
-when        : 2026-09-27T14:30:36.414Z
-app version : 0.33.0-beta.1
+when        : 2026-10-02T09:58:38.858Z
+app version : 0.34.0-beta.1
 build id    : dev
-served      : 0.33.0-beta.1 (2026-09-27T14:25:53.500Z)
+served      : 0.34.0-beta.1 (2026-10-02T09:57:37.418Z)
 source      : — (portable build has no source tree)
-mode        : portable
+mode        : checkout
 browser     : Linux x86_64 · node 22.22.3
 server      : linux/x64 · node v22.22.3
 
 test        : create a project
 verdict     : PASSED — a project can be created.
-duration    : 9 ms
+duration    : 26 ms
   POST: /api/ide/projects
   Payload: {"name":"dev-test-bench","fallback":"dev-test","unique":true,"files":{"README.md":"60 B"}}
   Projects already on disk: (none)
@@ -26,27 +26,27 @@ raw:
   "fallback": "dev-test",
   "attempts": 1,
   "ok": true,
-  "ms": 9,
+  "ms": 26,
   "browser": "Linux x86_64 · node 22.22.3",
   "server": "linux/x64 node v22.22.3",
-  "mode": "portable"
+  "mode": "checkout"
 }
 
 — and the sample app —
 
 Research Engine — create-path report
-when        : 2026-09-27T14:30:36.414Z
-app version : 0.33.0-beta.1
+when        : 2026-10-02T09:58:38.858Z
+app version : 0.34.0-beta.1
 build id    : dev
-served      : 0.33.0-beta.1 (2026-09-27T14:25:53.500Z)
+served      : 0.34.0-beta.1 (2026-10-02T09:57:37.418Z)
 source      : — (portable build has no source tree)
-mode        : portable
+mode        : checkout
 browser     : Linux x86_64 · node 22.22.3
 server      : linux/x64 · node v22.22.3
 
 test        : create the sample app
 verdict     : PASSED — the sample app can be created.
-duration    : 4 ms
+duration    : 5 ms
   POST: /api/ide/projects
   Payload: {"name":"sample-landing","fallback":"sample-app","unique":true,"files":{"index.html":"1963 B","styles.css":"1584 B","app.js":"528 B","icon.svg":"220 B","README.md":"458 B"}}
   Projects already on disk: (none)
@@ -62,10 +62,10 @@ raw:
   "fallback": "sample-app",
   "attempts": 1,
   "ok": true,
-  "ms": 4,
+  "ms": 5,
   "browser": "Linux x86_64 · node 22.22.3",
   "server": "linux/x64 node v22.22.3",
-  "mode": "portable"
+  "mode": "checkout"
 }
 
 result: ALL PASS: 8 passed, 0 failed

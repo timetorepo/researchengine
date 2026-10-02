@@ -4,22 +4,22 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.32.0** also ships the **Tauri desktop app** — Windows
+Prefer an installer? **0.34.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically) and Linux a `.deb`/`.AppImage`. There is no macOS build. CI builds them from
-this tag and attaches them to the release you are reading; their hashes are in
-`INSTALLERS.sha256` in this folder, and every one of them is **GitHub's own
-sha256 digest for the uploaded asset**, read back from the release API
-(`digest` on the asset), not a hash of a local build folder that could have
-drifted. A freshly built installer is never claimed here before it exists.
+this tag and attaches them to the release you are reading:
 
-| Installer | Platform | Size |
-|---|---|---|
-| `Research.Engine_0.33.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 38.9 MB |
-| `Research.Engine_0.33.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | 47.4 MB |
-| `Research.Engine_0.33.0-beta.1_amd64.AppImage` | any x64 Linux | 122.3 MB |
+| Installer | Platform |
+|---|---|
+| `Research.Engine_0.34.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) |
+| `Research.Engine_0.34.0-beta.1_amd64.deb` | Debian/Ubuntu x64 |
+| `Research.Engine_0.34.0-beta.1_amd64.AppImage` | any x64 Linux |
 
-Full hashes: `INSTALLERS.sha256` in this folder.
+Their sizes and hashes are recorded in `INSTALLERS.sha256` in this folder as soon
+as the build finishes, and every one of them is **GitHub's own sha256 digest for
+the uploaded asset**, read back from the release API (`digest` on the asset),
+not a hash of a local build folder that could have drifted. A freshly built
+installer is never claimed here before it exists.
 
 See `desktop/README.md` for how the shell boots the local server, and
 `.github/workflows/desktop.yml` for the build.
@@ -30,6 +30,15 @@ You only need to do this once: from 0.29.0 on, the app updates itself.
 `~/.research-engine` is never part of the swap, and a version that cannot start
 on its own is rolled back automatically. Source checkouts are told to
 `git pull && npm run build` instead, and the desktop app is handed the installer.
+
+0.34.0 is the round that gives every one of the seven Aceternity components you
+named a job: onboarding grew from five steps to eight and now ends by *running*
+the app (type a question on the last step and it opens the chat and answers),
+Developer Mode gained a **UI lab** for the interface built here, forking a chat
+now compresses it into a capsule (63% fewer tokens on a 30-turn fixture, with the
+task, the constraints and the code intact), and a frame-budget governor steps the
+expensive canvases down when the machine cannot keep up. The portable archives
+below are built from this tag and report `0.34.0-beta.1` from `/api/health`.
 
 0.32.0 is the round that fixes the two things you could see failing, and adopts
 the components that were asked for by name. **The update download works again:**
@@ -72,8 +81,8 @@ exactly like a network update.
 
 | File | Platform | Needs |
 |---|---|---|
-| `research-engine-0.33.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
-| `research-engine-0.33.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
+| `research-engine-0.34.0-beta.1-win-x64.zip` | Windows 10/11 x64 | Node.js 20+ (LTS recommended; 22.5+ for persistent storage) |
+| `research-engine-0.34.0-beta.1-linux-x64.tar.gz` | Linux x64 | Node.js 20+ (same note) |
 
 Verify either archive first:
 
@@ -101,7 +110,7 @@ launcher with NSSM — see the root README, install method C.
 ## Linux
 
 ```bash
-tar xzf research-engine-0.33.0-beta.1-linux-x64.tar.gz
+tar xzf research-engine-0.34.0-beta.1-linux-x64.tar.gz
 chmod +x research-engine-linux-x64/research-engine
 ./research-engine-linux-x64/research-engine serve --port 3847
 ```
@@ -112,7 +121,7 @@ templates are in [docs/install.md](../docs/install.md).
 
 ## Does it actually work on this machine?
 
-`bench-report-0.33.0-beta.1.txt` is the output of the Developer bench
+`bench-report-0.34.0-beta.1.txt` is the output of the Developer bench
 (`npx tsx frontend/scripts/bench-report.mts`) run against this exact build: it
 created a project and the sample app through the real API and deleted both
 again, with the status codes and timings in the file. The same function backs the
@@ -128,8 +137,8 @@ Ask the launcher:
 ```
 
 ```
-Research Engine 0.33.0-beta.1  [portable]
-  built frontend : 0.33.0-beta.1 (2026-09-27T08:47:51.519Z)
+Research Engine 0.34.0-beta.1  [portable]
+  built frontend : 0.34.0-beta.1 (2026-10-02T09:57:37.418Z)
   STATUS         : ok
 ```
 
