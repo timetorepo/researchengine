@@ -33,7 +33,11 @@ import FolderReveal from '@/components/smoothui/folder-reveal'
 import { RecommendationsPanel } from '@/components/library/RecommendationsPanel'
 // The registry index the design hub already uses — one catalogue, searched from
 // two places, rather than a second list that drifts from the first.
-import * as CATALOG_MODULE from '@/lib/design/catalog'
+import { componentHits } from '@/lib/design/component-search'
+
+// The matcher is shared with the agent's tool and the design hub; re-exported so
+// the Library keeps one obvious entry point for "what components match this".
+export { componentHits, expandPattern, PATTERN_TERMS, searchComponents } from '@/lib/design/component-search'
 
 import { nanoid } from 'nanoid'
 import { timeAgo } from '@/lib/utils'
@@ -130,96 +134,6 @@ function sourceLine(s: SourceStatus): string {
  * the two — a fixed map, not a model, and it only ever *adds* search terms, so a
  * query that already matches still matches.
  */
-const PATTERN_TERMS: Record<string, string[]> = {
-  'empty state': ['empty', 'skeleton', 'placeholder'],
-  'loading state': ['loader', 'skeleton', 'spinner', 'loading'],
-  'onboarding': ['steps', 'progress', 'stepper', 'wizard'],
-  'sign up': ['form', 'input', 'dialog'],
-  'sign in': ['form', 'input', 'dialog'],
-  login: ['form', 'input', 'dialog'],
-  checkout: ['form', 'card', 'stepper'],
-  'pricing table': ['pricing', 'table', 'card'],
-  paywall: ['pricing', 'dialog', 'card'],
-  dashboard: ['chart', 'card', 'table', 'meter'],
-  settings: ['switch', 'select', 'accordion', 'tabs'],
-  profile: ['avatar', 'card', 'hover'],
-  'profile page': ['avatar', 'card', 'hover'],
-  feed: ['list', 'card', 'marquee'],
-  'search screen': ['command', 'combobox', 'input'],
-  notifications: ['badge', 'toast', 'notification'],
-  calendar: ['date', 'picker', 'calendar'],
-  chat: ['message', 'prompt', 'composer'],
-  'data table': ['table', 'datagrid', 'pagination'],
-  list: ['list', 'rows', 'items'],
-  modal: ['dialog', 'sheet', 'popover'],
-  'bottom sheet': ['sheet', 'drawer'],
-  stepper: ['steps', 'progress'],
-  'command palette': ['command', 'combobox', 'palette'],
-}
-
-function expandPattern(q: string): string[] {
-  const lower = q.toLowerCase()
-  const base = lower.split(/\s+/).filter(Boolean)
-  const extra: string[] = []
-  for (const [phrase, terms] of Object.entries(PATTERN_TERMS)) {
-    if (lower.includes(phrase)) extra.push(...terms)
-  }
-  return [...new Set([...base, ...extra])]
-}
-
-export function componentHits(query: string, limit = 4): MiniHit[] {
-  const q = query.trim()
-  if (q.length < 2) return []
-  const { CATALOG } = CATALOG_MODULE
-  const lower = q.toLowerCase()
-  const typed = lower.split(/\s+/).filter(Boolean)
-
-  /**
-   * A screen phrase is a requirement on the *phrase*, not on its words. Nobody
-   * sells a component called "state", so "empty state" must be read as one
-   * request — and when the registry genuinely has nothing for that request, the
-   * answer is nothing, which is why this returns an empty list rather than the
-   * nearest component with "state" in its description.
-   */
-  const phrases = Object.keys(PATTERN_TERMS).filter((p) => lower.includes(p)).sort((a, b) => b.length - a.length)
-  const covered = new Set<string>()
-  const extras: string[] = []
-  for (const phrase of phrases) {
-    for (const w of phrase.split(/\s+/)) covered.add(w)
-    extras.push(...PATTERN_TERMS[phrase])
-  }
-  const required = typed.filter((w) => !covered.has(w))
-  const alternatives = [...new Set(extras.filter((w) => !typed.includes(w)))]
-
-  const scored = CATALOG
-    .map((item) => {
-      const hay = `${item.name} ${item.what} ${item.tags.join(' ')} ${item.provider}`.toLowerCase()
-      // Every word the user typed that is not part of a known phrase must be
-      // there; a phrase only asks that one of its terms is.
-      if (required.some((w) => !hay.includes(w))) return { item, score: -1 }
-      const alternativeHits = alternatives.filter((w) => hay.includes(w)).length
-      if (phrases.length && alternatives.length && alternativeHits === 0) return { item, score: -1 }
-      let score = required.length * 3 + alternativeHits * 2
-      if (item.name.toLowerCase().includes(lower)) score += 8
-      if (item.name.toLowerCase().startsWith(typed[0])) score += 3
-      if (!phrases.length && item.name.toLowerCase() === lower) score += 6
-      return { item, score }
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-
-  return scored.map(({ item }) => ({
-    id: `cmp-${item.id}`,
-    vertical: 'ui',
-    title: item.name,
-    url: `app://component/${item.id}`,
-    snippet: `${item.what} — ${item.provider}`,
-    source: `Design hub · ${item.provider}`,
-    action: 'open',
-  }))
-}
-
 function FolderCard({ title, kind }: { title: string; kind: string }) {
   return (
     <div className="w-full h-full px-2 py-1.5 flex flex-col justify-between" data-ui="folder-card">

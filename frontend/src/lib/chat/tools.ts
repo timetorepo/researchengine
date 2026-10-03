@@ -305,7 +305,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'library_search',
-    description: 'Search the app\'s own small search engine: the live web, Wikipedia, design references (Awwwards, Dribbble, Refero, Mobbin), app-interface patterns, and the documentation index. Returns hits labelled by vertical — say which vertical a claim came from. Use for anything the user wants sources for, and for "how do other apps do this screen" questions.',
+    description: 'Search the app\'s own small search engine: the live web, Wikipedia, design references (Awwwards, Dribbble, Refero, Mobbin), app-interface patterns — including the components this app can install, each with the exact command that installs it — and the documentation index. Returns hits labelled by vertical — say which vertical a claim came from. Use for anything the user wants sources for, and for "how do other apps do this screen" questions.',
     parameters: {
       type: 'object',
       properties: {
@@ -318,6 +318,12 @@ export const TOOLS: ToolDef[] = [
       const query = String(args?.query ?? '').trim()
       const want = String(args?.vertical ?? 'all')
       if (query.length < 2) return 'A query of at least two characters is required.'
+      // The component index ships inside the app, so it answers even when the
+      // server does not — and it is the half of this tool that is about the
+      // interfaces the user could actually install.
+      const { componentHits } = await import('@/lib/design/component-search')
+      const components = (want === 'all' || want === 'ui') ? componentHits(query, 4) : []
+      const shape = (h: any) => ({ title: h.title, url: h.url, snippet: h.snippet, source: h.source, ...(h.install ? { install: h.install } : {}) })
       // Search the local server first; if it is not up, the same ladder the chat
       // uses still answers for the web vertical instead of failing outright.
       try {
@@ -335,16 +341,24 @@ export const TOOLS: ToolDef[] = [
             state: g.state,
             reason: g.reason,
             note: g.note,
-            hits: (g.hits ?? []).slice(0, 6).map((h: any) => ({ title: h.title, url: h.url, snippet: h.snippet, source: h.source })),
+            hits: (g.vertical === 'ui' ? [...components, ...(g.hits ?? [])] : (g.hits ?? [])).slice(0, 6).map(shape),
           }))
+        // A vertical the server knows nothing about would leave the local hits
+        // unreachable when the query is narrowed to `ui`.
+        if (components.length && !results.some((g) => g.vertical === 'ui')) {
+          results.unshift({ vertical: 'ui', state: 'ok', reason: undefined as any, note: 'From this app\'s own component catalog.', hits: components.slice(0, 6).map(shape) } as any)
+        }
         return JSON.stringify({ query, tookMs: out.tookMs, results }).slice(0, 9000)
       } catch (e: any) {
         const { webSearch } = await import('@/lib/search/web')
         const outcome = await webSearch(query, 5).catch(() => null)
         if (!outcome) return `The app's search could not run: ${String(e?.message ?? e)}`
         return JSON.stringify({
-          query, degraded: 'The local server was unreachable, so only the web vertical ran.',
-          results: [{ vertical: 'web', state: 'ok', hits: outcome.sources.map((s) => ({ title: s.title, url: s.url, snippet: s.snippet })) }],
+          query, degraded: 'The local server was unreachable, so only the web vertical and the app\'s own component catalog ran.',
+          results: [
+            ...(components.length ? [{ vertical: 'ui', state: 'ok', note: 'From this app\'s own component catalog, which ships with the app.', hits: components.map(shape) }] : []),
+            { vertical: 'web', state: 'ok', hits: outcome.sources.map((s) => ({ title: s.title, url: s.url, snippet: s.snippet })) },
+          ],
         }).slice(0, 9000)
       }
     },

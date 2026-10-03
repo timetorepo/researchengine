@@ -13,6 +13,8 @@
  * not listing it.
  */
 
+import { scoreItem } from '@/lib/design/patterns'
+
 export interface CatalogItem {
   id: string
   provider: string
@@ -341,26 +343,18 @@ export const CATALOG: CatalogItem[] = Object.entries(RAW).flatMap(([provider, it
   })),
 )
 
-/** Search the catalog: name, description, tags, provider, all in one pass. */
+/**
+ * Search the catalog: name, description, tags, provider, all in one pass — and
+ * the screen vocabulary of `patterns.ts`, so typing "empty state" or "onboarding"
+ * in the hub finds the components that build it.
+ */
 export function searchCatalog(query: string, providers: string[] | null): CatalogItem[] {
-  const q = query.trim().toLowerCase()
+  const q = query.trim()
   const pool = providers?.length ? CATALOG.filter((i) => providers.includes(i.provider)) : CATALOG
   if (!q) return pool.slice(0, 60)
-  const words = q.split(/\s+/)
-  const scored = pool
-    .map((item) => {
-      const hay = `${item.name} ${item.what} ${item.tags.join(' ')} ${item.provider}`.toLowerCase()
-      let score = 0
-      for (const w of words) {
-        if (!hay.includes(w)) return { item, score: -1 }
-        if (item.name.toLowerCase().includes(w)) score += 3
-        if (item.tags.some((t) => t.startsWith(w))) score += 2
-        score += 1
-      }
-      if (item.name.toLowerCase() === q) score += 10
-      return { item, score }
-    })
-    .filter((s) => s.score >= 0)
+  return pool
+    .map((item) => ({ item, score: scoreItem(q, item) }))
+    .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score)
-  return scored.map((s) => s.item)
+    .map((s) => s.item)
 }
