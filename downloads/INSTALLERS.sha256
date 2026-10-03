@@ -1,12 +1,12 @@
-# Installers attached to the v0.38.0-beta.1 release by .github/workflows/desktop.yml.
+# Installers attached to the v0.39.0-beta.1 release by .github/workflows/desktop.yml.
 # Same three artifacts the release page offers, with the digests GitHub records
 # for the bytes it is actually serving (read back from the release API, `digest`
 # on each asset). They match the hashes the runner reported for the same files
-# before upload — two independent readings of the same bytes.
+# before upload, two independent readings of the same bytes.
 # Verify with:
 #   sha256sum -c INSTALLERS.sha256        (Linux: .deb / .AppImage)
 #   certutil -hashfile <file> SHA256     (Windows: setup.exe)
 
-ce71c8736e1ac29211f7cafdcf0d7cea36f6c335e9f284b5f7f5d8c046b0f338  Research.Engine_0.38.0-beta.1_amd64.AppImage
-7eeb19785fde1c1d2d94854b4802563eeb81cc8b1cdb966736598dfd9efe562d  Research.Engine_0.38.0-beta.1_amd64.deb
-f19ed2d0cc2eae8581260110013c325ef29b393f98f93bda912cf50dcbbf3424  Research.Engine_0.38.0-beta.1_x64-setup.exe
+5f7e01f4ed2ef1f8d0fe534bda6d376af44ed6e1a5d568b8afecb1876905699f  Research.Engine_0.39.0-beta.1_amd64.AppImage
+ee9e342ed24f9a6e845da434e322deac94db99896e752edc4d07713d4386ae86  Research.Engine_0.39.0-beta.1_amd64.deb
+3102e78c38c78b8a58c7f5dc40bca66a96e37842d07a03c73601ad886a498613  Research.Engine_0.39.0-beta.1_x64-setup.exe
