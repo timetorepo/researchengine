@@ -12,6 +12,7 @@
  * Run: npx tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts   (from frontend/)
  */
 import { JSDOM } from 'jsdom'
+import { readFileSync } from 'node:fs'
 
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
   url: 'http://localhost:5173/#/chats',
@@ -182,8 +183,10 @@ async function main() {
   console.log('\n[R24] Every version is in the record, and it is selectable')
   const { CHANGELOG, findRelease } = await import('../src/lib/updates/changelog')
 
-  check('twenty-nine versions are recorded', CHANGELOG.length === 29, String(CHANGELOG.length))
-  check('the newest is the version this round shipped', CHANGELOG[0].version === '0.37.0')
+  const shippedVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version as string
+  const shippedBase = shippedVersion.replace(/-.*$/, '')
+  check('the whole record is here, from the first pre-release to now', CHANGELOG.length >= 29, String(CHANGELOG.length))
+  check('the newest entry is the version this build ships', CHANGELOG[0].version === shippedBase, `${CHANGELOG[0].version} vs ${shippedBase}`)
   check('the oldest is the first pre-release', CHANGELOG[CHANGELOG.length - 1].version === '0.10.0')
   check('every version carries a date, a summary and at least one section',
     CHANGELOG.every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && r.summary.length > 20 && r.sections.length > 0))
@@ -206,12 +209,12 @@ async function main() {
   clRoot.render(React2.createElement(ChangelogPanel as any, { runningVersion: '0.37.0-beta.1' }))
   await new Promise((r) => setTimeout(r, 220))
   const clHtml = clHost.innerHTML
-  check('the rail lists every version', (clHtml.match(/data-version="/g) ?? []).length === 29)
+  check('the rail lists every version', (clHtml.match(/data-version="/g) ?? []).length === CHANGELOG.length)
   check('the running build is marked as such', clHtml.includes('running'))
   check('the selected version is rendered as a page, with its sections',
     clHtml.includes('data-ui="changelog"') && clHtml.includes('Everything that has shipped'))
   check('a version is selectable from the rail — the newest is selected first',
-    /data-version="0.37.0"/.test(clHtml) && clHtml.includes('What changed'))
+    clHtml.includes(`data-version="${CHANGELOG[0].version}"`) && clHtml.includes('What changed'))
   check('the version card says how many notes it has', /notes/.test(clHtml) && /sections/.test(clHtml))
   check('the previous release is one press away instead of a scroll',
     !!clHost.querySelector('button[title="Older (↓)"]') && !!clHost.querySelector('button[title="Newer (↑)"]'))
