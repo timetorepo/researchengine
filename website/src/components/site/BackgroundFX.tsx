@@ -1,6 +1,9 @@
 /**
- * The page's own light: three soft violet pools, a faint grid, and a grain.
- * Fixed, so the content glides over it.
+ * The page's own light: one soft pool at the top, a faint grid, and a grain.
+ *
+ * It used to be three pools and a teal wash, which is what made the whole page
+ * read as a gradient rather than as a document. A single light source behind the
+ * hero does the same job and lets the sections below be plain.
  */
 export function BackgroundFX() {
   return (
@@ -11,12 +14,8 @@ export function BackgroundFX() {
         style={{ background: 'radial-gradient(circle, rgba(124,92,255,0.34), transparent 66%)' }}
       />
       <div
-        className="absolute top-[42%] -left-[18rem] h-[36rem] w-[36rem] rounded-full blur-[150px]"
-        style={{ background: 'radial-gradient(circle, rgba(94,234,212,0.14), transparent 68%)' }}
-      />
-      <div
-        className="absolute right-[-16rem] bottom-[-14rem] h-[40rem] w-[40rem] rounded-full blur-[150px]"
-        style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.22), transparent 68%)' }}
+        className="absolute right-[-16rem] bottom-[-16rem] h-[40rem] w-[40rem] rounded-full blur-[160px] opacity-60"
+        style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.18), transparent 70%)' }}
       />
       <div className="noise absolute inset-0 opacity-[0.035] mix-blend-soft-light" />
       <div

@@ -2,6 +2,7 @@ import { motion } from 'motion/react'
 import { Apple, Download, FileArchive, Github, HardDriveDownload, Info, Package, ShieldCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ButtonLink } from '@/components/ui/button'
+import { Eyebrow } from '@/components/site/Section'
 import {
   INSTALLER_NAMES,
   RELEASE_ASSET,
@@ -42,14 +43,12 @@ export function DownloadSection() {
       <div className="site-shell">
         <motion.header
           className="mx-auto max-w-2xl text-center"
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           viewport={{ once: true, margin: '-80px' }}
-          whileInView={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1 }}
         >
-          <Badge className="mb-5" tone="brand">
-            Download
-          </Badge>
+          <Eyebrow>Download</Eyebrow>
           <h2 className="text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.1] font-semibold">
             Get Research Engine {VERSION}
           </h2>
@@ -62,11 +61,11 @@ export function DownloadSection() {
           {installers.map((installer, index) => (
             <motion.div
               className="panel flex flex-col gap-4 p-6"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0 }}
               key={installer.name}
               transition={{ delay: index * 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               viewport={{ once: true, margin: '-60px' }}
-              whileInView={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1 }}
             >
               <div className="flex items-center gap-2 text-[13px] text-[var(--text-3)]">
                 {ICONS[installer.kind as keyof typeof ICONS] ?? <Download className="h-4 w-4" />}
@@ -90,10 +89,10 @@ export function DownloadSection() {
 
           <motion.div
             className="panel flex flex-col gap-4 p-6 md:col-span-3"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0 }}
             transition={{ delay: 0.2, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             viewport={{ once: true, margin: '-60px' }}
-            whileInView={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1 }}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[13px] text-[var(--text-3)]">

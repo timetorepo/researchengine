@@ -112,6 +112,8 @@
 
   html {
     scroll-behavior: smooth;
+    /* Anchors land below the fixed header rather than under it. */
+    scroll-padding-top: 92px;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -187,6 +189,13 @@
 }
 
 @layer components {
+  /* A hairline used to separate bands of the page without a box around them. */
+  .hairline {
+    height: 1px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent, var(--surface-border) 12%, var(--surface-border) 88%, transparent);
+  }
+
   .site-shell {
     width: 100%;
     max-width: 1180px;
@@ -251,6 +260,32 @@
 
   #faq [aria-expanded] h3 {
     font-weight: 500;
+  }
+
+  /* The "look inside" reveal, sized by this page rather than by the vendor's
+     demo. Aceternity's container-scroll is 120vh tall with its content centred,
+     and its card is a 4:3 screenshot up to 1024px wide: the two together are
+     taller than the box, so the card's bottom edge - already projected further
+     down by its 20deg rotateX - spilled out of the section and landed on the
+     heading below it. The reveal only needs the scroll target; it does not need
+     the box to be taller than what is in it. Height auto, real padding, and the
+     overshoot stays in its own section. */
+  .reveal-scroll > div {
+    height: auto;
+    padding: 1.5rem 1rem 5rem;
+  }
+  @media (width >= 640px) {
+    .reveal-scroll > div {
+      padding: 2.5rem 2rem 7rem;
+    }
+  }
+
+  /* While the screenshot gallery is open the page behind it holds still. The
+     inline `overflow: hidden` is set by the gallery itself (with Lenis stopped);
+     this keeps the scrollbar from flashing back into view as it closes. */
+  html.gallery-open {
+    overflow: hidden;
+    scrollbar-gutter: stable;
   }
 
   .glow-ring {

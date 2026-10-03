@@ -7,6 +7,7 @@ import { scrollToSection } from '@/lib/smooth-scroll'
 import { cn } from '@/lib/utils'
 
 const LINKS = [
+  { id: 'ask', label: 'Ask it something' },
   { id: 'features', label: 'What it does' },
   { id: 'library', label: 'Your library' },
   { id: 'how', label: 'How it works' },

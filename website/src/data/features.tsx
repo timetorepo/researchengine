@@ -25,8 +25,19 @@ import {
   Workflow,
 } from 'lucide-react'
 
+/**
+ * The shelves the feature filter groups by. Six words a visitor would use
+ * themselves, so the filter reads like a table of contents rather than a
+ * taxonomy.
+ */
+export const FEATURE_KINDS = ['Research', 'Study', 'Writing', 'Power', 'Everyday', 'Privacy'] as const
+
+export type FeatureKind = (typeof FEATURE_KINDS)[number]
+
 export interface Feature {
   id: string
+  /** Which shelf this belongs to, for the filter row. */
+  kind: FeatureKind
   icon: ReactNode
   title: string
   body: ReactNode
@@ -39,6 +50,7 @@ export interface Feature {
 export const FEATURES: Feature[] = [
   {
     id: 'answers',
+    kind: 'Research',
     icon: <Search className="h-5 w-5" />,
     title: 'Answers with sources you can open',
     body: (
@@ -52,6 +64,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'read-quiz',
+    kind: 'Study',
     icon: <BookOpenCheck className="h-5 w-5" />,
     title: 'Turn a paper into a study session',
     body: (
@@ -65,6 +78,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'providers',
+    kind: 'Research',
     icon: <Bot className="h-5 w-5" />,
     title: 'Bring any AI you already pay for',
     body: (
@@ -89,6 +103,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'library',
+    kind: 'Research',
     icon: <LayoutGrid className="h-5 w-5" />,
     title: 'A library that is yours',
     body: (
@@ -101,6 +116,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'agents',
+    kind: 'Study',
     icon: <FlaskConical className="h-5 w-5" />,
     title: 'Send a team of assistants at one topic',
     body: (
@@ -113,6 +129,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'writing',
+    kind: 'Writing',
     icon: <PenLine className="h-5 w-5" />,
     title: 'Write it up in the same window',
     body: (
@@ -125,6 +142,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'humanize',
+    kind: 'Writing',
     icon: <Sparkles className="h-5 w-5" />,
     title: 'Make it sound like you wrote it',
     body: (
@@ -137,6 +155,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'workflows',
+    kind: 'Power',
     icon: <Workflow className="h-5 w-5" />,
     title: 'Put your routine on rails',
     body: (
@@ -149,6 +168,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'coding',
+    kind: 'Power',
     icon: <Terminal className="h-5 w-5" />,
     title: 'Build the thing while you research it',
     body: (
@@ -161,6 +181,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'talk',
+    kind: 'Everyday',
     icon: <Mic className="h-5 w-5" />,
     title: 'Talk to it instead of typing',
     body: (
@@ -172,6 +193,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'connect',
+    kind: 'Everyday',
     icon: <Cable className="h-5 w-5" />,
     title: 'Read the places your work already lives',
     body: (
@@ -184,6 +206,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'skills',
+    kind: 'Power',
     icon: <FileText className="h-5 w-5" />,
     title: 'Standards you can reuse',
     body: (
@@ -196,6 +219,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'privacy',
+    kind: 'Privacy',
     icon: <ShieldCheck className="h-5 w-5" />,
     title: 'Nobody is watching',
     body: (
@@ -208,6 +232,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: 'updates',
+    kind: 'Privacy',
     icon: <Quote className="h-5 w-5" />,
     title: 'Updates itself, and can undo',
     body: (

@@ -9,7 +9,7 @@ cd website
 npm ci
 npm run dev          # http://localhost:5188
 npm run build        # → dist/, ready for any static host
-npm run site-test    # 73 checks, mounted in jsdom
+npm run site-test    # 115 checks, mounted in jsdom
 npm run vendor       # re-verify the vendored components against their digests
 ```
 
@@ -37,6 +37,9 @@ all of it offline, and re-fetches the upstream copy when the network allows.
 | `tooltip-card` | Aceternity UI | the glossary, and two terms inside the feature cards |
 | `images-badge` | Aceternity UI | the three attachments on a question |
 | `container-scroll-animation` | Aceternity UI | the "look inside" reveal, on the repository's own hero image |
+| `carousel` | Aceternity UI | the screenshot gallery: every picture of the app, opened full size |
+| `features-section-demo-3` | Aceternity UI | the four-cell bento at the top of "what it does" |
+| `typewriter-effect` | Aceternity UI | the answer streaming back in "ask it something" |
 | `card-21` (vendored as `card-18`) | shadcnspace | the comparison card, plus the `card` primitive it needs |
 
 `card-21` is served only by shadcnspace.com, which this build environment cannot
@@ -50,6 +53,53 @@ The screenshots are this repository's own, optimised from the originals by
 `.github/workflows/site-assets.yml` (a maintainer-run job: it downloads the
 images, converts them to 1600 px WebP, and pushes them to a scratch branch, which
 is then fetched here). The site never hotlinks an image host.
+
+## The three things a visitor can do without scrolling past them
+
+**Ask it something** (`src/components/site/AskStream.tsx`). A question types itself
+into the app's own composer, the app reads, and the answer streams back word by
+word with the sources it used underneath. It loops through three real exchanges.
+The answer is drawn by Aceternity's typewriter; the same words are also in an
+`sr-only` block, so the section reads correctly to a screen reader and to the test
+suite whether or not the animation has played. A visitor who prefers reduced
+motion gets the first exchange in full and no timers at all.
+
+**The folder of screenshots** (`ScreenshotGallery.tsx`). The folder in the library
+section, and two buttons elsewhere, open every screenshot of the app full size in
+Aceternity's embla carousel, opening on the picture that was clicked. It is a real
+dialog: Escape closes it, arrow keys change slide, Tab wraps inside it, focus goes
+back to the button that opened it, and the page behind it stops scrolling (Lenis
+included).
+
+**The terminal** (`src/components/site/Backend.tsx`). The backend proof, sized to
+be read in one screen and told to loop, so it plays again when it reaches the end
+instead of leaving a stranded prompt.
+
+## How it is laid out, and why the hero changed
+
+The first version of this page read as generated, and the fixes are structural
+rather than cosmetic:
+
+- the hero opens with a line of small type, not a row of pills; a pill above a
+  large headline is the shape every generated landing page has, and at heading
+  sizes it also ends up sitting on the heading;
+- there is one accent, used on one phrase. The violet halo behind the screenshot
+  and the second gradient are gone, and the screenshot sits on a plinth with the
+  same window chrome the app draws;
+- section eyebrows are letterspaced type, in `src/components/site/Section.tsx`,
+  and every text entrance fades opacity only. Sliding text, mid-scroll, on a page
+  that uses backdrop blur, is what could paint a headline twice;
+- the features are one bento of four cells plus a plain list. Fourteen identical
+  cards in a grid is what the round called out, so the list is prose with a filter
+  and no boxes;
+- the "look inside" reveal is sized by this page: Aceternity's demo is 120vh tall
+  with taller content centred in it, so its card's projected bottom edge landed on
+  the next section. `.reveal-scroll > div` in `src/styles/globals.css` sets a real
+  height and real padding, and the section clips itself.
+
+The references were Dribbble's dark SaaS heroes (type first, one product shot, no
+decoration pretending to be content) and the Awwwards habit of letting a single
+line of type carry the screen.
 
 ## How the download works
 

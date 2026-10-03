@@ -1,8 +1,10 @@
-import { motion } from 'motion/react'
-import { FileText, FolderOpen, Search, Tag } from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
+import { FileText, FolderOpen, Maximize2, Search, Tag } from 'lucide-react'
 import FolderReveal from '@/components/smoothui/folder-reveal'
 import { ImagesBadge } from '@/components/aceternity/ImagesBadge'
-import { Badge } from '@/components/ui/badge'
+import { Eyebrow } from '@/components/site/Section'
+import { useGallery } from '@/components/site/ScreenshotGallery'
+import { SCREENS } from '@/data/screens'
 
 const FILE_TYPES = [
   { id: 'pdf', label: 'PDF', hint: 'papers, reports, scanned notes', color: '#fb7185' },
@@ -17,18 +19,18 @@ const FILE_TYPES = [
  * images-badge for the attachments on a question — the same badge the chat uses.
  */
 export function LibrarySection() {
+  const { open } = useGallery()
+  const reduced = useReducedMotion()
   return (
     <section className="site-section scroll-mt-24" id="library">
       <div className="site-shell grid items-center gap-14 lg:grid-cols-2">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          viewport={{ once: true, margin: '-80px' }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          viewport={{ once: true, margin: '-60px' }}
+          whileInView={{ opacity: 1 }}
         >
-          <Badge className="mb-5" tone="brand">
-            Your library
-          </Badge>
+          <Eyebrow>Your library</Eyebrow>
           <h2 className="text-[clamp(1.75rem,4vw,2.6rem)] leading-[1.1] font-semibold">
             Bring your own material. It stays yours.
           </h2>
@@ -62,28 +64,39 @@ export function LibrarySection() {
             </li>
           </ul>
 
-          <div className="panel mt-8 flex items-center gap-4 p-4">
+          {/* The folder of attachments. Clicking it opens every screenshot of the
+              app, full size, in the carousel — which is what a folder of pictures
+              should do when someone clicks it. */}
+          <button
+            aria-label={`Open the ${SCREENS.length} screenshots of Research Engine`}
+            className="panel mt-8 flex w-full cursor-pointer items-center gap-4 p-4 text-left transition-colors hover:border-[rgba(124,92,255,0.4)]"
+            onClick={() => open(0)}
+            type="button"
+          >
             <div className="shrink-0">
               <ImagesBadge
-                folderSize={{ width: 40, height: 30 }}
-                hoverImageSize={{ width: 74, height: 50 }}
-                hoverSpread={26}
-                images={['/attachments/quiz.webp', '/attachments/coding.webp', '/attachments/workflow.webp']}
-                text="3 attachments"
+                folderSize={{ width: 44, height: 33 }}
+                hoverImageSize={{ width: 82, height: 56 }}
+                hoverSpread={28}
+                images={SCREENS.slice(0, 3).map((screen) => screen.src)}
+                text={`${SCREENS.length} screenshots`}
               />
             </div>
-            <p className="text-[13px] leading-relaxed text-[var(--text-3)]">
-              Three screenshots attached to one question, the way the chat shows them. Hover the folder.
-            </p>
-          </div>
+            <span className="text-[13px] leading-relaxed text-[var(--text-3)]">
+              Every screen of the app, in one folder. Hover to peek, click to open them full size.
+              <span className="mt-1 flex items-center gap-1.5 text-[var(--text-2)]">
+                <Maximize2 className="h-3 w-3" /> Open the gallery
+              </span>
+            </span>
+          </button>
         </motion.div>
 
         <motion.div
           className="flex flex-col items-center"
-          initial={{ opacity: 0, y: 30 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          viewport={{ once: true, margin: '-80px' }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0 }}
+          transition={{ duration: 0.6, delay: reduced ? 0 : 0.08 }}
+          viewport={{ once: true, margin: '-60px' }}
+          whileInView={{ opacity: 1 }}
         >
           <FolderReveal
             color="brand"

@@ -57,6 +57,26 @@ export function destroySmoothScroll() {
   document.documentElement.classList.remove('lenis', 'lenis-smooth')
 }
 
+/**
+ * Stop the page moving, for as long as a dialog is open.
+ *
+ * Lenis keeps its own transform loop, so hiding the body scroller is not enough:
+ * without stopping the instance the page underneath a modal keeps easing. Both
+ * are undone by `resumeSmoothScroll`, and neither needs a Lenis instance to
+ * exist (a visitor who prefers reduced motion has none).
+ */
+export function pauseSmoothScroll() {
+  if (typeof window === 'undefined') return
+  instance?.stop()
+  document.documentElement.style.overflow = 'hidden'
+}
+
+export function resumeSmoothScroll() {
+  if (typeof window === 'undefined') return
+  instance?.start()
+  document.documentElement.style.removeProperty('overflow')
+}
+
 /** Scroll to a section by id, with the sticky header's height taken off. */
 export function scrollToSection(id: string) {
   if (typeof window === 'undefined') return

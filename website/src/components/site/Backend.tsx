@@ -1,7 +1,7 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { CheckCircle2, FolderLock, Server, Wifi } from 'lucide-react'
 import MacTerminal from '@/components/smoothui/mac-terminal'
-import { Badge } from '@/components/ui/badge'
+import { Eyebrow } from '@/components/site/Section'
 import { TERMINAL_LINES } from '@/data/terminal'
 import { VERSION } from '@/lib/release'
 
@@ -29,23 +29,30 @@ const POINTS = [
 ]
 
 /**
- * The backend, shown rather than described: SmoothUI's mac-terminal, typing real
- * output from this build (see src/data/terminal.ts).
+ * The backend, shown rather than described: SmoothUI's mac-terminal typing real
+ * output from this build.
+ *
+ * Three things were fixed here after a visitor sent a screenshot of it. The
+ * terminal is short (a proof, not a scrollback) and it loops, so the last line
+ * is never a stranded prompt. The eyebrow is a line of type rather than a pill,
+ * because a pill above a two-line headline is what overlapped it. And the two
+ * columns are top-aligned, so the terminal cannot stretch to the height of the
+ * copy beside it.
  */
 export function Backend() {
+  const reduced = useReducedMotion()
   return (
     <section className="site-section scroll-mt-24" id="backend">
-      <div className="site-shell grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="site-shell grid items-start gap-12 lg:grid-cols-[1fr_1fr] lg:gap-16">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          viewport={{ once: true, margin: '-80px' }}
-          whileInView={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 1 }}
+          initial={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          viewport={{ once: true, margin: '-60px' }}
+          whileInView={{ opacity: 1 }}
         >
-          <Badge className="mb-5" tone="green">
-            The engine is real
-          </Badge>
-          <h2 className="text-[clamp(1.75rem,4vw,2.6rem)] leading-[1.1] font-semibold">
+          <Eyebrow>The engine is real</Eyebrow>
+          <h2 className="text-[clamp(1.6rem,3.6vw,2.5rem)] leading-[1.1] font-semibold [text-wrap:balance]">
             Under the window, a research engine you can talk to
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-[var(--text-2)]">
@@ -56,7 +63,7 @@ export function Backend() {
           <ul className="mt-8 grid gap-5 sm:grid-cols-2">
             {POINTS.map((point) => (
               <li className="flex gap-3" key={point.title}>
-                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] bg-white/5 text-[#c4b5fd]">
+                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-border)] bg-white/[0.03] text-[#c4b5fd]">
                   {point.icon}
                 </span>
                 <div>
@@ -69,25 +76,26 @@ export function Backend() {
         </motion.div>
 
         <motion.div
-          className="relative"
-          initial={{ opacity: 0, y: 30 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          viewport={{ once: true, margin: '-80px' }}
-          whileInView={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full max-w-[560px] lg:justify-self-end"
+          initial={{ opacity: 0 }}
+          transition={{ duration: 0.6, delay: reduced ? 0 : 0.08 }}
+          viewport={{ once: true, margin: '-60px' }}
+          whileInView={{ opacity: 1 }}
         >
           <MacTerminal
             className="w-full"
             lines={TERMINAL_LINES.map((line) => ({ ...line, text: line.text.replace('{{VERSION}}', VERSION) }))}
-            maxHeight={420}
+            loop
+            maxHeight={236}
             prompt="you@laptop research ~ %"
             theme="dark"
-            title="research-engine — serve — 80×24"
-            typingSpeed={14}
+            title="research-engine: serve"
+            typingSpeed={12}
           />
-          <div
-            className="pointer-events-none absolute -inset-6 -z-10 rounded-[32px] blur-3xl"
-            style={{ background: 'radial-gradient(50% 60% at 50% 50%, rgba(124,92,255,0.22), transparent)' }}
-          />
+          <p className="mt-3 text-[12px] text-[var(--text-3)]">
+            Shortened output from this build. It plays again when it reaches the end.
+          </p>
         </motion.div>
       </div>
     </section>

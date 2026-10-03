@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
+import { AskSection } from '@/components/site/AskSection'
 import { BackgroundFX } from '@/components/site/BackgroundFX'
+import { GalleryProvider } from '@/components/site/ScreenshotGallery'
 import { Backend } from '@/components/site/Backend'
 import { Compare } from '@/components/site/Compare'
 import { DownloadSection } from '@/components/site/DownloadSection'
@@ -27,12 +29,13 @@ export default function App() {
   }, [])
 
   return (
-    <>
+    <GalleryProvider>
       <BackgroundFX />
       <div className="relative z-10">
         <Nav />
         <main>
           <Hero />
+          <AskSection />
           <StarsStrip />
           <Features />
           <Showcase />
@@ -46,6 +49,6 @@ export default function App() {
         </main>
         <Footer />
       </div>
-    </>
+    </GalleryProvider>
   )
 }

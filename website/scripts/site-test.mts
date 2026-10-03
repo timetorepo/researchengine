@@ -136,6 +136,20 @@ function installFetch() {
   }
 }
 
+/** Every file in `src`, concatenated: the layout and copy rules are checked on it. */
+function readAllSources() {
+  const files: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry)
+      if (statSync(full).isDirectory()) walk(full)
+      else if (/\.(tsx?|mts)$/.test(entry)) files.push(full)
+    }
+  }
+  walk(join(siteDir, 'src'))
+  return { files, text: files.map((f) => readFileSync(f, 'utf8')).join('\n') }
+}
+
 async function main() {
   installFetch()
   const React = await import('react')
@@ -155,6 +169,7 @@ async function main() {
   /* -------------------------------------------------------------- 1 · page -- */
 
   console.log('\n[1] The page a visitor lands on')
+  const { text: sourcesText } = readAllSources()
   const { default: App } = await import('../src/App')
   const app = await mountInto(React.createElement(App))
   const page = app.host
@@ -191,7 +206,40 @@ async function main() {
   )
   check('the cloud shader is behind the hero', !!page.querySelector('canvas'))
   check('the nav links to the download', !!page.querySelector('a[href="#download"]'))
-  check('the feature grid lists at least twelve things', all(page, '#features article').length >= 12, String(all(page, '#features article').length))
+  // The features are a bento of four real screens (Aceternity's features
+  // section) plus a plain list of everything else. Every feature is still on the
+  // page; none of them is a card in a grid of fourteen identical cards.
+  const bentoGrid = page.querySelector('#features [class*="lg:grid-cols-6"]')
+  const bentoCells = bentoGrid ? [...bentoGrid.children] : []
+  const featureList = all(page, '#features ul > li')
+  check(
+    'the features are the four-cell bento the round asked for',
+    bentoCells.length === 4,
+    `${bentoCells.length} cells, grid=${bentoGrid ? 'found' : 'missing'}`,
+  )
+  check(
+    'and the bento shows the app itself rather than stock art',
+    all(bentoGrid, 'img').length >= 2 && all(bentoGrid, 'img').every((img: any) => /^\/shots\//.test(img.getAttribute('src') ?? '')),
+    all(bentoGrid, 'img').map((i: any) => i.getAttribute('src')).join(', '),
+  )
+  check(
+    'and the rest of them are a plain list, not a card grid',
+    featureList.length >= 10 && all(page, '#features article').length === 0,
+    `${featureList.length} listed, ${all(page, '#features article').length} cards`,
+  )
+  check('every feature is still described', /seventeen providers/i.test(text(page)) || /Seventeen providers/i.test(text(page)))
+  const privacyChip = all(page, '#features button').find((b: any) => /^Privacy/.test(text(b)))
+  check('the list can be filtered by what you are doing', !!privacyChip, all(page, '#features button').map((b: any) => text(b)).join(' | '))
+  if (privacyChip) {
+    click(privacyChip)
+    await wait(260)
+    const narrowed = all(page, '#features ul > li').length
+    check('and the filter narrows it', narrowed > 0 && narrowed < featureList.length, `${featureList.length} → ${narrowed}`)
+    const allChip = all(page, '#features button').find((b: any) => /^All/.test(text(b)))
+    click(allChip)
+    await wait(260)
+    check('and clears again', all(page, '#features ul > li').length === featureList.length)
+  }
   check('the closing note names the maker', /dnishh/.test(text(page)))
   check(
     'the page is honest about macOS instead of promising it',
@@ -218,7 +266,9 @@ async function main() {
   check('the hero text animates word by word', all(headline!, 'span span').length >= 2)
 
   // (c) folder reveal → the library
-  const folderTrigger = page.querySelector('#library button[aria-label]') ?? page.querySelector('#library button')
+  const folderTrigger = all(page, '#library button').find((b: any) =>
+    /Your documents/.test(b.getAttribute('aria-label') ?? text(b)),
+  )
   check(
     'the library has a folder to open',
     !!folderTrigger && /Your documents/.test(folderTrigger.getAttribute('aria-label') ?? text(folderTrigger)),
@@ -253,6 +303,111 @@ async function main() {
   check('and the real search output, including a source that failed', lanes)
   check('no template placeholder is left unrendered', !page.innerHTML.includes('{{VERSION}}'))
   check('the section says a failed source reports why', /Failures say why/.test(text(terminal)))
+  // "not that big, kinda short, and it repeats when it ends": the terminal is a
+  // defined height and the component is told to loop.
+  const terminalSource = readFileSync(join(siteDir, 'src/components/site/Backend.tsx'), 'utf8')
+  check('the terminal is short rather than a wall', /maxHeight=\{2[0-9][0-9]\}/.test(terminalSource), terminalSource.match(/maxHeight=\{[^}]+\}/)?.[0] ?? 'none')
+  check('and it plays again when it ends', /\bloop\b/.test(terminalSource))
+  check('and says so, so nobody thinks it is stuck', /plays again when it reaches the end/.test(text(terminal)))
+
+  /* ------------------------------------------------- 3 · ask and answer -- */
+
+  console.log('\n[3] Ask it something')
+  const ask = page.querySelector('#ask')
+  check('the section the animation lives in is on the page', !!ask)
+  const questionShown = await waitFor(
+    () => /Does sleep debt actually reverse/.test(text(ask)) || /Turn this paper into a study guide/.test(text(ask)),
+    6000,
+  )
+  check('a question types itself into the composer', questionShown, text(ask).slice(0, 160))
+  const answered = await waitFor(() => /Recovery sleep restores alertness/.test(text(ask)), 8000)
+  check('and the answer streams back with the sources it used', answered, text(ask).slice(0, 200))
+  check(
+    'the sources are named, not implied',
+    /Your library|Wikipedia|Saved page/.test(text(ask)),
+  )
+  check(
+    'the answer is drawn by the Aceternity typewriter',
+    readFileSync(join(siteDir, 'src/components/site/AskStream.tsx'), 'utf8').includes('TypewriterEffect'),
+  )
+  check(
+    'and the words are readable even when the animation is not playing',
+    !!ask?.querySelector('.sr-only'),
+  )
+  const reducedSource = readFileSync(join(siteDir, 'src/components/site/AskStream.tsx'), 'utf8')
+  check(
+    'a visitor who asked for less motion gets the answer with no timers',
+    /if \(reduced\) return/.test(reducedSource) && /reduced \? EXCHANGES\[0\].question.length : 0/.test(reducedSource),
+  )
+
+  /* -------------------------------------------------------- 4 · gallery -- */
+
+  console.log('\n[4] The folder opens every screenshot')
+  const folderButton = all(page, '#library button').find((b: any) =>
+    /Open the 4 screenshots/.test(b.getAttribute('aria-label') ?? ''),
+  )
+  check('the folder of attachments is a button', !!folderButton, all(page, '#library button').map((b: any) => b.getAttribute('aria-label') ?? text(b)).join(' | '))
+  click(folderButton)
+  await wait(360)
+  const dialog = win.document.querySelector('#screenshot-gallery')
+  check('clicking it opens a real dialog', !!dialog && dialog.getAttribute('role') === 'dialog' && dialog.getAttribute('aria-modal') === 'true')
+  const slides = all(dialog, '[data-slot="carousel-item"]')
+  check('with every screenshot in it, in Aceternity\'s carousel', slides.length === 4 && !!dialog?.querySelector('[data-slot="carousel"]'), `${slides.length} slides`)
+  check('each slide is a full-size picture of the app', slides.every((s: any) => !!s.querySelector('img[src^="/shots/"]')))
+  check('and it says which one you are looking at', /Screenshot 1 of 4/.test(text(dialog)), text(dialog).slice(0, 120))
+  const thumbs = all(dialog, 'button[aria-label^="Show screenshot"]')
+  check('there is a thumbnail for each picture', thumbs.length === 4)
+  check('and arrows to move between them', !!dialog?.querySelector('[data-slot="carousel-previous"]') && !!dialog?.querySelector('[data-slot="carousel-next"]'))
+  click(thumbs[2])
+  await wait(240)
+  check('clicking a thumbnail moves the gallery', /Screenshot 3 of 4/.test(text(dialog)), text(dialog).slice(0, 120))
+  check('the page behind it stops scrolling', /gallery-open/.test(win.document.documentElement.className))
+  const escape = new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+  win.dispatchEvent(escape)
+  await wait(320)
+  check('Escape closes it', !win.document.querySelector('#screenshot-gallery'))
+  check('and the page scrolls again', !/gallery-open/.test(win.document.documentElement.className))
+
+  /* ------------------------------------------------- 5 · laid out, not vibe -- */
+
+  console.log('\n[5] Nothing overlaps, and nothing double-paints')
+  const globalsCss = readFileSync(join(siteDir, 'src/styles/globals.css'), 'utf8')
+  check('anchors land below the fixed header', /scroll-padding-top:\s*9[0-9]px/.test(globalsCss))
+  const heroSource = readFileSync(join(siteDir, 'src/components/site/Hero.tsx'), 'utf8')
+  const heroHeadline = page.querySelector('#top h1')
+  const heroNodes = [...page.querySelectorAll('#top *')]
+  const beforeHeadline = heroNodes.slice(0, heroNodes.indexOf(heroHeadline))
+  const pillsAbove = beforeHeadline.filter((n: any) => /rounded-full/.test(n.className ?? ''))
+  check(
+    'the hero does not open with a row of pills over the headline',
+    !/<Badge/.test(heroSource) && pillsAbove.length === 0,
+    pillsAbove.map((b: any) => text(b)).join(' | '),
+  )
+  check(
+    'the facts above the headline are a line of type, not chips',
+    heroHeadline?.previousElementSibling?.tagName === 'P' && /Free and open source/.test(text(heroHeadline?.previousElementSibling)),
+    heroHeadline?.previousElementSibling?.tagName,
+  )
+  const sectionSource = readFileSync(join(siteDir, 'src/components/site/Section.tsx'), 'utf8')
+  check('the shared eyebrow is type, not a pill', /Eyebrow/.test(sectionSource) && !/<Badge/.test(sectionSource))
+  check(
+    'text entrances fade instead of sliding, which is what double-painted the headline',
+    // `\by:` and not `/y:/`, which also matches the tail of "opacity:".
+    !/whileInView=\{\{[^}]*\by:\s*-?\d/.test(sourcesText),
+  )
+  check('the two-column sections are top-aligned', /items-start/.test(readFileSync(join(siteDir, 'src/components/site/Backend.tsx'), 'utf8')))
+  check('the gallery lock is in the stylesheet', /html\.gallery-open/.test(globalsCss))
+  // The overlap the round reported: the reveal's box was 120vh with taller
+  // content inside it, so the card's projected bottom edge landed on the
+  // heading of the next section. The page sizes that box itself now.
+  check(
+    'the look-inside reveal cannot spill into the section below it',
+    /\.reveal-scroll > div/.test(globalsCss) && /height: auto/.test(globalsCss) && /overflow-hidden/.test(readFileSync(join(siteDir, 'src/components/site/Showcase.tsx'), 'utf8')),
+  )
+  check(
+    'and it keeps real space under the card for the tilted edge',
+    /padding: 1\.5rem 1rem 5rem/.test(globalsCss),
+  )
 
   /* ------------------------------------------------------------ 3 · stars -- */
 
@@ -344,11 +499,16 @@ async function main() {
 
   console.log('\n[6] Vendoring, assets and Netlify')
 
+  const sourcesPath = join(siteDir, 'scripts', 'site-sources.json')
+  const sources = JSON.parse(readFileSync(sourcesPath, 'utf8'))
   const vendor = execFileSync('node', [join(siteDir, 'scripts', 'site-vendor.mjs'), '--verify'], { encoding: 'utf8' })
-  check('every vendored file still matches its recorded digest', /ok\s+13 files verified/.test(vendor), vendor.split('\n').slice(-3).join(' | '))
+  check(
+    'every vendored file still matches its recorded digest',
+    new RegExp(`ok\\s+${sources.items.length} files verified`).test(vendor) && !/mismatch|missing/.test(vendor),
+    vendor.split('\n').slice(-3).join(' | '),
+  )
   check('the three registries are all represented', ['smoothui', 'aceternity', 'shadcn-space'].every((p) => vendor.includes(p) || JSON.parse(readFileSync(join(siteDir, 'scripts', 'site-sources.json'), 'utf8')).providers[p]))
 
-  const sources = JSON.parse(readFileSync(join(siteDir, 'scripts', 'site-sources.json'), 'utf8'))
   const named = [
     'smoothui/basic-accordion',
     'smoothui/depth-parallax-words',
@@ -361,26 +521,24 @@ async function main() {
     'aceternity/images-badge',
     'aceternity/container-scroll-animation',
     'shadcn-space/card-21',
+    'aceternity/carousel',
+    'aceternity/features-section',
+    'aceternity/typewriter-effect',
   ]
   check(
-    'all eleven components the round named are vendored with provenance',
+    'all fourteen components the rounds named are vendored with provenance',
     named.every((id) => sources.items.some((i: any) => i.id === id)),
     named.filter((id) => !sources.items.some((i: any) => i.id === id)).join(', '),
+  )
+  check(
+    'the carousel is the one the round asked for, and it carries embla',
+    sources.items.some((i: any) => i.id === 'aceternity/carousel' && i.deps?.includes('embla-carousel-react')),
   )
   check('an unpatched file is recorded as unpatched', sources.items.some((i: any) => i.patches.length === 0))
   check('and every local edit carries a reason', sources.items.every((i: any) => i.patches.every((p: any) => p.what && p.reason)))
 
   // every vendored file is either used by a section or by another vendored file
-  const srcFiles: string[] = []
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry)
-      if (statSync(full).isDirectory()) walk(full)
-      else if (/\.(tsx?|mts)$/.test(entry)) srcFiles.push(full)
-    }
-  }
-  walk(join(siteDir, 'src'))
-  const sourceText = srcFiles.map((f) => readFileSync(f, 'utf8')).join('\n')
+  const sourceText = sourcesText
   const unused = sources.items.filter((item: any) => {
     const spec = item.file.replace(/^src\//, '@/').replace(/\/index\.tsx$/, '').replace(/\.tsx$/, '')
     const asFolder = item.file.replace(/^src\//, '@/')
