@@ -86,12 +86,18 @@ interface FolderSkin {
  */
 const FOLDER_SKINS: Record<FolderRevealColor, FolderSkin> = {
   blue: {
-    back: "oklch(0.56 0.13 250)",
-    backDeep: "oklch(0.49 0.14 250)",
-    edge: "oklch(0.84 0.07 252)",
-    flap: "oklch(0.64 0.14 251)",
-    flapDeep: "oklch(0.57 0.15 251)",
-    label: "oklch(0.98 0.01 250)",
+    // macOS system blue, taken from the accent itself (#0A84FF in dark,
+    // #007AFF in light) rather than from a hue that merely reads as "blue": the
+    // back is the accent a shade deeper, the flap is the accent lightened the
+    // way a Finder folder's front face catches light, and the label is the
+    // near-white Apple puts on that fill. Values are the sRGB accent converted
+    // to oklch, so they stay in the component's own colour space.
+    back: "oklch(0.603 0.218 257.4)",
+    backDeep: "oklch(0.525 0.208 259.5)",
+    edge: "oklch(0.854 0.076 248.1)",
+    flap: "oklch(0.687 0.170 252.1)",
+    flapDeep: "oklch(0.603 0.218 257.4)",
+    label: "oklch(0.975 0.012 259.8)",
   },
   brand: {
     back: "oklch(0.63 0.17 352)",

@@ -113,7 +113,7 @@ export function DesignBoard({ onOpenBrief }: { onOpenBrief?: () => void }) {
               <div>
                 <div className="text-[10.5px] uppercase tracking-wide mb-1" style={{ color: 'var(--ide-faint, var(--text-3))' }}>Palette</div>
                 <div className="flex flex-wrap items-center gap-1">
-                  {d.palette.map((p) => {
+                  {(d.palette ?? []).map((p) => {
                     const hex = /#[0-9a-f]{3,8}/i.exec(p)?.[0] ?? null
                     return (
                       <span key={p} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-mono"
@@ -135,7 +135,7 @@ export function DesignBoard({ onOpenBrief }: { onOpenBrief?: () => void }) {
                 <div>
                   <div className="text-[10.5px] uppercase tracking-wide mb-1" style={{ color: 'var(--ide-faint, var(--text-3))' }}>Components</div>
                   <div className="flex flex-wrap gap-1">
-                    {d.components.map((c) => (
+                    {(d.components ?? []).map((c) => (
                       <button key={c} onClick={() => addComponent(c)} title="Put this component's install line in the box"
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px]"
                         style={{ background: 'var(--ide-surface, var(--surface))', color: 'var(--ide-dim, var(--text-2))' }}>

@@ -832,7 +832,7 @@ function ElementDetail({ data, onClose, onHighlight }: { data: any; onClose: () 
       {data.sel && <div className="font-mono text-[10px] mb-2 break-all" style={{ color: 'var(--ide-faint)' }}>{data.sel}</div>}
       {!!data.flags?.length && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {data.flags.map((f: string, i: number) => (
+          {(data.flags ?? []).map((f: string, i: number) => (
             <span key={i} className="text-[9.5px] px-1.5 py-0.5 rounded-full" style={{ background: 'color-mix(in srgb, var(--warning) 18%, transparent)', color: 'var(--warning)' }}>{f}</span>
           ))}
         </div>

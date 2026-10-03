@@ -186,7 +186,7 @@ export function RecommendationsPanel({ recs, hint, busy, tookMs, watching, notes
             </div>
             <div className="flex flex-col">
               <AnimatePresence initial={false}>
-                {g.items.map((r, i) => {
+                {(g.items ?? []).map((r, i) => {
                   const key = keyOf(r)
                   const isSaved = saved.includes(key)
                   return (

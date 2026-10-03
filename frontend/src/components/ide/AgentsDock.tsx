@@ -224,7 +224,7 @@ function TaskCard({ task, onOpenFile, onOpenChat, onMerge, onDiscard, onStop }: 
 
       {task.claim.length > 0 && (
         <div className="re-task-claim">
-          {task.claim.map((f) => <span key={f} className="re-filechip" title={`${f} — this agent's copy`}>{f}</span>)}
+          {(task.claim ?? []).map((f) => <span key={f} className="re-filechip" title={`${f} — this agent's copy`}>{f}</span>)}
         </div>
       )}
 
@@ -249,7 +249,7 @@ function TaskCard({ task, onOpenFile, onOpenChat, onMerge, onDiscard, onStop }: 
             {showDiff && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden">
-                {task.changes.map((c) => (
+                {(task.changes ?? []).map((c) => (
                   <div key={c.path} className="re-file-row">
                     <button className="re-file-toggle" data-on={c.accepted ? 'true' : 'false'}
                       onClick={() => toggleAccepted(task.id, c.path)}

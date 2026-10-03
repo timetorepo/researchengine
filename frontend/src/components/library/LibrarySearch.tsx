@@ -629,7 +629,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                   </p>
                 )}
                 <div className="flex flex-col gap-2">
-                  {g.hits.map((h) => (
+                  {(g.hits ?? []).map((h) => (
                     <motion.div key={h.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                       className="surface p-3 flex items-start gap-3">
                       <meta.Icon size={15} className="mt-0.5 shrink-0" style={{ color: meta.tone }} />

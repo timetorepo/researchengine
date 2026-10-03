@@ -119,10 +119,10 @@ export function AgentSafety() {
         {access.mode !== 'full' && (
           <div className="flex flex-col gap-1.5">
             <span className="text-[10.5px] uppercase tracking-wide" style={{ color: 'var(--ide-faint)' }}>Folders the AI may read</span>
-            {access.roots.length === 0 && (
+            {(access.roots ?? []).length === 0 && (
               <span className="text-[11px]" style={{ color: 'var(--ide-faint)' }}>None yet — the project folder is always included.</span>
             )}
-            {access.roots.map((root) => (
+            {(access.roots ?? []).map((root) => (
               <div key={root} className="flex items-center gap-2 text-[11.5px] font-mono" style={{ color: 'var(--ide-dim)' }}>
                 <FolderKey size={11} />
                 <span className="truncate">{root}</span>

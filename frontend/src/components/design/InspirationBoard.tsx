@@ -149,7 +149,7 @@ export function InspirationBoard({ onDone }: { onDone?: () => void }) {
                 {i.note && <p className="text-[11px] mt-0.5" style={{ color: 'var(--ide-dim, var(--text-2))' }}>{i.note}</p>}
                 {!!i.palette?.length && (
                   <div className="flex gap-1 mt-1">
-                    {i.palette.map((c) => <span key={c} title={c} className="w-3.5 h-3.5 rounded-full" style={{ background: c, border: '1px solid var(--ide-line, var(--surface-border))' }} />)}
+                    {(i.palette ?? []).map((c) => <span key={c} title={c} className="w-3.5 h-3.5 rounded-full" style={{ background: c, border: '1px solid var(--ide-line, var(--surface-border))' }} />)}
                   </div>
                 )}
               </div>

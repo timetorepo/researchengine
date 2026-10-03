@@ -3145,3 +3145,17 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
   .re-glassbtn:active:not(:disabled), .re-reviewbar-btn:active { transform: none; }
   .re-glassbtn.grow::after { display: none; }
 }
+
+/* --------------------------------------------------------------------------
+   IDE strips scroll sideways on a trackpad or a wheel, so the bar itself can
+   stay out of the way: three pixels, only while scrolling, and never a second
+   row of content. Before this, a wrapped panel tab and a wrapped hint sentence
+   were what a narrow workspace looked like.
+   -------------------------------------------------------------------------- */
+.ide-tabstrip, .ide-tabscroll { scrollbar-width: thin; }
+.ide-tabstrip::-webkit-scrollbar, .ide-tabscroll::-webkit-scrollbar { height: 3px; }
+.ide-tabstrip::-webkit-scrollbar-track, .ide-tabscroll::-webkit-scrollbar-track { background: transparent; }
+.ide-tabstrip::-webkit-scrollbar-thumb, .ide-tabscroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ide-faint) 45%, transparent);
+  border-radius: 3px;
+}

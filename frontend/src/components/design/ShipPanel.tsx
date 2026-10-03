@@ -48,7 +48,7 @@ export function ShipPanel({ project, files }: { project: string; files: string[]
   const copyManual = async () => {
     const text = [
       `${t.name} — what is left for you:`,
-      ...t.manual.map((m, i) => `${i + 1}. ${m}`),
+      ...(t.manual ?? []).map((m, i) => `${i + 1}. ${m}`),
       '',
       'Checklist before you press deploy:',
       ...checklist.map((c) => `- ${c}`),
@@ -123,7 +123,7 @@ export function ShipPanel({ project, files }: { project: string; files: string[]
             Only you can do these
           </span>
           <ol className="flex flex-col gap-1">
-            {t.manual.map((m, i) => (
+            {(t.manual ?? []).map((m, i) => (
               <li key={i} className="flex gap-2 text-[11.5px]" style={{ color: 'var(--ide-dim, var(--text-2))' }}>
                 <span className="shrink-0 w-[16px] h-[16px] rounded-full grid place-items-center text-[10px]"
                   style={{ background: 'var(--ide-hover, var(--elevated))', color: 'var(--ide-faint, var(--text-3))' }}>{i + 1}</span>

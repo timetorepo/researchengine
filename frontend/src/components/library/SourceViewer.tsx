@@ -155,7 +155,7 @@ export function SourceViewer({ source, onClose, onSave }: {
 
   const body = useMemo(() => {
     if (!doc) return null
-    return doc.blocks.map((b, i) => {
+    return (doc.blocks ?? []).map((b, i) => {
       if (b.type === 'heading') {
         const size = b.level === 1 ? 'text-[19px]' : b.level === 2 ? 'text-[16px]' : 'text-[14px]'
         return (
@@ -310,7 +310,7 @@ export function SourceViewer({ source, onClose, onSave }: {
                       <div className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>
                         <List size={10} /> Sections
                       </div>
-                      {doc.outline.map((s) => (
+                      {(doc.outline ?? []).map((s) => (
                         <button key={s.id} onClick={() => jump(s.id)}
                           className="text-left text-[11.5px] leading-snug px-2 py-1 rounded-[8px] transition-colors"
                           style={{

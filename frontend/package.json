@@ -18,6 +18,8 @@
     "r18-ui-test": "tsx scripts/r18-ui-test.mts",
     "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts",
     "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts",
+    "resilience-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/resilience-test.mts",
+    "resources-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/resources-test.mts",
     "sample-test": "tsx scripts/sample-test.mts",
     "smoke": "tsx scripts/smoke.mts",
     "ui-lab-test": "tsx --tsconfig tsconfig.json scripts/ui-lab-test.mts",

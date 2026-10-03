@@ -900,22 +900,27 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
 
           {/* bottom panel */}
           {!focus && (
-          <div className="ide-panel-strip shrink-0 flex flex-col" style={{ height: panelOpen ? 220 : undefined }}>
-            <div className="flex items-center gap-1 px-2 py-1 shrink-0">
-              <PanelTabBtn group="bottom" active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
-              <PanelTabBtn group="bottom" active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
-              <PanelTabBtn group="bottom" active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
-              <PanelTabBtn group="bottom" active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
-              <PanelTabBtn group="bottom" active={panel === 'safety'} onClick={() => { setPanel('safety'); setPanelOpen(true) }} icon={<ShieldCheck size={12} />} label="Agent access" />
-              <PanelTabBtn group="bottom" active={panel === 'frameworks'} onClick={() => { setPanel('frameworks'); setPanelOpen(true) }} icon={<Boxes size={12} />} label="Frameworks" />
+          <div className="ide-panel-strip shrink-0 flex flex-col min-w-0 overflow-hidden" style={{ height: panelOpen ? 220 : undefined }}>
+            {/* The tabs scroll sideways rather than wrap: a two-line tab strip is
+                what a wrapped label looks like, and it eats the terminal. The
+                guard note that used to sit at the end of this row now lives in
+                the status bar, where a long sentence cannot change a layout. */}
+            <div className="flex items-center gap-1 px-2 py-1 shrink-0 min-w-0">
+              <div className="flex items-center gap-1 min-w-0 overflow-x-auto ide-tabscroll">
+                <PanelTabBtn group="bottom" active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
+                <PanelTabBtn group="bottom" active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
+                <PanelTabBtn group="bottom" active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
+                <PanelTabBtn group="bottom" active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
+                <PanelTabBtn group="bottom" active={panel === 'safety'} onClick={() => { setPanel('safety'); setPanelOpen(true) }} icon={<ShieldCheck size={12} />} label="Agent access" />
+                <PanelTabBtn group="bottom" active={panel === 'frameworks'} onClick={() => { setPanel('frameworks'); setPanelOpen(true) }} icon={<Boxes size={12} />} label="Frameworks" />
+              </div>
               <div className="flex-1" />
-              <span className="text-[10px] hidden lg:block" style={{ color: 'var(--ide-faint)' }}>commands run inside the project folder · destructive commands are blocked · mutating ones need approval</span>
-              <button onClick={() => setPanelOpen((v) => !v)} className="ide-icon-btn" style={{ width: 22, height: 22 }} aria-label="Toggle panel">
+              <button onClick={() => setPanelOpen((v) => !v)} className="ide-icon-btn shrink-0" style={{ width: 22, height: 22 }} aria-label="Toggle panel">
                 <ChevronDown size={12} style={{ transform: panelOpen ? undefined : 'rotate(180deg)' }} />
               </button>
             </div>
             {panelOpen && (
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 {panel === 'terminal' && <TerminalPanel project={project} />}
                 {panel === 'safety' && <AgentSafety />}
                 {panel === 'frameworks' && <FrameworksPanel project={project} files={tree.map((t) => t.path)} />}
@@ -1017,6 +1022,11 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
       <div className="shrink-0 h-[28px] flex items-center gap-1 px-2 text-[10.5px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)', color: 'var(--ide-faint)' }}>
         <StatusItem motionKind="grow" icon={<FolderOpen size={10} />} onClick={onBack} title="Back to projects">{project}</StatusItem>
         <StatusItem icon={<GitBranch size={10} />} title="This project runs on your machine — nothing is pushed anywhere">local</StatusItem>
+        <StatusItem icon={<ShieldCheck size={10} />}
+          title="Commands run inside the project folder, destructive commands are blocked, and mutating ones need your approval."
+          onClick={() => { setPanel('safety'); setPanelOpen(true) }}>
+          guarded
+        </StatusItem>
         {current && <StatusItem icon={null} title={current.path}><span className="font-mono" style={{ color: 'var(--ide-dim)' }}>{current.path}</span></StatusItem>}
         {dirty && <StatusItem icon={<Circle size={6} fill="currentColor" />} tone="var(--ide-warn)">unsaved</StatusItem>}
         {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span className="px-1">{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
@@ -1113,9 +1123,9 @@ function ActivityBtn({ active, onClick, icon, label, badge }: { active: boolean;
  */
 function PanelTabBtn({ active, onClick, icon, label, group }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; group: string }) {
   return (
-    <button onClick={onClick} className="relative flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-[11.5px] transition-colors"
+    <button onClick={onClick} className="relative shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-[11.5px] whitespace-nowrap transition-colors"
       style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-text)' : 'var(--ide-faint)' }}>
-      <span className="relative z-10 flex items-center gap-1.5">{icon}{label}</span>
+      <span className="relative z-10 flex items-center gap-1.5 whitespace-nowrap">{icon}{label}</span>
       {active && (
         <motion.span layoutId={`ide-panel-underline-${group}`}
           className="absolute left-1.5 right-1.5 -bottom-[7px] h-[2px] rounded-full"
@@ -1203,7 +1213,7 @@ function TerminalPanel({ project }: { project: string }) {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)' }} ref={logRef}>
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-3 py-2 font-mono text-[11.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)' }} ref={logRef}>
         {lines.map((l, i) => (
           <div key={i} className="whitespace-pre-wrap" style={{ color: l.kind === 'cmd' ? 'var(--ide-accent)' : l.kind === 'err' ? 'var(--ide-danger)' : l.kind === 'info' ? 'var(--ide-faint)' : 'var(--ide-text)' }}>{l.text}</div>
         ))}
@@ -1221,7 +1231,7 @@ function TerminalPanel({ project }: { project: string }) {
         )}
 
       </div>
-      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0" style={{ borderTop: '1px solid var(--ide-border)' }}>
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 min-w-0" style={{ borderTop: '1px solid var(--ide-border)' }}>
         <span className="font-mono text-[11.5px]" style={{ color: 'var(--ide-accent)' }}>$</span>
         <input value={cmd} onChange={(e) => setCmd(e.target.value)}
           onKeyDown={(e) => {

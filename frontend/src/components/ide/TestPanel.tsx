@@ -49,7 +49,7 @@ function RunCard({ run, compact = false }: { run: TestRun; compact?: boolean }) 
       </div>
 
       <div className={compact ? 'max-h-40 overflow-y-auto' : ''}>
-        {run.steps.map((s, i) => (
+        {(run.steps ?? []).map((s, i) => (
           <div key={i} className="flex items-start gap-2 px-2.5 py-1.5"
             style={{ borderTop: i ? '1px solid var(--ide-border)' : undefined }}>
             <span className="mt-[2px]"><StatusIcon status={s.status} /></span>

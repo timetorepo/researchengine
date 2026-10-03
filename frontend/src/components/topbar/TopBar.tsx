@@ -10,6 +10,7 @@ import { FocusPill } from '@/components/shared/FocusPill'
 import { BUILD_ID } from '@/components/settings/AboutTab'
 import { useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
+import { ResourceMeter } from '@/components/topbar/ResourceMeter'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
 import AIContextMeter from '@/components/smoothui/ai-context-meter'
 import { contextWindowFor } from '@/lib/providers/context-window'
@@ -147,6 +148,11 @@ export function TopBar() {
           </button>
         </div>
       )}
+      {/* Live machine load — memory, processor and GPU, from the server's own
+          samples. Sits beside the privacy shield because it answers the other
+          "what is this app doing" question. */}
+      <ResourceMeter />
+
       <PrivacyShield compact amber={anyIntegration} />
 
       {/* Focus timer — same idea: it belongs to the shell, not the sidebar. */}

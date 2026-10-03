@@ -336,7 +336,7 @@ export function AgentPanel({
               <div className="flex flex-col items-end gap-1">
                 {!!m.attachments?.length && (
                   <div className="flex gap-1.5 flex-wrap justify-end">
-                    {m.attachments.map((a, i) => (
+                    {(m.attachments ?? []).map((a, i) => (
                       <img key={i} src={a.dataUrl} alt={a.name} className="max-h-24 rounded-[8px]" style={{ border: '1px solid var(--ide-border-strong)' }} />
                     ))}
                   </div>

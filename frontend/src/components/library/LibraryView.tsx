@@ -187,7 +187,7 @@ function Knowledge({ q }: { q: string; onQuery: (q: string) => void }) {
               </div>
               <p className="text-[12px] leading-relaxed mb-2" style={{ color: 'var(--text-2)' }}>{c.insight}</p>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {c.tags.map((t) => <span key={t} className="px-1.5 py-0.5 rounded-full text-[9.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>#{t}</span>)}
+                {(c.tags ?? []).map((t) => <span key={t} className="px-1.5 py-0.5 rounded-full text-[9.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>#{t}</span>)}
                 <span className="text-[10px] ml-auto" style={{ color: 'var(--text-3)' }}>{c.source}</span>
               </div>
             </motion.div>
