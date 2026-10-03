@@ -1209,6 +1209,8 @@ body {
 @media (prefers-reduced-motion: reduce) { .ide-pane { animation: none; } }
 .ide-pane-elev { box-shadow: var(--ide-shadow); }
 .ide-rail { padding-top: 6px; padding-bottom: 6px; }
+/* A hairline between the groups in a strip that holds too many tools. */
+.ide-rail-sep { width: 1px; height: 14px; flex: none; margin: 0 3px; background: var(--ide-border); }
 .ide-panel-strip { background: color-mix(in srgb, var(--ide-panel) 62%, var(--ide-bg)); }
 
 /* The status bar is two glass pills with the canvas showing between them. */

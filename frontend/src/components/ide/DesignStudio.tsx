@@ -17,6 +17,7 @@ import {
   designSession, captureStore, attachmentTray, previewUrlFor, type Snapshot, type ControlInfo, type Finding, type Capture,
 } from '@/lib/ide/bridge'
 import { DEVICE_PRESETS, ensurePreviewServer, previewStatus, stopPreview, type PreviewState, type DeviceId } from '@/lib/ide/preview'
+import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { GridOverlay, defaultGrids, type GridOptions } from '@/components/design/DevicePreview'
 import { ComponentHub } from '@/components/design/ComponentHub'
 import { DesignBrief } from '@/components/design/DesignBrief'
@@ -35,6 +36,24 @@ const KIND_TONE: Record<string, string> = {
 
 function useCaptures(): Capture[] {
   return useSyncExternalStore(captureStore.subscribe, captureStore.get, captureStore.get)
+}
+
+/**
+ * The Appearance colour, read at the moment the marquee is asked for.
+ *
+ * The pick highlight is drawn inside the preview frame, which is a different
+ * document from this one and cannot see this window's CSS. So the colour is
+ * handed across with the call: whatever theme is selected, the marquee is that
+ * theme's accent, and switching the theme and pointing again shows the new
+ * colour without a reload.
+ */
+function themeAccent(): { accent?: string; soft?: string; ink?: string } {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return {}
+  const cs = getComputedStyle(document.documentElement)
+  const accent = (cs.getPropertyValue('--primary') || '').trim()
+  if (!accent) return {}
+  const ink = (cs.getPropertyValue('--primary-fg') || '').trim() || '#ffffff'
+  return { accent, soft: `color-mix(in srgb, ${accent} 16%, transparent)`, ink }
 }
 
 export function DesignStudio({ project, tree, onExit }: { project: string; tree: TreeNode[]; onExit: () => void }) {
@@ -112,6 +131,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [controls, setControls] = useState<ControlInfo[]>([])
   const [selected, setSelected] = useState<any>(null)
+  const inspectListRef = useRef<HTMLDivElement>(null)
   const [inspectFilter, setInspectFilter] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [logOpen, setLogOpen] = useState(false)
@@ -252,6 +272,15 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           setBanner('Pointed at it — finish the sentence in the assistant below.')
         } else {
           setTab('inspect')
+          // The picked element is already in the list, so bring its row under
+          // the detail card instead of leaving the user to hunt for it. Same
+          // rule as everywhere else: the container scrolls, never the page.
+          const uid = e.payload?.uid
+          requestAnimationFrame(() => {
+            const list = inspectListRef.current
+            const row = uid ? list?.querySelector(`[data-el-uid="${uid}"]`) as HTMLElement | null : null
+            scrollChildIntoView(list, row, { block: 'nearest', smooth: true })
+          })
         }
       }
       if (e.type === 'unloading') { setSnapshot(null); setControls([]) }
@@ -283,7 +312,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
     pointingRef.current = true
     await Promise.allSettled([
       designSession.call('cursor', { on: true }, 6000),
-      designSession.call('pick', { on: true }, 6000),
+      designSession.call('pick', { on: true, ...themeAccent() }, 6000),
     ])
     setPicking(true)
     setTab('assistant')
@@ -325,13 +354,13 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
   const togglePick = () => {
     if (pointing) { endPointing(); setBanner(''); return }
     return call('pick', async () => {
-      const out = await designSession.call('pick', { on: !picking }, 8000)
+      const out = await designSession.call('pick', { on: !picking, ...themeAccent() }, 8000)
       setPicking(!!out?.picking)
     })
   }
 
   const highlight = (sel: string) => call('hl', async () => {
-    const out = await designSession.call('highlight', { target: sel, keep: true }, 8000)
+    const out = await designSession.call('highlight', { target: sel, keep: true, ...themeAccent() }, 8000)
     if (out?.rect) setSnapshot((s) => s) // rect flash is drawn in the page
   })
 
@@ -425,11 +454,15 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 flex">
+      {/* The studio is the same kind of page as the code workspace: a canvas
+          with panels nested on it. The screen is a panel, the inspector is a
+          panel, and the findings strip is a third. */}
+      <div className="ide-canvas flex-1 min-h-0 flex">
         {/* ---- preview column ---- */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 min-h-0">
+          <div className="ide-pane ide-pane-elev flex-1 min-h-0 flex flex-col">
           {/* address + device bar */}
-          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 flex-wrap" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 flex-wrap" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <div className="flex items-center gap-1.5 flex-1 min-w-[180px] px-2 py-1 rounded-[6px]"
               style={{ background: 'color-mix(in srgb, var(--bg) 65%, var(--surface))', border: '1px solid var(--ide-border)' }}>
               <span className="text-[10.5px] shrink-0" style={{ color: designSession.lastUrl ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
@@ -504,7 +537,20 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
 
           {/* the screen */}
           <div ref={previewPaneRef} data-preview-pane className="relative flex-1 min-h-0 overflow-auto p-4 grid place-items-center"
-            style={{ background: 'var(--ide-bg)', cursor: pointing ? 'none' : undefined }}>
+            style={{
+              background: 'var(--ide-bg)',
+              cursor: pointing ? 'none' : undefined,
+              // While the picker is armed the surface says so, in the colour the
+              // marquee will be drawn in.
+              outline: picking ? '2px solid color-mix(in srgb, var(--ide-accent) 55%, transparent)' : undefined,
+              outlineOffset: -2,
+            }}>
+            {picking && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-2.5 py-1 rounded-full text-[10.5px] font-medium pointer-events-none"
+                style={{ background: 'var(--ide-accent)', color: 'var(--ide-accent-ink)' }}>
+                {pointing ? `${pointerName} is pointing — click an element` : 'Picking — click an element'}
+              </div>
+            )}
             {/* The pointer carries the user's own avatar and name — their
                 profile, not a stock cursor — and only exists while they are
                 pointing, so it can never be mistaken for the system arrow. */}
@@ -576,8 +622,10 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             </div>
           )}
 
+          </div>
+
           {/* findings strip */}
-          <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+          <div className="ide-pane shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px]">
             <Activity size={12} style={{ color: findings.length ? 'var(--ide-warn)' : 'var(--ide-accent)' }} />
             <span style={{ color: 'var(--ide-dim)' }}>
               {snapshot ? `${snapshot.elements.length} elements · ${snapshot.counts.interactive} controls · ${findings.length} finding(s)` : 'waiting for the page…'}
@@ -599,18 +647,23 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             className="re-split-handle" role="separator" aria-orientation="vertical" aria-label="Resize the preview"
             title="Drag to resize · double-click to toggle" />
         )}
-        <aside className="shrink-0 min-h-0 flex flex-col"
-          style={{ width: focusPreview ? 0 : inspectorW, display: focusPreview ? 'none' : undefined, borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
-          <div className="shrink-0 flex items-center gap-0.5 px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
+        <aside className="ide-pane shrink-0 min-h-0 flex flex-col"
+          style={{ width: focusPreview ? 0 : inspectorW, display: focusPreview ? 'none' : undefined }}>
+          {/* Eleven tools in one strip: scrolls sideways on the same three-pixel
+              bar the code page uses, with a hairline between the three groups so
+              the row reads as work · design · ship rather than a flat list. */}
+          <div className="shrink-0 flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto ide-tabscroll" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <RailTab active={tab === 'assistant'} onClick={() => setTab('assistant')} icon={<Sparkles size={12} />} label="Assistant" />
             <RailTab active={tab === 'inspect'} onClick={() => setTab('inspect')} icon={<Search size={12} />} label="Inspect" badge={snapshot?.elements.length} />
             <RailTab active={tab === 'tests'} onClick={() => setTab('tests')} icon={<ListChecks size={12} />} label="Tests" badge={controls.length} />
             <RailTab active={tab === 'console'} onClick={() => setTab('console')} icon={<Terminal size={12} />} label="Console" badge={errorCount || undefined} tone={errorCount ? 'var(--danger)' : undefined} />
             <RailTab active={tab === 'captures'} onClick={() => setTab('captures')} icon={<ImageIcon size={12} />} label="Shots" badge={captures.length || undefined} />
+            <span className="ide-rail-sep" aria-hidden />
             <RailTab active={tab === 'board'} onClick={() => setTab('board')} icon={<LayoutGrid size={12} />} label="Board" />
             <RailTab active={tab === 'brief'} onClick={() => setTab('brief')} icon={<ClipboardList size={12} />} label="Brief" />
             <RailTab active={tab === 'hub'} onClick={() => setTab('hub')} icon={<Boxes size={12} />} label="Components" />
             <RailTab active={tab === 'inspo'} onClick={() => setTab('inspo')} icon={<Lightbulb size={12} />} label="Inspiration" />
+            <span className="ide-rail-sep" aria-hidden />
             <RailTab active={tab === 'prototype'} onClick={() => setTab('prototype')} icon={<Tv size={12} />} label="Prototype" />
             <RailTab active={tab === 'ship'} onClick={() => setTab('ship')} icon={<Rocket size={12} />} label="Ship" />
           </div>
@@ -650,7 +703,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
 
             {tab === 'inspo' && (
               <div className="h-full overflow-y-auto p-3">
-                <InspirationBoard onDone={() => setTab('board')} />
+                <InspirationBoard onDone={() => setTab('board')} onOpenComponents={() => setTab('hub')} />
               </div>
             )}
 
@@ -674,9 +727,9 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                 {selected && (
                   <ElementDetail data={selected} onClose={() => setSelected(null)} onHighlight={highlight} />
                 )}
-                <div className="flex flex-col gap-1">
+                <div ref={inspectListRef} className="flex flex-col gap-1">
                   {filteredElements.slice(0, 80).map((el: any) => (
-                    <button key={el.uid} onClick={() => { setSelected(el); void highlight(el.sel) }}
+                    <button key={el.uid} data-el-uid={el.uid} onClick={() => { setSelected(el); void highlight(el.sel) }}
                       className="text-left px-2 py-1.5 rounded-[8px] flex items-start gap-2"
                       style={{ background: 'var(--ide-elevated)', border: '1px solid var(--ide-border)' }}>
                       <span className="text-[9.5px] px-1 py-0.5 rounded shrink-0" style={{ background: 'var(--ide-accent-soft)', color: 'var(--ide-accent)' }}>{el.role}</span>

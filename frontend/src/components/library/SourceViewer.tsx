@@ -61,10 +61,19 @@ type Tab = 'read' | 'browser'
 
 const host = (u?: string) => { try { return u ? new URL(u).hostname.replace(/^www\./, '') : '' } catch { return '' } }
 
-export function SourceViewer({ source, onClose, onSave }: {
+export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }: {
   source: OpenSource | null
   onClose: () => void
   onSave?: (s: OpenSource) => void
+  /** Keep this page as a reference — Design mode's version of Save. */
+  onKeep?: (s: OpenSource) => void
+  /**
+   * Inline drops the modal: same header, same two ways to read the page, but it
+   * stands in a pane of the caller's layout instead of covering the window. The
+   * Library wants the modal — it is a reading break. Design mode wants it in the
+   * studio, next to the screen it is comparing against.
+   */
+  inline?: boolean
 }) {
   const reduce = useReducedMotion()
   const [tab, setTab] = useState<Tab>('read')
@@ -213,6 +222,14 @@ export function SourceViewer({ source, onClose, onSave }: {
     backdropFilter: 'blur(26px) saturate(140%)',
   } as React.CSSProperties
 
+  // Standing in a pane of the studio rather than over the window: the same
+  // surface the panels around it use, with none of the modal shadow.
+  const inlineShell = {
+    borderRadius: 13,
+    background: 'var(--ide-panel, var(--surface))',
+    border: '1px solid var(--ide-border, var(--surface-border))',
+  } as React.CSSProperties
+
   const h = host(source?.url)
   const favicon = source?.favicon ?? (h ? `https://www.google.com/s2/favicons?domain=${h}&sz=64` : undefined)
 
@@ -220,10 +237,10 @@ export function SourceViewer({ source, onClose, onSave }: {
     <AnimatePresence>
       {open && source && (
         <motion.div
-          className="fixed inset-0 z-[95] flex items-center justify-center p-3 sm:p-6"
+          className={inline ? 'flex flex-col h-full min-h-0' : 'fixed inset-0 z-[95] flex items-center justify-center p-3 sm:p-6'}
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          style={{ background: 'rgba(6,8,12,.55)' }}
-          onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+          style={inline ? undefined : { background: 'rgba(6,8,12,.55)' }}
+          onMouseDown={inline ? undefined : (e) => { if (e.target === e.currentTarget) onClose() }}>
           <motion.div
             ref={panelRef}
             data-ui="source-viewer"
@@ -231,8 +248,10 @@ export function SourceViewer({ source, onClose, onSave }: {
             animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, borderRadius: 30, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.975, borderRadius: 44, y: 8 }}
             transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.9 }}
-            className="relative w-full max-w-[1080px] h-[86vh] flex flex-col overflow-hidden"
-            style={squircle}>
+            className={inline
+              ? 'relative w-full h-full flex flex-col overflow-hidden'
+              : 'relative w-full max-w-[1080px] h-[86vh] flex flex-col overflow-hidden'}
+            style={inline ? inlineShell : squircle}>
 
             {/* header — the site, the two ways to read it, and the actions */}
             <div className="flex items-center gap-2.5 px-4 py-3 shrink-0"
@@ -278,6 +297,14 @@ export function SourceViewer({ source, onClose, onSave }: {
                 ))}
               </div>
 
+              {onKeep && (
+                <button onClick={() => onKeep({ ...source, title: doc?.title || source.title || h || source.url })}
+                  title="Keep this page as a design reference"
+                  className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11.5px]"
+                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                  <Star size={11} /> Keep
+                </button>
+              )}
               {onSave && (
                 <button onClick={() => onSave(source)} title="Save this source to the library"
                   className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11.5px]"

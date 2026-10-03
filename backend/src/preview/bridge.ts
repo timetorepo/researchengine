@@ -480,27 +480,90 @@ export const BRIDGE_JS = String.raw`
   }
 
   /* ---------------- overlay highlighting ---------------- */
+  // The marquee is drawn by *this* document, and this document is a different
+  // origin from the app: it cannot read the app's CSS, so the Appearance colour
+  // travels across with each call. When none arrives the original green stands
+  // in and the bridge still works on its own.
+  var marquee = { line: '#3ddc84', soft: 'rgba(61,220,132,0.14)', ink: '#05170e' };
+  function paintOverlay() {
+    if (!overlay) return;
+    overlay.style.borderColor = marquee.line;
+    overlay.style.background = marquee.soft;
+    var label = overlay.firstChild;
+    if (label) { label.style.background = marquee.line; label.style.color = marquee.ink; }
+  }
+  function setMarquee(a) {
+    if (!a) return;
+    if (a.accent) marquee.line = a.accent;
+    if (a.soft) marquee.soft = a.soft;
+    if (a.ink) marquee.ink = a.ink;
+    paintOverlay();
+  }
   function ensureOverlay() {
     if (overlay && overlay.parentNode) return overlay;
     overlay = document.createElement('div');
     overlay.setAttribute('data-re-overlay', '1');
-    overlay.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;border:2px solid #3ddc84;background:rgba(61,220,132,0.14);border-radius:4px;transition:all .12s ease;top:0;left:0;width:0;height:0;' +
-      'font:600 10px/1.2 system-ui,sans-serif;color:#05170e;box-shadow:0 6px 24px rgba(0,0,0,.35)';
-    overlay.innerHTML = '<span style="position:absolute;top:-18px;left:0;background:#3ddc84;color:#05170e;padding:1px 5px;border-radius:4px;white-space:nowrap"></span>';
+    overlay.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;border:2px solid ' + marquee.line + ';background:' + marquee.soft + ';border-radius:7px;top:0;left:0;width:0;height:0;opacity:0;box-sizing:border-box;will-change:transform,width,height;transition:opacity .16s ease;' +
+      'font:600 10px/1.2 system-ui,sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.3)';
+    overlay.innerHTML = '<span style="position:absolute;top:-19px;left:-2px;background:' + marquee.line + ';color:' + marquee.ink + ';padding:2px 6px;border-radius:5px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.25)"></span>';
     (document.body || document.documentElement).appendChild(overlay);
     return overlay;
   }
+
+  // Smoother than the CSS transition this used to have, which snapped whenever
+  // the pointer crossed from one element into the next. The box is lerped
+  // toward its target once per frame instead, so it travels between elements
+  // like a hand does, and it only asks for a frame while it is still moving.
+  // With reduced motion asked for, it is simply where the pointer is.
+  var target = { x: 0, y: 0, w: 0, h: 0 };
+  var shown = { x: 0, y: 0, w: 0, h: 0 };
+  var rafId = 0, fadeTimer = 0, hovered = null;
+  var reduceMotion = false;
+  try { reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
+
+  function tick() {
+    rafId = 0;
+    if (!overlay) return;
+    var k = reduceMotion ? 1 : 0.32;
+    shown.x += (target.x - shown.x) * k;
+    shown.y += (target.y - shown.y) * k;
+    shown.w += (target.w - shown.w) * k;
+    shown.h += (target.h - shown.h) * k;
+    overlay.style.transform = 'translate3d(' + shown.x.toFixed(2) + 'px,' + shown.y.toFixed(2) + 'px,0)';
+    overlay.style.width = Math.max(0, shown.w).toFixed(2) + 'px';
+    overlay.style.height = Math.max(0, shown.h).toFixed(2) + 'px';
+    var moving = Math.abs(target.x - shown.x) > 0.4 || Math.abs(target.y - shown.y) > 0.4 ||
+      Math.abs(target.w - shown.w) > 0.4 || Math.abs(target.h - shown.h) > 0.4;
+    if (moving) { rafId = requestAnimationFrame(tick); }
+    // The letting-go is a timer, not another frame: once the box has settled it
+    // stops asking for frames, so a frame-based fade would simply never arrive.
+  }
+  function retarget(r) {
+    target.x = r.left; target.y = r.top; target.w = r.width; target.h = r.height;
+    var o = ensureOverlay();
+    o.style.opacity = '1';
+    if (reduceMotion) { shown.x = target.x; shown.y = target.y; shown.w = target.w; shown.h = target.h; }
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+  function hideOverlay() {
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = 0; }
+    if (!overlay) return;
+    overlay.style.opacity = '0';
+  }
   function highlight(el, keep) {
     var o = ensureOverlay();
-    if (!el) { o.style.width = '0px'; o.style.height = '0px'; return { ok: true }; }
+    if (!el) { target.w = 0; target.h = 0; hideOverlay(); return { ok: true }; }
     var r = el.getBoundingClientRect();
-    o.style.top = r.top + 'px'; o.style.left = r.left + 'px';
-    o.style.width = r.width + 'px'; o.style.height = r.height + 'px';
+    retarget(r);
     o.firstChild.textContent = el.tagName.toLowerCase() + ' · ' + Math.round(r.width) + '×' + Math.round(r.height) + (accessibleName(el) ? ' · ' + accessibleName(el).slice(0, 40) : '');
-    if (!keep) setTimeout(function () { if (overlay) { overlay.style.width = '0px'; overlay.style.height = '0px'; } }, 1400);
+    // A picked element lingers for a moment and then lets go; a kept highlight
+    // stays until something else is pointed at.
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = 0; }
+    if (!keep) fadeTimer = setTimeout(hideOverlay, 1400);
+    if (!rafId) rafId = requestAnimationFrame(tick);
     return { ok: true, rect: rectOf(el) };
   }
-  window.addEventListener('scroll', function () { if (overlay) { overlay.style.width = '0px'; overlay.style.height = '0px'; } }, true);
+  window.addEventListener('scroll', hideOverlay, true);
 
   /* ---------------- pointer cursor ---------------- */
   // The design-mode pointer draws the user's own avatar where the mouse is, so
@@ -547,9 +610,17 @@ export const BRIDGE_JS = String.raw`
   var pickHandler = null, pickHover = null;
   function setPick(on) {
     pickMode = !!on;
+    hovered = null;
     if (pickHandler) { document.removeEventListener('mousemove', pickHover, true); document.removeEventListener('click', pickHandler, true); pickHandler = null; }
     if (!pickMode) { return { ok: true, picking: false }; }
-    pickHover = function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-re-overlay')) return; highlight(e.target, true); };
+    pickHover = function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute || t.getAttribute('data-re-overlay')) return;
+      // Same element as the last move: nothing to measure, nothing to paint.
+      if (t === hovered) return;
+      hovered = t;
+      highlight(t, true);
+    };
     pickHandler = function (e) {
       e.preventDefault(); e.stopPropagation();
       var el = e.target;
@@ -767,8 +838,8 @@ export const BRIDGE_JS = String.raw`
           var checks = (args.checks || []).map(checkOne);
           return done({ passed: checks.filter(function (c) { return c.pass; }).length, total: checks.length, results: checks, allPassed: checks.every(function (c) { return c.pass; }) });
         }
-        case 'highlight': { return done(highlight(args.target ? resolve(args.target) : null, !!args.keep)); }
-        case 'pick': return done(setPick(args.on !== false));
+        case 'highlight': { setMarquee(args); return done(highlight(args.target ? resolve(args.target) : null, !!args.keep)); }
+        case 'pick': { setMarquee(args); return done(setPick(args.on !== false)); }
         case 'cursor': return done(setPointerCursor(args.on !== false));
         case 'console': { var tail = consoleTail(args.limit || 40); if (args.clear) { consoleLog = []; networkLog = []; } return done({ entries: tail, network: networkLog.slice(-10) }); }
         case 'metrics': return done(metrics());
