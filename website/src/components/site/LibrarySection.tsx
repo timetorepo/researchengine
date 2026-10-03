@@ -78,12 +78,16 @@ export function LibrarySection() {
                 folderSize={{ width: 44, height: 33 }}
                 hoverImageSize={{ width: 82, height: 56 }}
                 hoverSpread={28}
-                images={SCREENS.slice(0, 3).map((screen) => screen.src)}
-                text={`${SCREENS.length} screenshots`}
+                /* The badge fans three pictures by design (it caps at three);
+                   the label names the folder rather than a number it cannot
+                   show, and the line beside it says how many there are. */
+                images={SCREENS.map((screen) => screen.src)}
+                text="Screenshots"
               />
             </div>
             <span className="text-[13px] leading-relaxed text-[var(--text-3)]">
-              Every screen of the app, in one folder. Hover to peek, click to open them full size.
+              Every screen of the app, in one folder: {SCREENS.length} of them. Hover to peek, click to open
+              them all full size.
               <span className="mt-1 flex items-center gap-1.5 text-[var(--text-2)]">
                 <Maximize2 className="h-3 w-3" /> Open the gallery
               </span>
