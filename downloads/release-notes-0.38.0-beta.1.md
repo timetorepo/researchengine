@@ -87,7 +87,7 @@ actually hold.
 
 From the first version to the latest, newest first and each one selectable — a
 224 px rail of versions beside the release's own page, with search, arrow-key
-stepping, and the running build at the top. The record covers 29 releases and 606
+stepping, and the running build at the top. The record covers 30 releases and 634
 items, generated from the releases themselves, so it cannot drift from what
 shipped.
 
