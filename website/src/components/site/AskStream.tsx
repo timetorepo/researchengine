@@ -58,7 +58,7 @@ export const EXCHANGES: Exchange[] = [
     answer:
       'The search now reports why a source failed instead of showing an empty panel, and the exit animation hides the text it was typing. Your library was not part of the swap: updates replace the code, verify the download against its published fingerprint first, and put the old version back if the new one cannot start.',
     sources: [
-      { label: 'Release notes', note: 'v0.36.0-beta.1' },
+      { label: 'Release notes', note: 'v0.37.0-beta.1' },
       { label: 'Checksum', note: 'verified before unpacking' },
       { label: 'Rollback', note: 'automatic' },
     ],

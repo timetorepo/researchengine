@@ -4,16 +4,16 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.36.0** also ships the **Tauri desktop app** — Windows
+Prefer an installer? **0.37.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically) and Linux a `.deb`/`.AppImage`. There is no macOS build. CI builds them from
 this tag and attaches them to the release you are reading:
 
 | Installer | Platform | Size |
 |---|---|---|
-| `Research.Engine_0.36.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | built by CI from this tag |
-| `Research.Engine_0.36.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | built by CI from this tag |
-| `Research.Engine_0.36.0-beta.1_amd64.AppImage` | any x64 Linux | built by CI from this tag |
+| `Research.Engine_0.37.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | built by CI from this tag |
+| `Research.Engine_0.37.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | built by CI from this tag |
+| `Research.Engine_0.37.0-beta.1_amd64.AppImage` | any x64 Linux | built by CI from this tag |
 
 Their hashes are recorded in `INSTALLERS.sha256` in this folder, and every one
 of them is **GitHub's own sha256 digest for the uploaded asset**, read back from
@@ -30,6 +30,36 @@ You only need to do this once: from 0.29.0 on, the app updates itself.
 `~/.research-engine` is never part of the swap, and a version that cannot start
 on its own is rolled back automatically. Source checkouts are told to
 `git pull && npm run build` instead, and the desktop app is handed the installer.
+
+0.37.0 fixes the Library search for real, and turns design mode into a workbench
+you can work in. The error you sent — *the local server answered
+/api/library/search with something that was not JSON* — was not a broken route:
+the route answered 200 with real JSON every time, but a build whose server did
+not have it answered with the app's own `index.html`, and the client reported
+that as a JSON failure without saying what it had received. Every path under
+`/api` now answers JSON, including 404s and wrong methods, the client reader
+names the status, the content type and the first bytes when a response is not
+JSON, and a regression test starts a real server and proves all eleven cases.
+Design mode grew the parts it was missing: a **Design Brief** that settles what
+"premium" means before any UI code, a **Board** of directions with type, tokens
+and motion, **Inspiration** from Awwwards, Dribbble, unicorn.studio and Refero,
+a **Prototype** tab that runs the live preview in a phone, a tablet, a laptop
+and a TV at once with a microinteraction checklist, **Ship** for Vercel,
+Netlify, Cloudflare Pages, Render or GitHub Pages (the deploy stays yours to
+press), and design grids — columns, baseline, 8 pt, safe areas — drawn over the
+live frame. There are now **thirty component providers that install**, each
+with the command that is true for it per package manager, plus a dependency box
+that copies the whole block at once. The agent asks before it reaches: **access
+is scoped** by you (project, chosen folders, or the whole computer behind a
+typed confirmation) and enforced on the command runner; every download is
+announced and **checked with VirusTotal before and after**, with the verdicts on
+a ledger, saying *not checked* when no key is configured rather than implying
+clean. **Twenty-seven frameworks** with real commands, one-click projects for
+React, Go, Rust, Java and Python, step-by-step key guides for every provider,
+and **MiMo** as a new provider. The six-directive pipeline — research, ask,
+design, prototype, sweep, ship on your signal — now reaches every prompt that
+asks for something to be built. The portable archives below are built from this
+tag and report `0.37.0-beta.1` from `/api/health`.
 
 0.36.0 makes the Library search **answer**. The server replies inside a 200 ms
 budget — your documents and saved items immediately, Wikipedia and the search
