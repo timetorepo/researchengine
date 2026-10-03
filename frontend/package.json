@@ -24,7 +24,8 @@
     "smoke": "tsx scripts/smoke.mts",
     "ui-lab-test": "tsx --tsconfig tsconfig.json scripts/ui-lab-test.mts",
     "ui-test": "tsx scripts/ui-test.mts",
-    "updates-ui-test": "tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts"
+    "updates-ui-test": "tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts",
+    "workbench-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/workbench-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

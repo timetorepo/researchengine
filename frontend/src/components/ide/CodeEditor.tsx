@@ -7,7 +7,7 @@ import { highlight } from '@/lib/highlight'
  * textarea (undo, IME, selection all work natively) while looking like an IDE.
  */
 export function CodeEditor({
-  value, onChange, onSave, path, readOnly = false, wrap = false, gotoLine = 0,
+  value, onChange, onSave, path, readOnly = false, wrap = false, gotoLine = 0, onCaret,
 }: {
   value: string
   onChange: (v: string) => void
@@ -17,6 +17,8 @@ export function CodeEditor({
   wrap?: boolean
   /** Scroll to (and select) a 1-based line — used by search results. */
   gotoLine?: number
+  /** Report the caret upward for the status bar. Optional: the editor stands alone without it. */
+  onCaret?: (c: { line: number; col: number }) => void
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
@@ -55,6 +57,9 @@ export function CodeEditor({
     syncScroll()
     setCaret({ line: 1, col: 1 })
   }, [path, gotoLine])
+
+  // One call per caret move, and only here: the parent's handler is a ref write.
+  useEffect(() => { onCaret?.({ line: caret.line, col: caret.col }) }, [caret.line, caret.col])
 
   const updateCaret = () => {
     const ta = taRef.current

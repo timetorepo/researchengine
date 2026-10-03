@@ -554,6 +554,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
 
   const tabStripRef = useRef<HTMLDivElement>(null)
 
+  /**
+   * The editor reports its caret into a ref, not into state: the readout at the
+   * bottom right is its own component, so a keystroke re-renders one line of
+   * text instead of this whole workbench.
+   */
+  const caretSink = useRef<((c: { line: number; col: number }) => void) | null>(null)
+  const registerCaret = useCallback((fn: (c: { line: number; col: number }) => void) => { caretSink.current = fn }, [])
+
   // Keep the active tab in view — a tab opened by the AI used to land offscreen.
   // Only the tab strip moves; the app frame must never scroll for this.
   useEffect(() => {
@@ -751,10 +759,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         <FocusButton focus={focus} onToggle={() => setFocus((v) => !v)} />
       </GlassBar>
 
-      <div className="flex-1 min-h-0 flex">
+      {/* From here down the page is a canvas with panels nested on it, the way
+          Tahoe draws a Finder window: the rail, the explorer, the editor and the
+          assistant are each their own rounded surface with a gutter between
+          them, instead of four columns sharing one hairline grid. */}
+      <div className="ide-canvas flex-1 min-h-0 flex">
         {/* ---------- activity bar ---------- */}
         {!focus && (
-        <div className="w-11 shrink-0 flex flex-col items-center py-2 gap-1" style={{ borderRight: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+        <div className="ide-pane ide-rail w-11 shrink-0 flex flex-col items-center py-2 gap-1">
           <ActivityBtn active={activity === 'explorer'} onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} icon={<Files size={17} />} label="Explorer" />
           <ActivityBtn active={activity === 'search'} onClick={() => { setActivity('search'); setSidebarOpen(true) }} icon={<SearchIcon size={17} />} label="Search" />
           <ActivityBtn active={activity === 'git'} onClick={() => { setActivity('git'); setSidebarOpen(true); setPanel('git'); setPanelOpen(true) }} icon={<GitBranch size={17} />} label="Source control" />
@@ -778,7 +790,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
 
         {/* ---------- side bar ---------- */}
         {sidebarOpen && !focus && (
-          <div className="w-[250px] shrink-0 min-h-0 flex flex-col" style={{ borderRight: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+          <div className="ide-pane w-[250px] shrink-0 min-h-0 flex flex-col">
             {activity === 'explorer' && (
               <>
                 <div className="shrink-0 flex items-center gap-1 px-3 py-2">
@@ -824,13 +836,16 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           </div>
         )}
 
-        {/* ---------- editor column ---------- */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        {/* ---------- editor column: the editor and the panel below it, each a
+            pane of its own, so the terminal never shares a surface with the
+            code you are reading ---------- */}
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 min-h-0">
+          <div className="ide-pane ide-pane-elev flex-1 min-h-0 flex flex-col">
           {/* tabs */}
           <div
             ref={tabStripRef}
-            className="shrink-0 flex items-stretch overflow-x-auto ide-tabstrip"
-            style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}
+            className="shrink-0 flex items-stretch overflow-x-auto ide-tabstrip px-1.5"
+            style={{ borderBottom: '1px solid var(--ide-border)' }}
             onWheel={(e) => { if (e.deltaY) e.currentTarget.scrollLeft += e.deltaY }}
           >
             {files.map((f, i) => (
@@ -883,29 +898,51 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
               path={current.path}
               value={current.content}
               gotoLine={gotoLine}
+              onCaret={(c) => caretSink.current?.(c)}
               onChange={(v) => setFiles((list) => list.map((f) => (f.path === current.path ? { ...f, content: v } : f)))}
               onSave={() => void save()}
             />
           ) : (
-            <div className="flex-1 min-h-0 flex items-center justify-center" style={{ background: 'var(--ide-code-bg)' }}>
-              <div className="text-center">
-                <FileCode2 size={26} className="mx-auto mb-2" style={{ color: 'var(--ide-faint)' }} />
-                <p className="text-[12.5px]" style={{ color: 'var(--ide-dim)' }}>Open a file from the explorer — or ask the AI to create one.</p>
-                <p className="text-[11px] mt-1" style={{ color: 'var(--ide-faint)' }}>
-                  Press <span className="ide-badge">⌘B</span> explorer · <span className="ide-badge">⌘J</span> panel · <span className="ide-badge">⌘S</span> save
+            /* Nothing open: a welcome window, the way Xcode opens one, with
+               three rows that each do something rather than a sentence about
+               what you could do. */
+            <div className="flex-1 min-h-0 flex items-center justify-center px-6" style={{ background: 'var(--ide-code-bg)' }}>
+              <div className="w-full max-w-[430px]">
+                <div className="flex items-center gap-2">
+                  <Code2 size={15} style={{ color: 'var(--ide-accent)' }} />
+                  <span className="text-[13px] font-medium truncate" style={{ color: 'var(--ide-text)' }}>{project}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--ide-accent-soft)', color: 'var(--ide-accent)' }}>local</span>
+                </div>
+                <p className="text-[11.5px] mt-1 mb-3" style={{ color: 'var(--ide-dim)' }}>
+                  Nothing is open yet. Start with a file, ask the AI for the change you want, or run what is already here.
+                </p>
+                <div className="ide-pane flex flex-col">
+                  <WelcomeRow icon={<Files size={13} />} label="Open a file" hint="⌘B"
+                    onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} />
+                  <WelcomeRow icon={<Sparkles size={13} />} label="Ask the AI to change this project" hint="⌘K"
+                    onClick={() => { openDock('ai'); setAgentOpen(true) }} />
+                  <WelcomeRow icon={<Play size={13} />}
+                    label={previewLive ? 'The preview is running' : starting ? 'Starting the preview…' : 'Run the app and see it'}
+                    hint={previewLive && preview.port ? `:${preview.port}` : 'run'}
+                    onClick={() => void startPreview()} />
+                </div>
+                <p className="text-[10.5px] mt-2" style={{ color: 'var(--ide-faint)' }}>
+                  ⌘S saves · ⌘J opens the panel · ⌘⇧F goes full screen on the editor.
                 </p>
               </div>
             </div>
           )}
 
+          </div>
+
           {/* bottom panel */}
           {!focus && (
-          <div className="ide-panel-strip shrink-0 flex flex-col min-w-0 overflow-hidden" style={{ height: panelOpen ? 220 : undefined }}>
+          <div className="ide-pane ide-panel-strip shrink-0 flex flex-col min-w-0 overflow-hidden" style={{ height: panelOpen ? 220 : undefined }}>
             {/* The tabs scroll sideways rather than wrap: a two-line tab strip is
                 what a wrapped label looks like, and it eats the terminal. The
                 guard note that used to sit at the end of this row now lives in
                 the status bar, where a long sentence cannot change a layout. */}
-            <div className="flex items-center gap-1 px-2 py-1 shrink-0 min-w-0">
+            <div className="flex items-center gap-1 px-2 pt-1.5 pb-2 shrink-0 min-w-0">
               <div className="flex items-center gap-1 min-w-0 overflow-x-auto ide-tabscroll">
                 <PanelTabBtn group="bottom" active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
                 <PanelTabBtn group="bottom" active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
@@ -942,7 +979,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           {agentOpen && (
             <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 428, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="shrink-0 min-h-0 overflow-hidden flex flex-col" style={{ borderLeft: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
+              className="ide-pane shrink-0 min-h-0 overflow-hidden flex flex-col">
               <div className="w-[428px] h-full flex flex-col min-h-0">
                 {/* The dock's own tab strip: the chat, the agent pool, and the
                     live record of what the AI touched. */}
@@ -1017,46 +1054,57 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         )}
       </div>
 
-      {/* ---------- status bar — Zed's small panel buttons ---------- */}
+      {/* ---------- status bar — two floating pills, the way Tahoe groups its
+          toolbar controls: what this workspace is on the left, what it is doing
+          on the right, and the canvas visible between them ---------- */}
       {!focus && (
-      <div className="shrink-0 h-[28px] flex items-center gap-1 px-2 text-[10.5px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)', color: 'var(--ide-faint)' }}>
-        <StatusItem motionKind="grow" icon={<FolderOpen size={10} />} onClick={onBack} title="Back to projects">{project}</StatusItem>
-        <StatusItem icon={<GitBranch size={10} />} title="This project runs on your machine — nothing is pushed anywhere">local</StatusItem>
-        <StatusItem icon={<ShieldCheck size={10} />}
-          title="Commands run inside the project folder, destructive commands are blocked, and mutating ones need your approval."
-          onClick={() => { setPanel('safety'); setPanelOpen(true) }}>
-          guarded
-        </StatusItem>
-        {current && <StatusItem icon={null} title={current.path}><span className="font-mono" style={{ color: 'var(--ide-dim)' }}>{current.path}</span></StatusItem>}
-        {dirty && <StatusItem icon={<Circle size={6} fill="currentColor" />} tone="var(--ide-warn)">unsaved</StatusItem>}
-        {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span className="px-1">{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
+      <div className="shrink-0 flex items-center gap-1.5 px-2 pt-1.5 pb-2 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
+        <div className="ide-statuspill min-w-0">
+          <StatusItem motionKind="grow" icon={<FolderOpen size={10} />} onClick={onBack} title="Back to projects">{project}</StatusItem>
+          <StatusItem icon={<GitBranch size={10} />} title="This project runs on your machine — nothing is pushed anywhere">local</StatusItem>
+          <StatusItem icon={<ShieldCheck size={10} />}
+            title="Commands run inside the project folder, destructive commands are blocked, and mutating ones need your approval."
+            onClick={() => { setPanel('safety'); setPanelOpen(true) }}>
+            guarded
+          </StatusItem>
+          {current && (
+            <StatusItem icon={null} title={current.path}>
+              <span className="font-mono truncate max-w-[300px]" style={{ color: 'var(--ide-dim)' }}>{current.path}</span>
+            </StatusItem>
+          )}
+          {dirty && <StatusItem icon={<Circle size={6} fill="currentColor" />} tone="var(--ide-warn)">unsaved</StatusItem>}
+          {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span className="px-1">{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
+        </div>
         <div className="flex-1" />
-        {agentReady > 0 && (
-          <StatusItem motionKind="pulse" icon={<Bot size={10} />} tone="var(--ide-cyan)"
-            title="An agent finished — open the review"
-            onClick={() => { openDock('agents'); setAgentOpen(true) }}>
-            {agentReady} ready to review
+        <div className="ide-statuspill shrink-0">
+          {agentReady > 0 && (
+            <StatusItem motionKind="pulse" icon={<Bot size={10} />} tone="var(--ide-cyan)"
+              title="An agent finished — open the review"
+              onClick={() => { openDock('agents'); setAgentOpen(true) }}>
+              {agentReady} ready to review
+            </StatusItem>
+          )}
+          {agentRunning > 0 && (
+            <StatusItem icon={<Bot size={10} />} tone="var(--ide-accent)" title="Agents working right now"
+              onClick={() => { openDock('agents'); setAgentOpen(true) }}>
+              {agentRunning} working
+            </StatusItem>
+          )}
+          {!agentRunning && !agentReady && (
+            <StatusItem icon={<Bot size={10} />} onClick={() => { setDockTab('agents'); setAgentOpen(true) }} title="Open the agent pool">
+              agents idle
+            </StatusItem>
+          )}
+          {current && <CaretReadout register={registerCaret} />}
+          <StatusItem motionKind="pulse" icon={<CommandIcon size={10} />} onClick={() => setPaletteOpen(true)} title="Command palette">⌘K</StatusItem>
+          {streaming && <StatusItem icon={<span className="re-orb re-orb-sm" />} tone="var(--ide-accent)">AI working</StatusItem>}
+          <StatusItem icon={<Circle size={6} fill="currentColor" />} tone={previewLive ? 'var(--ide-accent)' : undefined}
+            onClick={() => { setPanel('terminal'); setPanelOpen(true) }}
+            title={previewLive ? `The preview is live on port ${preview.port}` : 'Open the terminal panel'}>
+            {previewLive ? `preview :${preview.port}` : preview.running ? 'preview booting' : 'preview stopped'}
           </StatusItem>
-        )}
-        {agentRunning > 0 && (
-          <StatusItem icon={<Bot size={10} />} tone="var(--ide-accent)" title="Agents working right now"
-            onClick={() => { openDock('agents'); setAgentOpen(true) }}>
-            {agentRunning} working
-          </StatusItem>
-        )}
-        {!agentRunning && !agentReady && (
-          <StatusItem icon={<Bot size={10} />} onClick={() => { setDockTab('agents'); setAgentOpen(true) }} title="Open the agent pool">
-            agents idle
-          </StatusItem>
-        )}
-        <StatusItem motionKind="pulse" icon={<CommandIcon size={10} />} onClick={() => setPaletteOpen(true)} title="Command palette">⌘K</StatusItem>
-        {streaming && <StatusItem icon={<span className="re-orb re-orb-sm" />} tone="var(--ide-accent)">AI working</StatusItem>}
-        <StatusItem icon={<Circle size={6} fill="currentColor" />} tone={previewLive ? 'var(--ide-accent)' : undefined}
-          onClick={() => { setPanel('terminal'); setPanelOpen(true) }}
-          title={previewLive ? `The preview is live on port ${preview.port}` : 'Open the terminal panel'}>
-          {previewLive ? `preview :${preview.port}` : preview.running ? 'preview booting' : 'preview stopped'}
-        </StatusItem>
-        <StatusItem icon={null} title={`${files.length} file${files.length === 1 ? '' : 's'} open`}>{files.length} open</StatusItem>
+          <StatusItem icon={null} title={`${files.length} file${files.length === 1 ? '' : 's'} open`}>{files.length} open</StatusItem>
+        </div>
       </div>
       )}
 
@@ -1093,6 +1141,35 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
 /* ================================================================== */
 /* small building blocks                                              */
 /* ================================================================== */
+
+/**
+ * One row of the welcome window. A whole row is the target, because the thing
+ * you want is "open the explorer", not "find the 12-pixel icon".
+ */
+export function WelcomeRow({ icon, label, hint, onClick }: { icon: React.ReactNode; label: string; hint: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="w-full text-left flex items-center gap-2.5 px-3 py-2 transition-colors ide-welcomerow">
+      <span className="shrink-0" style={{ color: 'var(--ide-accent)' }}>{icon}</span>
+      <span className="flex-1 text-[12px] truncate" style={{ color: 'var(--ide-text)' }}>{label}</span>
+      <span className="text-[10.5px] font-mono shrink-0" style={{ color: 'var(--ide-faint)' }}>{hint}</span>
+    </button>
+  )
+}
+
+/**
+ * The line and column of the caret, where Xcode and Zed both put it. It
+ * subscribes to the editor through the register callback so that typing costs
+ * one small re-render here and nothing anywhere else.
+ */
+export function CaretReadout({ register }: { register: (fn: (c: { line: number; col: number }) => void) => void }) {
+  const [caret, setCaret] = useState({ line: 1, col: 1 })
+  useEffect(() => { register(setCaret) }, [register])
+  return (
+    <StatusItem icon={null} title="Cursor position">
+      <span className="font-mono tabular-nums">{caret.line}:{caret.col}</span>
+    </StatusItem>
+  )
+}
 function ActivityBtn({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
   return (
     <button onClick={onClick} title={label} aria-label={label}
