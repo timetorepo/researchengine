@@ -378,6 +378,11 @@ async function main() {
     'each one is uncropped rather than fitted to a frame',
     tiles.every((img: any) => /object-contain/.test(img.className)),
   )
+  check(
+    'and both rows fit on a laptop screen without scrolling',
+    tiles.every((img: any) => /max-h-\[3[0-9]vh\]/.test(img.className)),
+    tiles.map((i: any) => i.className).join(' | ').slice(0, 160),
+  )
   check('and each carries the caption of what it shows', all(dialog, 'button span').filter((el: any) => /Chats:|Reading|Writing:|Building:/.test(text(el))).length >= 4)
   check('the dialog says it is showing all of them', /All 4 screenshots/.test(text(dialog)), text(dialog).slice(0, 120))
   check('and it offers the one-at-a-time view', /One at a time/.test(text(dialog)))

@@ -225,9 +225,13 @@ function GalleryDialog({ index, onClose }: { index: number | null; onClose: () =
                     onClick={() => focusOn(i)}
                     type="button"
                   >
+                    {/* Capped at a third of the viewport so both rows of the 2x2
+                        grid land on screen together: the point of this mode is
+                        seeing all four at once, not scrolling between them.
+                        `object-contain` means the cap never crops a picture. */}
                     <img
                       alt={screen.alt}
-                      className="w-full rounded-lg bg-[#0b0913] object-contain"
+                      className="max-h-[33vh] w-full rounded-lg bg-[#0b0913] object-contain"
                       height={675}
                       src={screen.src}
                       width={900}
