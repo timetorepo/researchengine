@@ -92,7 +92,17 @@ export function CodeEditor({
       </div>
 
       {/* code */}
-      <div className="relative flex-1 min-w-0">
+      <div className="relative flex-1 min-w-0 overflow-hidden">
+        {/* The line you are on, lit. Xcode and Zed both draw it, and it is the
+            cheapest way to keep your place while scrolling with the keyboard;
+            the gutter already dims every other line number, so the two agree. */}
+        <div aria-hidden className="absolute left-0 right-0 pointer-events-none"
+          style={{
+            top: 14 + (caret.line - 1) * 1.62 * 12.5 - scroll.top,
+            height: 1.62 * 12.5,
+            background: 'color-mix(in srgb, var(--ide-accent, var(--primary)) 9%, transparent)',
+            visibility: caret.line > 0 ? 'visible' : 'hidden',
+          }} />
         <pre ref={preRef} aria-hidden
           className="absolute inset-0 m-0 overflow-hidden pointer-events-none"
           style={{ ...shared, whiteSpace: wrap ? 'pre-wrap' : 'pre', wordBreak: wrap ? 'break-word' : 'normal', color: 'var(--ide-text, var(--text))' }}

@@ -8,6 +8,7 @@ import {
   LayoutGrid, ClipboardList, Boxes, Lightbulb, Rocket, Tv, Columns3, AlignJustify, Grid3x3,
 } from 'lucide-react'
 import { AgentPanel } from './AgentPanel'
+import { GlassTabs } from './IdeChrome'
 import { FollowPointer } from '@/components/ui/aceternity/FollowingPointer'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { useStore } from '@/stores/useStore'
@@ -425,14 +426,17 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
 
         <div className="flex-1" />
 
-        {/* the reference's segmented [Preview | Code] + Design switch */}
-        <div className="ide-seg" role="tablist" aria-label="Workspace mode">
-          <button data-active="true" role="tab" aria-selected="true">Preview</button>
-          <button data-active="false" role="tab" onClick={onExit}>Code</button>
-          <button className="design" data-active="true" role="tab" aria-selected="true">
-            <span className="inline-flex items-center gap-1"><MonitorUp size={11} /> Design</span>
-          </button>
-        </div>
+        {/* the same gliding control the code page uses, so switching modes is one
+            gesture in one language instead of three buttons and a label */}
+        <GlassTabs
+          ariaLabel="Workspace mode"
+          value="design"
+          onChange={(id) => { if (id === 'code') onExit() }}
+          options={[
+            { id: 'design' as const, label: <><MonitorUp size={11} /> Design</>, title: 'See and fix the running app' },
+            { id: 'code' as const, label: 'Code', title: 'Back to the editor' },
+          ]}
+        />
 
         <button onClick={() => void call('reload', async () => { await designSession.call('reload', {}, 4000).catch(() => null) })}
           disabled={!state?.ready} title="Reload the preview" className="ide-icon-btn">
@@ -463,8 +467,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
           <div className="ide-pane ide-pane-elev flex-1 min-h-0 flex flex-col">
           {/* address + device bar */}
           <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 flex-wrap" style={{ borderBottom: '1px solid var(--ide-border)' }}>
-            <div className="flex items-center gap-1.5 flex-1 min-w-[180px] px-2 py-1 rounded-[6px]"
-              style={{ background: 'color-mix(in srgb, var(--bg) 65%, var(--surface))', border: '1px solid var(--ide-border)' }}>
+            <div className="ide-toolbar-group flex-1 min-w-[180px] px-2">
               <span className="text-[10.5px] shrink-0" style={{ color: designSession.lastUrl ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
                 {designSession.lastUrl ? '●' : '○'}
               </span>
@@ -477,7 +480,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             </div>
 
             {/* device presets */}
-            <div className="flex items-center gap-0.5 p-0.5 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--bg) 65%, var(--surface))', border: '1px solid var(--ide-border)' }}>
+            <div className="ide-toolbar-group" data-ui="device-presets">
               {DEVICE_PRESETS.map((d) => (
                 <button key={d.id} onClick={() => { setDevice(d.id); if (d.w) setSize({ w: d.w, h: d.h }) }}
                   title={`${d.label}${d.w ? ` · ${d.w}×${d.h}` : ''}`}
@@ -489,7 +492,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             </div>
 
             {/* design grids, drawn over the preview — never inside it */}
-            <div className="flex items-center gap-0.5 p-0.5 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--bg) 65%, var(--surface))', border: '1px solid var(--ide-border)' }}>
+            <div className="ide-toolbar-group" data-ui="design-grids">
               <GridToggle on={grids.columns} onClick={() => setGrids((g) => ({ ...g, columns: !g.columns }))} icon={<Columns3 size={12} />} label={grids.columns ? 'Hide the column grid' : 'Show the column grid'} />
               <GridToggle on={grids.baseline} onClick={() => setGrids((g) => ({ ...g, baseline: !g.baseline }))} icon={<AlignJustify size={12} />} label="Baseline rhythm (8 px)" />
               <GridToggle on={grids.eighths} onClick={() => setGrids((g) => ({ ...g, eighths: !g.eighths }))} icon={<Grid3x3 size={12} />} label="8 pt grid" />
@@ -649,23 +652,25 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
         )}
         <aside className="ide-pane shrink-0 min-h-0 flex flex-col"
           style={{ width: focusPreview ? 0 : inspectorW, display: focusPreview ? 'none' : undefined }}>
-          {/* Eleven tools in one strip: scrolls sideways on the same three-pixel
-              bar the code page uses, with a hairline between the three groups so
-              the row reads as work · design · ship rather than a flat list. */}
-          <div className="shrink-0 flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto ide-tabscroll" style={{ borderBottom: '1px solid var(--ide-border)' }}>
-            <RailTab active={tab === 'assistant'} onClick={() => setTab('assistant')} icon={<Sparkles size={12} />} label="Assistant" />
-            <RailTab active={tab === 'inspect'} onClick={() => setTab('inspect')} icon={<Search size={12} />} label="Inspect" badge={snapshot?.elements.length} />
-            <RailTab active={tab === 'tests'} onClick={() => setTab('tests')} icon={<ListChecks size={12} />} label="Tests" badge={controls.length} />
-            <RailTab active={tab === 'console'} onClick={() => setTab('console')} icon={<Terminal size={12} />} label="Console" badge={errorCount || undefined} tone={errorCount ? 'var(--danger)' : undefined} />
-            <RailTab active={tab === 'captures'} onClick={() => setTab('captures')} icon={<ImageIcon size={12} />} label="Shots" badge={captures.length || undefined} />
-            <span className="ide-rail-sep" aria-hidden />
-            <RailTab active={tab === 'board'} onClick={() => setTab('board')} icon={<LayoutGrid size={12} />} label="Board" />
-            <RailTab active={tab === 'brief'} onClick={() => setTab('brief')} icon={<ClipboardList size={12} />} label="Brief" />
-            <RailTab active={tab === 'hub'} onClick={() => setTab('hub')} icon={<Boxes size={12} />} label="Components" />
-            <RailTab active={tab === 'inspo'} onClick={() => setTab('inspo')} icon={<Lightbulb size={12} />} label="Inspiration" />
-            <span className="ide-rail-sep" aria-hidden />
-            <RailTab active={tab === 'prototype'} onClick={() => setTab('prototype')} icon={<Tv size={12} />} label="Prototype" />
-            <RailTab active={tab === 'ship'} onClick={() => setTab('ship')} icon={<Rocket size={12} />} label="Ship" />
+          {/* Eleven tools in two tiers rather than one row that scrolls: what you
+              are looking at on top, what you are building underneath. The strip
+              still scrolls on the same three-pixel bar if a pane gets narrow. */}
+          <div className="shrink-0 flex flex-col gap-1 px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
+            <div className="ide-rail-row ide-tabscroll" data-ui="rail-look">
+              <RailTab active={tab === 'assistant'} onClick={() => setTab('assistant')} icon={<Sparkles size={12} />} label="Assistant" />
+              <RailTab active={tab === 'inspect'} onClick={() => setTab('inspect')} icon={<Search size={12} />} label="Inspect" badge={snapshot?.elements.length} />
+              <RailTab active={tab === 'tests'} onClick={() => setTab('tests')} icon={<ListChecks size={12} />} label="Tests" badge={controls.length} />
+              <RailTab active={tab === 'console'} onClick={() => setTab('console')} icon={<Terminal size={12} />} label="Console" badge={errorCount || undefined} tone={errorCount ? 'var(--danger)' : undefined} />
+              <RailTab active={tab === 'captures'} onClick={() => setTab('captures')} icon={<ImageIcon size={12} />} label="Shots" badge={captures.length || undefined} />
+            </div>
+            <div className="ide-rail-row ide-tabscroll" data-ui="rail-build">
+              <RailTab active={tab === 'board'} onClick={() => setTab('board')} icon={<LayoutGrid size={12} />} label="Board" />
+              <RailTab active={tab === 'brief'} onClick={() => setTab('brief')} icon={<ClipboardList size={12} />} label="Brief" />
+              <RailTab active={tab === 'hub'} onClick={() => setTab('hub')} icon={<Boxes size={12} />} label="Components" />
+              <RailTab active={tab === 'inspo'} onClick={() => setTab('inspo')} icon={<Lightbulb size={12} />} label="Inspiration" />
+              <RailTab active={tab === 'prototype'} onClick={() => setTab('prototype')} icon={<Tv size={12} />} label="Prototype" />
+              <RailTab active={tab === 'ship'} onClick={() => setTab('ship')} icon={<Rocket size={12} />} label="Ship" />
+            </div>
           </div>
 
           {banner && (
@@ -803,19 +808,26 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                   <button onClick={() => void capture(false)} disabled={!state?.ready} className="ide-btn primary" style={{ height: 22 }}>viewport</button>
                   <button onClick={() => void capture(true)} disabled={!state?.ready} className="ide-btn outlined" style={{ height: 22 }}>full page</button>
                 </div>
-                {captures.map((c) => (
-                  <div key={c.id} className="rounded-[10px] overflow-hidden" style={{ border: '1px solid var(--ide-border)', background: 'var(--ide-elevated)' }}>
-                    <img src={c.dataUrl} alt={c.label} className="w-full block" />
-                    <div className="flex items-center gap-2 px-2 py-1.5">
-                      <span className="text-[10.5px] flex-1 truncate" style={{ color: 'var(--ide-faint)' }}>{c.label} · {c.w}×{c.h}</span>
-                      <a href={c.dataUrl} download={`${project}-${c.id}.jpg`} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Download"><Download size={11} /></a>
-                      <button onClick={() => { attachmentTray.add({ type: 'image', name: `${project}-${c.id}.jpg`, dataUrl: c.dataUrl }); setTab('assistant'); setBanner('Screenshot attached — send your next message.') }}
-                        className="ide-btn" style={{ color: 'var(--ide-accent)' }}>
-                        attach
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                {/* A filmstrip, not a column: shots are for comparing, and two
+                    across is the most that fits an inspector this wide. The
+                    actions sit on the picture and appear under the pointer. */}
+                <div className="grid grid-cols-2 gap-2">
+                  {captures.map((c) => (
+                    <figure key={c.id} className="ide-shot" data-shot={c.id}>
+                      <img src={c.dataUrl} alt={c.label} />
+                      <figcaption className="ide-shot-meta">
+                        <span className="truncate">{c.label} · {c.w}×{c.h}</span>
+                      </figcaption>
+                      <div className="ide-shot-actions">
+                        <a href={c.dataUrl} download={`${project}-${c.id}.jpg`} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Download"><Download size={11} /></a>
+                        <button onClick={() => { attachmentTray.add({ type: 'image', name: `${project}-${c.id}.jpg`, dataUrl: c.dataUrl }); setTab('assistant'); setBanner('Screenshot attached — send your next message.') }}
+                          className="ide-btn" style={{ color: 'var(--ide-accent)' }}>
+                          attach
+                        </button>
+                      </div>
+                    </figure>
+                  ))}
+                </div>
                 {!captures.length && (
                   <p className="text-[11.5px] leading-relaxed" style={{ color: 'var(--ide-faint)' }}>
                     No screenshots yet. Press <strong>Shot</strong>, or ask the AI — its <span className="font-mono">design_screenshot</span> tool drops pictures here.

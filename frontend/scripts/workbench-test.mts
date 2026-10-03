@@ -165,6 +165,43 @@ async function main() {
     /ide-tabstrip px-1\.5/.test(view)
     && /className="shrink-0 flex items-stretch overflow-x-auto ide-tabstrip px-1\.5"\n            style=\{\{ borderBottom: '1px solid var\(--ide-border\)' \}\}/.test(view))
 
+  /* ------------------- [3b] the workspace's own instruments ----------------- */
+
+  console.log('\n[3b] The panel follows the pointer, and every file says what it is')
+  check('the panel is the height you left it, not a constant',
+    /const \[panelH, setPanelH\] = useState/.test(view)
+    && /height: panelOpen \? panelH : undefined/.test(view)
+    && !/height: panelOpen \? 220 : undefined/.test(view))
+  check('the height is clamped and remembered per machine',
+    /Math\.max\(140, Math\.min\(560, startH \+ \(startY - ev\.clientY\)\)\)/.test(view)
+    && /localStorage\.setItem\('re\.ide\.panelH'/.test(view)
+    && /saved >= 140 && saved <= 560 \? saved : 220/.test(view))
+  check('the gutter above the panel is the handle, and double-click resets it',
+    /className="re-split-handle-h"/.test(view)
+    && /onPointerDown=\{startPanelDrag\}/.test(view)
+    && /onDoubleClick=\{\(\) => setPanelH\(220\)\}/.test(view)
+    && /\.re-split-handle-h \{[^}]*cursor: row-resize/.test(css))
+  check('the file rows and the file tabs wear the glyph for their kind',
+    /<FileGlyph path=\{n\.path\} size=\{11\} \/>/.test(view)
+    && /<FileGlyph path=\{f\.path\} size=\{11\} \/>/.test(view))
+  check('the editor lights the line the caret is on, and moves it with the scroll',
+    /caret\.line - 1\) \* 1\.62 \* 12\.5 - scroll\.top/.test(editor)
+    && /var\(--ide-accent, var\(--primary\)\) 9%/.test(editor)
+    && /relative flex-1 min-w-0 overflow-hidden/.test(editor))
+
+  const { fileKind } = await import('../src/lib/ide/fileIcons')
+  const kinds: [string, string][] = [
+    ['src/App.tsx', 'code'], ['package.json', 'data'], ['README.md', 'text'],
+    ['src/styles/app.css', 'style'], ['index.html', 'markup'], ['public/logo.svg', 'markup'],
+    ['assets/hero.png', 'image'], ['scripts/run.sh', 'shell'], ['.gitignore', 'config'],
+    ['data/schema.sql', 'database'], ['LICENSE', 'text'],
+  ]
+  const wrong = kinds.filter(([path, kind]) => fileKind(path).kind !== kind)
+  check('the glyph map reads the file, not the folder it is in', wrong.length === 0,
+    wrong.map(([p, k]) => `${p} went to ${fileKind(p).kind} not ${k}`).join(' | '))
+  check('the colour comes from the theme, so light themes get it right too',
+    kinds.every(([path]) => fileKind(path).color.startsWith('var(--')))
+
   /* -------------------------- [4] the status bar -------------------------- */
 
   console.log('\n[4] The status bar is two floating pills with the canvas between them')

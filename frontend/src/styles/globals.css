@@ -1209,8 +1209,88 @@ body {
 @media (prefers-reduced-motion: reduce) { .ide-pane { animation: none; } }
 .ide-pane-elev { box-shadow: var(--ide-shadow); }
 .ide-rail { padding-top: 6px; padding-bottom: 6px; }
-/* A hairline between the groups in a strip that holds too many tools. */
-.ide-rail-sep { width: 1px; height: 14px; flex: none; margin: 0 3px; background: var(--ide-border); }
+/* The groups of a toolbar, drawn like the status pills: one glass surface per
+   group with the canvas showing between them. */
+.ide-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--ide-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ide-panel) 76%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+/* The horizontal twin of .re-split-handle: the panel's own gutter. */
+.re-split-handle-h {
+  position: relative;
+  height: 6px;
+  margin: -3px 0;
+  cursor: row-resize;
+  flex: none;
+  z-index: 5;
+  background: transparent;
+}
+.re-split-handle-h::after {
+  content: '';
+  position: absolute;
+  inset: 2px 45% 2px 45%;
+  border-radius: 999px;
+  background: var(--ide-border);
+  transition: inset 160ms ease, background 160ms ease;
+}
+.re-split-handle-h:hover::after, .re-split-handle-h:active::after {
+  inset: 2px 20% 2px 20%;
+  background: var(--ide-accent);
+}
+/* A row of the inspector's rail: two tiers beat one row that scrolls. */
+.ide-rail-row { display: flex; align-items: center; gap: 2px; overflow-x: auto; }
+/* A shot in the filmstrip: the picture is the card, the actions appear on it. */
+.ide-shot {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--ide-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ide-elevated);
+}
+.ide-shot img { display: block; width: 100%; }
+.ide-shot-meta {
+  padding: 4px 8px;
+  font-size: 10.5px;
+  color: var(--ide-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ide-shot-actions {
+  position: absolute;
+  left: 6px; right: 6px; bottom: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ide-panel) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 160ms var(--ease-ios), transform 160ms var(--ease-ios);
+  pointer-events: none;
+}
+.ide-shot:hover .ide-shot-actions,
+.ide-shot:focus-within .ide-shot-actions {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ide-shot-actions { transition: none; transform: none; }
+}
 .ide-panel-strip { background: color-mix(in srgb, var(--ide-panel) 62%, var(--ide-bg)); }
 
 /* The status bar is two glass pills with the canvas showing between them. */

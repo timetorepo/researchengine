@@ -21,6 +21,7 @@ import { IDECommandPalette, ideActions, type PaletteAction } from './IDECommandP
 import { useAgents, subscribeActivity, wireAgentActivity } from '@/lib/ide/agents'
 import type { IdeActivity } from '@/lib/chat/tools'
 import { CodeEditor } from './CodeEditor'
+import { FileGlyph } from '@/lib/ide/fileIcons'
 import type { ProjectInfo, TreeNode, OpenFile } from './types'
 import { designSession, previewUrlFor } from '@/lib/ide/bridge'
 import { previewStatus, ensurePreviewServer } from '@/lib/ide/preview'
@@ -327,6 +328,26 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   // Every clone, install and download the agent starts is announced as it lands.
   useDownloadNotices(true)
   const [panelOpen, setPanelOpen] = useState(true)
+  // The panel's height belongs to the user, the way it does in every editor
+  // worth the name: drag the gutter above it, double-click it to go back, and
+  // it is remembered per machine.
+  const [panelH, setPanelH] = useState(() => {
+    const saved = Number(typeof localStorage !== 'undefined' ? localStorage.getItem('re.ide.panelH') : 0)
+    return saved >= 140 && saved <= 560 ? saved : 220
+  })
+  useEffect(() => { try { localStorage.setItem('re.ide.panelH', String(Math.round(panelH))) } catch { /* private mode */ } }, [panelH])
+  const startPanelDrag = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = panelH
+    const move = (ev: PointerEvent) => setPanelH(Math.max(140, Math.min(560, startH + (startY - ev.clientY))))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   const [newFile, setNewFile] = useState('')
   const [searchQ, setSearchQ] = useState('')
   const [results, setResults] = useState<{ path: string; line: number; text: string }[]>([])
@@ -858,7 +879,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                 transition={{ duration: 0.2, delay: Math.min(0.16, i * 0.018) }}>
                 <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="flex items-center gap-1.5"
                   title={f.stale ? `${f.path} — changed on disk` : f.path}>
-                  <FileCode2 size={11} />
+                  <FileGlyph path={f.path} size={11} />
                   {f.path.split('/').pop()}
                   {f.content !== f.disk && <Circle size={6} fill="currentColor" className="name-dirty" />}
                   {f.stale && <span className="ide-stale-dot" title="Changed on disk" />}
@@ -935,9 +956,17 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
 
           </div>
 
+          {/* the gutter above the panel is its handle: drag to resize, double
+              click to put it back to a sensible height */}
+          {!focus && panelOpen && (
+            <div onPointerDown={startPanelDrag} onDoubleClick={() => setPanelH(220)}
+              className="re-split-handle-h" role="separator" aria-orientation="horizontal" data-ui="panel-handle"
+              title="Drag to resize the panel · double-click for the default height" />
+          )}
+
           {/* bottom panel */}
           {!focus && (
-          <div className="ide-pane ide-panel-strip shrink-0 flex flex-col min-w-0 overflow-hidden" style={{ height: panelOpen ? 220 : undefined }}>
+          <div className="ide-pane ide-panel-strip shrink-0 flex flex-col min-w-0 overflow-hidden" style={{ height: panelOpen ? panelH : undefined }}>
             {/* The tabs scroll sideways rather than wrap: a two-line tab strip is
                 what a wrapped label looks like, and it eats the terminal. The
                 guard note that used to sit at the end of this row now lives in
@@ -1230,7 +1259,9 @@ function Tree({ nodes, depth, sel, onOpen, onDelete, onParent }: {
                 onClick={() => n.dir ? setOpenDirs((d) => ({ ...d, [n.path]: !dirOpen })) : onOpen(n.path)}
                 className="flex-1 min-w-0 flex items-center gap-1 py-[3px] pr-1 text-left text-[11.5px] rounded-[5px] hover:bg-[var(--ide-hover)]"
                 style={{ color: sel === n.path ? 'var(--ide-accent)' : 'var(--ide-dim)' }}>
-                {n.dir ? (dirOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />) : <FileCode2 size={11} style={{ opacity: 0.7 }} />}
+                {n.dir
+                  ? (dirOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />)
+                  : <FileGlyph path={n.path} size={11} />}
                 <span className="truncate">{n.name}</span>
               </button>
               {!n.dir && onDelete && (

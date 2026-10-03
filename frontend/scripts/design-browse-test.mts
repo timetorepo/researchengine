@@ -232,10 +232,20 @@ async function main() {
   check('the inspector is a panel, with no border of its own left over',
     /className="ide-pane shrink-0 min-h-0 flex flex-col"/.test(studio)
     && !/borderLeft: '1px solid var\(--ide-border\)'/.test(studio))
-  check('the eleven tools are grouped and scroll sideways',
-    (studio.match(/className="ide-rail-sep"/g) ?? []).length === 2
-    && /overflow-x-auto ide-tabscroll/.test(studio)
-    && /\.ide-rail-sep \{/.test(css))
+  check('the eleven tools are two tiers, not one row that has to scroll',
+    (studio.match(/className="ide-rail-row ide-tabscroll"/g) ?? []).length === 2
+    && /data-ui="rail-look"/.test(studio) && /data-ui="rail-build"/.test(studio)
+    && /\.ide-rail-row \{/.test(css))
+  check('the mode switch is the same glass control the code page uses',
+    /<GlassTabs/.test(studio) && !/className="ide-seg"/.test(studio))
+  check('the device bar is grouped into the same glass pills as the status bar',
+    (studio.match(/className="ide-toolbar-group/g) ?? []).length >= 3
+    && /\.ide-toolbar-group \{[^}]*border-radius: 9px/.test(css)
+    && /data-ui="device-presets"/.test(studio) && /data-ui="design-grids"/.test(studio))
+  check('shots are a filmstrip with the actions on the picture',
+    /className="ide-shot"/.test(studio) && /grid grid-cols-2 gap-2/.test(studio)
+    && /\.ide-shot-actions \{[^}]*position: absolute/.test(css)
+    && /\.ide-shot:hover \.ide-shot-actions/.test(css))
   check('the Appearance colour is read at the moment it is needed',
     /function themeAccent\(\)/.test(studio)
     && /getPropertyValue\('--primary'\)/.test(studio)
