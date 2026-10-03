@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 30 versions, 0.38.0 back to 0.10.0.
+ * 31 versions, 0.39.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,184 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.39.0",
+    "tag": "v0.39.0-beta.1",
+    "name": "the crash fixed, the workspace redrawn as surfaces, and design mode browsing its own references",
+    "date": "2026-10-03",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.39.0-beta.1",
+    "summary": "The crash you sent is fixed, the coding workspace is drawn again as a set of tools rather than a table, design mode browses its own references inside the app, and the top bar shows what the app is costing you.",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "text": "This round was six asks, five of them from the crash report and the screenshot you sent. All six are in this build, and each one carries a test that fails if it stops working, so none of them can quietly regress."
+          }
+        ]
+      },
+      {
+        "title": "The crash, and the quieter damage underneath it",
+        "items": [
+          {
+            "text": "The screenshot's glitch was a layout bug in the bottom panel: its header row was allowed to wrap, so the guard sentence at the end of it broke into a column one word wide, the tabs wrapped under it, and the terminal, having no width to fall back on, pushed the strip wider than the window."
+          },
+          {
+            "text": "The throw itself came from a Design record written by an older build of this app. The real damage was quieter than the crash: the store dropped a record whose version it did not recognise, so the box, the brief and the board were being thrown away on upgrade rather than crashing once."
+          }
+        ]
+      },
+      {
+        "title": "The coding workspace, redrawn as surfaces",
+        "items": [
+          {
+            "text": "R24 redrew the chrome. This round redrew the page the chrome sits on. It was four full-height columns sharing one hairline grid: a rail, an explorer, an editor and an assistant, all flush against each other. It is now a canvas with panels nested on it, the way Xcode 26 and the Finder draw a window:"
+          },
+          {
+            "text": "The rail, the explorer, the editor, the terminal panel below it and the assistant are each their own rounded surface with a six-pixel gutter, so nothing shares an edge with anything else."
+          },
+          {
+            "text": "The status bar is two floating glass pills with the canvas showing between them: what this workspace is on the left, what it is doing on the right."
+          },
+          {
+            "text": "The assistant dock is a panel of the same family instead of a column with a border-left."
+          },
+          {
+            "label": "The caret reaches the status bar.",
+            "text": "The editor reports it and a readout subscribes through a ref, so typing re-renders one line of text rather than the whole workbench."
+          },
+          {
+            "text": "Nothing open is a welcome window, not a sentence: three rows that each do something (open the explorer, ask the AI, run the app), each naming the key that also does it, and only keys the workspace actually binds."
+          },
+          {
+            "text": "The chrome suite still passes untouched, and a new one covers this: 29 checks on the panes, the pills, the caret arriving, the welcome rows working, and reduced motion turning the entrance off."
+          }
+        ]
+      },
+      {
+        "title": "Design mode browses its own references",
+        "items": [
+          {
+            "text": "Inspiration used to build the right Awwwards or Dribbble search URL and open it in a tab, on the honest grounds that neither site offers a public search API. That was still the wrong answer to \"browse them in the app\", and the app already had the right one: the reader the Library opens sources with."
+          },
+          {
+            "label": "Awwwards",
+            "text": "(sites of the day, nominations, collections), Dribbble (popular, web design, mobile), Refero (screens, apps, flows) and"
+          },
+          {
+            "label": "unicorn.studio",
+            "text": "open in a pane of the studio."
+          },
+          {
+            "text": "Both ways in are kept: Read for the page reduced to text and pictures on the server, Browser for the real page in a sandboxed frame."
+          },
+          {
+            "text": "An address bar takes any other URL, and Back walks the pages this session opened, beginning with the list of sources."
+          },
+          {
+            "text": "Anything you read can be kept as a reference in one click, filed under the site it came from and titled the way the reader found it rather than by its domain. Kept references open here again or in a new tab, and the links that leave say so."
+          },
+          {
+            "text": "The component registry is one row away, where the catalog is browsable (sixty items before you type) and every hit carries the install line for this project."
+          },
+          {
+            "text": "The reader gained an inline mode for this: same header, same two tabs, standing in the caller's layout instead of over the window. The Library keeps its modal."
+          }
+        ]
+      },
+      {
+        "title": "Pick mode: smoother, and in your theme's colour",
+        "items": [
+          {
+            "text": "The pick marquee is drawn inside the preview frame, which is a different document from the app and cannot read its CSS. It carried a hard-coded green and a 120 ms transition that snapped whenever the pointer crossed into the next element."
+          },
+          {
+            "text": "The colour travels with the call, read from Appearance at the moment it is needed: switch the theme, point again, and the marquee is the new accent. The label takes the ink that stays legible on that fill."
+          },
+          {
+            "label": "The box travels",
+            "text": "instead of appearing: a per-frame lerp toward the target that stops asking for frames once it has settled, so it moves between elements the way a hand does."
+          },
+          {
+            "text": "One measurement per element, not one per mouse move, which is the other half of smooth."
+          },
+          {
+            "text": "The linger after a pick is a timer, because a settled box no longer schedules the frame that used to do the letting go."
+          },
+          {
+            "text": "Scrolling hides the marquee instead of smearing it, and reduced motion turns the travel off while keeping the reading."
+          },
+          {
+            "text": "The studio says the picker is armed (ring and pill, in the same colour), and a picked element walks its own row into view."
+          },
+          {
+            "text": "The studio itself is the same panelled page as the code workspace, with its eleven tools grouped into work, design and ship rather than one flat row."
+          }
+        ]
+      },
+      {
+        "title": "The top bar shows what the app costs",
+        "items": [
+          {
+            "text": "CPU is measured as a delta between samples, so the first reading is honestly null rather than a made-up zero, and the second is the real percentage."
+          },
+          {
+            "text": "System memory, load average and core count come from the machine."
+          },
+          {
+            "text": "The GPU is read from nvidia-smi when it answers, then from the Linux DRM counters, and cached for three seconds. On a machine with no readable GPU the card says what it could not read instead of printing a zero."
+          },
+          {
+            "text": "The client polls every two seconds, keeps forty samples for the traces, and"
+          },
+          {
+            "text": "pauses while the window is hidden."
+          }
+        ]
+      },
+      {
+        "title": "macOS folder blue",
+        "items": [
+          {
+            "text": "The Library folders' blue is now the accent itself (#0A84FF dark, #007AFF light), converted into the component's own oklch ramp so the flap and the back stay one hue, instead of a blue that merely read as blue."
+          }
+        ]
+      },
+      {
+        "title": "The desktop app",
+        "items": [
+          {
+            "label": "Verified before tagging",
+            "text": "TypeScript strict on both workspaces, the production"
+          },
+          {
+            "text": "build, both portable archives built and run, the create-path bench (8/8, report in downloads/bench-report-0.39.0-beta.1.txt), the packaged build answering its own health check, and the suites: render 857, r17 107, smoke 65, ui 60, library 58, r18 54, ui-lab 44, design-browse 35, ide-chrome 35, updat…"
+          }
+        ]
+      },
+      {
+        "title": "Download",
+        "items": [
+          {
+            "text": "| Installer | Platform | |---|---| | Research.Engine_0.39.0-beta.1_x64-setup.exe | Windows 10/11 x64, per-user, WebView2 fetched automatically | | Research.Engine_0.39.0-beta.1_amd64.deb | Debian/Ubuntu x64 | | Research.Engine_0.39.0-beta.1_amd64.AppImage | any x64 Linux |"
+          },
+          {
+            "text": "Installers are attached to this release by CI, with their SHA-256 digests recorded in downloads/INSTALLERS.sha256."
+          },
+          {
+            "text": "Portable archives, a launcher plus the built server and UI needing only Node 20+ on your machine, are in downloads/ in the repository, hashed in SHA256SUMS:"
+          },
+          {
+            "text": "There is no macOS build. From 0.29.0 on the app updates itself: Settings → Updates reads the release list, verifies the archive against SHA256SUMS, swaps only the code, and rolls back on its own if a version cannot start."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 38,
+      "sections": 9
+    }
+  },
   {
     "version": "0.38.0",
     "tag": "v0.38.0-beta.1",

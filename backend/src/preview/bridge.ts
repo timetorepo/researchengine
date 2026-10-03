@@ -561,7 +561,10 @@ export const BRIDGE_JS = String.raw`
     if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = 0; }
     if (!keep) fadeTimer = setTimeout(hideOverlay, 1400);
     if (!rafId) rafId = requestAnimationFrame(tick);
-    return { ok: true, rect: rectOf(el) };
+    // The rect is built from the measurement already taken: asking the layout
+    // for the same box twice per hover is exactly the cost this rewrite is
+    // meant to remove, and the number the caller gets is the same either way.
+    return { ok: true, rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } };
   }
   window.addEventListener('scroll', hideOverlay, true);
 
