@@ -35,6 +35,9 @@ import { scrollToEnd, scrollChildIntoView } from '@/lib/dom/scroll'
 // run/save pair: the primary button runs the project, the menu holds the things
 // you would otherwise hunt for (save, save and run, open the preview).
 import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/button-group-12'
+// R24 chrome: Xcode 26's grouped glass controls, Zed's quiet status buttons,
+// Cursor 3's agent rows. Presentation only — see the file for the motion rules.
+import { GlassBar, GlassGroup, GlassButton, GlassTabs, Breadcrumbs, StatusItem } from './IdeChrome'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
@@ -371,9 +374,9 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
     onProblems: () => { setPanel('problems'); setPanelOpen(true) },
     onGit: () => { setPanel('git'); setPanelOpen(true) },
     onSave: () => void save(),
-    onSpawnAgent: () => { setDockTab('agents'); setAgentOpen(true) },
-    onHandoffCloud: () => { setDockTab('agents'); setAgentOpen(true) },
-    onHandoffLocal: () => { setDockTab('ai'); setAgentOpen(true); window.dispatchEvent(new CustomEvent('re:ide-handoff', { detail: { to: 'local' } })) },
+    onSpawnAgent: () => { openDock('agents'); setAgentOpen(true) },
+    onHandoffCloud: () => { openDock('agents'); setAgentOpen(true) },
+    onHandoffLocal: () => { openDock('ai'); setAgentOpen(true); window.dispatchEvent(new CustomEvent('re:ide-handoff', { detail: { to: 'local' } })) },
     onTogglePanel: () => setPanelOpen((v) => !v),
   })
   const [starting, setStarting] = useState(false)
@@ -644,16 +647,29 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   }, [save])
 
   const breadcrumb = current?.path.split('/') ?? []
+  /**
+   * Which way the dock's panel will slide. Set by the tab handler rather than
+   * derived, because "left of the one you were on" is the only thing the motion
+   * needs to know — and it must be decided *before* the tab state changes.
+   */
+  const dockDir = useRef(96)
+  const order = { ai: 0, agents: 1, activity: 2 } as const
+  const openDock = (tab: 'ai' | 'agents' | 'activity') => {
+    dockDir.current = order[tab] >= order[dockTab] ? 96 : -96
+    setDockTab(tab)
+  }
   const previewLive = preview.running && preview.ready
 
   return (
     <div className="ide-shell h-full flex flex-col min-h-0">
       {/* ---------- title bar ---------- */}
-      <div className="shrink-0 h-11 flex items-center gap-2 px-3" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
-        <button onClick={onBack} className="ide-btn" title="Back to projects">
-          <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} /> Projects
-        </button>
-        <span className="w-px h-4" style={{ background: 'var(--ide-border)' }} />
+      <GlassBar data-ui="ide-toolbar">
+        <GlassGroup>
+          <GlassButton motionKind="grow" onClick={onBack} title="Back to projects">
+            <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} /> Projects
+          </GlassButton>
+        </GlassGroup>
+        <GlassGroup>
         <FolderGit2 size={13} style={{ color: 'var(--ide-accent)' }} />
         {renaming ? (
           <input
@@ -678,10 +694,27 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           </button>
         )}
         {dirty && <span className="ide-badge warn">unsaved</span>}
+        </GlassGroup>
+
+        {/* The path, as a strip of its own: Zed's editor toolbar, which is the
+            closest thing any of the three references has to a breadcrumb row.
+            Every segment is a button — the project opens the picker, a folder
+            jumps the explorer to that directory. */}
+        {current && (
+          <div className="hidden md:flex items-center min-w-0 flex-1">
+            <Breadcrumbs
+              project={project}
+              path={current.path}
+              onOpenProject={onBack}
+              onPickSegment={() => { setActivity('explorer'); setSidebarOpen(true) }}
+            />
+          </div>
+        )}
         <div className="flex-1" />
 
         {/* run / save — one grouped control, with the rest of the pair's
             actions one click away in the menu */}
+        <GlassGroup>
         <ActionExecuteButtonGroup
           disabled={starting}
           label={previewLive ? 'Run again' : 'Run'}
@@ -705,14 +738,18 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
             else if (id === 'open' && preview.port) window.open(previewUrlFor(preview.port, designSession.token), '_blank')
           }}
         />
-        <div className="ide-seg" role="tablist" aria-label="Workspace mode">
-          <button data-active="true" role="tab" aria-selected="true" title="Edit the code">Code</button>
-          <button className="design" data-active="false" role="tab" onClick={onDesign} title="Let the AI see and fix the running app">
-            <span className="inline-flex items-center gap-1"><MonitorUp size={11} /> Design</span>
-          </button>
-        </div>
+        </GlassGroup>
+        <GlassTabs
+          ariaLabel="Workspace mode"
+          value="code"
+          onChange={(id) => { if (id === 'design') onDesign() }}
+          options={[
+            { id: 'code' as const, label: 'Code', title: 'Edit the code' },
+            { id: 'design' as const, label: <><MonitorUp size={11} /> Design</>, title: 'Let the AI see and fix the running app' },
+          ]}
+        />
         <FocusButton focus={focus} onToggle={() => setFocus((v) => !v)} />
-      </div>
+      </GlassBar>
 
       <div className="flex-1 min-h-0 flex">
         {/* ---------- activity bar ---------- */}
@@ -728,14 +765,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           <ActivityBtn
             active={agentOpen && dockTab === 'agents'}
             badge={agentRunning || agentReady || undefined}
-            onClick={() => { setDockTab('agents'); setAgentOpen(true) }}
+            onClick={() => { openDock('agents'); setAgentOpen(true) }}
             icon={<Bot size={17} />} label={`Agents${agentRunning ? ` · ${agentRunning} running` : ''}`} />
           <ActivityBtn
             active={agentOpen && dockTab === 'activity'}
-            onClick={() => { setDockTab('activity'); setAgentOpen(true) }}
+            onClick={() => { openDock('activity'); setAgentOpen(true) }}
             icon={<ActivityIcon size={17} />} label="What the AI did" />
           <ActivityBtn active={false} onClick={() => setPaletteOpen(true)} icon={<CommandIcon size={17} />} label="Commands (⌘K)" />
-          <ActivityBtn active={agentOpen && dockTab === 'ai'} onClick={() => { setDockTab('ai'); setAgentOpen((v) => !v) }} icon={agentOpen && dockTab === 'ai' ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />} label="AI assistant" />
+          <ActivityBtn active={agentOpen && dockTab === 'ai'} onClick={() => { openDock('ai'); setAgentOpen((v) => !v) }} icon={agentOpen && dockTab === 'ai' ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />} label="AI assistant" />
         </div>
         )}
 
@@ -796,8 +833,14 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
             style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}
             onWheel={(e) => { if (e.deltaY) e.currentTarget.scrollLeft += e.deltaY }}
           >
-            {files.map((f) => (
-              <div key={f.path} data-tab={f.path} className="ide-tab group" data-active={f.path === active} data-stale={f.stale || undefined}>
+            {files.map((f, i) => (
+              /* Each tab arrives from the left with a 18 ms stagger, and the
+                 active one is the only thing in the strip with a lift — the
+                 movement a tab makes when you open it is not the movement the
+                 panel tabs make when you switch them. */
+              <motion.div key={f.path} data-tab={f.path} className="ide-tab group" data-active={f.path === active} data-stale={f.stale || undefined}
+                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2, delay: Math.min(0.16, i * 0.018) }}>
                 <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="flex items-center gap-1.5"
                   title={f.stale ? `${f.path} — changed on disk` : f.path}>
                   <FileCode2 size={11} />
@@ -809,14 +852,16 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                   className="p-0.5 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--ide-faint)' }}>
                   <X size={11} />
                 </button>
-              </div>
+              </motion.div>
             ))}
             {!files.length && <div className="flex items-center px-3 h-8 text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>No file open</div>}
             <div className="flex-1" />
-            <div className="hidden md:flex items-center gap-1 px-2">
-              {!!breadcrumb.length && (
-                <span className="text-[10.5px] font-mono" style={{ color: 'var(--ide-faint)' }}>{breadcrumb.join(' › ')}</span>
-              )}
+            {/* The path lives in the toolbar now (Zed's editor toolbar sits
+                above the tabs, not inside them), so the strip ends with the
+                open-file count instead of repeating it. */}
+            <div className="hidden md:flex items-center gap-2 px-2.5 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
+              <span>{files.length} open</span>
+              {anyDirty && <span style={{ color: 'var(--ide-warn)' }}>· unsaved changes</span>}
             </div>
           </div>
 
@@ -857,12 +902,12 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           {!focus && (
           <div className="ide-panel-strip shrink-0 flex flex-col" style={{ height: panelOpen ? 220 : undefined }}>
             <div className="flex items-center gap-1 px-2 py-1 shrink-0">
-              <PanelTabBtn active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
-              <PanelTabBtn active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
-              <PanelTabBtn active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
-              <PanelTabBtn active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
-              <PanelTabBtn active={panel === 'safety'} onClick={() => { setPanel('safety'); setPanelOpen(true) }} icon={<ShieldCheck size={12} />} label="Agent access" />
-              <PanelTabBtn active={panel === 'frameworks'} onClick={() => { setPanel('frameworks'); setPanelOpen(true) }} icon={<Boxes size={12} />} label="Frameworks" />
+              <PanelTabBtn group="bottom" active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
+              <PanelTabBtn group="bottom" active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
+              <PanelTabBtn group="bottom" active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
+              <PanelTabBtn group="bottom" active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
+              <PanelTabBtn group="bottom" active={panel === 'safety'} onClick={() => { setPanel('safety'); setPanelOpen(true) }} icon={<ShieldCheck size={12} />} label="Agent access" />
+              <PanelTabBtn group="bottom" active={panel === 'frameworks'} onClick={() => { setPanel('frameworks'); setPanelOpen(true) }} icon={<Boxes size={12} />} label="Frameworks" />
               <div className="flex-1" />
               <span className="text-[10px] hidden lg:block" style={{ color: 'var(--ide-faint)' }}>commands run inside the project folder · destructive commands are blocked · mutating ones need approval</span>
               <button onClick={() => setPanelOpen((v) => !v)} className="ide-icon-btn" style={{ width: 22, height: 22 }} aria-label="Toggle panel">
@@ -896,28 +941,54 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
               <div className="w-[428px] h-full flex flex-col min-h-0">
                 {/* The dock's own tab strip: the chat, the agent pool, and the
                     live record of what the AI touched. */}
-                <div className="re-dock-tabs" role="tablist" aria-label="Assistant workspace">
-                  <button role="tab" aria-selected={dockTab === 'ai'} data-active={dockTab === 'ai'} onClick={() => setDockTab('ai')}>
-                    <Sparkles size={11} /> AI
-                  </button>
-                  <button role="tab" aria-selected={dockTab === 'agents'} data-active={dockTab === 'agents'} onClick={() => setDockTab('agents')}>
-                    <Bot size={11} /> Agents
-                    {agentRunning > 0 && <span className="re-tab-dot" data-live="true" />}
-                    {!agentRunning && agentReady > 0 && <span className="re-tab-dot" />}
-                  </button>
-                  <button role="tab" aria-selected={dockTab === 'activity'} data-active={dockTab === 'activity'} onClick={() => setDockTab('activity')}>
-                    <ActivityIcon size={11} /> Activity
-                    {sessionActivity.length > 0 && <span className="re-tab-count">{sessionActivity.length}</span>}
-                  </button>
+                <div className="px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
+                  <GlassTabs
+                    ariaLabel="Assistant workspace"
+                    value={dockTab}
+                    onChange={(id) => openDock(id)}
+                    options={[
+                      { id: 'ai' as const, label: <><Sparkles size={11} /> AI</>, title: 'Talk to the assistant in this project' },
+                      {
+                        id: 'agents' as const,
+                        title: 'The agents working on this project',
+                        label: (
+                          <>
+                            <Bot size={11} /> Agents
+                            {agentRunning > 0 && <span className="re-tab-dot" data-live="true" />}
+                            {!agentRunning && agentReady > 0 && <span className="re-tab-dot" />}
+                          </>
+                        ),
+                      },
+                      {
+                        id: 'activity' as const,
+                        title: 'Every file the AI touched',
+                        label: (
+                          <>
+                            <ActivityIcon size={11} /> Activity
+                            {sessionActivity.length > 0 && <span className="re-tab-count">{sessionActivity.length}</span>}
+                          </>
+                        ),
+                      },
+                    ]}
+                  />
                 </div>
                 <div className="flex-1 min-h-0">
-                  {dockTab === 'ai' && <AgentPanel project={project} tree={tree} onClose={() => setAgentOpen(false)} />}
+                  {/* The panel you are arriving at slides in from the side you
+                      came from — three tabs, two directions, never a cross-fade. */}
+                  <AnimatePresence mode="wait" initial={false}>
+                  {dockTab === 'ai' && (
+                    <motion.div key="ai" className="h-full" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
+                      <AgentPanel project={project} tree={tree} onClose={() => setAgentOpen(false)} />
+                    </motion.div>
+                  )}
                   {dockTab === 'agents' && (
-                    <AgentsDock project={project} onOpenFile={(p) => void openFile(p)}
-                      onOpenChat={openAgentChat} />
+                    <motion.div key="agents" className="h-full" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
+                      <AgentsDock project={project} onOpenFile={(p) => void openFile(p)}
+                        onOpenChat={openAgentChat} />
+                    </motion.div>
                   )}
                   {dockTab === 'activity' && (
-                    <div className="h-full flex flex-col min-h-0">
+                    <motion.div key="activity" className="h-full flex flex-col min-h-0" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
                       <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--ide-border)' }}>
                         <ActivityIcon size={13} style={{ color: 'var(--ide-accent)' }} />
                         <span className="text-[12px] font-medium flex-1">What the AI did</span>
@@ -930,8 +1001,9 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                         <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
                           empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
                       </div>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
               </div>
             </motion.aside>
@@ -940,29 +1012,41 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         )}
       </div>
 
-      {/* ---------- status bar ---------- */}
+      {/* ---------- status bar — Zed's small panel buttons ---------- */}
       {!focus && (
-      <div className="shrink-0 h-[26px] flex items-center gap-3 px-3 text-[10.5px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)', color: 'var(--ide-faint)' }}>
-        <button onClick={onBack} className="flex items-center gap-1 hover:text-[var(--ide-dim)]"><FolderOpen size={10} /> {project}</button>
-        <span className="flex items-center gap-1"><GitBranch size={10} /> local</span>
-        {current && <span className="font-mono" style={{ color: 'var(--ide-dim)' }}>{current.path}</span>}
-        {dirty && <span className="flex items-center gap-1" style={{ color: 'var(--ide-warn)' }}><Circle size={6} fill="currentColor" /> unsaved</span>}
-        {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span>{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
+      <div className="shrink-0 h-[28px] flex items-center gap-1 px-2 text-[10.5px]" style={{ borderTop: '1px solid var(--ide-border)', background: 'var(--ide-panel)', color: 'var(--ide-faint)' }}>
+        <StatusItem motionKind="grow" icon={<FolderOpen size={10} />} onClick={onBack} title="Back to projects">{project}</StatusItem>
+        <StatusItem icon={<GitBranch size={10} />} title="This project runs on your machine — nothing is pushed anywhere">local</StatusItem>
+        {current && <StatusItem icon={null} title={current.path}><span className="font-mono" style={{ color: 'var(--ide-dim)' }}>{current.path}</span></StatusItem>}
+        {dirty && <StatusItem icon={<Circle size={6} fill="currentColor" />} tone="var(--ide-warn)">unsaved</StatusItem>}
+        {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span className="px-1">{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
         <div className="flex-1" />
-        <button onClick={() => { setDockTab('agents'); setAgentOpen(true) }} className="flex items-center gap-1 hover:text-[var(--ide-dim)]"
-          style={{ color: agentRunning ? 'var(--ide-accent)' : agentReady ? 'var(--ide-warn)' : undefined }}>
-          <Bot size={10} />
-          {agentRunning ? `${agentRunning} agent${agentRunning === 1 ? '' : 's'} working` : agentReady ? `${agentReady} ready to merge` : 'agents idle'}
-        </button>
-        <button onClick={() => setPaletteOpen(true)} className="flex items-center gap-1 hover:text-[var(--ide-dim)]" title="Command palette">
-          <CommandIcon size={10} /> ⌘K
-        </button>
-        {streaming && <span className="flex items-center gap-1" style={{ color: 'var(--ide-accent)' }}><span className="re-orb re-orb-sm" /> AI working</span>}
-        <span className="flex items-center gap-1" style={{ color: previewLive ? 'var(--ide-accent)' : undefined }}>
-          <Circle size={6} fill="currentColor" />
+        {agentReady > 0 && (
+          <StatusItem motionKind="pulse" icon={<Bot size={10} />} tone="var(--ide-cyan)"
+            title="An agent finished — open the review"
+            onClick={() => { openDock('agents'); setAgentOpen(true) }}>
+            {agentReady} ready to review
+          </StatusItem>
+        )}
+        {agentRunning > 0 && (
+          <StatusItem icon={<Bot size={10} />} tone="var(--ide-accent)" title="Agents working right now"
+            onClick={() => { openDock('agents'); setAgentOpen(true) }}>
+            {agentRunning} working
+          </StatusItem>
+        )}
+        {!agentRunning && !agentReady && (
+          <StatusItem icon={<Bot size={10} />} onClick={() => { setDockTab('agents'); setAgentOpen(true) }} title="Open the agent pool">
+            agents idle
+          </StatusItem>
+        )}
+        <StatusItem motionKind="pulse" icon={<CommandIcon size={10} />} onClick={() => setPaletteOpen(true)} title="Command palette">⌘K</StatusItem>
+        {streaming && <StatusItem icon={<span className="re-orb re-orb-sm" />} tone="var(--ide-accent)">AI working</StatusItem>}
+        <StatusItem icon={<Circle size={6} fill="currentColor" />} tone={previewLive ? 'var(--ide-accent)' : undefined}
+          onClick={() => { setPanel('terminal'); setPanelOpen(true) }}
+          title={previewLive ? `The preview is live on port ${preview.port}` : 'Open the terminal panel'}>
           {previewLive ? `preview :${preview.port}` : preview.running ? 'preview booting' : 'preview stopped'}
-        </span>
-        <span>{files.length} open</span>
+        </StatusItem>
+        <StatusItem icon={null} title={`${files.length} file${files.length === 1 ? '' : 's'} open`}>{files.length} open</StatusItem>
       </div>
       )}
 
@@ -972,7 +1056,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
         files={allFiles}
         actions={paletteActions()}
         onOpenFile={(p) => void openFile(p)}
-        onCommand={(id) => { setDockTab('ai'); setAgentOpen(true); setTimeout(() => window.dispatchEvent(new CustomEvent('re:ide-command', { detail: { id } })), 60) }}
+        onCommand={(id) => { openDock('ai'); setAgentOpen(true); setTimeout(() => window.dispatchEvent(new CustomEvent('re:ide-command', { detail: { id } })), 60) }}
       />
 
       {/* unsaved-changes guard */}
@@ -1003,19 +1087,41 @@ function ActivityBtn({ active, onClick, icon, label, badge }: { active: boolean;
   return (
     <button onClick={onClick} title={label} aria-label={label}
       className="relative w-9 h-9 rounded-[8px] flex items-center justify-center transition-colors"
-      style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
-      {icon}
-      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: 'var(--ide-accent)' }} />}
+      style={{ color: active ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
+      {/* The rail's active background glides between buttons instead of
+          blinking on and off — the only thing in the workspace that does. */}
+      {active && (
+        <motion.span layoutId="ide-rail-active" className="absolute inset-0 rounded-[8px]"
+          style={{ background: 'var(--ide-active)' }} transition={{ type: 'spring', stiffness: 520, damping: 40 }} />
+      )}
+      <span className="relative z-10">{icon}</span>
+      {active && (
+        <motion.span layoutId="ide-rail-mark" className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full"
+          style={{ background: 'var(--ide-accent)' }} transition={{ type: 'spring', stiffness: 520, damping: 40 }} />
+      )}
       {badge ? <span className="re-rail-badge">{badge > 9 ? '9+' : badge}</span> : null}
     </button>
   )
 }
 
-function PanelTabBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+/**
+ * The bottom panel's tabs get the third tab treatment in this workspace, on
+ * purpose: the dock's tabs glide a pill, the file tabs stagger in and lift, and
+ * these slide a hairline along the bottom edge. Three strips, three movements —
+ * a workspace where every tab behaves identically is a workspace with no
+ * hierarchy.
+ */
+function PanelTabBtn({ active, onClick, icon, label, group }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; group: string }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-[11.5px]"
+    <button onClick={onClick} className="relative flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-[11.5px] transition-colors"
       style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-text)' : 'var(--ide-faint)' }}>
-      {icon}{label}
+      <span className="relative z-10 flex items-center gap-1.5">{icon}{label}</span>
+      {active && (
+        <motion.span layoutId={`ide-panel-underline-${group}`}
+          className="absolute left-1.5 right-1.5 -bottom-[7px] h-[2px] rounded-full"
+          style={{ background: 'var(--ide-accent)' }}
+          transition={{ type: 'spring', stiffness: 520, damping: 42 }} />
+      )}
     </button>
   )
 }

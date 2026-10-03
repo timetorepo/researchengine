@@ -43,7 +43,7 @@ export function scrollToEnd(el: HTMLElement | null, opts: { smooth?: boolean } =
 export function scrollChildIntoView(
   container: HTMLElement | null,
   child: HTMLElement | null,
-  opts: { block?: 'nearest' | 'center'; smooth?: boolean } = {},
+  opts: { block?: 'start' | 'nearest' | 'center'; smooth?: boolean } = {},
 ) {
   if (!container || !child) return
   const block = opts.block ?? 'nearest'
@@ -54,6 +54,13 @@ export function scrollChildIntoView(
     return
   }
   const childTop = container.scrollTop + (chRect.top - cRect.top)
+  if (block === 'start') {
+    // Put the child at the top of the container, offset by the container's own
+    // padding. Used by the source viewer for headings it never wants to hide
+    // behind its own sticky chrome.
+    applyScroll(container, childTop - 12, opts.smooth ?? false)
+    return
+  }
   if (block === 'center') {
     applyScroll(container, childTop - (container.clientHeight - chRect.height) / 2, opts.smooth ?? false)
     return

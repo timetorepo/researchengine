@@ -20,6 +20,8 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { searchDdg, searchSearxngAuto } from '../services/search/adapters'
+import { readSource } from '../services/reader/extract'
+import { miniSearch } from '../services/reader/mini'
 
 export const libraryRoutes = new Hono()
 
@@ -293,6 +295,36 @@ function ownDocuments(q: string): Hit[] {
  * the work keeps running, and the next call picks the results up from the same
  * session — so the first paint is never blocked by the slowest source.
  */
+/* ------------------------------------------------------- the reader -------- */
+
+/**
+ * Read a source into text. The Library's source viewer uses this for its Read
+ * tab; the agent can call it through the library_read tool. Wikipedia goes
+ * through the API (clean sections, real article text), everything else through
+ * the HTML reducer, and the answer always says which one it was.
+ */
+libraryRoutes.get('/read', async (c) => {
+  const url = String(c.req.query('url') ?? '').trim()
+  if (!url) return c.json({ error: 'A url is required.' }, 400)
+  const result = await readSource(url)
+  return c.json(result, result.ok || result.warning ? 200 : 200)
+})
+
+/* --------------------------------------------------- the small engine ------ */
+
+/**
+ * The Library's expanded search: web, Wikipedia, screens and references, app
+ * interfaces, docs — labelled by vertical, never blended. Local verticals answer
+ * immediately, the network ones inside the same 200 ms budget the Library search
+ * already uses, and a follow-up call collects whatever was still running.
+ */
+libraryRoutes.get('/mini-search', async (c) => {
+  const q = String(c.req.query('q') ?? '').trim()
+  if (q.length < 2) return c.json({ error: 'Type at least two characters.', results: [], pending: [] }, 400)
+  const out = await miniSearch(q)
+  return c.json(out)
+})
+
 libraryRoutes.get('/search', async (c) => {
   const q = (c.req.query('q') ?? '').trim()
   const t0 = Date.now()
@@ -486,7 +518,24 @@ libraryRoutes.get('/recommendations', async (c) => {
   const asked = (c.req.query('tags') ?? '').split(',').map((t) => t.trim()).filter(Boolean)
   const tags = [...new Set([...asked, ...items.flatMap((i) => i.tags ?? [])])].slice(0, 6)
   const feeds = items.filter((i) => i.kind === 'feed').slice(0, 5)
-  const out: (FeedItem & { reason: string; source: string; favicon?: string })[] = []
+  /**
+   * A story in the feed. `topic` is the thing the user asked to watch (a tag or
+   * a feed) and `at` is when the story itself says it was published — the two
+   * fields the front end groups and sorts by. Both come from the source; nothing
+   * here is inferred from behaviour.
+   */
+  type Story = FeedItem & {
+    reason: string
+    source: string
+    favicon?: string
+    /** The watch that produced it: `#tag` or the feed's name. */
+    topic: string
+    /** 'feed' or 'tag' — how it arrived. */
+    via: 'feed' | 'tag'
+    /** Where it came from, in words: the feed's own title, or Wikipedia. */
+    publisher: string
+  }
+  const out: Story[] = []
   const startedAt = Date.now()
   const notes: string[] = []
 
@@ -494,7 +543,16 @@ libraryRoutes.get('/recommendations', async (c) => {
     try {
       const feed = await readFeed(f.url)
       for (const it of feed.items.slice(0, 4)) {
-        out.push({ ...it, reason: `new in ${feed.title || f.title}`, source: f.url, favicon: faviconFor(f.url) })
+        const publisher = feed.title || f.title || (() => { try { return new URL(f.url).hostname.replace(/^www\./, '') } catch { return 'a feed' } })()
+        out.push({
+          ...it,
+          reason: `new in ${publisher}`,
+          source: f.url,
+          favicon: faviconFor(f.url),
+          topic: publisher,
+          via: 'feed',
+          publisher,
+        })
       }
     } catch (e) { notes.push(`${f.title} did not load — ${why(e, 'the feed', (() => { try { return new URL(f.url).hostname } catch { return undefined } })())}`) }
   })
@@ -503,12 +561,34 @@ libraryRoutes.get('/recommendations', async (c) => {
     try {
       const hits = await wikipedia(tag)
       for (const h of hits.slice(0, 3)) {
-        out.push({ title: h.title, link: h.url ?? '', summary: h.snippet, reason: `matches your tag #${tag}`, source: h.url ?? '', favicon: h.favicon })
+        out.push({
+          title: h.title,
+          link: h.url ?? '',
+          summary: h.snippet,
+          reason: `matches your tag #${tag}`,
+          source: h.url ?? '',
+          favicon: h.favicon,
+          topic: `#${tag}`,
+          via: 'tag',
+          publisher: 'Wikipedia',
+        })
       }
     } catch (e) { notes.push(`#${tag}: ${why(e, 'Wikipedia', 'en.wikipedia.org')}`) }
   })
 
   await Promise.allSettled([...feedWork, ...tagWork])
+
+  // Newest first when the source said when it was published; undated items keep
+  // the order they arrived in, at the end, because a fake date is worse than no
+  // date.
+  out.sort((a, b) => {
+    const ta = a.at ? Date.parse(a.at) : NaN
+    const tb = b.at ? Date.parse(b.at) : NaN
+    if (Number.isNaN(ta) && Number.isNaN(tb)) return 0
+    if (Number.isNaN(ta)) return 1
+    if (Number.isNaN(tb)) return -1
+    return tb - ta
+  })
 
   const seen = new Set<string>()
   const unique = out.filter((r) => {
@@ -520,7 +600,11 @@ libraryRoutes.get('/recommendations', async (c) => {
 
   return c.json({
     recommendations: unique,
-    watching: { tags, feeds: feeds.map((f) => ({ id: f.id, title: f.title, url: f.url })) },
+    watching: {
+      tags,
+      feeds: feeds.map((f) => ({ id: f.id, title: f.title, url: f.url })),
+      topics: [...new Set(unique.map((r) => r.topic))],
+    },
     notes,
     tookMs: Date.now() - startedAt,
     hint: tags.length || feeds.length ? undefined : 'Add tags to something you saved, or an RSS feed, and recommendations will follow those.',

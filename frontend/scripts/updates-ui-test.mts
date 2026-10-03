@@ -177,6 +177,51 @@ async function main() {
     (host2.textContent ?? '').includes('Refactor parser') && !(host2.textContent ?? '').includes('Quantum notes'))
   root2.unmount()
 
+  /* ==================== [R24] the changelog screen ==================== */
+
+  console.log('\n[R24] Every version is in the record, and it is selectable')
+  const { CHANGELOG, findRelease } = await import('../src/lib/updates/changelog')
+
+  check('twenty-nine versions are recorded', CHANGELOG.length === 29, String(CHANGELOG.length))
+  check('the newest is the version this round shipped', CHANGELOG[0].version === '0.37.0')
+  check('the oldest is the first pre-release', CHANGELOG[CHANGELOG.length - 1].version === '0.10.0')
+  check('every version carries a date, a summary and at least one section',
+    CHANGELOG.every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && r.summary.length > 20 && r.sections.length > 0))
+  check('every version has real notes in it, not empty sections',
+    CHANGELOG.every((r) => r.sections.every((sec) => sec.items.length > 0)) && CHANGELOG.reduce((n, r) => n + r.counts.items, 0) > 500)
+  check('no version number appears twice', new Set(CHANGELOG.map((r) => r.version)).size === CHANGELOG.length)
+  check('the versions are ordered newest first',
+    CHANGELOG.every((r, i) => i === 0 || r.date <= CHANGELOG[i - 1].date))
+  check('the running build can be found in the record', !!findRelease('0.37.0-beta.1') && findRelease('0.37.0-beta.1')!.version === '0.37.0')
+  check('a version from another branch is not claimed', findRelease('9.9.9') === undefined)
+  check('nothing in the record was left as structural markdown',
+    !CHANGELOG.some((r) => /\*\*[^*]+\*\*|\]\(http|^#{1,4}\s/.test(r.summary)
+      || r.sections.some((sec) => sec.items.some((i) => /\*\*[^*]+\*\*|\]\(http|^[-*]\s/.test(`${i.label ?? ''} ${i.text}`)))))
+
+  const { ChangelogPanel } = await import('../src/components/settings/ChangelogPanel')
+  const clHost = win.document.createElement('div')
+  win.document.body.appendChild(clHost)
+  const clRoot = (await import('react-dom/client')).createRoot(clHost)
+  const React2 = await import('react')
+  clRoot.render(React2.createElement(ChangelogPanel as any, { runningVersion: '0.37.0-beta.1' }))
+  await new Promise((r) => setTimeout(r, 220))
+  const clHtml = clHost.innerHTML
+  check('the rail lists every version', (clHtml.match(/data-version="/g) ?? []).length === 29)
+  check('the running build is marked as such', clHtml.includes('running'))
+  check('the selected version is rendered as a page, with its sections',
+    clHtml.includes('data-ui="changelog"') && clHtml.includes('Everything that has shipped'))
+  check('a version is selectable from the rail — the newest is selected first',
+    /data-version="0.37.0"/.test(clHtml) && clHtml.includes('What changed'))
+  check('the version card says how many notes it has', /notes/.test(clHtml) && /sections/.test(clHtml))
+  check('the previous release is one press away instead of a scroll',
+    !!clHost.querySelector('button[title="Older (↓)"]') && !!clHost.querySelector('button[title="Newer (↑)"]'))
+
+  const older = clHost.querySelector('button[title="Older (↓)"]') as any
+  older?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 260))
+  check('moving to an older version swaps the page', /data-version="0.36\.0"/.test(clHost.innerHTML))
+  clRoot.unmount()
+
   console.log(`\n${failed ? 'FAILURES' : 'ALL PASS'}: ${passed} passed, ${failed} failed`)
   if (fails.length) console.log('failed: ' + fails.join(' | '))
   process.exit(failed ? 1 : 0)

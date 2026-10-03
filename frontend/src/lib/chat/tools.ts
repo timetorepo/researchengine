@@ -303,6 +303,72 @@ export const TOOLS: ToolDef[] = [
       return JSON.stringify({ live: outcome.live, sources: outcome.sources.map((s) => ({ title: s.title, url: s.url, snippet: s.snippet })) }).slice(0, 8000)
     },
   },
+  {
+    name: 'library_search',
+    description: 'Search the app\'s own small search engine: the live web, Wikipedia, design references (Awwwards, Dribbble, Refero, Mobbin), app-interface patterns, and the documentation index. Returns hits labelled by vertical — say which vertical a claim came from. Use for anything the user wants sources for, and for "how do other apps do this screen" questions.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: STR,
+        vertical: { type: 'string', enum: ['all', 'web', 'wikipedia', 'screens', 'ui', 'docs'], description: 'Limit to one vertical; "all" is the default.' },
+      },
+      required: ['query'],
+    },
+    run: async (args) => {
+      const query = String(args?.query ?? '').trim()
+      const want = String(args?.vertical ?? 'all')
+      if (query.length < 2) return 'A query of at least two characters is required.'
+      // Search the local server first; if it is not up, the same ladder the chat
+      // uses still answers for the web vertical instead of failing outright.
+      try {
+        const grab = async () => {
+          const res = await fetch(`/api/library/mini-search?q=${encodeURIComponent(query)}`)
+          if (!res.ok) throw new Error(String(res.status))
+          return await res.json() as { results: any[]; pending?: string[]; tookMs: number }
+        }
+        let out = await grab()
+        if (out.pending?.length) { await new Promise((r) => setTimeout(r, 1200)); out = await grab() }
+        const results = (out.results ?? [])
+          .filter((g) => want === 'all' || g.vertical === want)
+          .map((g) => ({
+            vertical: g.vertical,
+            state: g.state,
+            reason: g.reason,
+            note: g.note,
+            hits: (g.hits ?? []).slice(0, 6).map((h: any) => ({ title: h.title, url: h.url, snippet: h.snippet, source: h.source })),
+          }))
+        return JSON.stringify({ query, tookMs: out.tookMs, results }).slice(0, 9000)
+      } catch (e: any) {
+        const { webSearch } = await import('@/lib/search/web')
+        const outcome = await webSearch(query, 5).catch(() => null)
+        if (!outcome) return `The app's search could not run: ${String(e?.message ?? e)}`
+        return JSON.stringify({
+          query, degraded: 'The local server was unreachable, so only the web vertical ran.',
+          results: [{ vertical: 'web', state: 'ok', hits: outcome.sources.map((s) => ({ title: s.title, url: s.url, snippet: s.snippet })) }],
+        }).slice(0, 9000)
+      }
+    },
+  },
+  {
+    name: 'library_read',
+    description: 'Read a source as text. Wikipedia is read through its own API (clean article sections); any other page is reduced to headings, paragraphs, lists, quotes and code. Returns the sections and a word count, or explains that the page is rendered by its own JavaScript and cannot be reduced.',
+    parameters: { type: 'object', properties: { url: { type: 'string', description: 'The full URL to read.' } }, required: ['url'] },
+    run: async (args) => {
+      const url = String(args?.url ?? '').trim()
+      if (!url) return 'A url is required.'
+      try {
+        const res = await fetch(`/api/library/read?url=${encodeURIComponent(url)}`)
+        const json: any = await res.json()
+        if (!json) return `The reader answered HTTP ${res.status} without JSON.`
+        const text = (json.blocks ?? [])
+          .map((b: any) => b.type === 'heading' ? `\n## ${b.text}\n` : b.type === 'list' ? b.items.map((i: string) => `- ${i}`).join('\n') : b.type === 'quote' ? `> ${b.text}` : b.type === 'code' ? `\`\`\`\n${b.text}\n\`\`\`` : b.text)
+          .join('\n\n')
+        return JSON.stringify({ ok: json.ok, via: json.via, title: json.title, wordCount: json.wordCount, minutes: json.minutes, warning: json.warning, outline: json.outline, text: text.slice(0, 12000) })
+      } catch (e: any) {
+        return `Reading ${url} failed: ${String(e?.message ?? e)}`
+      }
+    },
+  },
   // ---------- Coding-mode tools (enabled when ctx.project is set) ----------
   {
     name: 'ide_list_files',
@@ -778,6 +844,8 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else if (def.name === 'ask_user') trace('asking you a few questions', 'ok')
     else if (def.name.startsWith('connector')) trace(`${def.name === 'connector_search' ? 'search' : 'read'} ${String(args.box ?? args.query ?? '')}`.slice(0, 60), 'ok')
     else if (def.name === 'web_search') trace(`web search: ${String(args.query ?? '').slice(0, 50)}`, 'ok')
+    else if (def.name === 'library_search') trace(`library search: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
+    else if (def.name === 'library_read') trace(`reading ${String(args.url ?? '').replace(/^https?:\/\//, '').slice(0, 44)}`, 'ok')
     else if (def.name === 'mcp_call') trace(`MCP ${String(args.serverId ?? '')}:${String(args.tool ?? '')}`.slice(0, 60), 'ok')
     else trace(def.name, 'ok')
     const result = await def.run(args, fullCtx)

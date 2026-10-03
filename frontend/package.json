@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "changelog": "node scripts/build-changelog.mjs",
     "design-test": "tsx scripts/design-test.mts",
     "dev": "vite",
     "fork-test": "tsx --tsconfig tsconfig.json scripts/fork-test.mts",
+    "ide-chrome-test": "tsx --tsconfig tsconfig.json scripts/ide-chrome-test.mts",
+    "library-test": "tsx --tsconfig tsconfig.json scripts/library-test.mts",
     "preview": "vite preview",
     "r17-test": "tsx scripts/r17-test.mts",
     "r17-ui-test": "tsx scripts/r17-ui-test.mts",

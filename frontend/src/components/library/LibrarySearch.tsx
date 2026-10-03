@@ -14,9 +14,10 @@
  * that you did not ask to watch.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import {
-  BookOpen, Globe, FileText, Plus, Trash2, Tag, Rss, Upload, RefreshCw, FolderPlus,
+  BookOpen, Globe, FileText, Plus, Trash2, Tag, Tags, Rss, Upload, RefreshCw, FolderPlus, ExternalLink, ChevronLeft,
   Folder as FolderIcon, Check, Star, Sparkles, AlertTriangle, BookMarked, Loader2,
 } from 'lucide-react'
 import { GooeyInput } from '@/components/ui/aceternity/GooeyInput'
@@ -27,6 +28,10 @@ import { useUI } from '@/stores/useUI'
 import { useStore } from '@/stores/useStore'
 import { notifyRecommendations } from '@/lib/notifications/store'
 import { readJsonResponse } from '@/lib/net/json'
+import { SourceViewer, type OpenSource } from '@/components/library/SourceViewer'
+import FolderReveal from '@/components/smoothui/folder-reveal'
+import { RecommendationsPanel } from '@/components/library/RecommendationsPanel'
+
 import { nanoid } from 'nanoid'
 import { timeAgo } from '@/lib/utils'
 
@@ -55,7 +60,24 @@ interface Item {
 
 interface Folder { id: string; name: string; createdAt: number }
 interface SourceStatus { id: string; label: string; state: 'pending' | 'ok' | 'error'; count: number; ms: number; reason?: string }
-interface Recommendation { title: string; link: string; summary?: string; reason: string; favicon?: string }
+interface Recommendation { title: string; link: string; summary?: string; reason: string; favicon?: string; at?: string; topic?: string; via?: 'feed' | 'tag'; publisher?: string }
+interface Watching { tags: string[]; feeds: { id: string; title: string; url: string }[]; topics?: string[] }
+
+/** A vertical of the small search engine inside the app. */
+interface MiniHit {
+  id: string; vertical: string; title: string; url: string
+  snippet?: string; source: string; action?: 'open' | 'read'
+}
+interface MiniGroup { vertical: string; label: string; state: 'ok' | 'error' | 'empty'; ms: number; hits: MiniHit[]; reason?: string; note?: string }
+
+/** Every group carries how it should be treated, because they are not equivalents. */
+const MINI_META: Record<string, { tone: string; Icon: React.ElementType; external: boolean }> = {
+  web: { tone: 'var(--primary)', Icon: Globe, external: true },
+  wikipedia: { tone: 'var(--primary)', Icon: BookOpen, external: false },
+  screens: { tone: 'var(--secondary)', Icon: Sparkles, external: true },
+  ui: { tone: 'var(--secondary)', Icon: Sparkles, external: true },
+  docs: { tone: 'var(--success)', Icon: FileText, external: true },
+}
 
 const KIND_META: Record<string, { label: string; Icon: React.ElementType; tone: string }> = {
   wikipedia: { label: 'Wikipedia', Icon: BookOpen, tone: 'var(--primary)' },
@@ -83,10 +105,30 @@ function sourceLine(s: SourceStatus): string {
   return `${s.label}: ${s.count} result${s.count === 1 ? '' : 's'} · ${s.ms} ms`
 }
 
+/**
+ * What a saved item looks like inside a folder. It is deliberately small: the
+ * fanned folder is a preview, the folder's own list is where you read. Two lines
+ * and the kind, so an open folder reads like a stack of pins rather than a list.
+ */
+function FolderCard({ title, kind }: { title: string; kind: string }) {
+  return (
+    <div className="w-full h-full px-2 py-1.5 flex flex-col justify-between" data-ui="folder-card">
+      <span className="text-[9.5px] leading-[1.25] line-clamp-3" style={{ color: 'var(--text)' }}>{title}</span>
+      <span className="text-[8px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{kind}</span>
+    </div>
+  )
+}
+
 const WATCH_KEY = 're.library.watchTags'
 const ACCEPT = '.pdf,.docx,.doc,.txt,.md,.markdown,.csv,.json,.rtf,.odt,.html,.htm'
 
-export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: string) => void }) {
+export function LibrarySearch({ query, onQuery, folder, onFolder }: {
+  query: string
+  onQuery: (q: string) => void
+  /** The open folder, owned by the Library view so its scroll keeper can see it. */
+  folder: string
+  onFolder: (id: string) => void
+}) {
   const ui = useUI()
   const [hits, setHits] = useState<Hit[]>([])
   const [notes, setNotes] = useState<string[]>([])
@@ -106,14 +148,23 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
   })
   const [recs, setRecs] = useState<Recommendation[]>([])
   const [recHint, setRecHint] = useState<string>('')
+  const [recNotes, setRecNotes] = useState<string[]>([])
+  const [recTime, setRecTime] = useState<number | null>(null)
+  const [watching, setWatching] = useState<Watching | undefined>(undefined)
   const [recBusy, setRecBusy] = useState(false)
   const [feedOpen, setFeedOpen] = useState(false)
   const [feedUrl, setFeedUrl] = useState('')
+  const [viewerFor, setViewerFor] = useState<OpenSource | null>(null)
+  const [mini, setMini] = useState<MiniGroup[]>([])
+  const [miniBusy, setMiniBusy] = useState(false)
+  const navigate = useNavigate()
   const [saveFor, setSaveFor] = useState<Hit | Recommendation | null>(null)
   const [saveFolder, setSaveFolder] = useState<string>('')
   const [saveTags, setSaveTags] = useState('')
   const [newFolder, setNewFolder] = useState('')
-  const [folderFilter, setFolderFilter] = useState<string>('all')
+  const [folderInput, setFolderInput] = useState(false)
+  const folderFilter = folder
+  const setFolderFilter = onFolder
   const fileRef = useRef<HTMLInputElement>(null)
   const lastQuery = useRef('')
 
@@ -139,8 +190,13 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
       const qs = watchTags.length ? `?tags=${encodeURIComponent(watchTags.join(','))}` : ''
       const res = await fetch(`/api/library/recommendations${qs}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`)
-      const json = await res.json() as { recommendations: Recommendation[]; hint?: string; notes?: string[] }
+      const json = await readJsonResponse(res, '/api/library/recommendations', {
+        retryHint: 'The feed needs the local server; Settings → About has a health row.',
+      }) as { recommendations: Recommendation[]; hint?: string; notes?: string[]; watching?: Watching; tookMs?: number }
       setRecs(json.recommendations ?? [])
+      setWatching(json.watching)
+      setRecNotes(json.notes ?? [])
+      setRecTime(typeof json.tookMs === 'number' ? json.tookMs : null)
       // The server says which feeds or tags it could not reach, and that is
       // more useful than a shrug — it is the difference between "nothing to
       // recommend" and "the source refused to answer".
@@ -196,6 +252,7 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
       })
       if (run !== seq.current) return
       setHits(Array.isArray(json.hits) ? json.hits : [])
+      void runMini(q)
       setNotes(Array.isArray(json.notes) ? json.notes : [])
       setSources(Array.isArray(json.sources) ? json.sources : [])
       setPending(Array.isArray(json.pending) ? json.pending : [])
@@ -209,7 +266,7 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
       }
     } catch (e) {
       if (run !== seq.current) return
-      setHits([]); setSources([]); setPending([]); setNotes([])
+      setHits([]); setSources([]); setPending([]); setNotes([]); setMini([])
       setSearchError(describeFetchError(e, `/api/library/search?q=${encodeURIComponent(clean)}`))
       setRanFor(clean)
       setTookMs(Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0))
@@ -229,6 +286,33 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
     return () => { if (debounce.current) clearTimeout(debounce.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
+
+  /* ------------------------------------------------- the small engine ------ */
+
+  /**
+   * The expanded half of the Library search: the same query, run through the
+   * app's own small engine. It answers in two beats — the local verticals come
+   * back with the first call, the network ones on the follow-up — which is the
+   * same "still looking" contract the lanes above already use.
+   */
+  const runMini = useCallback(async (q: string) => {
+    setMiniBusy(true)
+    try {
+      const res = await fetch(`/api/library/mini-search?q=${encodeURIComponent(q)}`)
+      const json = await res.json().catch(() => null) as { results?: MiniGroup[]; pending?: string[] } | null
+      if (!json?.results) throw new Error(`HTTP ${res.status}`)
+      setMini(json.results)
+      if (json.pending?.length) {
+        await new Promise((r) => setTimeout(r, 900))
+        const again = await fetch(`/api/library/mini-search?q=${encodeURIComponent(q)}`)
+        const second = await again.json().catch(() => null) as { results?: MiniGroup[] } | null
+        if (second?.results) setMini(second.results)
+      }
+    } catch {
+      // The lanes above already explain a dead server; this half stays quiet.
+      setMini([])
+    } finally { setMiniBusy(false) }
+  }, [])
 
   /* -------------------------------------------------------------- saving --- */
 
@@ -336,6 +420,11 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
 
   return (
     <div className="flex flex-col gap-5" data-ui="library-search">
+      <SourceViewer
+        source={viewerFor}
+        onClose={() => setViewerFor(null)}
+        onSave={(s) => openSave({ id: `hit_${nanoid(6)}`, kind: (s.kind === 'wikipedia' ? 'wikipedia' : 'source'), title: s.title || s.url, url: s.url, source: s.url })}
+      />
       {/* the front door */}
       <div className="flex flex-wrap items-center gap-3">
         <GooeyInput
@@ -445,12 +534,25 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
                         onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden' }} />
                       : <meta.Icon size={15} className="mt-0.5" style={{ color: meta.tone }} />}
                     <div className="min-w-0 flex-1">
-                      <a href={h.url} target="_blank" rel="noreferrer noopener" className="text-[13px] font-medium leading-snug hover:underline" style={{ color: 'var(--text)' }}>
+                      {/* The title opens the reader rather than a new tab: the
+                          whole point of the Library is that a source can be
+                          read here, and the panel keeps a way out to a real
+                          browser for the pages that need one. */}
+                      <button onClick={() => setViewerFor({ url: h.url ?? '', title: h.title, favicon: h.favicon, kind: h.kind })}
+                        className="text-[13px] font-medium leading-snug text-left hover:underline" style={{ color: 'var(--text)' }}>
                         {h.title}
-                      </a>
+                      </button>
                       {h.snippet && <p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{h.snippet}</p>}
                       <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{h.source}</span>
                     </div>
+                    {h.url && (
+                      <button onClick={() => setViewerFor({ url: h.url ?? '', title: h.title, favicon: h.favicon, kind: h.kind })}
+                        title="Open and read this source here"
+                        className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 rounded-full"
+                        style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                        <BookOpen size={11} /> Open
+                      </button>
+                    )}
                     <button onClick={() => openSave(h)} title="Save to the library"
                       className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 rounded-full"
                       style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
@@ -464,44 +566,193 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
         )
       })}
 
+      {/* The expanded half: the app's own small engine. Each vertical keeps its
+          own label and its own way out, because a catalogue search is not a
+          document and pretending they are the same would be the dishonest part. */}
+      {(miniBusy || mini.length > 0) && (
+        <div className="flex flex-col gap-4" data-ui="library-mini">
+          <div className="flex items-center gap-2">
+            <Globe size={13} style={{ color: 'var(--secondary)' }} />
+            <h3 className="text-[12.5px] font-medium">The app's own search</h3>
+            <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+              web · screens and references · app interfaces · docs
+            </span>
+            {miniBusy && <Loader2 size={11} className="animate-spin" style={{ color: 'var(--text-3)' }} />}
+          </div>
+
+          {mini.map((g) => {
+            const meta = MINI_META[g.vertical] ?? MINI_META.web
+            return (
+              <div key={g.vertical}>
+                <div className="flex items-center gap-2 mb-2">
+                  <meta.Icon size={13} style={{ color: meta.tone }} />
+                  <h4 className="text-[12px] font-medium">{g.label}</h4>
+                  <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                    {g.state === 'ok' ? `${g.hits.length} · ${g.ms} ms` : g.state}
+                  </span>
+                </div>
+                {g.state !== 'ok' && (
+                  <p className="text-[11.5px] mb-1" style={{ color: 'var(--text-3)' }}>
+                    {g.reason ?? 'Nothing matched in this vertical.'}
+                  </p>
+                )}
+                <div className="flex flex-col gap-2">
+                  {g.hits.map((h) => (
+                    <motion.div key={h.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="surface p-3 flex items-start gap-3">
+                      <meta.Icon size={15} className="mt-0.5 shrink-0" style={{ color: meta.tone }} />
+                      <div className="min-w-0 flex-1">
+                        {h.url.startsWith('app://') ? (
+                          <button onClick={() => { navigate('/code'); ui.toast('Design hub', 'Components and the registries are in the coding workspace.', 'info') }}
+                            className="text-[13px] font-medium leading-snug text-left hover:underline" style={{ color: 'var(--text)' }}>
+                            {h.title}
+                          </button>
+                        ) : h.action === 'read' ? (
+                          <button onClick={() => setViewerFor({ url: h.url, title: h.title, kind: h.vertical as any })}
+                            className="text-[13px] font-medium leading-snug text-left hover:underline" style={{ color: 'var(--text)' }}>
+                            {h.title}
+                          </button>
+                        ) : (
+                          <a href={h.url} target="_blank" rel="noreferrer noopener"
+                            className="text-[13px] font-medium leading-snug hover:underline" style={{ color: 'var(--text)' }}>
+                            {h.title}
+                          </a>
+                        )}
+                        {h.snippet && <p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{h.snippet}</p>}
+                        <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{h.source}</span>
+                      </div>
+                      {!h.url.startsWith('app://') && (
+                        meta.external
+                          ? <a href={h.url} target="_blank" rel="noreferrer noopener" title="Opens in your browser — this library is searched by its own URL"
+                              className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 rounded-full"
+                              style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                              <ExternalLink size={11} /> Open
+                            </a>
+                          : <button onClick={() => setViewerFor({ url: h.url, title: h.title, kind: h.vertical as any })} title="Read it here"
+                              className="shrink-0 flex items-center gap-1 text-[11px] px-2 py-1 rounded-full"
+                              style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                              <BookOpen size={11} /> Read
+                            </button>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+                {g.note && <p className="text-[10.5px] mt-1.5 leading-snug" style={{ color: 'var(--text-3)' }}>{g.note}</p>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-4 mt-1">
-        {/* what you saved, in folders */}
+        {/* what you saved, in folders — a shelf of blue folders you can open */}
         <div className="surface p-3.5">
           <div className="flex items-center gap-2 mb-2.5">
             <BookMarked size={13} style={{ color: 'var(--primary)' }} />
-            <h3 className="text-[12.5px] font-medium flex-1">Saved ({items.length})</h3>
-            <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{folders.length} folder{folders.length === 1 ? '' : 's'}</span>
+            <h3 className="text-[12.5px] font-medium flex-1">
+              Saved ({items.length})
+              {folderFilter !== 'all' && <span style={{ color: 'var(--text-3)' }}> · inside {folders.find((f) => f.id === folderFilter)?.name ?? 'a folder'}</span>}
+            </h3>
+            <button onClick={() => setFolderInput((v) => !v)} title="Make a folder" className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
+              <FolderPlus size={11} /> New folder
+            </button>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            <button onClick={() => setFolderFilter('all')}
-              className="px-2.5 py-1 rounded-full text-[11.5px]"
-              style={{ background: folderFilter === 'all' ? 'var(--elevated)' : 'transparent', border: '1px solid var(--surface-border)', color: folderFilter === 'all' ? 'var(--text)' : 'var(--text-3)' }}>
-              Everything
-            </button>
-            {folders.map((f) => (
-              <span key={f.id} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]"
-                style={{ background: folderFilter === f.id ? 'var(--elevated)' : 'transparent', border: '1px solid var(--surface-border)', color: folderFilter === f.id ? 'var(--text)' : 'var(--text-3)' }}>
-                <FolderIcon size={11} />
-                <button onClick={() => setFolderFilter(f.id)}>{f.name}</button>
-                <button onClick={() => void removeFolder(f.id)} title="Delete this folder (its items stay)" style={{ color: 'var(--text-3)' }}><Trash2 size={10} /></button>
-              </span>
-            ))}
+          {folderInput && (
+            <div className="flex items-center gap-2 mb-3">
+              <input autoFocus value={newFolder} onChange={(e) => setNewFolder(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { void makeFolder(); setFolderInput(false) } }}
+                placeholder="Thesis, fusion energy, Q3…"
+                className="flex-1 rounded-[10px] px-3 py-1.5 text-[12px] outline-none"
+                style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+              <Button size="sm" variant="ghost" onClick={() => { void makeFolder(); setFolderInput(false) }} disabled={!newFolder.trim()}>Make it</Button>
+            </div>
+          )}
+
+          {/*
+            The shelf. Blue folders, hover fans one open, a click reads what is
+            inside it (the list below switches to that folder and the folder
+            stays open). The shelf keeps its own height whatever is selected —
+            choosing a folder must not change the height of the page, because a
+            page that gets shorter is a page the browser scrolls to the top.
+          */}
+          <div className="flex items-end gap-1 overflow-x-auto pb-6 pt-1"
+            style={{ minHeight: 208 }}>
+            {folders.map((f) => {
+              const inside = items.filter((i) => (i.folderId ?? 'none') === f.id)
+              const selected = folderFilter === f.id
+              return (
+                <div key={f.id} className="shrink-0 flex flex-col items-center gap-2"
+                  style={{ width: 150 }}>
+                  <div className="relative rounded-[28px] px-1.5 pt-1.5"
+                    style={{
+                      background: selected ? 'color-mix(in srgb, #6C8EEF 14%, transparent)' : 'transparent',
+                      border: `1px solid ${selected ? 'color-mix(in srgb, #6C8EEF 45%, transparent)' : 'transparent'}`,
+                      cornerShape: 'superellipse(1.7)',
+                    } as React.CSSProperties}>
+                    <FolderReveal
+                      color="blue"
+                      trigger="hover"
+                      size={132}
+                      spread={34}
+                      rotation={5}
+                      label={f.name}
+                      open={selected ? true : undefined}
+                      onActivate={() => setFolderFilter(selected ? 'all' : f.id)}
+                      items={inside.slice(-4).map((i) => ({
+                        id: i.id,
+                        color: 'var(--surface)',
+                        content: <FolderCard title={i.title} kind={i.kind} />,
+                      }))}
+                    />
+                    <button onClick={() => void removeFolder(f.id)} title="Delete this folder (its saves stay)"
+                      className="absolute -right-0.5 -top-0.5 z-30 p-1 rounded-full opacity-0 hover:opacity-100 focus:opacity-100"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
+                  <span className="text-[10.5px] truncate max-w-[140px]" style={{ color: selected ? 'var(--text)' : 'var(--text-3)' }}>
+                    {inside.length} save{inside.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )
+            })}
+            {!folders.length && (
+              <p className="text-[11.5px] pb-4" style={{ color: 'var(--text-3)' }}>
+                No folders yet. Make one above, then save any result into it — the folder fans open under your pointer and reads out its saves when you click it.
+              </p>
+            )}
           </div>
+
+          {folderFilter !== 'all' && (
+            <div className="flex items-center gap-2 mb-2">
+              <button onClick={() => setFolderFilter('all')} className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
+                <ChevronLeft size={11} /> All saves
+              </button>
+              <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                {visibleItems.length} in {folders.find((f) => f.id === folderFilter)?.name}
+              </span>
+            </div>
+          )}
 
           {visibleItems.length === 0 ? (
             <p className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
-              Nothing saved here yet. Every result above can go into a folder with tags, and your own files can be imported with “Add your own”.
+              {folderFilter === 'all'
+                ? 'Nothing saved here yet. Every result above can go into a folder with tags, and your own files can be imported with “Add your own”.'
+                : 'This folder is empty. Save a result into it from the search above.'}
             </p>
           ) : (
-            <div className="flex flex-col gap-1.5 max-h-[320px] overflow-y-auto pr-1">
+            <div className="flex flex-col gap-1.5 min-h-[200px] max-h-[320px] overflow-y-auto pr-1">
               {visibleItems.map((it) => (
                 <div key={it.id} className="flex items-start gap-2 px-2 py-1.5 rounded-[9px]" style={{ background: 'var(--elevated)' }}>
                   {KIND_META[it.kind]?.Icon
                     ? React.createElement(KIND_META[it.kind].Icon, { size: 12, className: 'mt-0.5 shrink-0', style: { color: KIND_META[it.kind].tone } })
                     : <FileText size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--text-3)' }} />}
                   <div className="min-w-0 flex-1">
-                    <div className="text-[12px] truncate">{it.title}</div>
+                    {it.url
+                      ? <button onClick={() => setViewerFor({ url: it.url as string, title: it.title, kind: (it.kind as any) })}
+                          className="text-[12px] truncate text-left hover:underline block max-w-full" style={{ color: 'var(--text)' }}>{it.title}</button>
+                      : <div className="text-[12px] truncate">{it.title}</div>}
                     <div className="flex items-center gap-1.5 flex-wrap text-[10px]" style={{ color: 'var(--text-3)' }}>
                       <span>{timeAgo(it.savedAt)}</span>
                       {folders.find((f) => f.id === it.folderId) && <span>· {folders.find((f) => f.id === it.folderId)?.name}</span>}
@@ -518,11 +769,8 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
         {/* what to watch + what came back */}
         <div className="surface p-3.5">
           <div className="flex items-center gap-2 mb-2.5">
-            <Sparkles size={13} style={{ color: 'var(--secondary)' }} />
-            <h3 className="text-[12.5px] font-medium flex-1">Recommendations</h3>
-            <button onClick={() => void recommendations()} title="Look again" className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
-              <RefreshCw size={11} className={recBusy ? 'animate-spin' : ''} />
-            </button>
+            <Tags size={13} style={{ color: 'var(--secondary)' }} />
+            <h3 className="text-[12.5px] font-medium flex-1">What to watch</h3>
           </div>
 
           <p className="text-[11px] mb-2" style={{ color: 'var(--text-3)' }}>
@@ -538,31 +786,22 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
             </p>
           )}
 
-          <div className="mt-3 flex flex-col gap-1.5 max-h-[240px] overflow-y-auto pr-1">
-            {recs.map((r, i) => (
-              <div key={`${r.link}-${i}`} className="px-2 py-1.5 rounded-[9px]" style={{ background: 'var(--elevated)' }}>
-                <div className="flex items-start gap-2">
-                  {r.favicon
-                    ? <img src={r.favicon} alt="" width={13} height={13} className="rounded-[3px] mt-0.5" referrerPolicy="no-referrer"
-                      onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden' }} />
-                    : <Globe size={12} className="mt-0.5" style={{ color: 'var(--text-3)' }} />}
-                  <a href={r.link} target="_blank" rel="noreferrer noopener" className="text-[12px] leading-snug hover:underline flex-1" style={{ color: 'var(--text)' }}>{r.title}</a>
-                  <button onClick={() => openSave(r)} title="Save this" style={{ color: 'var(--text-3)' }}><Star size={11} /></button>
-                </div>
-                <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{r.reason}</div>
-              </div>
-            ))}
-            {!recs.length && !recBusy && (
-              <div className="flex items-start gap-2">
-                <p className="text-[11px] flex-1" style={{ color: recHint && /could not|did not|refused|dropped|offline|HTTP/i.test(recHint) ? 'var(--warning)' : 'var(--text-3)' }}>
-                  {recHint || 'Nothing to recommend yet.'}
-                </p>
-                <button onClick={() => void recommendations()} title="Look again" className="shrink-0 text-[11px] flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
-                  <RefreshCw size={10} /> Retry
-                </button>
-              </div>
-            )}
-          </div>
+        </div>
+
+        {/* the feed itself, full width under both panels: a reader needs the
+            room, and a headline deserves a line of its own */}
+        <div className="lg:col-span-2">
+          <RecommendationsPanel
+            recs={recs}
+            hint={recHint}
+            busy={recBusy}
+            tookMs={recTime}
+            watching={watching}
+            notes={recNotes}
+            onRefresh={() => void recommendations()}
+            onSave={(r) => openSave(r as any)}
+            onOpen={(r) => setViewerFor({ url: r.link, title: r.title, kind: 'source' })}
+          />
         </div>
       </div>
 

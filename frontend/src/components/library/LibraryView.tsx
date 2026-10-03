@@ -10,6 +10,7 @@ import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@herou
 import { Button } from '@/components/ui/heroui/Button'
 import { Folder, FlaskConical, BookOpen, Code2, GraduationCap, Briefcase } from 'lucide-react'
 import { LibrarySearch } from './LibrarySearch'
+import { useScrollKeeper } from '@/hooks/useScrollKeeper'
 
 /** The palette spaces are drawn from. Also the swatch row in the dialog. */
 const SPACE_COLORS = ['#6C8EEF', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#22D3EE', '#F472B6']
@@ -32,8 +33,17 @@ export function LibraryView() {
   // looking at and searches the world when you are on the search tab.
   const [tab, setTab] = useState<Tab>('search')
   const [q, setQ] = useState('')
+  /**
+   * Which folder of saved sources is open. It lives up here rather than inside
+   * the search panel because the scroll keeper needs to know when the page's
+   * content changes shape: opening a folder must not move the page, and the
+   * fix for that (hooks/useScrollKeeper) has to sit on the element that
+   * actually scrolls.
+   */
+  const [folder, setFolder] = useState<string>('all')
+  const scroller = useScrollKeeper<HTMLDivElement>(`${tab}:${folder}`)
   return (
-    <div className="h-full overflow-y-auto">
+    <div ref={scroller} data-ui="library-scroller" className="h-full overflow-y-auto">
       <div className="max-w-[880px] mx-auto px-5 py-8">
         <h1 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Library</h1>
         <p className="text-[12.5px] mb-5" style={{ color: 'var(--text-2)' }}>Everything your research collects, organized.</p>
@@ -48,7 +58,7 @@ export function LibraryView() {
           ))}
         </div>
 
-        {tab === 'search' && <LibrarySearch query={q} onQuery={setQ} />}
+        {tab === 'search' && <LibrarySearch query={q} onQuery={setQ} folder={folder} onFolder={setFolder} />}
         {tab === 'citations' && <Citations q={q} onQuery={setQ} />}
         {tab === 'knowledge' && <Knowledge q={q} onQuery={setQ} />}
         {tab === 'spaces' && <Spaces />}

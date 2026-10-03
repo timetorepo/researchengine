@@ -91,8 +91,14 @@ async function main() {
     check('typing is debounced, so a five-letter word is not five searches',
       /setTimeout\(\(\) => \{ void runSearch\(clean\) \}, 220\)/.test(searchScreen))
     check('the slow lanes are polled and then merged in', /opts\.poll/.test(searchScreen) && /next === 1 \? 420 : 700/.test(searchScreen))
-    check('recommendations have their own retry and their own reason', /Could not reach the local server/.test(searchScreen)
-      && /Retry/.test(searchScreen))
+    // R24 moved the feed into its own component, so the guarantee is checked
+    // where it now lives as well as where it started: a retry you can see and a
+    // reason that is a sentence, not a spinner forever.
+    const feedScreen = read('src/components/library/RecommendationsPanel.tsx')
+    check('recommendations have their own retry and their own reason',
+      /Could not reach the local server/.test(searchScreen)
+      && /Retry/.test(feedScreen)
+      && /hint && \/could not\|did not\|refused\|offline\|HTTP\//.test(feedScreen))
   }
 
   /* ------------------------------------------------------------------ 3 */

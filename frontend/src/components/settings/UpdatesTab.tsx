@@ -12,6 +12,9 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { useUpdates, formatBytes, phaseLabel } from '@/lib/updates/client'
 import { useRunningVersion } from '@/lib/appVersion'
+import { ChangelogPanel } from '@/components/settings/ChangelogPanel'
+import { CHANGELOG } from '@/lib/updates/changelog'
+import { History } from 'lucide-react'
 
 /**
  * Settings → Updates.
@@ -21,6 +24,12 @@ import { useRunningVersion } from '@/lib/appVersion'
  * the library is, so the claim is checkable rather than reassuring.
  */
 export function UpdatesTab() {
+  /**
+   * Two things live here now: the update in front of you, and the record behind
+   * it. They are different jobs — one is a button, the other is a library — so
+   * they are two views rather than one long scroll.
+   */
+  const [view, setView] = useState<'updates' | 'history'>('updates')
   const settings = useStore((s) => s.settings)
   /** What this install is actually running — never a placeholder string. */
   const version = useRunningVersion()
@@ -119,8 +128,27 @@ export function UpdatesTab() {
         <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
           Keep the app current without losing anything. An update replaces the program and <b>never</b> the library.
         </p>
+        {/* Two views, one line, and the count on the second one is real. */}
+        <div className="flex items-center gap-1.5 mt-3">
+          {([['updates', 'This install', RefreshCw], ['history', `Every version (${CHANGELOG.length})`, History]] as const).map(([id, label, Icon]) => (
+            <button key={id} onClick={() => setView(id)}
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px]"
+              style={{ color: view === id ? 'var(--text)' : 'var(--text-3)' }}>
+              {view === id && (
+                <motion.span layoutId="updates-view" className="absolute inset-0 rounded-full"
+                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
+                  transition={{ type: 'spring', stiffness: 540, damping: 42 }} />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5"><Icon size={12} /> {label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
+      {view === 'history' ? (
+        <ChangelogPanel runningVersion={version} />
+      ) : (
+      <>
       {/* Where your data is — the claim, made checkable. */}
       <section className="surface p-4" style={{ borderRadius: 'var(--radius-card)' }}>
         <div className="flex items-start gap-3">
@@ -404,6 +432,8 @@ export function UpdatesTab() {
           <li>6. Restarts. If the new version cannot serve pages, the previous one is put back automatically.</li>
         </ol>
       </section>
+      </>
+      )}
     </div>
   )
 }

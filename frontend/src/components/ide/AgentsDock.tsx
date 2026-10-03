@@ -9,6 +9,7 @@
  * one, and the chip on the task says which.
  */
 import React, { useMemo, useState } from 'react'
+import { AgentGlyph, ReviewBar, useElapsed } from './IdeChrome'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Bot, Plus, Loader2, Check, X, GitMerge, Trash2, AlertTriangle, Cpu, Cloud,
@@ -194,6 +195,12 @@ function TaskCard({ task, onOpenFile, onOpenChat, onMerge, onDiscard, onStop }: 
   const [showDiff, setShowDiff] = useState(true)
   const tone = STATUS_TONE[task.status]
   const busy = task.status === 'running' || task.status === 'forking'
+  const elapsed = useElapsed(task.startedAt, busy)
+  const glyphState: 'working' | 'ready' | 'blocked' | 'idle' =
+    busy ? 'working'
+      : task.status === 'ready' ? 'ready'
+        : task.status === 'conflict' || task.status === 'failed' ? 'blocked'
+          : 'idle'
   const accepted = task.changes.filter((c) => c.accepted)
   const totalAdded = task.changes.reduce((a, c) => a + (c.added ?? 0), 0)
   const totalRemoved = task.changes.reduce((a, c) => a + (c.removed ?? 0), 0)
@@ -202,13 +209,16 @@ function TaskCard({ task, onOpenFile, onOpenChat, onMerge, onDiscard, onStop }: 
     <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', damping: 26, stiffness: 320 }}
       className="re-task" data-status={task.status}>
+      {/* Cursor 3's agent row: the state is a glyph, the work has a timer, and
+          the repo it is working in is a chip rather than a sentence. */}
       <div className="re-task-head">
-        <span className="re-task-dot" style={{ background: tone }} data-live={busy ? 'true' : 'false'} />
+        <AgentGlyph state={glyphState} />
         <button className="min-w-0 flex-1 text-left" onClick={() => onOpenChat(task.chatId)} title="Open this agent's conversation">
           <span className="re-task-title">{task.title}</span>
         </button>
         <span className="re-chip" data-tone={task.handoff}>{task.handoff === 'cloud' ? <Cloud size={9} /> : <Cpu size={9} />} {task.handoff}</span>
-        <span className="re-chip" style={{ color: tone }}>{busy && <Loader2 size={9} className="animate-spin" />} {STATUS_LABEL[task.status]}</span>
+        <span className="re-chip" style={{ color: tone }}>{STATUS_LABEL[task.status]}</span>
+        <span className="text-[10px] tabular-nums" style={{ color: 'var(--ide-faint)' }} title={busy ? 'Working for' : 'Finished in'}>{elapsed}</span>
         <span className="re-task-id">{task.id.replace('agent-', '')}</span>
       </div>
 
@@ -262,29 +272,37 @@ function TaskCard({ task, onOpenFile, onOpenChat, onMerge, onDiscard, onStop }: 
         </div>
       )}
 
-      <div className="re-task-actions">
-        {busy ? (
-          <>
-            <button onClick={onStop} className="ide-btn outlined" style={{ height: 22 }}><X size={10} /> Stop</button>
-            <button onClick={() => void refreshChanges(task.id)} className="ide-btn" style={{ height: 22 }} title="Check what has been written so far">
-              <Sparkles size={10} /> Check
-            </button>
-          </>
-        ) : (
-          <>
-            <button onClick={onMerge} disabled={!accepted.length} className="ide-btn primary" style={{ height: 22 }}
-              title={accepted.length ? `Merge ${accepted.length} file(s) into the project` : 'Nothing selected'}>
-              <GitMerge size={10} /> Merge {accepted.length}/{task.changes.length}
-            </button>
+      {/* A finished agent ends in the bottom action row rather than a toolbar:
+          what changed, then the three things you can do about it. A running one
+          gets the two controls that make sense while it runs. */}
+      {busy ? (
+        <div className="re-task-actions">
+          <button onClick={onStop} className="ide-btn outlined" style={{ height: 22 }}><X size={10} /> Stop</button>
+          <button onClick={() => void refreshChanges(task.id)} className="ide-btn" style={{ height: 22 }} title="Check what has been written so far">
+            <Sparkles size={10} /> Check
+          </button>
+        </div>
+      ) : (
+        <div className="px-2.5 pb-2.5">
+          <ReviewBar
+            files={task.changes.length}
+            included={accepted.length}
+            added={totalAdded}
+            removed={totalRemoved}
+            onReview={() => setShowDiff(true)}
+            onDiscard={() => onDiscard()}
+            onMerge={accepted.length ? () => onMerge() : undefined}
+            busy={false}
+          />
+          <div className="flex items-center gap-1.5 mt-1.5">
             <button onClick={() => void refreshChanges(task.id)} className="ide-btn" style={{ height: 22 }}><Sparkles size={10} /> Re-check</button>
             <button onClick={() => onOpenChat(task.chatId)} className="ide-btn" style={{ height: 22 }}><Play size={10} /> Transcript</button>
-            <div className="flex-1" />
-            <button onClick={onDiscard} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Discard this agent's working copy">
-              <Trash2 size={11} />
-            </button>
-          </>
-        )}
-      </div>
+            <span className="text-[10px]" style={{ color: 'var(--ide-faint)' }}>
+              {accepted.length}/{task.changes.length} file{task.changes.length === 1 ? '' : 's'} included
+            </span>
+          </div>
+        </div>
+      )}
 
       {task.status === 'conflict' && (
         <p className="px-2.5 pb-2 text-[10.5px] flex items-start gap-1.5" style={{ color: 'var(--ide-warn, var(--warning))' }}>

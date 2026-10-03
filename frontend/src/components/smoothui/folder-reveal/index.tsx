@@ -17,6 +17,14 @@ export interface FolderRevealItem {
 
 export interface FolderRevealProps {
   className?: string;
+  /**
+   * Local addition to the upstream component: what pressing the folder *means*
+   * in the host app, beside opening it. The Library uses it for "show me what
+   * is inside this folder", which is a different job from the hover preview —
+   * hover fans the cards, this reads them. Upstream has no callback here, so
+   * the flap's click and Enter/Space both call it after toggling.
+   */
+  onActivate?: () => void;
   /** Folder stock: `manila` (default) or a theme-tinted variant. */
   color?: FolderRevealColor;
   items: FolderRevealItem[];
@@ -128,6 +136,7 @@ const OPEN_TRANSITION = {
 const FolderReveal = ({
   className,
   color = "manila",
+  onActivate,
   items,
   label = "Folder",
   onOpenChange,
@@ -194,12 +203,16 @@ const FolderReveal = ({
     if (trigger === "click") {
       setOpen(!open);
     }
+    onActivate?.();
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (trigger === "hover" && (event.key === "Enter" || event.key === " ")) {
-      event.preventDefault();
-      setOpen(!open);
+    if (event.key === "Enter" || event.key === " ") {
+      if (trigger === "hover") {
+        event.preventDefault();
+        setOpen(!open);
+      }
+      onActivate?.();
     }
   };
 
