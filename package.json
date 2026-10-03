@@ -17,7 +17,17 @@
     "smoke": "npm run smoke --workspace frontend",
     "desktop:dev": "npm run tauri:dev --prefix desktop",
     "desktop:build": "npm run tauri:build --prefix desktop",
-    "package:binary": "node scripts/package-binary.mjs"
+    "package:binary": "node scripts/package-binary.mjs",
+    "mobile:dev": "npm run dev --prefix mobile",
+    "mobile:build": "npm run build --prefix mobile",
+    "mobile:test": "npm test --prefix mobile",
+    "tokens:gen": "node packages/tokens/generate.mjs",
+    "tokens:test": "node --experimental-strip-types --no-warnings packages/tokens/test/tokens.test.mts",
+    "prompts:sync": "node --experimental-strip-types --no-warnings packages/prompts/extract.mjs",
+    "prompts:test": "node --experimental-strip-types --no-warnings packages/prompts/test/prompts.test.mts",
+    "types:sync": "node --experimental-strip-types --no-warnings packages/types/extract.mjs",
+    "types:test": "node --experimental-strip-types --no-warnings packages/types/test/types.test.mts",
+    "test:port": "npm run tokens:test && npm run prompts:test && npm run types:test && npm run mobile:test"
   },
   "engines": {
     "node": ">=20"

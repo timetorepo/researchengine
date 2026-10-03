@@ -1,0 +1,91 @@
+name: mobile-pipeline
+# The port's own test discipline: same philosophy as frontend/scripts/smoke.mts
+# (a claim without a test is a bug). Budget regressions and drift fail the
+# build. Device-side benchmark runs (Perfetto/Macrobenchmark/Xcode) attach in
+# R3+ on real-device runners; the numbers they must hit live in
+# mobile/bench/scenes.json and packages/tokens/tokens.json.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - "packages/**"
+      - "crates/**"
+      - "docs/mobile/**"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "packages/**"
+      - "crates/**"
+      - "docs/mobile/**"
+  workflow_dispatch:
+
+jobs:
+  tokens:
+    name: token pipeline (JSON = CSS = Swift = Kotlin; no drift)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: generate (dist is gitignored; generation must be side-effect free)
+        run: node packages/tokens/generate.mjs
+      - name: determinism (two runs are byte-identical)
+        run: |
+          cp -r packages/tokens/dist /tmp/d1 && node packages/tokens/generate.mjs
+          diff -r /tmp/d1 packages/tokens/dist
+      - name: token + schema + meta drift tests
+        run: node --experimental-strip-types --no-warnings packages/tokens/test/tokens.test.mts
+      - name: prompts + types drift tests
+        run: |
+          node --experimental-strip-types --no-warnings packages/prompts/test/prompts.test.mts
+          node --experimental-strip-types --no-warnings packages/types/test/types.test.mts
+
+  mobile-ui:
+    name: mobile shell (tests + build)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: mobile } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+      - run: node ../packages/tokens/generate.mjs
+      - run: npm test
+      - run: npm run build
+
+  rust:
+    name: crates (unit tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --manifest-path crates/Cargo.toml
+
+  android-compile:
+    name: android shell compile (debug, no signing)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+      - uses: nttld/setup-ndk@v1
+        with: { ndk-version: r27 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: (cd mobile && npm install --no-audit --no-fund && node ../packages/tokens/generate.mjs && npm run build)
+      - run: cargo tauri android init || npm install -g @tauri-apps/cli@latest && cargo tauri android init
+        env: { NDK_HOME: ${{ steps.ndk.outputs.ndk-path }} }
+        continue-on-error: false
+      # `tauri android apk` (full Gradle build) runs once signing + the store
+      # checklist from R8 land; the R1 gate is that the Rust core compiles for
+      # the Android targets:
+      - run: cargo check --manifest-path mobile/src-tauri/Cargo.toml --target aarch64-linux-android
+        env: { ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }} }
+
+  # iOS compile needs a macOS runner; enabled when the repo adds one (R2 note).

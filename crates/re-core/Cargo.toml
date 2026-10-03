@@ -1,0 +1,17 @@
+[package]
+name = "re-core"
+description = "Research Engine mobile core: library schema (shared with the desktop backend), frame-budget governor, job queue. R1 scope is pure logic; SQLite/fts5 arrive in R2 behind the `sqlite` feature."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+# R2: rusqlite = { version = "0.32", features = ["bundled-full"] } behind this flag
+sqlite = []
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"

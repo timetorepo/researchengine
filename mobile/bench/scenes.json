@@ -1,0 +1,52 @@
+{
+  "_readme": "Benchmark scenes for the performance contract (docs/mobile/10-performance.md §4). Budgets here must satisfy the global frame gates in packages/tokens/tokens.json (frameBudget), enforced by mobile/scripts/test.mts. Runner scripts arrive in R3 on-device; these scene definitions are the contract they execute.",
+  "AnswerStream": {
+    "description": "4000-token answer with three fenced code blocks, streaming with the pacing engine at cinematic shaping, scroll pinned to the tail.",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "steps": ["prime with 200 completed blocks", "stream at provider rate", "scroll down twice mid-stream", "expand one code block during stream"]
+  },
+  "Reader300": {
+    "description": "300-page PDF open, page jump, continuous scroll, highlight placement with two handle drags.",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "steps": ["open page 1 of 300", "fling scroll 10 pages", "place a highlight in under 10ms first-pixel", "place 50 highlights via topic pass", "close and relaunch with 10000 highlight records"]
+  },
+  "QuizRun": {
+    "description": "Six question types in sequence (mc, tf, short, fill, ordering, matching) with feedback animation overlapping the next question's entry.",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "steps": ["answer all six", "trigger one wrong (shake-x) while entering the next", "finish to result card"]
+  },
+  "LibraryScroll": {
+    "description": "10000 rows, fling to bottom, type a query that matches 4000 rows.",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "steps": ["mount list", "fling 10 screens", "type 5 chars (per-lane results)", "long-press a mid-list row"]
+  },
+  "GalleryOpen": {
+    "description": "Screenshot viewer opening over a live streaming chat.",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "steps": ["answer streaming", "tap a source screenshot", "swipe-dismiss while stream continues"]
+  },
+  "VoiceHold": {
+    "description": "Hold-to-talk with the level meter glow active and the composer mounted.",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "steps": ["press and hold mic 10s", "waveform + haptics active", "release, transcript insert at caret"]
+  },
+  "SearchBurst": {
+    "description": "Ten queries in a row against the 200 ms tier-2 budget, per-lane results, one lane intentionally unreachable to exercise why().",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "firstMeaningfulPaint": { "p50Ms": 200, "p95Ms": 350 },
+    "steps": ["fire 10 queries at 150ms cadence", "verify stale-while-revalidate on the repeat", "verify lane failure reports why()"]
+  },
+  "FloodWatch": {
+    "description": "Companion flood streaming per-agent progress into the radio room; the phone stays at Full ladder on the device floor.",
+    "hz120": { "p95Ms": 8.3, "p99Ms": 10 },
+    "hz60": { "p95Ms": 16.6, "p99Ms": 20 },
+    "steps": ["watch 4 agents for 5 minutes", "expand one scratchpad while events arrive", "lock phone, unlock, progress resumed"]
+  }
+}

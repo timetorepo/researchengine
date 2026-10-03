@@ -1,0 +1,13 @@
+{
+  "name": "@re/tokens",
+  "version": "0.16.0-beta.1",
+  "private": true,
+  "type": "module",
+  "description": "Single source of truth for Research Engine design tokens: tokens.json + generators for Tailwind/WebView CSS, Swift, Kotlin.",
+  "main": "tokens.json",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "test": "node --experimental-strip-types --no-warnings test/tokens.test.mts"
+  }
+
+}

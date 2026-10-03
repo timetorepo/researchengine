@@ -1,0 +1,29 @@
+{
+  "name": "re-mobile",
+  "private": true,
+  "version": "0.16.0-beta.1",
+  "type": "module",
+  "description": "Research Engine mobile (Tauri 2): the phone app shell, three destinations, the Ask sheet, the theme engine, the design preview.",
+  "scripts": {
+    "dev": "node ../packages/tokens/generate.mjs && vite",
+    "pretest": "node ../packages/tokens/generate.mjs",
+    "build": "node ../packages/tokens/generate.mjs && vite build",
+    "preview": "vite preview",
+    "test": "tsx scripts/test.mts",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react-swc": "^3.8.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.7"
+  }
+}

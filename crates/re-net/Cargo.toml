@@ -1,0 +1,12 @@
+[package]
+name = "re-net"
+description = "Companion protocol (brief §4.3): pairing, SPKI pins, scopes, resumable transport. Real deps (rustls/h2/mdns) arrive in R6; R1 ships the types so mobile and desktop can agree on them now."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"

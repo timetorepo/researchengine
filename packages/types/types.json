@@ -1,0 +1,268 @@
+{
+  "meta": {
+    "extractedBy": "packages/types/extract.mjs",
+    "product": "researchengine",
+    "version": "0.16.0-beta.1"
+  },
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "kind": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "needsKey": true
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "kind": "anthropic",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "needsKey": true
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "kind": "openai",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "needsKey": true
+    },
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "kind": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "needsKey": true,
+      "hint": "Google AI Studio key — starts with AIza"
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "kind": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "needsKey": false,
+      "hint": "Auto-detects local models via /api/tags"
+    },
+    {
+      "id": "nim",
+      "name": "NVIDIA NIM",
+      "kind": "openai",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "needsKey": true,
+      "hint": "OpenAI-compatible — use your NVIDIA API key"
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "kind": "openai",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "needsKey": true,
+      "hint": "One OpenAI-compatible key for many model providers"
+    },
+    {
+      "id": "together",
+      "name": "Together",
+      "kind": "openai",
+      "baseUrl": "https://api.together.xyz/v1",
+      "needsKey": true
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral",
+      "kind": "openai",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "needsKey": true
+    },
+    {
+      "id": "lmstudio",
+      "name": "LM Studio",
+      "kind": "openai",
+      "baseUrl": "http://localhost:1234/v1",
+      "needsKey": false,
+      "hint": "Local server — start it in LM Studio"
+    },
+    {
+      "id": "custom",
+      "name": "Custom (OpenAI-compatible)",
+      "kind": "openai",
+      "baseUrl": "http://localhost:5000/v1",
+      "needsKey": false,
+      "hint": "text-generation-webui, LocalAI, vLLM…"
+    }
+  ],
+  "themes": [
+    {
+      "id": "dark",
+      "name": "Default Dark",
+      "kind": "dark",
+      "swatches": [
+        "#0A0A0B",
+        "#131316",
+        "#6C8EEF",
+        "#A78BFA"
+      ],
+      "codeTheme": "dark-plus"
+    },
+    {
+      "id": "light",
+      "name": "Default Light",
+      "kind": "light",
+      "swatches": [
+        "#FAFAFA",
+        "#FFFFFF",
+        "#4F6FE0",
+        "#8B5CF6"
+      ],
+      "codeTheme": "light-plus"
+    },
+    {
+      "id": "catppuccin-latte",
+      "name": "Catppuccin Latte",
+      "kind": "light",
+      "swatches": [
+        "#eff1f5",
+        "#e6e9ef",
+        "#1e66f5",
+        "#8839ef"
+      ],
+      "codeTheme": "catppuccin-latte"
+    },
+    {
+      "id": "catppuccin-frappe",
+      "name": "Catppuccin Frappé",
+      "kind": "dark",
+      "swatches": [
+        "#303446",
+        "#292c3c",
+        "#8caaee",
+        "#ca9ee6"
+      ],
+      "codeTheme": "catppuccin-frappe"
+    },
+    {
+      "id": "catppuccin-macchiato",
+      "name": "Catppuccin Macchiato",
+      "kind": "dark",
+      "swatches": [
+        "#24273a",
+        "#1e2030",
+        "#8aadf4",
+        "#c6a0f6"
+      ],
+      "codeTheme": "catppuccin-macchiato"
+    },
+    {
+      "id": "catppuccin-mocha",
+      "name": "Catppuccin Mocha",
+      "kind": "dark",
+      "swatches": [
+        "#1e1e2e",
+        "#181825",
+        "#89b4fa",
+        "#cba6f7"
+      ],
+      "codeTheme": "catppuccin-mocha"
+    },
+    {
+      "id": "nord",
+      "name": "Nord",
+      "kind": "dark",
+      "swatches": [
+        "#2e3440",
+        "#3b4252",
+        "#88c0d0",
+        "#b48ead"
+      ],
+      "codeTheme": "nord"
+    },
+    {
+      "id": "solarized-dark",
+      "name": "Solarized Dark",
+      "kind": "dark",
+      "swatches": [
+        "#002b36",
+        "#073642",
+        "#268bd2",
+        "#6c71c4"
+      ],
+      "codeTheme": "solarized-dark"
+    },
+    {
+      "id": "solarized-light",
+      "name": "Solarized Light",
+      "kind": "light",
+      "swatches": [
+        "#fdf6e3",
+        "#eee8d5",
+        "#268bd2",
+        "#6c71c4"
+      ],
+      "codeTheme": "solarized-light"
+    },
+    {
+      "id": "high-contrast",
+      "name": "High Contrast",
+      "kind": "dark",
+      "swatches": [
+        "#000000",
+        "#0d0d0d",
+        "#82aaff",
+        "#c4a7ff"
+      ],
+      "codeTheme": "hc-dark"
+    },
+    {
+      "id": "re-os",
+      "name": "ResearchEngineOS",
+      "kind": "dark",
+      "swatches": [
+        "#08080c",
+        "#16161c",
+        "#6C8EEF",
+        "#A78BFA"
+      ],
+      "codeTheme": "dark-plus"
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "kind": "dark",
+      "swatches": [
+        "#1F1F1F",
+        "#2A2A2A",
+        "#20B8CD",
+        "#7BD8E6"
+      ],
+      "codeTheme": "dark-plus"
+    }
+  ],
+  "quizTypes": [
+    "mc",
+    "tf",
+    "short",
+    "fill",
+    "ordering",
+    "matching"
+  ],
+  "answerModes": [
+    "flow",
+    "search",
+    "quality",
+    "math",
+    "replicate"
+  ],
+  "privacyModes": [
+    "none",
+    "private",
+    "topsecret"
+  ],
+  "glassModes": [
+    "off",
+    "liquid",
+    "blur"
+  ],
+  "perfProfiles": [
+    "eco",
+    "balanced",
+    "performance"
+  ]
+}

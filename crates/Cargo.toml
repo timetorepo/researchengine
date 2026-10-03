@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["re-core", "re-net", "re-models", "re-fs"]
+
+[workspace.package]
+version = "0.16.0-beta.1"
+edition = "2021"
+license = "SEE LICENSE IN README (repo is all-rights-reserved; see docs/mobile/parity-matrix.md §0)"
+repository = "https://github.com/timetorepo/researchengine"
+
+# Deliberately dependency-free in R1 so `cargo test` is instant and works in
+# constrained CI images. rusqlite/sqlxfetch/llama bindings arrive per round:
+#   R2 -> re-core [sqlite] feature (rusqlite bundled), fts5
+#   R5 -> re-models [llama-cpp] (llama.cpp/MLX), re-core [jobs-sqlite]
+#   R6 -> re-net   [rustls, h2, quinn, mdns]

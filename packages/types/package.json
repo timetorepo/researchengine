@@ -1,0 +1,12 @@
+{
+  "name": "@re/types",
+  "version": "0.16.0-beta.1",
+  "private": true,
+  "type": "module",
+  "description": "DTO/registry snapshots shared by mobile, desktop and backend (providers, themes, quiz kinds, privacy modes). Drift-tested against frontend sources.",
+  "main": "types.json",
+  "scripts": {
+    "sync": "node --experimental-strip-types --no-warnings extract.mjs",
+    "test": "node --experimental-strip-types --no-warnings test/types.test.mts"
+  }
+}

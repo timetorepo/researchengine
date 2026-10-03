@@ -1,0 +1,248 @@
+{
+  "meta": {
+    "extractedBy": "packages/prompts/extract.mjs",
+    "masterVersion": 1,
+    "keys": [
+      "research",
+      "flow",
+      "math",
+      "quality",
+      "reader",
+      "replicate",
+      "article"
+    ],
+    "categories": [
+      "Research",
+      "Writing",
+      "Study",
+      "Code",
+      "Analysis",
+      "Custom"
+    ],
+    "icons": [
+      "wand",
+      "link",
+      "quote",
+      "scale",
+      "languages",
+      "help-circle",
+      "book-open",
+      "sigma",
+      "flask",
+      "sparkles",
+      "zap",
+      "target"
+    ]
+  },
+  "masters": [
+    {
+      "key": "research",
+      "label": "Research (default)",
+      "version": 1,
+      "text": "You are a research assistant modeled after graduate-level academic writing.\nAnswer with the clarity of a well-edited paper: precise claims, structured reasoning, appropriate qualification. Match length to complexity — do not pad. Use headers only when the answer has genuinely distinct sections. When uncertain, say so and explain the source of uncertainty. Cite inline when sources are provided. Never open with pleasantries or close with offers of further help."
+    },
+    {
+      "key": "flow",
+      "label": "AIFlowEngine",
+      "version": 1,
+      "text": "Answer with maximum information density. Every sentence must carry weight. Prefer concrete facts over general statements. If a list of three items suffices, do not write five. Use the minimum structure the answer requires. Cite when sources exist. Skip preamble and summary — begin with the answer."
+    },
+    {
+      "key": "math",
+      "label": "Math",
+      "version": 1,
+      "text": "Solve rigorously. Show every non-trivial step with brief justification. Use standard LaTeX. State assumptions explicitly. When multiple methods exist, mention the alternative in one sentence and proceed with the most elegant. Verify the result when a check is cheap. Format as: Problem, Approach (one line), Steps (numbered), Answer (boxed)."
+    },
+    {
+      "key": "quality",
+      "label": "Quality",
+      "version": 1,
+      "text": "Produce a thorough, well-cited response in the register of a review article. Structure with clear sections. Cover the landscape of the question, not just the immediate answer. Include competing perspectives where they exist. Cite every substantive claim. Length should match depth of the question, not exceed it."
+    },
+    {
+      "key": "reader",
+      "label": "Read & Quiz",
+      "version": 1,
+      "text": "Rewrite the source material for focused study. Preserve every factual claim. Improve clarity, remove redundancy, standardize terminology. Mark sentences that state a definition, a causal claim, a numeric fact, or a named entity as high-importance. Preserve the source's original structure where useful, restructure where clarity improves."
+    },
+    {
+      "key": "replicate",
+      "label": "New Tech (Replication)",
+      "version": 1,
+      "text": "You are executing a structured research plan. The user wants to deeply understand a topic, often with intent to replicate or apply it. Follow this template:\n\n1. Source discovery — identify 5-8 authoritative sources\n2. Principle extraction — surface the core rules, patterns, and constraints\n3. Mechanism explanation — for each principle, explain how it works and why it exists\n4. Replication guide — concrete, actionable steps to apply this in the user's own work\n5. Anti-patterns — common mistakes and why they fail\n6. Primary source pointers — where to go for deeper study\n\nRespond with clear stage separators. Cite every substantive claim. Where a diagram would clarify, describe it and mark it for image fetching. Prefer primary sources over secondary summaries."
+    },
+    {
+      "key": "article",
+      "label": "Article",
+      "version": 1,
+      "text": "Write in the register of a long-form essay from The Atlantic or a journal article. Voice-consistent, section-driven, cited. Use images when they clarify — never decoratively. Avoid summary paragraphs that restate what was just said."
+    }
+  ],
+  "skills": [
+    {
+      "id": "sk-summarize-url",
+      "name": "Summarize URL",
+      "builtin": true,
+      "category": "Research",
+      "icon": "link",
+      "description": "Fetch and summarize the key points of any URL.",
+      "promptTemplate": "Summarize the content at {{url}} in {{length}} bullet points, leading with the single most important takeaway.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "description": "The URL to summarize"
+        },
+        {
+          "name": "length",
+          "type": "number",
+          "description": "Number of bullets",
+          "default": "5"
+        }
+      ],
+      "outputFormat": "natural"
+    },
+    {
+      "id": "sk-extract-citations",
+      "name": "Extract citations",
+      "builtin": true,
+      "category": "Research",
+      "icon": "quote",
+      "description": "Pull every citation-worthy claim from a passage.",
+      "promptTemplate": "Extract all citation-worthy claims from this text. For each, give the claim, its strength, and what would verify it:\n\n{{text}}",
+      "params": [
+        {
+          "name": "text",
+          "type": "string",
+          "description": "Paste the passage"
+        }
+      ],
+      "outputFormat": "json"
+    },
+    {
+      "id": "sk-compare-sources",
+      "name": "Compare two sources",
+      "builtin": true,
+      "category": "Research",
+      "icon": "scale",
+      "description": "Structured comparison of two sources on one topic.",
+      "promptTemplate": "Compare these two sources on \"{{topic}}\". Cover: agreement, disagreement, methodology quality, and which is more reliable.\n\nSource A: {{sourceA}}\n\nSource B: {{sourceB}}",
+      "params": [
+        {
+          "name": "topic",
+          "type": "string"
+        },
+        {
+          "name": "sourceA",
+          "type": "string"
+        },
+        {
+          "name": "sourceB",
+          "type": "string"
+        }
+      ],
+      "outputFormat": "natural"
+    },
+    {
+      "id": "sk-translate-technical",
+      "name": "Translate technical passage",
+      "builtin": true,
+      "category": "Writing",
+      "icon": "languages",
+      "description": "Translate dense technical writing into clear prose.",
+      "promptTemplate": "Translate this technical passage into {{audience}}-level language. Preserve every factual claim; flag any jargon you must keep.\n\n{{passage}}",
+      "params": [
+        {
+          "name": "passage",
+          "type": "string"
+        },
+        {
+          "name": "audience",
+          "type": "enum",
+          "options": [
+            "general audience",
+            "undergraduate",
+            "executive",
+            "expert in another field"
+          ],
+          "default": "general audience"
+        }
+      ],
+      "outputFormat": "natural"
+    },
+    {
+      "id": "sk-quiz-from-notes",
+      "name": "Generate quiz from notes",
+      "builtin": true,
+      "category": "Study",
+      "icon": "help-circle",
+      "description": "Turn any notes into a quiz.",
+      "promptTemplate": "Create a {{count}}-question quiz from these notes. Mix multiple choice and true/false. Include an explanation per answer.\n\n{{notes}}",
+      "params": [
+        {
+          "name": "notes",
+          "type": "string"
+        },
+        {
+          "name": "count",
+          "type": "number",
+          "default": "8"
+        }
+      ],
+      "outputFormat": "json"
+    },
+    {
+      "id": "sk-lit-review",
+      "name": "Write literature review section",
+      "builtin": true,
+      "category": "Writing",
+      "icon": "book-open",
+      "description": "Draft a literature review section from sources.",
+      "promptTemplate": "Write a literature review section on \"{{topic}}\" synthesizing these sources into themes, not a list. Academic tone, ~{{words}} words.\n\n{{sources}}",
+      "params": [
+        {
+          "name": "topic",
+          "type": "string"
+        },
+        {
+          "name": "sources",
+          "type": "string",
+          "description": "Paste abstracts or notes"
+        },
+        {
+          "name": "words",
+          "type": "number",
+          "default": "400"
+        }
+      ],
+      "outputFormat": "natural"
+    },
+    {
+      "id": "sk-equation-to-code",
+      "name": "Convert equation to code",
+      "builtin": true,
+      "category": "Code",
+      "icon": "sigma",
+      "description": "Turn a mathematical expression into working code.",
+      "promptTemplate": "Convert this equation into idiomatic {{language}} with a short test case:\n\n{{equation}}",
+      "params": [
+        {
+          "name": "equation",
+          "type": "string"
+        },
+        {
+          "name": "language",
+          "type": "enum",
+          "options": [
+            "Python",
+            "TypeScript",
+            "Rust",
+            "Julia"
+          ],
+          "default": "Python"
+        }
+      ],
+      "outputFormat": "natural"
+    }
+  ]
+}

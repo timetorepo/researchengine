@@ -1,0 +1,12 @@
+[package]
+name = "re-fs"
+description = "Document pipeline (brief §3.1): import, PDF text+geometry, OCR on demand. R4 scope; R1 ships only the module boundary."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"

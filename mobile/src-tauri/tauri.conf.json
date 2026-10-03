@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Research Engine",
+  "version": "0.16.0-beta.1",
+  "identifier": "dev.researchengine.mobile",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist",
+    "removeUnusedCommands": true
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Research Engine",
+        "width": 390,
+        "height": 844,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "iOS": {
+      "developmentTeam": "SET-VIA-CI-SECRET",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This lets you attach the paper you are reading.",
+        "NSCameraUsageDescription": "This lets you capture a page or a slide for your library.",
+        "NSMicrophoneUsageDescription": "This lets you dictate your question. Audio stays on the device for on-device transcription.",
+        "NSFaceIDUsageDescription": "This lets the app keep provider keys locked until you unlock."
+      }
+    },
+    "android": {
+      "minSdkVersion": 26
+    }
+  }
+}

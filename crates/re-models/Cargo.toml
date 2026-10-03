@@ -1,0 +1,12 @@
+[package]
+name = "re-models"
+description = "On-device inference (brief §4.2): model manager, size classes, download/verify/delete. llama.cpp/MLX bindings arrive in R5; R1 ships the class model and refusal rules."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
