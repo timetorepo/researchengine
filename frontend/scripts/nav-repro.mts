@@ -48,10 +48,13 @@ await act(async () => { root.render(React.createElement(App)) })
 await sleep(350)
 
 const body = () => (document.querySelector('body')!.textContent || '')
-// TextGenerateEffect splits words into spans, so use stable plain-text markers
-const onHome = () => /tokens saved across all sessions|Getting started|Ask with citations|Recent research/.test(body())
 const onArticles = () => /articles/i.test(document.querySelector('main')?.textContent?.slice(0, 200) || '')
 const onQuiz = () => /quiz|flashcard|drop a file/i.test(document.querySelector('main')?.textContent?.slice(0, 400) || '')
+// TextGenerateEffect splits words into spans, so use a stable plain-text marker.
+// The hero's own question is the one line the home view always renders; the
+// older phrases ("Recent research", "tokens saved…") only appear once there are
+// sessions, which made a fresh profile look unmounted.
+const onHome = () => /What do you want to research/i.test(body()) && !onArticles() && !onQuiz()
 
 function clickNav(href: string) {
   const a = document.querySelector(`a[href="${href}"]`) as HTMLElement | null

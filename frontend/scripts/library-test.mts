@@ -279,6 +279,27 @@ async function main() {
   check('the search is about patterns, not one keyword', tables.length > 0 && empty.length > 0)
   check('a nonsense word finds nothing rather than inventing components', componentHits('zzzzqqq').length === 0)
   check('a one-letter query does not run at all', componentHits('c').length === 0)
+  check('the hit says exactly how to install it',
+    carousels.some((h) => (h.install ?? '').includes('add')) && tables.every((h) => !h.install || /^(npx |npm i |pnpm |yarn |bun )/.test(h.install)))
+  check('the catalog is shared, not copied: the matcher lives in one module',
+    /from '@\/lib\/design\/component-search'/.test(librarySource) &&
+    !/const PATTERN_TERMS/.test(librarySource))
+  const toolSource = readFileSync(new URL('../src/lib/chat/tools.ts', import.meta.url), 'utf8')
+  check("the agent's tool folds in the same component hits, so a tool call can reach the UI search",
+    /import\('@\/lib\/design\/component-search'\)/.test(toolSource) &&
+    /componentHits\(query, 4\)/.test(toolSource) && /g\.vertical === 'ui' \? \[\.\.\.components/.test(toolSource))
+  check('the install command reaches the model, not just the screen',
+    /install: h\.install/.test(toolSource) || /install \.replace/.test(toolSource) || /h\.install \? \{ install: h\.install \}/.test(toolSource))
+  const { searchCatalog } = await import('../src/lib/design/catalog')
+  const catalogSource = readFileSync(new URL('../src/lib/design/catalog.ts', import.meta.url), 'utf8')
+  check('the design hub reads a screen word the same way, so its search answers too',
+    searchCatalog('empty state', null).length > 0 && searchCatalog('onboarding', null).length > 0)
+  check('one vocabulary, not two: both searches share the bridge module',
+    /from '@\/lib\/design\/patterns'/.test(catalogSource) && /scoreItem/.test(catalogSource) &&
+    /from '@\/lib\/design\/patterns'/.test(readFileSync(new URL('../src/lib/design/component-search.ts', import.meta.url), 'utf8')))
+  check('the hub still narrows to the providers you ticked', searchCatalog('card', ['shadcn']).every((i: any) => i.provider === 'shadcn'))
+  check('component hits survive a dead server, because the catalog ships in the app',
+    /degraded[\s\S]{0,400}components\.length/.test(toolSource))
 
   /* ==================== [4] the rules that must hold ==================== */
 
