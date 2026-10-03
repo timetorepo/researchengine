@@ -43,6 +43,9 @@ const check = (name: string, cond: boolean, extra = '') => {
 
 const libRoute = readRepo('backend/src/routes/library.ts')
 const searchScreen = read('src/components/library/LibrarySearch.tsx')
+// The non-JSON description now lives in the shared reader this screen calls,
+// so the contract is checked where the code actually is.
+const jsonReader = read('src/lib/net/json.ts')
 const vanish = read('src/components/ui/aceternity/PlaceholdersAndVanishInput.tsx')
 
 async function main() {
@@ -76,7 +79,9 @@ async function main() {
       && (searchScreen.match(/setRanFor\(clean\)/g) ?? []).length >= 2)
     check('the failure path renders its own card', /searchError/.test(searchScreen) && /Search could not run/.test(searchScreen))
     check('a non-JSON or non-200 answer is described rather than swallowed',
-      /if \(!res\.ok\)/.test(searchScreen) && /was not JSON/.test(searchScreen))
+      /if \(!res\.ok\)/.test(searchScreen)
+      && /readJsonResponse/.test(searchScreen)
+      && /was not JSON/.test(jsonReader))
     check('the empty state repeats the reasons and offers another try',
       /Nothing for “\{ranFor\}” yet/.test(searchScreen) && /Search again/.test(searchScreen))
     check('the per-source line says ok, still looking, or failed',

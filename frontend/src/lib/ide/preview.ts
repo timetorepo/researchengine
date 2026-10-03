@@ -65,11 +65,23 @@ export async function ensurePreviewServer(project: string, restart = false): Pro
   return await waitForServer(project)
 }
 
+/**
+ * The sizes Design Mode checks. Phones, tablets, laptops, TV — the four the
+ * user asked for, with the large variants that actually catch layout bugs
+ * (a 320 px phone and a 4K television both break things a 390 px phone does
+ * not).
+ */
 export const DEVICE_PRESETS = [
-  { id: 'desktop', label: 'Desktop', w: 1440, h: 900, icon: 'monitor' },
-  { id: 'laptop', label: 'Laptop', w: 1280, h: 800, icon: 'monitor' },
-  { id: 'tablet', label: 'Tablet', w: 834, h: 1112, icon: 'tablet' },
+  { id: 'phone-sm', label: 'Phone S', w: 320, h: 568, icon: 'smartphone' },
   { id: 'phone', label: 'Phone', w: 390, h: 844, icon: 'smartphone' },
+  { id: 'phone-lg', label: 'Phone L', w: 430, h: 932, icon: 'smartphone' },
+  { id: 'tablet', label: 'Tablet', w: 834, h: 1112, icon: 'tablet' },
+  { id: 'tablet-lg', label: 'Tablet L', w: 1024, h: 1366, icon: 'tablet' },
+  { id: 'laptop', label: 'Laptop', w: 1280, h: 800, icon: 'monitor' },
+  { id: 'desktop', label: 'Desktop', w: 1440, h: 900, icon: 'monitor' },
+  { id: 'desktop-lg', label: 'Desktop L', w: 1920, h: 1200, icon: 'monitor' },
+  { id: 'tv', label: 'TV', w: 1920, h: 1080, icon: 'tv' },
+  { id: 'tv-4k', label: 'TV 4K', w: 3840, h: 2160, icon: 'tv' },
   { id: 'fill', label: 'Fill pane', w: 0, h: 0, icon: 'maximize' },
 ] as const
 

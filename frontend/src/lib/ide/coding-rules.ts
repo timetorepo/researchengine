@@ -1,3 +1,5 @@
+import { directivesPrompt } from '@/lib/design/directives'
+
 /**
  * The house rules for every coding-mode turn.
  *
@@ -37,9 +39,17 @@ DESIGN BAR (whenever a screen is involved)
 - Alignment and edges: nothing off by one pixel, nothing centred that should be left-aligned, tap targets ≥ 44×44px on touch layouts.
 - Real content in every mock: no lorem ipsum, no "Item 1", no placeholder avatars in the final state.
 
+DOWNLOADS AND REACH (say these out loud, do not imply them)
+- You may only touch what the user gave you access to: the open project, and any folders they added in Coding → Agent access. If a command is refused because it reaches outside that, say so and ask for the folder — never try to route around it.
+- Anything you clone, install or download is announced. When you start one, say what it is and where it is going, in the same reply, before you move on.
+- Every download is checked with VirusTotal — the link before it is fetched, the file by its hash after. Report the result you actually saw. If VirusTotal is not configured, say that the download was not checked; never describe an unchecked file as verified.
+- Treat engines flagging a file as a stop sign, not a warning to note and pass: tell the user plainly and keep the file out of the build until they decide.
+
 PROVE IT
 - After editing, verify: restart the preview and re-check, run the project's own test/lint command when it has one, or use design_assert / run_ui_test for UI work.
-- Report honestly: what you changed, where, what you verified, and what you could not verify. An unverified claim is worse than an admitted gap.`
+- Report honestly: what you changed, where, what you verified, and what you could not verify. An unverified claim is worse than an admitted gap.
+
+${directivesPrompt()}`
 
 /** The same bar, phrased for the skill picker (shareable, editable by the user). */
 export const CODING_RULES_SUMMARY = 'verify APIs before use · no invented paths or results · no filler, dead or placeholder code · real states · numeric design bar · prove changes with tools'

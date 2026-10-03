@@ -4,7 +4,7 @@ import {
   FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch,
   TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,
   Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2,
-  FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink,
+  FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes,
   Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
@@ -14,6 +14,9 @@ import { AgentPanel, chatIdFor } from './AgentPanel'
 import { AIFloat, FocusButton } from './AIFloat'
 import { AgentsDock } from './AgentsDock'
 import { AgentTimeline } from './AgentTimeline'
+import { AgentSafety } from './AgentSafety'
+import { FrameworksPanel } from './FrameworksPanel'
+import { useDownloadNotices } from '@/hooks/useDownloadNotices'
 import { IDECommandPalette, ideActions, type PaletteAction } from './IDECommandPalette'
 import { useAgents, subscribeActivity, wireAgentActivity } from '@/lib/ide/agents'
 import type { IdeActivity } from '@/lib/chat/tools'
@@ -300,7 +303,7 @@ export function CodingView() {
 /* Workbench                                                          */
 /* ================================================================== */
 type Activity = 'explorer' | 'search' | 'git' | 'design'
-type PanelTab = 'terminal' | 'problems' | 'git' | 'preview'
+type PanelTab = 'terminal' | 'problems' | 'git' | 'preview' | 'safety' | 'frameworks'
 
 function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }: {
   project: string
@@ -318,6 +321,8 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   const [active, setActive] = useState<string | null>(null)
   const [gotoLine, setGotoLine] = useState(0)
   const [panel, setPanel] = useState<PanelTab>('terminal')
+  // Every clone, install and download the agent starts is announced as it lands.
+  useDownloadNotices(true)
   const [panelOpen, setPanelOpen] = useState(true)
   const [newFile, setNewFile] = useState('')
   const [searchQ, setSearchQ] = useState('')
@@ -856,6 +861,8 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
               <PanelTabBtn active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
               <PanelTabBtn active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
               <PanelTabBtn active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
+              <PanelTabBtn active={panel === 'safety'} onClick={() => { setPanel('safety'); setPanelOpen(true) }} icon={<ShieldCheck size={12} />} label="Agent access" />
+              <PanelTabBtn active={panel === 'frameworks'} onClick={() => { setPanel('frameworks'); setPanelOpen(true) }} icon={<Boxes size={12} />} label="Frameworks" />
               <div className="flex-1" />
               <span className="text-[10px] hidden lg:block" style={{ color: 'var(--ide-faint)' }}>commands run inside the project folder · destructive commands are blocked · mutating ones need approval</span>
               <button onClick={() => setPanelOpen((v) => !v)} className="ide-icon-btn" style={{ width: 22, height: 22 }} aria-label="Toggle panel">
@@ -865,6 +872,8 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
             {panelOpen && (
               <div className="flex-1 min-h-0">
                 {panel === 'terminal' && <TerminalPanel project={project} />}
+                {panel === 'safety' && <AgentSafety />}
+                {panel === 'frameworks' && <FrameworksPanel project={project} files={tree.map((t) => t.path)} />}
                 {panel === 'git' && <GitPanel project={project} />}
                 {panel === 'problems' && <ProblemsPanel project={project} onDesign={onDesign} />}
                 {panel === 'preview' && <PreviewLogPanel project={project} preview={preview} onStart={() => void startPreview()} starting={starting} onDesign={onDesign} />}
@@ -1076,6 +1085,7 @@ function TerminalPanel({ project }: { project: string }) {
       const j = await res.json()
       if (j.blocked) { setLines((l) => [...l, { kind: 'err', text: `BLOCKED: ${j.reason}` }]); return }
       if (j.requiresConfirm && !confirmed) { setConfirm({ command }); setLines((l) => [...l, { kind: 'info', text: 'This command needs your approval below.' }]); return }
+      if (j.download) setLines((l) => [...l, { kind: 'info', text: `DOWNLOAD: ${j.downloadNote}` }])
       if (j.stdout) setLines((l) => [...l, { kind: 'out', text: String(j.stdout).slice(0, 20000) }])
       if (j.stderr) setLines((l) => [...l, { kind: 'err', text: String(j.stderr).slice(0, 8000) }])
       setLines((l) => [...l, { kind: 'info', text: `exit ${j.exit} · ${j.ms}ms${j.timedOut ? ' · TIMED OUT' : ''}` }])

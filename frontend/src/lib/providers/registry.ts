@@ -75,6 +75,10 @@ export const PROVIDERS: ProviderMeta[] = [
     needsKey: true, hint: 'MiniMax-M3 — enter the model id manually, /models is not exposed',
   },
   {
+    id: 'mimo', name: 'Xiaomi · MiMo', kind: 'openai', baseUrl: 'https://api.xiaomimimo.com/v1',
+    needsKey: true, hint: 'MiMo open platform key (sk-…, or tp-… from a Token Plan) — /models auto-detects mimo-v2.6-pro, flash and the TTS models',
+  },
+  {
     id: 'custom', name: 'Custom (OpenAI-compatible)', kind: 'openai', baseUrl: 'http://localhost:5000/v1',
     needsKey: false, hint: 'text-generation-webui, LocalAI, vLLM…',
   },

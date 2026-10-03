@@ -9,6 +9,9 @@ export const DEFAULT_CONTEXT_WINDOW = 128_000
 
 const FAMILIES: [RegExp, number][] = [
   [/gemini/i, 1_000_000],
+  // MiMo v2.6 (pro and flash) publish a 1,048,576-token window and 131,072 max
+  // output. Estimated like everything else here.
+  [/(^|[/_-])(mimo|xiaomi)/i, 1_048_576],
   [/claude|sonnet|opus|haiku/i, 200_000],
   [/mistral|mixtral|codestral/i, 32_000],
 ]

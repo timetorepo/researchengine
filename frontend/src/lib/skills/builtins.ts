@@ -1,6 +1,9 @@
 import type { Skill } from '@/types'
+import { designSupremacySkill } from './design-supremacy'
 
 export const builtinSkills: Skill[] = [
+  // The one client-side design skill: three outlooks, one method.
+  designSupremacySkill,
   {
     id: 'sk-summarize-url', name: 'Summarize URL', builtin: true, category: 'Research', icon: 'link',
     description: 'Fetch and summarize the key points of any URL.',

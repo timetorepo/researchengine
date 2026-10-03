@@ -6,6 +6,7 @@ import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { testConnection, ollamaTags } from '@/lib/providers/stream'
 import { refreshProviderModels } from '@/lib/providers/refresh'
 import { usableKey } from '@/lib/providers/keys'
+import { keyGuideFor } from '@/lib/providers/key-guides'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { encryptWithPassphrase } from '@/lib/crypto/vault'
@@ -23,6 +24,8 @@ export function ProvidersTab() {
   const [adding, setAdding] = useState(false)
   const [catalogQuery, setCatalogQuery] = useState('')
   const [removeFor, setRemoveFor] = useState<string | null>(null)
+  /** Which card has its "how to get this key" steps open. One at a time. */
+  const [guideFor, setGuideFor] = useState<string | null>(null)
 
   /**
    * The catalog starts empty, as asked: `addedProviders` is the only thing that
@@ -302,6 +305,57 @@ export function ProvidersTab() {
                   <MinusCircle size={14} />
                 </button>
               </div>
+
+              {/* Step by step, for this provider. The app used to say "API key"
+                  and leave people at a login page. */}
+              {(() => {
+                const guide = keyGuideFor(p.id)
+                if (!guide) return null
+                const openGuide = guideFor === p.id
+                return (
+                  <div className="mb-3" data-key-guide={p.id}>
+                    <button
+                      onClick={() => setGuideFor(openGuide ? null : p.id)}
+                      aria-expanded={openGuide}
+                      className="inline-flex items-center gap-1.5 text-[12px] rounded-full px-2.5 py-1"
+                      style={{ background: 'var(--elevated)', color: openGuide ? 'var(--primary)' : 'var(--text-2)' }}
+                    >
+                      <KeyRound size={12} />
+                      {openGuide ? 'Hide the steps' : 'How to get this key'}
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {openGuide && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden">
+                          <div className="mt-2 p-3 rounded-[12px] text-[12.5px] space-y-2"
+                            style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+                            <ol className="space-y-1.5 list-none">
+                              {guide.steps.map((s, i) => (
+                                <li key={i} className="flex gap-2">
+                                  <span className="shrink-0 w-[18px] h-[18px] rounded-full grid place-items-center text-[10.5px] font-medium mt-[1px]"
+                                    style={{ background: 'var(--surface)', color: 'var(--primary)' }}>{i + 1}</span>
+                                  <span style={{ color: 'var(--text-2)' }}>{s}</span>
+                                </li>
+                              ))}
+                            </ol>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1" style={{ color: 'var(--text-3)' }}>
+                              {guide.shape && <span>Looks like <code className="font-mono" style={{ color: 'var(--text-2)' }}>{guide.shape}</code></span>}
+                              {guide.free && <span style={{ color: 'var(--success)' }}>{guide.free}</span>}
+                              {guide.cost && <span>{guide.cost}</span>}
+                            </div>
+                            {guide.tip && <p className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>{guide.tip}</p>}
+                            <a href={guide.console.url} target="_blank" rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1.5 rounded-[10px]"
+                              style={{ background: 'var(--surface)', color: 'var(--primary)' }}>
+                              Open {guide.console.label} ↗
+                            </a>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )
+              })()}
 
               <AnimatePresence>
                 {removeFor === p.id && (

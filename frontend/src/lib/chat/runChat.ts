@@ -13,6 +13,7 @@ import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/prov
 import { freeCandidates, isFailoverWorthy, pickFreeModel, type FreeCandidate } from '@/lib/providers/free'
 import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
 import { CODING_RULES } from '@/lib/ide/coding-rules'
+import { isBuildIntent, pipelinePrompt } from '@/lib/design/directives'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 import { providerById } from '@/lib/providers/registry'
 import { streamDemo, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
@@ -223,6 +224,12 @@ export async function runChat(opts: RunOptions): Promise<void> {
     system += `\n\nWeb search results retrieved for this query:\n${grounded}\n\nYou MUST write a complete, helpful answer to the user's question — several sentences at minimum. Never respond with only links, titles, or a list of sources: the user cannot see the sources as an answer by themselves. Use the results above where they help and cite them inline with [n] markers; ignore results that are not useful. Where the results are thin, irrelevant, or missing, fall back to your own knowledge and still deliver a full answer. If live search was unavailable (offline placeholders), say briefly that live search could not be reached, then answer from your own knowledge anyway.`
     useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
   }
+
+  // ---- the build pipeline ----
+  // Any request that asks for something to be built runs the six directives, in
+  // order, whether or not a project is open yet: research, ask what premium
+  // means, design, prototype, sweep, and ship only on the user's signal.
+  if (isBuildIntent(prompt)) system += `\n\n${pipelinePrompt()}`
 
   // ---- Coding-mode + MCP + privacy context ----
   if (opts.project) {

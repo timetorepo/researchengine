@@ -26,7 +26,7 @@ const NEVER_BILLED = new Set(['ollama', 'lmstudio', 'custom'])
 
 /** Providers that are known to bill per token, so anything from them is paid
  *  unless a free rule above applies. */
-const BILLS = new Set(['openai', 'anthropic', 'deepseek', 'grok', 'kimi', 'minimax', 'mistral', 'together', 'mercury', 'glm', 'gemini'])
+const BILLS = new Set(['openai', 'anthropic', 'deepseek', 'grok', 'kimi', 'minimax', 'mimo', 'mistral', 'together', 'mercury', 'glm', 'gemini'])
 
 export const TIER_REF = (providerId: string, model: string) => `${providerId}:${model}`
 

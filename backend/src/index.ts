@@ -85,6 +85,35 @@ async function main() {
     return c.json({ error: err.message }, 500)
   })
 
+  // ---- the JSON guarantee ----------------------------------------------------
+  // Everything under /api answers JSON, including the paths this server does not
+  // have. Without this, an unknown API path fell through to the SPA catch-all
+  // below and came back as index.html with a 200 — which is how the Library got
+  // "the local server answered /api/library/search?q=javascript&refresh=1 with
+  // something that was not JSON": the server that answered was a build without
+  // that route, and nothing in the response said so. Now the response says so
+  // itself, in a sentence, with both versions in it.
+  app.all('/api/*', (c) => {
+    const path = new URL(c.req.url).pathname
+    return c.json({
+      error: `This server has no route for ${c.req.method} ${path}.`,
+      code: 'no_such_route',
+      hint: 'The app and its local server are different versions — they always ship together. Restart Research Engine, or install the latest version. Settings → About shows the version this server is running.',
+      server: {
+        version: sourceVersion() || 'dev',
+        frontend: rt.frontendDist ? (webBuild(rt.frontendDist)?.version ?? 'unknown') : 'not served',
+      },
+    }, 404)
+  })
+
+  app.notFound((c) => {
+    const path = new URL(c.req.url).pathname
+    if (path === '/api' || path.startsWith('/api/')) {
+      return c.json({ error: `No route for ${path}.`, code: 'no_such_route' }, 404)
+    }
+    return c.text('Not found', 404)
+  })
+
   // Serve the built frontend when present (single-process mode).
   if (rt.frontendDist) {
     const handler = staticHandler(rt.frontendDist)

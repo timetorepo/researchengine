@@ -44,6 +44,8 @@ export const FAMILIES: Family[] = [
   { id: 'glm', label: 'GLM', match: /(^|[/_-])(glm|chatglm)/i, mark: 'glm', hue: 194 },
   { id: 'kimi', label: 'Kimi', match: /(kimi|moonshot)/i, mark: 'kimi', hue: 285 },
   { id: 'minimax', label: 'MiniMax', match: /(minimax|abab)/i, mark: 'mono', mono: 'MM', hue: 340 },
+  // Xiaomi's MiMo. Its own entry, before the bucket below used to swallow it.
+  { id: 'mimo', label: 'MiMo · Xiaomi', match: /(^|[/_-])(mimo|xiaomi|xmp)/i, mark: 'mono', mono: 'Mi', hue: 16 },
   { id: 'mercury', label: 'Mercury', match: /(mercury|inception)/i, mark: 'mercury', hue: 258 },
   { id: 'nemotron', label: 'Nemotron', match: /nemotron/i, mark: 'nemotron', hue: 96 },
   { id: 'phi', label: 'Phi', match: /(^|[/_-])phi[-_0-9]/i, mark: 'mono', mono: 'φ', hue: 205 },
@@ -54,7 +56,7 @@ export const FAMILIES: Family[] = [
   { id: 'mixtral-free', label: 'Mixtral', match: /mixtral/i, mark: 'mistral', hue: 28 },
   { id: 'sarvam', label: 'Sarvam', match: /sarvam/i, mark: 'mono', mono: 'Sa', hue: 18 },
   { id: 'nova', label: 'Nova', match: /(amazon\.)?nova/i, mark: 'mono', mono: 'N', hue: 40 },
-  { id: 'gpt-oss-small', label: 'GPT-OSS', match: /(^|[/_-])(muse|spark|big-pickle|ling|mimo|nemotron-3-ultra)/i, mark: 'mono', mono: '★', hue: 260 },
+  { id: 'gpt-oss-small', label: 'GPT-OSS', match: /(^|[/_-])(muse|spark|big-pickle|ling|nemotron-3-ultra)/i, mark: 'mono', mono: '★', hue: 260 },
 ]
 
 export function modelFamily(model: string): Family | null {

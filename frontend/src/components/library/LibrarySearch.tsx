@@ -26,6 +26,7 @@ import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@herou
 import { useUI } from '@/stores/useUI'
 import { useStore } from '@/stores/useStore'
 import { notifyRecommendations } from '@/lib/notifications/store'
+import { readJsonResponse } from '@/lib/net/json'
 import { nanoid } from 'nanoid'
 import { timeAgo } from '@/lib/utils'
 
@@ -187,8 +188,12 @@ export function LibrarySearch({ query, onQuery }: { query: string; onQuery: (q: 
         const body = await res.text().catch(() => '')
         throw new Error(`HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}${body ? ` — ${body.slice(0, 160)}` : ''}`)
       }
-      let json: any
-      try { json = await res.json() } catch { throw new Error(`The local server answered ${url} with something that was not JSON.`) }
+      // Not `res.json()`: a response that is not JSON has to say what it was —
+      // an older server answering with the app shell, an empty body, a truncated
+      // stream. See lib/net/json.ts; that message is what the user reported.
+      const json: any = await readJsonResponse(res, url, {
+        retryHint: 'Search again from Settings → About if the server version looks older than the app.',
+      })
       if (run !== seq.current) return
       setHits(Array.isArray(json.hits) ? json.hits : [])
       setNotes(Array.isArray(json.notes) ? json.notes : [])

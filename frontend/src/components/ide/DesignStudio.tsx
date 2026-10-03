@@ -5,6 +5,7 @@ import {
   MonitorUp, Play, RefreshCw, Square, ExternalLink, Crosshair, Camera, Smartphone, Tablet, Monitor,
   Maximize2, ChevronRight, Search, AlertTriangle, CheckCircle2, XCircle, Loader2, Terminal, Bug,
   Image as ImageIcon, Send, Sparkles, Download, X, Layers, ListChecks, Activity,
+  LayoutGrid, ClipboardList, Boxes, Lightbulb, Rocket, Tv, Columns3, AlignJustify, Grid3x3,
 } from 'lucide-react'
 import { AgentPanel } from './AgentPanel'
 import { FollowPointer } from '@/components/ui/aceternity/FollowingPointer'
@@ -16,9 +17,16 @@ import {
   designSession, captureStore, attachmentTray, previewUrlFor, type Snapshot, type ControlInfo, type Finding, type Capture,
 } from '@/lib/ide/bridge'
 import { DEVICE_PRESETS, ensurePreviewServer, previewStatus, stopPreview, type PreviewState, type DeviceId } from '@/lib/ide/preview'
+import { GridOverlay, defaultGrids, type GridOptions } from '@/components/design/DevicePreview'
+import { ComponentHub } from '@/components/design/ComponentHub'
+import { DesignBrief } from '@/components/design/DesignBrief'
+import { DesignBoard } from '@/components/design/DesignBoard'
+import { InspirationBoard } from '@/components/design/InspirationBoard'
+import { ShipPanel } from '@/components/design/ShipPanel'
+import { PrototypeBoard } from '@/components/design/PrototypeBoard'
 import type { TreeNode } from './types'
 
-type Tab = 'assistant' | 'inspect' | 'tests' | 'console' | 'captures'
+type Tab = 'assistant' | 'inspect' | 'tests' | 'console' | 'captures' | 'board' | 'brief' | 'hub' | 'inspo' | 'prototype' | 'ship'
 
 const KIND_TONE: Record<string, string> = {
   a11y: 'var(--warning)', layout: 'var(--primary)', console: 'var(--danger)',
@@ -84,6 +92,8 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
     window.addEventListener('pointerup', up)
   }
   const [tab, setTab] = useState<Tab>('assistant')
+  /** The design grids drawn over the preview: columns, baseline, 8 pt, safe areas. */
+  const [grids, setGrids] = useState<GridOptions>(defaultGrids)
   const [picking, setPicking] = useState(false)
   // "Point at it" — design mode's own gesture. The cursor is replaced by the
   // user's avatar and name (their profile, not a stock pointer) and the next
@@ -350,7 +360,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
     return list
   }, [snapshot, selected, inspectFilter])
 
-  const deviceIcon = (id: string) => id === 'phone' ? <Smartphone size={12} /> : id === 'tablet' ? <Tablet size={12} /> : id === 'fill' ? <Maximize2 size={12} /> : <Monitor size={12} />
+  const deviceIcon = (id: string) => id.startsWith('phone') ? <Smartphone size={12} /> : id.startsWith('tablet') ? <Tablet size={12} /> : id === 'fill' ? <Maximize2 size={12} /> : id.startsWith('tv') ? <Tv size={12} /> : <Monitor size={12} />
 
   /* ---------------- render ---------------- */
   // ⌘⇧F / Ctrl⇧F toggles full screen; the right rail folds into the float pill.
@@ -445,6 +455,14 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
               ))}
             </div>
 
+            {/* design grids, drawn over the preview — never inside it */}
+            <div className="flex items-center gap-0.5 p-0.5 rounded-[8px]" style={{ background: 'color-mix(in srgb, var(--bg) 65%, var(--surface))', border: '1px solid var(--ide-border)' }}>
+              <GridToggle on={grids.columns} onClick={() => setGrids((g) => ({ ...g, columns: !g.columns }))} icon={<Columns3 size={12} />} label={grids.columns ? 'Hide the column grid' : 'Show the column grid'} />
+              <GridToggle on={grids.baseline} onClick={() => setGrids((g) => ({ ...g, baseline: !g.baseline }))} icon={<AlignJustify size={12} />} label="Baseline rhythm (8 px)" />
+              <GridToggle on={grids.eighths} onClick={() => setGrids((g) => ({ ...g, eighths: !g.eighths }))} icon={<Grid3x3 size={12} />} label="8 pt grid" />
+              <GridToggle on={grids.safeArea} onClick={() => setGrids((g) => ({ ...g, safeArea: !g.safeArea }))} icon={<LayoutGrid size={12} />} label="Safe areas" />
+            </div>
+
             <div className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
               {(['fill', 'desktop', 'phone'] as DeviceId[]).includes(device) && device === 'fill' ? null : (
                 <>
@@ -510,7 +528,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
               </div>
             ) : (
               <div className="re-preview-shell" style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
-                <div className="rounded-[12px] overflow-hidden"
+                <div className="rounded-[12px] overflow-hidden relative"
                   style={{
                     width: device === 'fill' ? Math.max(320, pane.w - 32) : size.w,
                     height: device === 'fill' ? Math.max(240, pane.h - 32) : size.h,
@@ -532,6 +550,19 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
                     }}
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
                   />
+                  {/* The design grids. Drawn over the frame, never inside it, so
+                      measuring the page can never be changed by measuring it. */}
+                  {(grids.columns || grids.baseline || grids.eighths || grids.safeArea) && (
+                    <GridOverlay
+                      device={{
+                        id: 'overlay', label: 'Preview', family: size.w <= 480 ? 'phone' : size.w <= 1100 ? 'tablet' : size.w >= 1800 ? 'tv' : 'desktop',
+                        w: device === 'fill' ? Math.max(320, pane.w - 32) : size.w,
+                        h: device === 'fill' ? Math.max(240, pane.h - 32) : size.h,
+                        dpr: 1,
+                      }}
+                      grids={grids}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -576,6 +607,12 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
             <RailTab active={tab === 'tests'} onClick={() => setTab('tests')} icon={<ListChecks size={12} />} label="Tests" badge={controls.length} />
             <RailTab active={tab === 'console'} onClick={() => setTab('console')} icon={<Terminal size={12} />} label="Console" badge={errorCount || undefined} tone={errorCount ? 'var(--danger)' : undefined} />
             <RailTab active={tab === 'captures'} onClick={() => setTab('captures')} icon={<ImageIcon size={12} />} label="Shots" badge={captures.length || undefined} />
+            <RailTab active={tab === 'board'} onClick={() => setTab('board')} icon={<LayoutGrid size={12} />} label="Board" />
+            <RailTab active={tab === 'brief'} onClick={() => setTab('brief')} icon={<ClipboardList size={12} />} label="Brief" />
+            <RailTab active={tab === 'hub'} onClick={() => setTab('hub')} icon={<Boxes size={12} />} label="Components" />
+            <RailTab active={tab === 'inspo'} onClick={() => setTab('inspo')} icon={<Lightbulb size={12} />} label="Inspiration" />
+            <RailTab active={tab === 'prototype'} onClick={() => setTab('prototype')} icon={<Tv size={12} />} label="Prototype" />
+            <RailTab active={tab === 'ship'} onClick={() => setTab('ship')} icon={<Rocket size={12} />} label="Ship" />
           </div>
 
           {banner && (
@@ -592,6 +629,42 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
               <AgentPanel project={project} tree={tree} design />
             )}
 
+
+            {tab === 'board' && (
+              <div className="h-full overflow-y-auto p-3">
+                <DesignBoard onOpenBrief={() => setTab('brief')} />
+              </div>
+            )}
+
+            {tab === 'brief' && (
+              <div className="h-full overflow-y-auto p-3">
+                <DesignBrief onDone={() => setTab('board')} />
+              </div>
+            )}
+
+            {tab === 'hub' && (
+              <div className="h-full overflow-y-auto p-3">
+                <ComponentHub />
+              </div>
+            )}
+
+            {tab === 'inspo' && (
+              <div className="h-full overflow-y-auto p-3">
+                <InspirationBoard onDone={() => setTab('board')} />
+              </div>
+            )}
+
+            {tab === 'prototype' && (
+              <div className="h-full min-h-0">
+                <PrototypeBoard url={port ? previewUrlFor(port) : ''} />
+              </div>
+            )}
+
+            {tab === 'ship' && (
+              <div className="h-full overflow-y-auto p-3">
+                <ShipPanel project={project} files={tree.map((t) => t.path)} />
+              </div>
+            )}
 
             {tab === 'inspect' && (
               <div className="h-full overflow-y-auto p-3 flex flex-col gap-3">
@@ -791,5 +864,19 @@ function ElementDetail({ data, onClose, onHighlight }: { data: any; onClose: () 
         {data.siblings.slice(0, 4).map((s: any, i: number) => <Row key={i} k={s.tag} v={`${s.sel} ${s.rect ? `${s.rect.w}×${s.rect.h}` : ''}`} />)}
       </>}
     </div>
+  )
+}
+
+/** A small toolbar toggle for a design grid. */
+function GridToggle({ on, onClick, icon, label }: { on: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button onClick={onClick} title={label} aria-pressed={on}
+      className="p-1 rounded-[6px]"
+      style={{
+        background: on ? 'color-mix(in srgb, var(--ide-accent) 18%, transparent)' : 'transparent',
+        color: on ? 'var(--ide-accent)' : 'var(--ide-faint)',
+      }}>
+      {icon}
+    </button>
   )
 }

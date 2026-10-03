@@ -3,6 +3,9 @@ export type ProviderId =
   // 0.26.0: the six asked-for providers, plus the FreeRoute gateway that sits
   // in front of every free tier.
   | 'mercury' | 'grok' | 'deepseek' | 'kimi' | 'glm' | 'minimax'
+  // 0.37.0: Xiaomi's MiMo open platform — OpenAI-compatible, and the same key
+  // also opens an Anthropic-compatible endpoint at /anthropic.
+  | 'mimo'
 
 export interface ProviderConfig {
   id: ProviderId

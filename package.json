@@ -24,7 +24,8 @@
     "site:dev": "npm --prefix website run dev",
     "site:build": "npm --prefix website run build",
     "site:test": "npm --prefix website run site-test",
-    "site:vendor": "npm --prefix website run vendor"
+    "site:vendor": "npm --prefix website run vendor",
+    "api:json-test": "node backend/scripts/api-json-test.mjs"
   },
   "engines": {
     "node": ">=20"

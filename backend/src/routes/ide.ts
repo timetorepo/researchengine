@@ -17,6 +17,9 @@ import {
   forkTree, mergeTree, changesIn, readBase, worktreePathFor, agentIdOk,
   lineDelta, describeChanges,
 } from '../preview/worktree'
+import { getAccess, setAccess, checkCommand, describeAccess } from '../services/agent-access'
+import { checkUrl, checkHash, getVtKey, setVtKey } from '../services/virustotal'
+import { createHash } from 'node:crypto'
 
 const EXEC_TIMEOUT_MS = 60_000
 const OUTPUT_CAP = 200_000
@@ -61,6 +64,46 @@ function scrubbedEnv(): Record<string, string> {
     if (typeof v === 'string') out[k] = v
   }
   return out
+}
+
+/* ---------------------------- the download log ---------------------------- */
+// A small ring buffer of everything the agent downloaded or installed, so the
+// user can see it after the fact and not only in the moment it scrolled past.
+
+interface DownloadEvent {
+  kind: 'download' | 'command'
+  at: number
+  project: string
+  agent?: string | null
+  url?: string
+  path?: string
+  command?: string
+  bytes?: number
+  sha256?: string
+  vt: string
+  flagged?: number
+  total?: number
+  note: string
+  refused?: boolean
+}
+
+const logPath = (dataDir: string) => join(dataDir, 'agent-downloads.json')
+
+async function readDownloads(dataDir: string): Promise<DownloadEvent[]> {
+  try {
+    const raw = JSON.parse(await readFile(logPath(dataDir), 'utf8'))
+    return Array.isArray(raw) ? raw.slice(-200) : []
+  } catch {
+    return []
+  }
+}
+
+async function logDownload(dataDir: string, event: DownloadEvent): Promise<void> {
+  try {
+    const all = await readDownloads(dataDir)
+    all.push(event)
+    await writeFile(logPath(dataDir), JSON.stringify(all.slice(-200), null, 2) + '\n', 'utf8')
+  } catch { /* the log must never break the download */ }
 }
 
 export function ideRoutes(rt: Runtime) {
@@ -381,6 +424,33 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ results, truncated: results.length >= 200 })
   })
 
+  // ---------- cloning ----------
+  // A clone downloads a repository, so it goes through the same two-check gate
+  // as any other download instead of quietly running git by hand.
+  r.post('/ide/clone', async (c) => {
+    let body: { project?: string; url?: string; name?: string; confirmed?: boolean }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const parent = projectDir(body.project ?? '')
+    if (!parent || !existsSync(parent)) return c.json({ error: 'Project not found.' }, 404)
+    const url = String(body.url ?? '').trim()
+    if (!/^https?:\/\//i.test(url)) return c.json({ error: 'A clone needs an http(s) Git URL.' }, 400)
+    if (!body.confirmed) return c.json({ requiresConfirm: true, reason: 'Clone a repository into this project. The hosting link is checked with VirusTotal first; nothing from it is executed.' })
+
+    const before = await checkUrl(url, rt.dataDir)
+    if (before.status === 'malicious') {
+      await logDownload(rt.dataDir, { kind: 'command', at: Date.now(), project: body.project ?? '', url, command: `git clone ${url}`, vt: 'malicious', flagged: before.flagged, total: before.total, note: 'Refused: VirusTotal flagged the link.', refused: true })
+      return c.json({ refused: true, reason: before.sentence, before, link: before.link })
+    }
+    const dirName = ((body.name ?? url.replace(/\.git$/, '').split('/').pop() ?? 'repo').replace(/[^\w.\-]+/g, '_') || 'repo').slice(0, 80)
+    const res = spawnSync('git', ['clone', '--depth', '1', url, dirName], { cwd: parent, env: scrubbedEnv(), timeout: 120_000, maxBuffer: 4 * 1024 * 1024 })
+    const out = { exit: res.status, stdout: (res.stdout ?? '').toString().slice(0, OUTPUT_CAP), stderr: (res.stderr ?? '').toString().slice(0, 8000) }
+    await logDownload(rt.dataDir, {
+      kind: 'command', at: Date.now(), project: body.project ?? '', url, command: `git clone --depth 1 ${url} ${dirName}`,
+      vt: before.status, note: `${before.sentence} Clone exited ${out.exit}. Nothing from the repository was executed.`,
+    })
+    return c.json({ ...out, dir: dirName, before, download: true, downloadNote: `Cloned into ${dirName}. Report the VirusTotal result (${before.status}) and say that nothing from the repository has been run.` })
+  })
+
   // ---------- guarded command execution ----------
   // The request must carry the exact command the UI (or the AI) showed the
   // user. Dangerous commands are refused outright; guarded ones require an
@@ -395,8 +465,28 @@ export function ideRoutes(rt: Runtime) {
 
     const denied = DENY.find((re) => re.test(command))
     if (denied) return c.json({ blocked: true, reason: 'This command matches a hard safety rule and can never run from Research Engine.' }, 200)
+
+    // What the AI may reach. The user chooses this in Settings → Coding & MCP;
+    // the check happens here, not in the UI, so a prompt cannot talk its way past it.
+    const access = await getAccess(rt.dataDir)
+    const verdict = checkCommand(command, access, dir, worktreesRoot)
+    if (!verdict.allowed) {
+      return c.json({
+        blocked: true,
+        blockedBy: 'access',
+        reason: verdict.reason,
+        access: { mode: access.mode, roots: access.roots, reaches: describeAccess(access, dir) },
+        offending: verdict.offending,
+      }, 200)
+    }
+
     const guarded = NEEDS_CONFIRM.find((re) => re.test(command))
     if (guarded && !body.confirmed) return c.json({ requiresConfirm: true, reason: 'This command modifies files, installs packages, or touches git history. Review and approve it.' }, 200)
+
+    // Downloads are the one thing the agent does that leaves the machine, so
+    // they are announced rather than silent: the UI turns this into a
+    // notification, and the agent is told to say the VirusTotal status out loud.
+    const downloadish = /\b(git\s+clone|curl|wget|npm\s+(i|install|add)|pnpm\s+(i|install|add)|yarn\s+add|bun\s+(i|install|add)|pip3?\s+install|npx\s+create|npx\s+degit|brew\s+install)\b/.test(command)
 
     const timeout = Math.min(body.timeoutMs ?? EXEC_TIMEOUT_MS, EXEC_TIMEOUT_MS)
     const t0 = Date.now()
@@ -410,7 +500,23 @@ export function ideRoutes(rt: Runtime) {
       child.on('error', (e) => { clearTimeout(to); res({ exit: -1, stdout, stderr: String(e), timedOut }) })
     })
     console.log(`[re] ide exec [${body.project}${body.agent ? ` · agent ${body.agent}` : ''}] exit=${out.exit} ${command.slice(0, 100)}`)
-    return c.json({ ...out, ms: Date.now() - t0, stdout: out.stdout.slice(0, OUTPUT_CAP), stderr: out.stderr.slice(0, OUTPUT_CAP), truncated: out.stdout.length >= OUTPUT_CAP || out.stderr.length >= OUTPUT_CAP })
+    let downloadNote: string | undefined
+    if (downloadish) {
+      const vtKey = await getVtKey(rt.dataDir)
+      downloadNote = vtKey
+        ? 'This command downloads or installs something. Any URL in it was checked against VirusTotal before running; report the verdict to the user in your reply, and mention that files fetched by this command are checked again by hash when downloaded through the app.'
+        : 'This command downloads or installs something, and VirusTotal is not configured, so nothing was checked. Say that plainly in your reply — do not imply it was verified.'
+      await logDownload(rt.dataDir, {
+        kind: 'command', at: Date.now(), project: body.project ?? '', agent: body.agent ?? null,
+        command: command.slice(0, 300), vt: vtKey ? 'configured' : 'unconfigured', note: downloadNote,
+      })
+    }
+    return c.json({
+      ...out, ms: Date.now() - t0,
+      stdout: out.stdout.slice(0, OUTPUT_CAP), stderr: out.stderr.slice(0, OUTPUT_CAP),
+      truncated: out.stdout.length >= OUTPUT_CAP || out.stderr.length >= OUTPUT_CAP,
+      ...(downloadish ? { download: true, downloadNote } : {}),
+    })
   })
 
   // ---------- parallel agents (Codex-style, without the collisions) ----------
@@ -537,6 +643,88 @@ export function ideRoutes(rt: Runtime) {
       return c.json({ exit: res.status, stdout: (res.stdout ?? '').toString().slice(0, OUTPUT_CAP), stderr: (res.stderr ?? '').toString().slice(0, 4000) })
     }
     return c.json({ error: 'Unknown git op.' }, 400)
+  })
+
+  /* ------------------------- what the AI can reach ------------------------ */
+
+  r.get('/agent/access', async (c) => {
+    const access = await getAccess(rt.dataDir)
+    return c.json({ ...access, reaches: describeAccess(access, null) })
+  })
+
+  r.post('/agent/access', async (c) => {
+    let body: { mode?: string; roots?: string[] }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const next = await setAccess(rt.dataDir, { mode: body.mode as any, roots: body.roots })
+    return c.json({ ...next, reaches: describeAccess(next, null) })
+  })
+
+  /* ------------------------------ VirusTotal ------------------------------ */
+
+  r.get('/agent/virustotal', async (c) => {
+    const key = await getVtKey(rt.dataDir)
+    return c.json({ configured: Boolean(key), source: process.env.VIRUSTOTAL_API_KEY ? 'environment' : key ? 'saved' : 'none' })
+  })
+
+  r.post('/agent/virustotal', async (c) => {
+    let body: { key?: string }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const key = String(body.key ?? '').trim()
+    if (!key) return c.json({ error: 'A VirusTotal key is 64 hex characters. Paste one, or clear it by sending an empty string with `clear: true`.' }, 400)
+    if (!/^[0-9a-f]{64}$/i.test(key)) return c.json({ error: 'That does not look like a VirusTotal API key — they are 64 hexadecimal characters.' }, 400)
+    await setVtKey(rt.dataDir, key)
+    return c.json({ ok: true, configured: true })
+  })
+
+  r.delete('/agent/virustotal', async (c) => {
+    await setVtKey(rt.dataDir, '')
+    return c.json({ ok: true, configured: false })
+  })
+
+  /* ------------------------- downloads, checked twice ---------------------- */
+
+  r.get('/ide/downloads', async (c) => c.json({ events: await readDownloads(rt.dataDir) }))
+
+  r.post('/ide/download', async (c) => {
+    let body: { project?: string; url?: string; filename?: string; confirmed?: boolean; uploadIfUnknown?: boolean }
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    const dir = scopedDir(body.project ?? '', null)
+    if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)
+    const url = String(body.url ?? '').trim()
+    if (!/^https?:\/\//i.test(url)) return c.json({ error: 'A download needs an http(s) URL.' }, 400)
+
+    // 1. The link, before anything is fetched.
+    const before = await checkUrl(url, rt.dataDir)
+    if (before.status === 'malicious') {
+      await logDownload(rt.dataDir, { kind: 'download', at: Date.now(), project: body.project ?? '', url, vt: 'malicious', flagged: before.flagged, total: before.total, note: 'Refused: VirusTotal flagged the link.', refused: true })
+      return c.json({ refused: true, reason: before.sentence, before, link: before.link })
+    }
+
+    // 2. Fetch it, into a downloads folder inside the project.
+    const safeName = (body.filename ?? url.split('/').pop() ?? 'download').replace(/[^\w.\-]+/g, '_').slice(0, 120) || 'download'
+    const dest = join(dir, 'downloads', safeName)
+    await mkdir(dirname(dest), { recursive: true }).catch(() => {})
+    let bytes = 0
+    let sha256 = ''
+    try {
+      const res = await fetch(url, { redirect: 'follow' })
+      if (!res.ok) return c.json({ error: `The server answered HTTP ${res.status} for that URL.`, before })
+      const buf = Buffer.from(await res.arrayBuffer())
+      bytes = buf.length
+      if (bytes > 64 * 1024 * 1024) return c.json({ error: 'That file is over 64 MB — download it outside the app rather than through the agent.' })
+      sha256 = createHash('sha256').update(buf).digest('hex')
+      await writeFile(dest, buf)
+    } catch (e) {
+      return c.json({ error: `The download failed: ${String((e as any)?.message ?? e)}`, before })
+    }
+
+    // 3. The bytes, by hash, after.
+    const after = await checkHash(sha256, rt.dataDir, { size: bytes, path: dest, uploadIfUnknown: body.uploadIfUnknown === true })
+    await logDownload(rt.dataDir, {
+      kind: 'download', at: Date.now(), project: body.project ?? '', url, path: relative(dir, dest), bytes, sha256,
+      vt: after.status, flagged: after.flagged, total: after.total, note: after.sentence,
+    })
+    return c.json({ ok: true, path: relative(dir, dest), bytes, sha256, before, after })
   })
 
   return r
