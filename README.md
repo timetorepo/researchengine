@@ -8,7 +8,7 @@
 
 **Ask a question. Get an answer with real sources. Keep every page, note, quiz and draft on your own computer.**
 
-[![Release](https://img.shields.io/badge/release-v0.31.1--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v0.37.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#-your-work-stays-yours)
