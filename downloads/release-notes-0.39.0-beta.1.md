@@ -134,7 +134,9 @@ build, both portable archives built and run, the create-path bench (8/8, report 
 `downloads/bench-report-0.39.0-beta.1.txt`), the packaged build answering its own
 health check, and the suites: render 857, r17 107, smoke 65, ui 60, library 58,
 r18 54, ui-lab 44, design-browse 35, ide-chrome 35, updates 34, resilience 33,
-fork 32, workbench 29, bridge-pick 21, resources 19, api-json 11, nav 9.
+fork 32, workbench 29, bridge-pick 24, resources 19, api-json 11, nav 9. The
+bridge suite drives frames by hand rather than racing a 16 ms clock, which is how
+it caught the marquee measuring every hovered element twice.
 
 ## Download
 
