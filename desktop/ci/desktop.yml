@@ -11,6 +11,18 @@ name: desktop
 #      to the GitHub release for that tag
 on:
   workflow_dispatch:
+  # The installers are the one artifact nobody can check by reading a diff, so
+  # they are built whenever the desktop side of the repo changes — before a tag,
+  # not only on the tag. Path-filtered, so a docs or website pull request does
+  # not spend twenty minutes of runner time on an installer it cannot affect.
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "scripts/desktop-*.mjs"
+      - "scripts/verify-installer.mjs"
+      - "scripts/ci-annotate.mjs"
+      - "package.json"
+      - "package-lock.json"
   push:
     tags:
       - "v*"
