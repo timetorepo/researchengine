@@ -266,6 +266,20 @@ async function main() {
   check('dismissing is remembered, not just hidden', (storage.get('re.library.dismissed') ?? '').includes('example.com/a'))
   feedRoot.unmount()
 
+  /* ============ [7] "search the UI of apps" has something to find ============ */
+
+  console.log("\n[7] The UI vertical searches this app's own registry index")
+  const { componentHits } = await import('../src/components/library/LibrarySearch')
+  const carousels = componentHits('carousel')
+  const tables = componentHits('table')
+  const empty = componentHits('empty state')
+  check('a pattern word finds components the app can install', carousels.length > 0, String(carousels.length))
+  check('each hit names the component and where it comes from',
+    carousels.every((h) => h.url.startsWith('app://component/') && h.title.length > 1 && /Design hub · /.test(h.source)))
+  check('the search is about patterns, not one keyword', tables.length > 0 && empty.length > 0)
+  check('a nonsense word finds nothing rather than inventing components', componentHits('zzzzqqq').length === 0)
+  check('a one-letter query does not run at all', componentHits('c').length === 0)
+
   /* ==================== [4] the rules that must hold ==================== */
 
   console.log('\n[4] No component scrolls the whole app')

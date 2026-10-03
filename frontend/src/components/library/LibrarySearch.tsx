@@ -31,6 +31,9 @@ import { readJsonResponse } from '@/lib/net/json'
 import { SourceViewer, type OpenSource } from '@/components/library/SourceViewer'
 import FolderReveal from '@/components/smoothui/folder-reveal'
 import { RecommendationsPanel } from '@/components/library/RecommendationsPanel'
+// The registry index the design hub already uses — one catalogue, searched from
+// two places, rather than a second list that drifts from the first.
+import * as CATALOG_MODULE from '@/lib/design/catalog'
 
 import { nanoid } from 'nanoid'
 import { timeAgo } from '@/lib/utils'
@@ -110,6 +113,113 @@ function sourceLine(s: SourceStatus): string {
  * fanned folder is a preview, the folder's own list is where you read. Two lines
  * and the kind, so an open folder reads like a stack of pins rather than a list.
  */
+/**
+ * The other half of "search the UI of apps": the components this app already
+ * knows how to install, searched by pattern word. `pricing table` finds the
+ * tables and cards, `carousel` finds the carousels, `empty state` finds the
+ * states — and every hit names the registry it comes from, because "a component"
+ * with no provenance is not something you can act on.
+ *
+ * Exported so the regression suite can call it directly: it is pure, and the
+ * catalogue behind it is the same one the design hub shows.
+ */
+/**
+ * Screen words are not component words. "Empty state", "onboarding" and
+ * "settings screen" are how people describe what they want to build; a registry
+ * is indexed by what things are called. This is the small, honest bridge between
+ * the two — a fixed map, not a model, and it only ever *adds* search terms, so a
+ * query that already matches still matches.
+ */
+const PATTERN_TERMS: Record<string, string[]> = {
+  'empty state': ['empty', 'skeleton', 'placeholder'],
+  'loading state': ['loader', 'skeleton', 'spinner', 'loading'],
+  'onboarding': ['steps', 'progress', 'stepper', 'wizard'],
+  'sign up': ['form', 'input', 'dialog'],
+  'sign in': ['form', 'input', 'dialog'],
+  login: ['form', 'input', 'dialog'],
+  checkout: ['form', 'card', 'stepper'],
+  'pricing table': ['pricing', 'table', 'card'],
+  paywall: ['pricing', 'dialog', 'card'],
+  dashboard: ['chart', 'card', 'table', 'meter'],
+  settings: ['switch', 'select', 'accordion', 'tabs'],
+  profile: ['avatar', 'card', 'hover'],
+  'profile page': ['avatar', 'card', 'hover'],
+  feed: ['list', 'card', 'marquee'],
+  'search screen': ['command', 'combobox', 'input'],
+  notifications: ['badge', 'toast', 'notification'],
+  calendar: ['date', 'picker', 'calendar'],
+  chat: ['message', 'prompt', 'composer'],
+  'data table': ['table', 'datagrid', 'pagination'],
+  list: ['list', 'rows', 'items'],
+  modal: ['dialog', 'sheet', 'popover'],
+  'bottom sheet': ['sheet', 'drawer'],
+  stepper: ['steps', 'progress'],
+  'command palette': ['command', 'combobox', 'palette'],
+}
+
+function expandPattern(q: string): string[] {
+  const lower = q.toLowerCase()
+  const base = lower.split(/\s+/).filter(Boolean)
+  const extra: string[] = []
+  for (const [phrase, terms] of Object.entries(PATTERN_TERMS)) {
+    if (lower.includes(phrase)) extra.push(...terms)
+  }
+  return [...new Set([...base, ...extra])]
+}
+
+export function componentHits(query: string, limit = 4): MiniHit[] {
+  const q = query.trim()
+  if (q.length < 2) return []
+  const { CATALOG } = CATALOG_MODULE
+  const lower = q.toLowerCase()
+  const typed = lower.split(/\s+/).filter(Boolean)
+
+  /**
+   * A screen phrase is a requirement on the *phrase*, not on its words. Nobody
+   * sells a component called "state", so "empty state" must be read as one
+   * request — and when the registry genuinely has nothing for that request, the
+   * answer is nothing, which is why this returns an empty list rather than the
+   * nearest component with "state" in its description.
+   */
+  const phrases = Object.keys(PATTERN_TERMS).filter((p) => lower.includes(p)).sort((a, b) => b.length - a.length)
+  const covered = new Set<string>()
+  const extras: string[] = []
+  for (const phrase of phrases) {
+    for (const w of phrase.split(/\s+/)) covered.add(w)
+    extras.push(...PATTERN_TERMS[phrase])
+  }
+  const required = typed.filter((w) => !covered.has(w))
+  const alternatives = [...new Set(extras.filter((w) => !typed.includes(w)))]
+
+  const scored = CATALOG
+    .map((item) => {
+      const hay = `${item.name} ${item.what} ${item.tags.join(' ')} ${item.provider}`.toLowerCase()
+      // Every word the user typed that is not part of a known phrase must be
+      // there; a phrase only asks that one of its terms is.
+      if (required.some((w) => !hay.includes(w))) return { item, score: -1 }
+      const alternativeHits = alternatives.filter((w) => hay.includes(w)).length
+      if (phrases.length && alternatives.length && alternativeHits === 0) return { item, score: -1 }
+      let score = required.length * 3 + alternativeHits * 2
+      if (item.name.toLowerCase().includes(lower)) score += 8
+      if (item.name.toLowerCase().startsWith(typed[0])) score += 3
+      if (!phrases.length && item.name.toLowerCase() === lower) score += 6
+      return { item, score }
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+
+  return scored.map(({ item }) => ({
+    id: `cmp-${item.id}`,
+    vertical: 'ui',
+    title: item.name,
+    url: `app://component/${item.id}`,
+    snippet: `${item.what} — ${item.provider}`,
+    source: `Design hub · ${item.provider}`,
+    action: 'open',
+  }))
+}
+
 function FolderCard({ title, kind }: { title: string; kind: string }) {
   return (
     <div className="w-full h-full px-2 py-1.5 flex flex-col justify-between" data-ui="folder-card">
@@ -301,12 +411,20 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
       const res = await fetch(`/api/library/mini-search?q=${encodeURIComponent(q)}`)
       const json = await res.json().catch(() => null) as { results?: MiniGroup[]; pending?: string[] } | null
       if (!json?.results) throw new Error(`HTTP ${res.status}`)
-      setMini(json.results)
+      const local = componentHits(q)
+      setMini(json.results.map((g) => g.vertical === 'ui' && local.length
+        ? { ...g, hits: [...local, ...g.hits], note: `${local.length} component${local.length === 1 ? '' : 's'} from this app's own registry index, then the reference libraries.` }
+        : g))
       if (json.pending?.length) {
         await new Promise((r) => setTimeout(r, 900))
         const again = await fetch(`/api/library/mini-search?q=${encodeURIComponent(q)}`)
         const second = await again.json().catch(() => null) as { results?: MiniGroup[] } | null
-        if (second?.results) setMini(second.results)
+        if (second?.results) {
+          const local = componentHits(q)
+          setMini(second.results.map((g) => g.vertical === 'ui' && local.length
+            ? { ...g, hits: [...local, ...g.hits], note: `${local.length} component${local.length === 1 ? '' : 's'} from this app's own registry index, then the reference libraries.` }
+            : g))
+        }
       }
     } catch {
       // The lanes above already explain a dead server; this half stays quiet.
