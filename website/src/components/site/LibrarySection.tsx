@@ -7,10 +7,10 @@ import { useGallery } from '@/components/site/ScreenshotGallery'
 import { SCREENS } from '@/data/screens'
 
 const FILE_TYPES = [
-  { id: 'pdf', label: 'PDF', hint: 'papers, reports, scanned notes', color: '#fb7185' },
+  { id: 'pdf', label: 'PDF', hint: 'papers, reports', color: '#fb7185' },
   { id: 'docx', label: 'DOCX', hint: 'Word documents', color: '#5b8cff' },
-  { id: 'md', label: 'MD', hint: 'Markdown, Obsidian vaults', color: '#a78bfa' },
-  { id: 'txt', label: 'TXT', hint: 'plain text, transcripts', color: '#4ade80' },
+  { id: 'md', label: 'MD', hint: 'Markdown, vaults', color: '#a78bfa' },
+  { id: 'txt', label: 'TXT', hint: 'text, transcripts', color: '#4ade80' },
 ]
 
 /**
@@ -102,30 +102,38 @@ export function LibrarySection() {
           viewport={{ once: true, margin: '-60px' }}
           whileInView={{ opacity: 1 }}
         >
+          {/* Four cards have to be readable at once when the folder opens, so the
+              fan is sized to fit them rather than to look impressive: the cards
+              are 0.6 of the folder's width by design, and the spread times the
+              outer offsets (1.5 each side) plus one card is the width of the fan.
+              With these numbers the fan is about 300px, which fits the column on
+              a phone as well as on a desktop. */}
           <FolderReveal
             color="brand"
             items={FILE_TYPES.map((file) => ({
               id: file.id,
-              color: file.color,
+              color: `color-mix(in srgb, ${file.color} 22%, #0b0913)`,
               content: (
-                <div className="flex h-full flex-col justify-between p-3">
+                <div className="flex h-full flex-col justify-between p-2.5">
                   <FileText className="h-4 w-4" style={{ color: file.color }} />
                   <div>
-                    <div className="text-[15px] font-semibold" style={{ color: file.color }}>
+                    <div className="text-[14px] font-semibold" style={{ color: file.color }}>
                       {file.label}
                     </div>
-                    <div className="text-[11px] leading-tight text-[var(--text-3)]">{file.hint}</div>
+                    <div className="text-[10.5px] leading-tight text-[var(--text-2)]">{file.hint}</div>
                   </div>
                 </div>
               ),
             }))}
             label="Your documents"
-            size={230}
+            rotation={4}
+            size={260}
+            spread={48}
             trigger="click"
           />
-          <p className="mt-6 max-w-xs text-center text-[13px] leading-relaxed text-[var(--text-3)]">
-            Every one of these becomes a reading view you can highlight, a summary, and a quiz with the questions taken
-            from the text itself.
+          <p className="mt-6 max-w-sm text-center text-[13px] leading-relaxed text-[var(--text-3)]">
+            Open the folder and all four are there at once. Every one of them becomes a reading view you can highlight, a
+            summary, and a quiz with the questions taken from the text itself.
           </p>
         </motion.div>
       </div>

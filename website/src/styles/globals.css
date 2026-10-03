@@ -115,6 +115,21 @@
     /* Anchors land below the fixed header rather than under it. */
     scroll-padding-top: 92px;
     -webkit-text-size-adjust: 100%;
+    /* Tapping a link or a button on a phone flashes the browser's own highlight
+       over it, which on a dark page reads as the control turning white. Every
+       press already has a state of its own (see the button variants), so the
+       flash is removed rather than themed. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* A control with no background of its own would otherwise be painted with the
+     user agent's `buttonface` (a near-white grey in Chrome), which is the other
+     way a button on this page can appear to turn white when it is pressed. */
+  button {
+    appearance: none;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
   }
 
   /* Lenis drives the scroll; when it is active the native smooth scroll would

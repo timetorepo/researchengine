@@ -7,11 +7,14 @@ import { SOURCE_URL, useStars, VERSION } from '@/lib/release'
  * The stars band, using SmoothUI's github-stars-animation against the real
  * repository.
  *
- * The count comes from GitHub's own API in the visitor's browser. While the
- * repository is private that call answers 404, and the honest answer is to say
- * so rather than to animate a number nobody can verify: the band changes its
- * copy and still lets you star it. The moment the repository is public, the
- * avatars and the count appear with no code change.
+ * The count comes from GitHub's own API in the visitor's browser, and when it
+ * answers there is nothing this band can honestly claim about a star count. It
+ * used to say "new on GitHub" and "be the first to star it", which asserts two
+ * things the page cannot verify: that the project is new, and that nobody has
+ * starred it. The repository is private while the app is in beta, so GitHub
+ * reports no stars for it at all. What is left is what is true: the source is on
+ * GitHub, the licence is MIT, and the count appears here by itself the day the
+ * repository is public.
  */
 export function StarsStrip() {
   const { count, stargazers, live, loading } = useStars()
@@ -37,22 +40,21 @@ export function StarsStrip() {
               {loading ? (
                 <span className="inline-block h-5 w-40 animate-pulse rounded bg-white/10" />
               ) : (
-                <span>
-                  {count > 0 ? `${count.toLocaleString()} stars` : 'New on GitHub, and the first star is still free'}
-                </span>
+                <span>Stars appear here, from GitHub, once the repository is public</span>
               )}
             </div>
           )}
         </div>
 
         <p className="max-w-md text-center text-[13.5px] leading-relaxed text-[var(--text-3)] sm:text-right">
-          Open source, developed in the open. Version {VERSION} is what this page offers, and every release is built by
-          the same workflow you can read.
+          The repository is private while the app is in beta, so GitHub reports no stars for it yet, and this page will
+          not invent a number. The code, the licence and the release notes are on GitHub; version {VERSION} is what this
+          page offers.
         </p>
 
         <ButtonLink href={SOURCE_URL} rel="noreferrer" size="sm" target="_blank" variant="outline">
           <Github className="h-4 w-4" />
-          Star it on GitHub
+          Open the repository
         </ButtonLink>
       </div>
     </section>

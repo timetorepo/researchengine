@@ -334,6 +334,25 @@ async function main() {
     'and the words are readable even when the animation is not playing',
     !!ask?.querySelector('.sr-only'),
   )
+  // The section is not just the animation: it carries the three lanes, what a
+  // reply includes, and the questions themselves as buttons that drive it.
+  const askButtons = all(ask, 'button').filter((b: any) =>
+    /^(Does sleep debt|Turn this paper|What changed in the last update)/.test(b.textContent?.trim() ?? ''),
+  )
+  check('the three example questions are offered', askButtons.length === 3, all(ask, 'button').map((b: any) => (b.textContent ?? '').slice(0, 40)).join(' | '))
+  check('the lanes a search runs through are named', /Your documents/.test(text(ask)) && /Wikipedia/.test(text(ask)) && /Trusted sources/.test(text(ask)))
+  check('and what each one costs in time is shown', /about 12 ms/.test(text(ask)) && /about 40 ms/.test(text(ask)))
+  check('what a reply carries is listed', /numbered citations/.test(text(ask)) && /the tokens it used/.test(text(ask)))
+  check(
+    'and it says what a failure looks like',
+    /A lane that fails reports why it failed/.test(text(ask)),
+  )
+  if (askButtons[2]) {
+    click(askButtons[2])
+    await wait(400)
+    const switched = await waitFor(() => /What changed in the last update/.test(text(ask)), 3000)
+    check('clicking a question plays that exchange', switched, text(ask).slice(0, 140))
+  }
   const reducedSource = readFileSync(join(siteDir, 'src/components/site/AskStream.tsx'), 'utf8')
   check(
     'a visitor who asked for less motion gets the answer with no timers',
@@ -351,22 +370,120 @@ async function main() {
   await wait(360)
   const dialog = win.document.querySelector('#screenshot-gallery')
   check('clicking it opens a real dialog', !!dialog && dialog.getAttribute('role') === 'dialog' && dialog.getAttribute('aria-modal') === 'true')
+
+  // It opens showing every screenshot at once: uncropped, captioned, no clicking.
+  const tiles = all(dialog, 'button img[src^="/shots/"]')
+  check('all four screenshots are visible at once', tiles.length === 4, `${tiles.length} pictures`)
+  check(
+    'each one is uncropped rather than fitted to a frame',
+    tiles.every((img: any) => /object-contain/.test(img.className)),
+  )
+  check('and each carries the caption of what it shows', all(dialog, 'button span').filter((el: any) => /Chats:|Reading|Writing:|Building:/.test(text(el))).length >= 4)
+  check('the dialog says it is showing all of them', /All 4 screenshots/.test(text(dialog)), text(dialog).slice(0, 120))
+  check('and it offers the one-at-a-time view', /One at a time/.test(text(dialog)))
+
+  // The focused view is Aceternity's carousel, opened on the picture that was clicked.
+  const thirdTile = all(dialog, 'button').find((b: any) => /Writing:/.test(text(b)))
+  click(thirdTile)
+  await wait(420)
   const slides = all(dialog, '[data-slot="carousel-item"]')
-  check('with every screenshot in it, in Aceternity\'s carousel', slides.length === 4 && !!dialog?.querySelector('[data-slot="carousel"]'), `${slides.length} slides`)
-  check('each slide is a full-size picture of the app', slides.every((s: any) => !!s.querySelector('img[src^="/shots/"]')))
-  check('and it says which one you are looking at', /Screenshot 1 of 4/.test(text(dialog)), text(dialog).slice(0, 120))
-  const thumbs = all(dialog, 'button[aria-label^="Show screenshot"]')
-  check('there is a thumbnail for each picture', thumbs.length === 4)
+  check("with every screenshot in it, in Aceternity's carousel", slides.length === 4 && !!dialog?.querySelector('[data-slot="carousel"]'), `${slides.length} slides`)
+  check('each slide is a full-size picture of the app', slides.every((sl: any) => !!sl.querySelector('img[src^="/shots/"]')))
+  check('and it says which one you are looking at', /Screenshot 3 of 4/.test(text(dialog)), text(dialog).slice(0, 140))
+  check('there is a thumbnail for each picture', all(dialog, 'button[aria-label^="Show screenshot"]').length === 4)
   check('and arrows to move between them', !!dialog?.querySelector('[data-slot="carousel-previous"]') && !!dialog?.querySelector('[data-slot="carousel-next"]'))
-  click(thumbs[2])
-  await wait(240)
-  check('clicking a thumbnail moves the gallery', /Screenshot 3 of 4/.test(text(dialog)), text(dialog).slice(0, 120))
+  const thumbs = all(dialog, 'button[aria-label^="Show screenshot"]')
+  click(thumbs[1])
+  await wait(300)
+  check('clicking a thumbnail moves the gallery', /Screenshot 2 of 4/.test(text(dialog)), text(dialog).slice(0, 140))
+  const backToAll = all(dialog, 'button').find((b: any) => /Show all 4/.test(text(b)))
+  click(backToAll)
+  await wait(300)
+  check('and it goes back to showing all four', all(dialog, 'button img[src^="/shots/"]').length === 4 && /All 4 screenshots/.test(text(dialog)))
   check('the page behind it stops scrolling', /gallery-open/.test(win.document.documentElement.className))
-  const escape = new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
-  win.dispatchEvent(escape)
+  win.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   await wait(320)
   check('Escape closes it', !win.document.querySelector('#screenshot-gallery'))
   check('and the page scrolls again', !/gallery-open/.test(win.document.documentElement.className))
+
+  /* ------------------------------------------- 5 · footer and press states -- */
+
+  console.log('\n[5] The footer, and what a press does')
+  const footer = page.querySelector('footer')
+  check('the footer is on the page', !!footer)
+  const footerLinks = all(footer, 'a[href]')
+  check('the footer is a real footer, not a line of text', footerLinks.length >= 20, `${footerLinks.length} links`)
+  check('it carries the name at display size', /ResearchEngine/.test(text(footer)))
+
+  // Every in-page link in the footer points at a section that exists.
+  const inPage = footerLinks.map((a: any) => a.getAttribute('href')).filter((h: string) => h.startsWith('#'))
+  const missingSections = inPage.filter((h: string) => !win.document.getElementById(h.slice(1)))
+  check('every in-page footer link resolves to a section', missingSections.length === 0, missingSections.join(', '))
+  check('and the Download link is one of them', inPage.includes('#download'))
+
+  // Every repository file the footer links to is a file this checkout has.
+  const { existsSync: exists } = await import('node:fs')
+  const blobLinks = footerLinks
+    .map((a: any) => a.getAttribute('href'))
+    .filter((h: string) => /^https:\/\/github\.com\/timetorepo\/researchengine\/blob\//.test(h))
+  check('the footer links to files in this repository', blobLinks.length >= 3)
+  const brokenFiles = blobLinks
+    .map((h: string) => h.replace(/^.*\/blob\/main\//, ''))
+    .filter((p: string) => !exists(join(repoDir, p)))
+  check('and none of those files is missing', brokenFiles.length === 0, brokenFiles.join(', '))
+  check(
+    'no footer link goes to a file the repository does not have',
+    !/CONTRIBUTING\.md/.test(footer.innerHTML),
+  )
+
+  // The primary action in the footer is the download, not a GitHub page a
+  // stranger cannot open: the repository is private during the beta.
+  const primary = footerLinks.find((a: any) => /Download for free/.test(text(a)))
+  check('the footer offers the download first', !!primary && primary.getAttribute('href') === '#download')
+  check(
+    'and GitHub is labelled for what it is',
+    /private while the app is in beta/.test(text(footer)),
+  )
+
+  // Nothing that is pressed may rely on the browser's own look.
+  const css = readFileSync(join(siteDir, 'src/styles/globals.css'), 'utf8')
+  const buttonCss = readFileSync(join(siteDir, 'src/components/ui/button.tsx'), 'utf8')
+  check('the tap flash is removed rather than themed', /-webkit-tap-highlight-color:\s*transparent/.test(css))
+  check('a bare button cannot be painted near-white by the browser', /appearance:\s*none/.test(css) && /background-color:\s*transparent/.test(css))
+  check(
+    'and every variant states its own pressed state',
+    (buttonCss.match(/active:(bg|border|text)/g) ?? []).length >= 5,
+    (buttonCss.match(/active:[a-z-]+/g) ?? []).join(' '),
+  )
+
+  /* ------------------------------------------------ 6 · folder reveal fit -- */
+
+  console.log('\n[6] The folder opens all four of its cards, inside the column')
+  const librarySource = readFileSync(join(siteDir, 'src/components/site/LibrarySection.tsx'), 'utf8')
+  const size = Number(librarySource.match(/size=\{(\d+)\}/)?.[1] ?? 0)
+  const spread = Number(librarySource.match(/spread=\{(\d+)\}/)?.[1] ?? 0)
+  const rotation = Number(librarySource.match(/rotation=\{(\d+)\}/)?.[1] ?? 0)
+  // The component's own geometry: cards are 0.6 of the folder's width, the four
+  // of them sit at offsets -1.5 … 1.5, and the container is `size` wide.
+  const card = size * 0.6
+  const fanWidth = spread * 3 + card + rotation * 2
+  check('the folder is sized for its cards', size > 0 && spread > 0, `size=${size} spread=${spread} rotation=${rotation}`)
+  check(
+    'the fan is narrow enough for a phone column',
+    fanWidth <= 360,
+    `${Math.round(fanWidth)}px of fan`,
+  )
+  check(
+    'and the cards are big enough to read a label in',
+    card >= 140 && size * 0.78 * 0.5 >= 90,
+    `card ${Math.round(card)}×${Math.round(size * 0.78 * 0.5)}`,
+  )
+  // The hint the vendor's own file gives: the cards are drawn over the folder,
+  // so the labels must not be the same colour as the card behind them.
+  check(
+    'the cards are tinted, not painted in the label colour',
+    /color-mix\(in srgb, \$\{file\.color\}/.test(librarySource),
+  )
 
   /* ------------------------------------------------- 5 · laid out, not vibe -- */
 
@@ -412,12 +529,25 @@ async function main() {
   /* ------------------------------------------------------------ 3 · stars -- */
 
   console.log('\n[3] The stars band, honest in both directions')
-  const quietBand = await waitFor(() => /New on GitHub/.test(text(win.document.body)), 4000)
+  const quietBand = await waitFor(() => /Stars appear here, from GitHub/.test(text(win.document.body)), 4000)
   check('with GitHub silent, the band does not invent a number', quietBand, text(page).slice(0, 220))
-  check('and it still offers the star', !!page.querySelector('a[href="https://github.com/timetorepo/researchengine"]'))
+  check(
+    'and it does not claim the repository is new, or that nobody has starred it',
+    !/new on github|first star|be the first/i.test(text(page)),
+  )
+  check(
+    'it says why there is no count, which is the one verifiable reason',
+    /private while the app is in beta/.test(text(page)) && /will not invent a number/.test(text(page)),
+  )
+  check(
+    'and it never shows a star glyph without a number beside it',
+    !/⭐/.test(text(page)) && !/inline-flex h-10 w-10[\s\S]{0,80}Star/.test(text(page)),
+    text(page.querySelector('section') ?? page).slice(0, 80),
+  )
+  check('and it still offers the repository', !!page.querySelector('a[href="https://github.com/timetorepo/researchengine"]'))
   check(
     'a failed lookup settles instead of pulsing forever',
-    !page.innerHTML.includes('animate-pulse') || /New on GitHub/.test(text(page)),
+    !page.innerHTML.includes('animate-pulse') || /Stars appear here/.test(text(page)),
   )
   check('the github-stars-animation component is the one used', /github-stars-animation/.test(readFileSync(join(repoDir, 'website/src/components/site/StarsStrip.tsx'), 'utf8')))
 

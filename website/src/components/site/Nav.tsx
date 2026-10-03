@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Download, Menu, Star, X } from 'lucide-react'
+import { Download, Github, Menu, Star, X } from 'lucide-react'
 import { ButtonLink } from '@/components/ui/button'
 import { useStars, RELEASES_URL, SOURCE_URL, VERSION } from '@/lib/release'
 import { scrollToSection } from '@/lib/smooth-scroll'
@@ -67,15 +67,21 @@ export function Nav() {
             href={SOURCE_URL}
             rel="noreferrer"
             target="_blank"
-            title="Research Engine on GitHub"
+            title="The source, on GitHub. Private while the app is in beta."
           >
-            <Star className="h-3.5 w-3.5 fill-current text-[#fbbf24]" />
-            {stars.loading ? (
-              <span className="inline-block h-3 w-6 animate-pulse rounded bg-white/15" />
-            ) : stars.live ? (
-              <span className="tabular-nums">{stars.count.toLocaleString()}</span>
+            {/* A gold star means a number the page actually read from GitHub. When
+                there is none, the pill says what is true instead: the source is
+                on GitHub. */}
+            {stars.live && !stars.loading ? (
+              <>
+                <Star className="h-3.5 w-3.5 fill-current text-[#fbbf24]" />
+                <span className="tabular-nums">{stars.count.toLocaleString()}</span>
+              </>
             ) : (
-              <span>GitHub</span>
+              <>
+                <Github className="h-3.5 w-3.5" />
+                <span>{stars.loading ? 'Source' : 'Source on GitHub'}</span>
+              </>
             )}
           </a>
           <ButtonLink href="#download" onClick={go('download')} size="sm">

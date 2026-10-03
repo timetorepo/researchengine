@@ -70,9 +70,24 @@ const TYPE_MS = 26
 const THINK_MS = 700
 const HOLD_MS = 4200
 
-export function AskStream({ className }: { className?: string }) {
+export function AskStream({
+  className,
+  index: indexProp,
+  onIndexChange,
+}: {
+  className?: string
+  /** Controlled from outside (`AskSection`'s example questions). */
+  index?: number
+  onIndexChange?: (index: number) => void
+}) {
   const reduced = useReducedMotion()
-  const [index, setIndex] = useState(0)
+  const [ownIndex, setOwnIndex] = useState(0)
+  const index = indexProp ?? ownIndex
+  const setIndex = (next: number | ((i: number) => number)) => {
+    const value = typeof next === 'function' ? next(index) : next
+    if (indexProp === undefined) setOwnIndex(value)
+    onIndexChange?.(value)
+  }
   const [typed, setTyped] = useState(reduced ? EXCHANGES[0].question.length : 0)
   const [phase, setPhase] = useState<'asking' | 'thinking' | 'answering'>(reduced ? 'answering' : 'asking')
   const timers = useRef<number[]>([])

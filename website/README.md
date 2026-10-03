@@ -9,7 +9,7 @@ cd website
 npm ci
 npm run dev          # http://localhost:5188
 npm run build        # → dist/, ready for any static host
-npm run site-test    # 115 checks, mounted in jsdom
+npm run site-test    # 147 checks, mounted in jsdom
 npm run vendor       # re-verify the vendored components against their digests
 ```
 
@@ -65,15 +65,49 @@ suite whether or not the animation has played. A visitor who prefers reduced
 motion gets the first exchange in full and no timers at all.
 
 **The folder of screenshots** (`ScreenshotGallery.tsx`). The folder in the library
-section, and two buttons elsewhere, open every screenshot of the app full size in
-Aceternity's embla carousel, opening on the picture that was clicked. It is a real
-dialog: Escape closes it, arrow keys change slide, Tab wraps inside it, focus goes
-back to the button that opened it, and the page behind it stops scrolling (Lenis
-included).
+section, and two buttons elsewhere, open every screenshot of the app in one
+dialog, in two modes:
+
+- **all four at once** (what it opens on): every picture uncropped with its
+  caption, so the whole product is visible without clicking, and so it works on a
+  phone, where a one-at-a-time carousel hides three quarters of what you came to
+  look at;
+- **one at a time**: Aceternity's embla carousel, opened on whichever picture was
+  clicked, with arrow keys, arrows and a thumbnail strip.
+
+It is a real dialog: Escape closes it, Tab wraps inside it, focus goes back to the
+button that opened it, and the page behind it stops scrolling (Lenis included).
 
 **The terminal** (`src/components/site/Backend.tsx`). The backend proof, sized to
 be read in one screen and told to loop, so it plays again when it reaches the end
 instead of leaving a stranded prompt.
+
+Around the animation, the ask section carries the things a screenshot cannot: the
+three questions as buttons that play that exchange, the three lanes a search runs
+through with what each one costs in time, what comes back with a reply, and what a
+failed lane looks like.
+
+## Honesty rules the page follows
+
+Two of these were reported by looking at the site, and both were right:
+
+- **the star count is never asserted, only read.** The repository is private while
+  the app is in beta, so GitHub reports nothing for it. The band says that, in
+  those words, and the number appears by itself the day the repository is public.
+  There is no "new on GitHub" and no "be the first to star it": the page cannot
+  verify either claim. The nav pill shows a gold star only beside a real number.
+- **every link works.** The footer's in-page links scroll to sections that exist,
+  and every `github.com/.../blob/main/<path>` link points at a file this checkout
+  actually has — `scripts/site-test.mts` opens each one and checks. The missing
+  `CONTRIBUTING.md` link that used to 404 is gone.
+- **the primary action is never a page a stranger cannot open.** The footer's main
+  button downloads the app; GitHub is offered beside it, labelled as private
+  during the beta.
+
+A press on any button lands on a state the site defines (`active:` on every
+variant) with the browser's own tap highlight turned off, because a flash of the
+user agent's near-white `buttonface` on a dark page reads as the control turning
+white.
 
 ## How it is laid out, and why the hero changed
 
