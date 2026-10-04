@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 33 versions, 0.41.0 back to 0.10.0.
+ * 34 versions, 0.42.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,96 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.42.0",
+    "tag": "v0.42.0-beta.1",
+    "name": "",
+    "date": "2026-10-04",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.42.0-beta.1",
+    "summary": "A round of reach and reachability. Kilo Code joins the provider roster so one more gateway is a paste-away. The reader stops short-changing Wikipedia — the Read tab no longer comes back thinner than the Browser tab.",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "text": "Every item here is backed by a check in the new r29-test (45 assertions) so none of it can quietly regress, and the two existing suites that touched the changed components — the r27 viewer matrix and the library folder suite — were updated to match the new, intended behaviour rather than the old."
+          }
+        ]
+      },
+      {
+        "title": "Kilo Code is a provider",
+        "items": [
+          {
+            "text": "Kilo Code joins as an OpenAI-compatible provider pointing at the Kilo gateway (https://api.kilo.ai/api/gateway), one key in front of many models."
+          }
+        ]
+      },
+      {
+        "title": "The reader stops short-changing Wikipedia",
+        "items": [
+          {
+            "text": "Wikipedia's sibling hosts (Commons and friends) used to be pointed at a *.wikipedia.org API host that does not exist for them; they now resolve against their own host, so those pages read properly."
+          },
+          {
+            "text": "When an extract comes back thin (under ~180 words), the reader fetches the parsed page — the same content the Browser tab shows — and reduces it, replacing the prose only when it is genuinely fuller."
+          }
+        ]
+      },
+      {
+        "title": "Forward a source to the AI",
+        "items": [
+          {
+            "text": "The viewer header has an Ask the AI button. It starts a fresh chat with the reduced text attached and your instruction on top — Summarize faithfully, Key points, Quiz me on this, Explain simply, or your own words."
+          }
+        ]
+      },
+      {
+        "title": "Citations, one click",
+        "items": [
+          {
+            "text": "A Cite popover builds APA 7, MLA 9 and BibTeX from exactly what the reader reduced — title, site, address, access date. Wikipedia gets its proper \"In Wikipedia\" form; a missing title is admitted, not invented."
+          }
+        ]
+      },
+      {
+        "title": "Calmer typing in the Library search",
+        "items": [
+          {
+            "text": "The gooey search field's typed-in element was a framer-motion layout-animated input, so projection transforms on a focused field made the caret jump, and its focus effect re-ran on every keystroke because parents passed fresh callbacks."
+          }
+        ]
+      },
+      {
+        "title": "Folders wear your colours",
+        "items": [
+          {
+            "text": "Each folder takes one of five skins — Blue (the default), Green, Manila, Rose, Slate — chosen at creation from a swatch row or repainted later from a palette button. Colours persist through a new PATCH route and a migrated database column, so existing libraries keep working."
+          },
+          {
+            "text": "The fan now opens to the three most recent saves instead of four; the full list stays one click away."
+          }
+        ]
+      },
+      {
+        "title": "Numbers",
+        "items": [
+          {
+            "text": "New: r29-test, 45 checks (the provider entry and key guide, the wiki depth fallback, forward-to-AI and its cap, the citations engine, the GooeyInput fixes, folder colours and the three-item fan)."
+          },
+          {
+            "text": "Green: r28 67, r27 47, render 857, smoke 65, ui 60, library 58, ide-chrome 35, workbench 36, updates 34."
+          },
+          {
+            "text": "The installers below are built by CI from this tag; the portable builds in the repository's downloads folder carry their own SHA-256 sums."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 12,
+      "sections": 8
+    }
+  },
   {
     "version": "0.41.0",
     "tag": "v0.41.0-beta.1",
