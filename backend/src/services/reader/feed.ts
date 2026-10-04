@@ -3,7 +3,7 @@
  * Feeds are XML, not failed web pages. We reduce entries to plain story text;
  * the XML is never injected into the app as HTML.
  */
-import { decodeEntities } from './html'
+import { decodeEntities, type Block } from './html'
 
 export interface FeedArticle {
   title: string
@@ -108,11 +108,11 @@ export function parseFeedXml(xml: string, feedUrl: string): ParsedFeed | null {
 
 /** Convert feed articles into the reader's safe, typed blocks. */
 export function feedToBlocks(feed: ParsedFeed): {
-  blocks: { type: 'heading' | 'paragraph' | 'link'; level?: number; text: string; href?: string; id?: string }[]
+  blocks: Block[]
   outline: { id: string; text: string; level: number }[]
   wordCount: number
 } {
-  const blocks: { type: 'heading' | 'paragraph' | 'link'; level?: number; text: string; href?: string; id?: string }[] = []
+  const blocks: Block[] = []
   const outline: { id: string; text: string; level: number }[] = []
   feed.articles.forEach((article, index) => {
     const id = article.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 56) || `story-${index + 1}`

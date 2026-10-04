@@ -22,15 +22,17 @@ export interface LiveDemo {
   children?: React.ReactNode
 }
 
-const smooth = (dir: string, props?: Record<string, any>, children?: React.ReactNode): LiveDemo => ({
-  load: () => import(`../../components/smoothui/${dir}/index`),
+type ModuleLoader = () => Promise<Record<string, any>>
+
+const smooth = (load: ModuleLoader, props?: Record<string, any>, children?: React.ReactNode): LiveDemo => ({
+  load,
   pick: (m) => m.default,
   props,
   children,
 })
 
-const acet = (file: string, named: string, props?: Record<string, any>, children?: React.ReactNode): LiveDemo => ({
-  load: () => import(`../../components/ui/aceternity/${file}`),
+const acet = (load: ModuleLoader, named: string, props?: Record<string, any>, children?: React.ReactNode): LiveDemo => ({
+  load,
   pick: (m) => m[named],
   props,
   children,
@@ -39,36 +41,36 @@ const acet = (file: string, named: string, props?: Record<string, any>, children
 /** `provider:item` → a demo, for exactly the vendored set. */
 const DEMOS: Record<string, LiveDemo> = {
   // ---- SmoothUI, the app's own design system -------------------------------
-  'smoothui:smooth-button': smooth('smooth-button', { variant: 'solid' }, 'Save design'),
-  'smoothui:ai-message': smooth('ai-message'),
-  'smoothui:ai-prompt-input': smooth('ai-prompt-input'),
-  'smoothui:ai-reasoning': smooth('ai-reasoning'),
-  'smoothui:ai-task-list': smooth('ai-task-list'),
-  'smoothui:ai-tool-call': smooth('ai-tool-call'),
-  'smoothui:ai-sources': smooth('ai-sources'),
-  'smoothui:ai-loader': smooth('ai-loader'),
-  'smoothui:ai-diff': smooth('ai-diff'),
-  'smoothui:ai-context-meter': smooth('ai-context-meter', { used: 41_000, limit: 128_000 }),
-  'smoothui:animated-tags': smooth('animated-tags'),
-  'smoothui:typewriter-text': smooth('typewriter-text', {}, 'Design is how it works.'),
-  'smoothui:mac-terminal': smooth('mac-terminal'),
-  'smoothui:notification-badge': smooth('notification-badge', { count: 3 }, <span style={{ fontSize: 12 }}>Inbox</span>),
-  'smoothui:github-stars-animation': smooth('github-stars-animation'),
-  'smoothui:stagger-from-edges': smooth('stagger-from-edges'),
-  'smoothui:social-hover-card': smooth('social-hover-card'),
-  'smoothui:folder-reveal': smooth('folder-reveal', { size: 96, spread: 26 }),
+  'smoothui:smooth-button': smooth(() => import('../../components/smoothui/smooth-button/index.tsx'), { variant: 'solid' }, 'Save design'),
+  'smoothui:ai-message': smooth(() => import('../../components/smoothui/ai-message/index.tsx')),
+  'smoothui:ai-prompt-input': smooth(() => import('../../components/smoothui/ai-prompt-input/index.tsx')),
+  'smoothui:ai-reasoning': smooth(() => import('../../components/smoothui/ai-reasoning/index.tsx')),
+  'smoothui:ai-task-list': smooth(() => import('../../components/smoothui/ai-task-list/index.tsx')),
+  'smoothui:ai-tool-call': smooth(() => import('../../components/smoothui/ai-tool-call/index.tsx')),
+  'smoothui:ai-sources': smooth(() => import('../../components/smoothui/ai-sources/index.tsx')),
+  'smoothui:ai-loader': smooth(() => import('../../components/smoothui/ai-loader/index.tsx')),
+  'smoothui:ai-diff': smooth(() => import('../../components/smoothui/ai-diff/index.tsx')),
+  'smoothui:ai-context-meter': smooth(() => import('../../components/smoothui/ai-context-meter/index.tsx'), { used: 41_000, limit: 128_000 }),
+  'smoothui:animated-tags': smooth(() => import('../../components/smoothui/animated-tags/index.tsx')),
+  'smoothui:typewriter-text': smooth(() => import('../../components/smoothui/typewriter-text/index.tsx'), {}, 'Design is how it works.'),
+  'smoothui:mac-terminal': smooth(() => import('../../components/smoothui/mac-terminal/index.tsx')),
+  'smoothui:notification-badge': smooth(() => import('../../components/smoothui/notification-badge/index.tsx'), { count: 3 }, <span style={{ fontSize: 12 }}>Inbox</span>),
+  'smoothui:github-stars-animation': smooth(() => import('../../components/smoothui/github-stars-animation/index.tsx')),
+  'smoothui:stagger-from-edges': smooth(() => import('../../components/smoothui/stagger-from-edges/index.tsx')),
+  'smoothui:social-hover-card': smooth(() => import('../../components/smoothui/social-hover-card/index.tsx')),
+  'smoothui:folder-reveal': smooth(() => import('../../components/smoothui/folder-reveal/index.tsx'), { size: 96, spread: 26 }),
 
   // ---- Aceternity pieces this app ships ------------------------------------
-  'aceternity:aurora-background': acet('AuroraBackground', 'AuroraBackground', {}, <span style={{ fontSize: 12 }}>Aurora</span>),
-  'aceternity:spotlight': acet('SpotlightCard', 'SpotlightCard', {}, <span style={{ padding: 18, display: 'block', fontSize: 12 }}>Spotlight card</span>),
-  'aceternity:following-pointer': acet('FollowingPointer', 'FollowingPointer'),
-  'aceternity:link-preview': acet('LinkPreview', 'LinkPreview'),
-  'aceternity:images-badge': acet('ImagesBadge', 'ImagesBadge'),
-  'aceternity:moving-border': acet('MovingBorder', 'MovingBorder', {}, <span style={{ padding: '8px 14px', fontSize: 12 }}>Moving border</span>),
-  'aceternity:multi-step-loader': acet('MultiStepLoader', 'MultiStepLoader'),
-  'aceternity:placeholders-and-vanish-input': acet('PlaceholdersAndVanishInput', 'PlaceholdersAndVanishInput'),
-  'aceternity:text-generate-effect': acet('TextGenerateEffect', 'TextGenerateEffect', { text: 'Words materialize with blur and rise, one at a time.' }),
-  'aceternity:tooltip-card': acet('TooltipCard', 'TooltipCard'),
+  'aceternity:aurora-background': acet(() => import('../../components/ui/aceternity/AuroraBackground.tsx'), 'AuroraBackground', {}, <span style={{ fontSize: 12 }}>Aurora</span>),
+  'aceternity:spotlight': acet(() => import('../../components/ui/aceternity/SpotlightCard.tsx'), 'SpotlightCard', {}, <span style={{ padding: 18, display: 'block', fontSize: 12 }}>Spotlight card</span>),
+  'aceternity:following-pointer': acet(() => import('../../components/ui/aceternity/FollowingPointer.tsx'), 'FollowingPointer'),
+  'aceternity:link-preview': acet(() => import('../../components/ui/aceternity/LinkPreview.tsx'), 'LinkPreview'),
+  'aceternity:images-badge': acet(() => import('../../components/ui/aceternity/ImagesBadge.tsx'), 'ImagesBadge'),
+  'aceternity:moving-border': acet(() => import('../../components/ui/aceternity/MovingBorder.tsx'), 'MovingBorder', {}, <span style={{ padding: '8px 14px', fontSize: 12 }}>Moving border</span>),
+  'aceternity:multi-step-loader': acet(() => import('../../components/ui/aceternity/MultiStepLoader.tsx'), 'MultiStepLoader'),
+  'aceternity:placeholders-and-vanish-input': acet(() => import('../../components/ui/aceternity/PlaceholdersAndVanishInput.tsx'), 'PlaceholdersAndVanishInput'),
+  'aceternity:text-generate-effect': acet(() => import('../../components/ui/aceternity/TextGenerateEffect.tsx'), 'TextGenerateEffect', { text: 'Words materialize with blur and rise, one at a time.' }),
+  'aceternity:tooltip-card': acet(() => import('../../components/ui/aceternity/TooltipCard.tsx'), 'TooltipCard'),
 }
 
 /** The live demo for a catalog hit, when one is vendored. */
