@@ -397,6 +397,8 @@ libraryRoutes.delete('/items/:id', (c) => {
 
 libraryRoutes.get('/folders', (c) => c.json({ folders: db.listLibraryFolders() }))
 
+const FOLDER_COLORS = ['blue', 'green', 'manila', 'brand', 'slate']
+
 libraryRoutes.post('/folders', async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const name = String(body?.name ?? '').trim()
@@ -405,9 +407,21 @@ libraryRoutes.post('/folders', async (c) => {
     id: String(body?.id ?? `fold_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`),
     name: name.slice(0, 80),
     createdAt: Date.now(),
+    color: FOLDER_COLORS.includes(String(body?.color)) ? String(body.color) : undefined,
   }
   db.insertLibraryFolder(folder)
   return c.json({ ok: true, folder })
+})
+
+libraryRoutes.patch('/folders/:id', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const patch: { name?: string; color?: string | null } = {}
+  if (typeof body?.name === 'string' && body.name.trim()) patch.name = body.name.trim().slice(0, 80)
+  if (body?.color === null) patch.color = null
+  else if (FOLDER_COLORS.includes(String(body?.color))) patch.color = String(body.color)
+  const next = db.updateLibraryFolder(c.req.param('id'), patch)
+  if (!next) return c.json({ error: 'Folder not found.' }, 404)
+  return c.json({ ok: true, folder: next })
 })
 
 libraryRoutes.delete('/folders/:id', (c) => {

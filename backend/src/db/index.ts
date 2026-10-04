@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS skills (id TEXT PRIMARY KEY, name TEXT, json TEXT);
 CREATE TABLE IF NOT EXISTS citations (id TEXT PRIMARY KEY, title TEXT, url TEXT, collection TEXT, saved_at INTEGER);
 CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, kind TEXT, text TEXT, contact TEXT, app_version TEXT, created_at INTEGER);
 CREATE TABLE IF NOT EXISTS library_items (id TEXT PRIMARY KEY, kind TEXT, title TEXT, url TEXT, snippet TEXT, tags TEXT, folder_id TEXT, saved_at INTEGER, extra TEXT);
-CREATE TABLE IF NOT EXISTS library_folders (id TEXT PRIMARY KEY, name TEXT, created_at INTEGER);
+CREATE TABLE IF NOT EXISTS library_folders (id TEXT PRIMARY KEY, name TEXT, created_at INTEGER, color TEXT);
 `
 
 let sqlite: any = null
@@ -39,6 +39,12 @@ try {
   } catch (e2) {
     console.warn('[re] no SQLite driver available — using in-memory fallback (data will not survive a restart). (' + (e2 as Error).message + ')')
   }
+}
+
+// Databases created before a column existed keep working: add it, and let a
+// duplicate-column error mean it is already there.
+if (sqlite) {
+  try { sqlite.exec('ALTER TABLE library_folders ADD COLUMN color TEXT') } catch { /* already migrated */ }
 }
 
 const mem = {
@@ -101,11 +107,25 @@ export const db = {
     else mem.libraryItems.delete(id)
   },
   insertLibraryFolder(f: any) {
-    if (sqlite) sqlite.prepare('INSERT OR REPLACE INTO library_folders VALUES (?,?,?)').run(f.id, f.name, f.createdAt)
+    if (sqlite) sqlite.prepare('INSERT OR REPLACE INTO library_folders VALUES (?,?,?,?)').run(f.id, f.name, f.createdAt, f.color ?? null)
     else mem.libraryFolders.set(f.id, f)
   },
+  updateLibraryFolder(id: string, patch: { name?: string; color?: string | null }) {
+    if (sqlite) {
+      const row: any = sqlite.prepare('SELECT id, name, color FROM library_folders WHERE id = ?').get(id)
+      if (!row) return null
+      const next = { name: patch.name ?? row.name, color: patch.color === undefined ? row.color : patch.color }
+      sqlite.prepare('UPDATE library_folders SET name = ?, color = ? WHERE id = ?').run(next.name, next.color, id)
+      return next
+    }
+    const f = mem.libraryFolders.get(id)
+    if (!f) return null
+    if (patch.name !== undefined) f.name = patch.name
+    if (patch.color !== undefined) f.color = patch.color
+    return f
+  },
   listLibraryFolders() {
-    if (sqlite) return sqlite.prepare('SELECT id, name, created_at as createdAt FROM library_folders ORDER BY created_at ASC').all()
+    if (sqlite) return sqlite.prepare('SELECT id, name, created_at as createdAt, color FROM library_folders ORDER BY created_at ASC').all()
     return [...mem.libraryFolders.values()]
   },
   deleteLibraryFolder(id: string) {

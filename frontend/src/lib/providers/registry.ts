@@ -41,6 +41,10 @@ export const PROVIDERS: ProviderMeta[] = [
     needsKey: true, hint: 'One OpenAI-compatible key for many model providers',
   },
   {
+    id: 'kilocode', name: 'Kilo Code', kind: 'openai', baseUrl: 'https://api.kilo.ai/api/gateway',
+    needsKey: true, hint: 'Kilo Code gateway key, from the Kilo dashboard — one key for many models',
+  },
+  {
     id: 'together', name: 'Together', kind: 'openai', baseUrl: 'https://api.together.xyz/v1', needsKey: true,
   },
   {

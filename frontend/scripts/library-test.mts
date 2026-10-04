@@ -199,7 +199,8 @@ async function main() {
 
   check('the folders are the installed SmoothUI component, not a re-implementation',
     /from '@\/components\/smoothui\/folder-reveal'/.test(librarySource) && librarySource.includes('<FolderReveal'))
-  check('they are blue and they open under the pointer', /color="blue"/.test(librarySource) && /trigger="hover"/.test(librarySource))
+  check('they are blue by default, repaintable, and open under the pointer',
+    /f\.color[\s\S]{0,120}: 'blue'/.test(librarySource) && /trigger="hover"/.test(librarySource))
   check('a click on the folder is what opens its saves',
     /onActivate=\{\(\) => setFolderFilter\(/.test(librarySource))
   check('the shelf holds its height, in an inline style jsdom can read',

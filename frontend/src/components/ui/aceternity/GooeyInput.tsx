@@ -12,6 +12,7 @@
  * frontend/scripts/aceternity-vendor.mjs --verify` re-checks both.
  */
 import {
+  memo,
   useState,
   useRef,
   useEffect,
@@ -114,7 +115,7 @@ export interface GooeyInputProps {
   disabled?: boolean;
 }
 
-export function GooeyInput({
+export const GooeyInput = memo(function GooeyInput({
   placeholder = "Type to search...",
   className,
   classNames,
@@ -169,14 +170,16 @@ export function GooeyInput({
     [isOpenControlled, onOpenChange],
   );
 
+  const setSearchTextRef = useRef(setSearchText);
+  setSearchTextRef.current = setSearchText;
   useEffect(() => {
     if (isExpanded) {
       inputRef.current?.focus();
     } else if (prevExpandedRef.current) {
-      setSearchText("");
+      setSearchTextRef.current("");
     }
     prevExpandedRef.current = isExpanded;
-  }, [isExpanded, setSearchText]);
+  }, [isExpanded]);
 
   const buttonVariants = useMemo(
     () => ({
@@ -255,8 +258,7 @@ export function GooeyInput({
             {isExpanded ? (
               <>
                 {!detachedIcon ? <SearchIcon layoutId={iconLayoutId} /> : null}
-                <motion.input
-                  layoutId={inputLayoutId}
+                <input
                   ref={inputRef}
                   type="search"
                   enterKeyHint="search"
@@ -316,4 +318,4 @@ export function GooeyInput({
       </div>
     </div>
   );
-}
+});

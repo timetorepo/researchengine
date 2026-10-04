@@ -24,8 +24,13 @@ import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { isHostileToEmbedding, proxyPath } from '@/lib/library/embed'
 import {
   X, Globe, BookOpen, ExternalLink, RefreshCw, AlertTriangle, List, Link2,
-  Check, Loader2, Star, Type, PanelTop, CornerDownRight,
+  Check, Loader2, Star, Type, PanelTop, CornerDownRight, Sparkles, Send, Quote, Copy,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useStore } from '@/stores/useStore'
+import { runChat } from '@/lib/chat/runChat'
+import { CITATION_FORMATS } from '@/lib/library/citations'
+import { copyText } from '@/lib/utils'
 
 export interface OpenSource {
   url: string
@@ -86,6 +91,47 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
       embedding as a matter of policy start out proxied. */
   const [frame, setFrame] = useState<'direct' | 'proxied'>('direct')
   const [activeId, setActiveId] = useState<string | null>(null)
+
+  const navigate = useNavigate()
+  const [citeOpen, setCiteOpen] = useState(false)
+  const [askOpen, setAskOpen] = useState(false)
+  const [askText, setAskText] = useState('')
+  const [askBusy, setAskBusy] = useState(false)
+
+  /** The reduced text of whatever is on screen, capped so a whole book
+   *  cannot be pasted into a prompt by accident. */
+  const sourceText = useCallback(() => {
+    if (!doc?.blocks?.length) return ''
+    let out = ''
+    for (const b of doc.blocks) {
+      const line = b.type === 'heading' ? `${'#'.repeat(Math.min(b.level ?? 2, 3))} ${b.text}`
+        : b.type === 'list' ? (b.items ?? []).map((i) => `• ${i}`).join('\n')
+        : b.text ?? ''
+      if (!line) continue
+      if (out.length + line.length > 12000) { out += '\n\n[the source continues — truncated for the prompt]' ; break }
+      out += (out ? '\n\n' : '') + line
+    }
+    return out
+  }, [doc])
+
+  /** Hand the page you are reading to a fresh chat, with your instruction. */
+  const forwardToAI = useCallback((instruction: string) => {
+    const text = sourceText()
+    if (!text || askBusy) return
+    setAskBusy(true)
+    const prompt = [
+      instruction.trim() || 'Summarize this source faithfully.',
+      '',
+      'Work only from the source below. Where useful, name the section a point comes from.',
+      '',
+      `Source: ${doc?.title || source?.title || source?.url || doc?.url} (${source?.url ?? doc?.url ?? ''})`,
+      '',
+      text,
+    ].join('\n')
+    const chatId = useStore.getState().newChat()
+    navigate(`/chat/${chatId}`)
+    void runChat({ chatId, prompt }).finally(() => setAskBusy(false))
+  }, [doc, source, sourceText, askBusy, navigate])
   const panelRef = useRef<HTMLDivElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
@@ -348,6 +394,26 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                   <Star size={11} /> Save
                 </button>
               )}
+              <button onClick={() => setCiteOpen((v) => !v)} title="Copy a citation for this source"
+                data-ui="cite-toggle"
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11.5px]"
+                style={{
+                  background: citeOpen ? 'color-mix(in srgb, var(--primary) 18%, var(--surface))' : 'var(--elevated)',
+                  border: `1px solid ${citeOpen ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--surface-border)'}`,
+                  color: citeOpen ? 'var(--primary)' : 'var(--text-2)',
+                }}>
+                <Quote size={11} /> Cite
+              </button>
+              <button onClick={() => setAskOpen((v) => !v)} title="Send this source to the AI with an instruction"
+                data-ui="ask-ai-toggle"
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11.5px]"
+                style={{
+                  background: askOpen ? 'color-mix(in srgb, var(--primary) 18%, var(--surface))' : 'var(--elevated)',
+                  border: `1px solid ${askOpen ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--surface-border)'}`,
+                  color: askOpen ? 'var(--primary)' : 'var(--text-2)',
+                }}>
+                <Sparkles size={11} /> Ask the AI
+              </button>
               <a href={source.url} target="_blank" rel="noreferrer noopener" title="Open in your own browser"
                 className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11.5px]"
                 style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
@@ -358,6 +424,83 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                 <X size={13} />
               </button>
             </div>
+
+            {/* citations: three formats built from what the reader reduced */}
+            <AnimatePresence>
+              {citeOpen && doc && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: [0.3, 0.7, 0.3, 1] }} className="overflow-hidden shrink-0"
+                  style={{ borderBottom: '1px solid var(--surface-border)' }}>
+                  <div className="px-4 py-3 flex flex-col gap-2">
+                    {CITATION_FORMATS.map((f) => {
+                      const text = f.build({ title: doc.title || source?.title, url: source?.url ?? doc.url, siteName: doc.siteName, fetchedAt: doc.fetchedAt })
+                      return (
+                        <div key={f.id} className="flex items-center gap-2">
+                          <span className="w-14 shrink-0 text-[10.5px] font-medium text-right" style={{ color: 'var(--text-3)' }}>{f.label}</span>
+                          <code className="flex-1 min-w-0 truncate text-[10.5px] px-2.5 py-1.5 rounded-[9px]"
+                            style={{ background: 'var(--elevated)', color: 'var(--text-2)' }} title={text}>{text}</code>
+                          <button data-ui={`cite-copy-${f.id}`}
+                            onClick={() => void copyText(text).then((ok) => void import('@/stores/useUI').then((m) => m.useUI.getState().toast(
+                              ok ? 'Citation copied' : 'Copy blocked',
+                              ok ? `${f.label}, ready to paste.` : 'Select the text and copy it manually.',
+                              ok ? 'success' : 'warning')))}
+                            className="shrink-0 p-1.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }} title={`Copy the ${f.label} citation`}>
+                            <Copy size={11} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                    <p className="text-[10px] pl-16" style={{ color: 'var(--text-3)' }}>
+                      Built from what the reader reduced on this page — check author and publication dates against the original before you submit.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* forward-to-AI strip: an instruction plus the page you are reading */}
+            <AnimatePresence>
+              {askOpen && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: [0.3, 0.7, 0.3, 1] }} className="overflow-hidden shrink-0"
+                  style={{ borderBottom: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--primary) 5%, var(--surface))' }}>
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                      {[
+                        ['Summarize this faithfully', 'Summarize this source faithfully: the main claim, the supporting points, and what it leaves out.'],
+                        ['Key points', 'List the key points of this source as concise bullets, in order of importance.'],
+                        ['Quiz me on this', 'Turn this source into a quiz: five questions of mixed types that test real understanding, answers hidden until I ask.'],
+                        ['Explain simply', 'Explain this source in plain language a smart newcomer would follow, keeping every important fact.'],
+                      ].map(([label, instr]) => (
+                        <button key={label} disabled={!doc?.blocks?.length || askBusy}
+                          onClick={() => forwardToAI(instr)}
+                          className="px-2 py-1 rounded-full text-[10.5px] disabled:opacity-40"
+                          style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input value={askText} onChange={(e) => setAskText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && askText.trim()) forwardToAI(askText) }}
+                        disabled={!doc?.blocks?.length}
+                        placeholder={doc?.blocks?.length ? 'Tell the AI what to do with this source, then Enter…' : 'Waiting for the page to finish loading…'}
+                        className="flex-1 px-3 py-1.5 rounded-full text-[11.5px] outline-none"
+                        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                      <button onClick={() => forwardToAI(askText)} disabled={!doc?.blocks?.length || !askText.trim() || askBusy}
+                        data-ui="ask-ai-send"
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-medium disabled:opacity-40"
+                        style={{ background: 'var(--primary)', color: '#fff' }}>
+                        {askBusy ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} Send to a new chat
+                      </button>
+                    </div>
+                    <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-3)' }}>
+                      The reduced text you are reading ({(doc?.wordCount ?? 0).toLocaleString()} words, trimmed for the prompt) is attached, so the answer stays grounded in this source.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* body */}
             <div className="flex-1 min-h-0 flex">

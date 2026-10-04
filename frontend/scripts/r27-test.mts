@@ -20,6 +20,7 @@
  * Run: npx tsx --tsconfig tsconfig.json scripts/r27-test.mts   (from frontend/)
  */
 import { JSDOM } from 'jsdom'
+import { MemoryRouter } from 'react-router-dom'
 import { readFileSync } from 'node:fs'
 
 let passed = 0
@@ -112,10 +113,10 @@ async function main() {
     const root = createRoot(host)
     let crashed = false
     try {
-      root.render(React.createElement(SourceViewer as any, {
+      root.render(React.createElement(MemoryRouter, null, React.createElement(SourceViewer as any, {
         source: { url: 'https://en.wikipedia.org/wiki/Design', title: 'Design' },
         onClose: () => {},
-      }))
+      })))
       await wait(60)
     } catch { crashed = true }
     const alive = !crashed && host.querySelector('[data-ui="source-viewer"]') !== null
@@ -130,7 +131,7 @@ async function main() {
     const host = win.document.createElement('div')
     win.document.body.appendChild(host)
     const root = createRoot(host)
-    root.render(React.createElement(SourceViewer as any, { source: { url: goodDoc.url }, onClose: () => {} }))
+    root.render(React.createElement(MemoryRouter, null, React.createElement(SourceViewer as any, { source: { url: goodDoc.url }, onClose: () => {} })))
     await wait(60)
     check('wikipedia-api is labelled as the Wikipedia API', host.textContent!.includes('Wikipedia article text'))
     root.unmount(); host.remove()
@@ -144,9 +145,9 @@ async function main() {
     const host = win.document.createElement('div')
     win.document.body.appendChild(host)
     const root = createRoot(host)
-    root.render(React.createElement(SourceViewer as any, {
+    root.render(React.createElement(MemoryRouter, null, React.createElement(SourceViewer as any, {
       source: { url: 'https://www.awwwards.com/websites/' }, onClose: () => {},
-    }))
+    })))
     await wait(40)
     // hostile host: click the Browser tab and expect the proxy in the frame
     const browserTab = [...host.querySelectorAll('button')].find((b: any) => b.textContent?.trim() === 'Browser')
@@ -167,7 +168,7 @@ async function main() {
     const host = win.document.createElement('div')
     win.document.body.appendChild(host)
     const root = createRoot(host)
-    root.render(React.createElement(SourceViewer as any, { source: { url: 'https://example.com/' }, onClose: () => {} }))
+    root.render(React.createElement(MemoryRouter, null, React.createElement(SourceViewer as any, { source: { url: 'https://example.com/' }, onClose: () => {} })))
     await wait(40)
     const browserTab = [...host.querySelectorAll('button')].find((b: any) => b.textContent?.trim() === 'Browser')
     browserTab?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))

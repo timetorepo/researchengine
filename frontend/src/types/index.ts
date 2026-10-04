@@ -6,6 +6,9 @@ export type ProviderId =
   // 0.37.0: Xiaomi's MiMo open platform — OpenAI-compatible, and the same key
   // also opens an Anthropic-compatible endpoint at /anthropic.
   | 'mimo'
+  // Kilo Code's gateway — one OpenAI-compatible endpoint in front of many
+  // models, keyed by a single Kilo key.
+  | 'kilocode'
 
 export interface ProviderConfig {
   id: ProviderId

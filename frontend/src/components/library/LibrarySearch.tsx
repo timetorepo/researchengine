@@ -16,7 +16,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import {Copy, 
+import {Palette, Copy, 
   BookOpen, Globe, FileText, Plus, Trash2, Tag, Tags, Rss, Upload, RefreshCw, FolderPlus, ExternalLink, ChevronLeft,
   Folder as FolderIcon, Check, Star, Sparkles, AlertTriangle, BookMarked, Loader2,
 } from 'lucide-react'
@@ -66,7 +66,16 @@ interface Item {
   extra?: any
 }
 
-interface Folder { id: string; name: string; createdAt: number }
+interface Folder { id: string; name: string; createdAt: number; color?: string }
+
+/** The five skins the folder component ships, each with its face colour. */
+const FOLDER_SWATCHES: { id: string; label: string; face: string }[] = [
+  { id: 'blue', label: 'Blue (the default)', face: 'oklch(0.687 0.170 252.1)' },
+  { id: 'green', label: 'Green', face: 'oklch(0.68 0.12 156)' },
+  { id: 'manila', label: 'Manila', face: 'oklch(0.87 0.068 85)' },
+  { id: 'brand', label: 'Rose', face: 'oklch(0.72 0.17 352)' },
+  { id: 'slate', label: 'Slate', face: 'oklch(0.68 0.016 262)' },
+]
 interface SourceStatus { id: string; label: string; state: 'pending' | 'ok' | 'error'; count: number; ms: number; reason?: string }
 interface Recommendation { title: string; link: string; summary?: string; reason: string; favicon?: string; at?: string; topic?: string; via?: 'feed' | 'tag'; publisher?: string }
 interface Watching { tags: string[]; feeds: { id: string; title: string; url: string }[]; topics?: string[] }
@@ -188,6 +197,8 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
   const [saveTags, setSaveTags] = useState('')
   const [newFolder, setNewFolder] = useState('')
   const [folderInput, setFolderInput] = useState(false)
+  const [newFolderColor, setNewFolderColor] = useState('blue')
+  const [paletteFor, setPaletteFor] = useState<string | null>(null)
   const folderFilter = folder
   const setFolderFilter = onFolder
   const fileRef = useRef<HTMLInputElement>(null)
@@ -300,6 +311,9 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
     }
   }, [onQuery])
 
+  const changeQuery = useCallback((v: string) => onQuery(v), [onQuery])
+  const submitSearch = useCallback((v: string) => { void runSearch(v) }, [runSearch])
+
   // Typing runs the search too, debounced — the field and the results should
   // never disagree, and pressing Enter only skips the wait.
   useEffect(() => {
@@ -385,13 +399,25 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
     const name = newFolder.trim()
     if (!name) return
     try {
-      const res = await fetch('/api/library/folders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: `fold_${nanoid(6)}`, name }) })
+      const res = await fetch('/api/library/folders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: `fold_${nanoid(6)}`, name, color: newFolderColor }) })
       const json = await res.json() as { folder: Folder }
       setFolders((f) => [...f, json.folder])
       setSaveFolder(json.folder.id)
       setNewFolder('')
       ui.toast('Folder created', name, 'success')
     } catch { ui.toast('Could not create the folder', 'The local server did not answer.', 'danger') }
+  }
+
+  /** Repaint a folder: optimistic locally, persisted through the PATCH route. */
+  const setFolderColor = async (id: string, color: string | null) => {
+    setPaletteFor(null)
+    setFolders((cur) => cur.map((f) => f.id === id ? { ...f, color: color ?? undefined } : f))
+    try {
+      const res = await fetch(`/api/library/folders/${id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ color }) })
+      if (!res.ok) throw new Error()
+    } catch {
+      ui.toast('Colour not saved', 'The folder keeps it for this session only.', 'warning')
+    }
   }
 
   const removeItem = async (id: string) => {
@@ -465,9 +491,9 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
           collapsedWidth={200}
           expandedWidth={440}
           expandedOffset={44}
-          onSubmit={(v) => void runSearch(v)}
+          onSubmit={submitSearch}
           value={query}
-          onValueChange={(v) => onQuery(v)}
+          onValueChange={changeQuery}
         />
         <span className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
           Wikipedia · trusted sources · your own documents
@@ -694,6 +720,17 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
 
           {folderInput && (
             <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-1 shrink-0" title="Pick the folder's colour">
+                {FOLDER_SWATCHES.map((sw) => (
+                  <button key={sw.id} title={sw.label} onClick={() => setNewFolderColor(sw.id)}
+                    className="w-4 h-4 rounded-full transition-transform hover:scale-110"
+                    style={{
+                      background: sw.face,
+                      outline: newFolderColor === sw.id ? '2px solid var(--text)' : '1px solid rgba(0,0,0,0.15)',
+                      outlineOffset: 1,
+                    }} />
+                ))}
+              </div>
               <input autoFocus value={newFolder} onChange={(e) => setNewFolder(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { void makeFolder(); setFolderInput(false) } }}
                 placeholder="Thesis, fusion energy, Q3…"
@@ -725,7 +762,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                       cornerShape: 'superellipse(1.7)',
                     } as React.CSSProperties}>
                     <FolderReveal
-                      color="blue"
+                      color={(f.color && ['blue', 'green', 'manila', 'brand', 'slate'].includes(f.color) ? f.color : 'blue') as 'blue' | 'green' | 'manila' | 'brand' | 'slate'}
                       trigger="hover"
                       size={132}
                       spread={34}
@@ -733,12 +770,33 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                       label={f.name}
                       open={selected ? true : undefined}
                       onActivate={() => setFolderFilter(selected ? 'all' : f.id)}
-                      items={inside.slice(-4).map((i) => ({
+                      items={inside.slice(-3).map((i) => ({
                         id: i.id,
                         color: 'var(--surface)',
                         content: <FolderCard title={i.title} kind={i.kind} />,
                       }))}
                     />
+                    <button onClick={() => setPaletteFor(paletteFor === f.id ? null : f.id)} title="Change this folder's colour"
+                      data-ui={`folder-palette-${f.id}`}
+                      className="absolute -left-0.5 -top-0.5 z-30 p-1 rounded-full opacity-0 hover:opacity-100 focus:opacity-100"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
+                      <Palette size={10} />
+                    </button>
+                    {paletteFor === f.id && (
+                      <div className="absolute -top-9 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-1.5 py-1 rounded-full"
+                        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}>
+                        {FOLDER_SWATCHES.map((sw) => (
+                          <button key={sw.id} title={sw.label}
+                            onClick={() => void setFolderColor(f.id, sw.id === 'blue' ? null : sw.id)}
+                            className="w-4 h-4 rounded-full transition-transform hover:scale-110"
+                            style={{
+                              background: sw.face,
+                              outline: (f.color ?? 'blue') === sw.id ? '2px solid var(--text)' : '1px solid rgba(0,0,0,0.15)',
+                              outlineOffset: 1,
+                            }} />
+                        ))}
+                      </div>
+                    )}
                     <button onClick={() => void removeFolder(f.id)} title="Delete this folder (its saves stay)"
                       className="absolute -right-0.5 -top-0.5 z-30 p-1 rounded-full opacity-0 hover:opacity-100 focus:opacity-100"
                       style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
@@ -753,7 +811,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
             })}
             {!folders.length && (
               <p className="text-[11.5px] pb-4" style={{ color: 'var(--text-3)' }}>
-                No folders yet. Make one above, then save any result into it — the folder fans open under your pointer and reads out its saves when you click it.
+                No folders yet. Make one above, then save any result into it — the folder fans open under your pointer showing its three most recent saves, and a click opens it.
               </p>
             )}
           </div>

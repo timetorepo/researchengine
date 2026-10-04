@@ -128,6 +128,20 @@ export const KEY_GUIDES: Record<ProviderId, KeyGuide> = {
     free: 'Some models are marked free and work without credit, with limits.',
     tip: 'Model names are namespaced, like anthropic/claude-sonnet-4. The model list in this app comes from OpenRouter directly.',
   },
+  kilocode: {
+    provider: 'kilocode',
+    console: { label: 'kilocode.ai', url: 'https://kilocode.ai/dashboard' },
+    steps: [
+      'Sign in at kilocode.ai (or make a free account).',
+      'Open the dashboard and find the API keys section of the Kilo gateway.',
+      'Create a key and copy it.',
+      'Paste it here.',
+    ],
+    shape: 'A long opaque token issued by the Kilo gateway.',
+    cost: 'Pay per token through the gateway, at each model’s own rate.',
+    free: 'The gateway lists free-tier models; the rest bill per use.',
+    tip: 'Kilo Code is a gateway, not one model: pick any model it serves from the model list after the key is saved.',
+  },
   together: {
     provider: 'together',
     console: { label: 'api.together.ai', url: 'https://api.together.ai/settings/api-keys' },

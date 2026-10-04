@@ -104,7 +104,10 @@ async function readWikipedia(u: URL): Promise<ReadResult | null> {
   const req = wikiRequestFor(u)
   if (!req) return null
   const which = req.by === 'pageids' ? `pageids=${req.value}` : `titles=${encodeURIComponent(req.value)}`
-  const api = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|pageimages|info&inprop=url&explaintext=1&exsectionformat=wiki&piprop=original|thumbnail&pithumbsize=1000&redirects=1&${which}`
+  // en.wikipedia.org and friends use the language subdomain; siblings like
+  // commons.wikimedia.org keep their own hostname for the API.
+  const apiBase = /\.wikipedia\.org$/.test(u.hostname) ? `https://${lang}.wikipedia.org` : `https://${u.hostname}`
+  const api = `${apiBase}/w/api.php?action=query&format=json&prop=extracts|pageimages|info&inprop=url&explaintext=1&exsectionformat=wiki&piprop=original|thumbnail&pithumbsize=1000&redirects=1&${which}`
   const res = await fetch(api, { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT) })
   if (!res.ok) return null
   const json: any = await res.json().catch(() => null)
@@ -151,8 +154,40 @@ async function readWikipedia(u: URL): Promise<ReadResult | null> {
   }
   flush()
 
-  const words = blocks.reduce((n, b) => n + (b.type === 'paragraph' ? b.text.split(/\s+/).length : b.type === 'list' ? b.items.join(' ').split(/\s+/).length : 0), 0)
+  let words = blocks.reduce((n, b) => n + (b.type === 'paragraph' ? b.text.split(/\s+/).length : b.type === 'list' ? b.items.join(' ').split(/\s+/).length : 0), 0)
   const image = page?.original?.source ?? page?.thumbnail?.source
+
+  // Thin extracts do happen — stubs, template-heavy pages, articles whose
+  // prose lives in markup the extract endpoint does not return. The Browser
+  // tab shows the whole page in those cases, so the reader must not settle
+  // for less: ask for the parsed page and reduce it like any other site.
+  if (words < 180) {
+    try {
+      const parseWhich = req.by === 'pageids' ? `pageid=${req.value}` : `page=${encodeURIComponent(req.value)}`
+      const pres = await fetch(`${apiBase}/w/api.php?action=parse&format=json&formatversion=2&prop=text&redirects=1&disableeditsection=1&${parseWhich}`,
+        { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT) })
+      if (pres.ok) {
+        const pj: any = await pres.json().catch(() => null)
+        const parsedHtml: string = pj?.parse?.text ?? ''
+        if (parsedHtml) {
+          const reduced = htmlToBlocks(`<html><body>${parsedHtml}</body></html>`, u)
+          const rwords = reduced.blocks.reduce((n, b) => n + (b.type === 'paragraph' ? b.text.split(/\s+/).length : b.type === 'list' ? b.items.join(' ').split(/\s+/).length : 0), 0)
+          if (rwords > words) {
+            return {
+              ok: true, url: u.toString(), via: 'wikipedia-api',
+              title: pj?.parse?.title ?? page?.title ?? req.value.replace(/_/g, ' '),
+              siteName: u.hostname,
+              wordCount: rwords, minutes: Math.max(1, Math.round(rwords / 220)),
+              blocks: reduced.blocks, outline: reduced.outline, images: reduced.images,
+              warning: reduced.dropped ? 'Some of the page was markup the reader drops — the Browser tab shows it in full.' : undefined,
+              fetchedAt: Date.now(),
+            }
+          }
+        }
+      }
+    } catch { /* the extract we already have is better than nothing */ }
+  }
+
   return {
     ok: true, url: u.toString(), via: 'wikipedia-api',
     title: page?.title ?? req.value.replace(/_/g, ' '),
