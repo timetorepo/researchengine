@@ -5,6 +5,8 @@ import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { IntegrationAccounts } from './IntegrationAccounts'
+import { IntegrationTutorial } from './IntegrationTutorial'
+import { GraduationCap } from 'lucide-react'
 import { timeAgo, fmt } from '@/lib/utils'
 import type { DocumentRecord } from '@/types'
 
@@ -304,10 +306,33 @@ export function IntegrationsTab() {
   const integrations = useStore((s) => s.integrations)
   const log = useStore((s) => s.connectionLog)
   const ui = useUI()
+  const [tutorial, setTutorial] = useState(false)
+
+  // The composer's plug menu can send the user here straight into the walk.
+  useEffect(() => {
+    if (useUI.getState().integrationTutorial) {
+      useUI.setState({ integrationTutorial: false })
+      setTutorial(true)
+    }
+  }, [])
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Integrations</h2>
+      <div className="flex items-start gap-3 mb-5">
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Integrations</h2>
+        </div>
+        <button onClick={() => setTutorial((t) => !t)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-medium"
+          style={{
+            background: tutorial ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'var(--primary)',
+            color: tutorial ? 'var(--primary)' : '#fff',
+          }}>
+          <GraduationCap size={13} /> {tutorial ? 'Close the tutorial' : 'Step-by-step tutorial'}
+        </button>
+      </div>
+
+      <IntegrationTutorial open={tutorial} onClose={() => setTutorial(false)} />
       <p className="text-[13px] mb-5" style={{ color: 'var(--text-2)' }}>
         Real accounts, read-only by default. A connection is only "connected" once the service itself accepted the
         credential — press <b>Save &amp; test</b> and it makes an authenticated call to prove it. Below the accounts

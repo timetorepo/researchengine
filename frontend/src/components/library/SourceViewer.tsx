@@ -21,6 +21,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { scrollChildIntoView } from '@/lib/dom/scroll'
+import { isHostileToEmbedding, proxyPath } from '@/lib/library/embed'
 import {
   X, Globe, BookOpen, ExternalLink, RefreshCw, AlertTriangle, List, Link2,
   Check, Loader2, Star, Type, PanelTop, CornerDownRight,
@@ -81,6 +82,9 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [frameState, setFrameState] = useState<'idle' | 'loaded' | 'slow'>('idle')
+  /** Direct frame, or served through the app's own proxy. Hosts that refuse
+      embedding as a matter of policy start out proxied. */
+  const [frame, setFrame] = useState<'direct' | 'proxied'>('direct')
   const [activeId, setActiveId] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -90,12 +94,43 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
 
   /* ------------------------------------------------------------- loading --- */
 
+  /**
+   * The reader is trusted, but its answer is still normalized before it is
+   * allowed to touch the render tree. An error object, an older shape, or a
+   * body that is simply missing a field must produce a failure card — the app
+   * used to die with a TypeError on `doc.outline.length` when a response came
+   * back without one. Never again: every field the render reads is defaulted
+   * here, once, at the door.
+   */
+  const normalizeRead = (json: any, url: string): ReadResult | null => {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) return null
+    if (typeof json.error === 'string' && !Array.isArray(json.blocks)) return null
+    const blocks = Array.isArray(json.blocks) ? json.blocks : []
+    const outline = Array.isArray(json.outline) ? json.outline : []
+    const images = Array.isArray(json.images) ? json.images : []
+    return {
+      ok: !!json.ok && blocks.length > 0,
+      url: typeof json.url === 'string' ? json.url : url,
+      via: json.via === 'wikipedia' || json.via === 'wikipedia-api' ? 'wikipedia' : 'html',
+      title: typeof json.title === 'string' && json.title ? json.title : (host(url) || url),
+      siteName: typeof json.siteName === 'string' ? json.siteName : undefined,
+      description: typeof json.description === 'string' ? json.description : undefined,
+      wordCount: Number.isFinite(Number(json.wordCount)) ? Number(json.wordCount) : 0,
+      minutes: Number.isFinite(Number(json.minutes)) ? Number(json.minutes) : 0,
+      blocks, outline, images,
+      warning: typeof json.warning === 'string' ? json.warning : undefined,
+      fetchedAt: Number.isFinite(Number(json.fetchedAt)) ? Number(json.fetchedAt) : Date.now(),
+    }
+  }
+
   const load = useCallback(async (url: string) => {
     setBusy(true); setFailure(null); setDoc(null)
     try {
       const res = await fetch(`/api/library/read?url=${encodeURIComponent(url)}`)
-      const json: ReadResult = await res.json().catch(() => null as any)
-      if (!json) throw new Error(`The reader answered HTTP ${res.status} without JSON.`)
+      const raw: any = await res.json().catch(() => null)
+      if (!raw) throw new Error(`The reader answered HTTP ${res.status} without JSON.`)
+      const json = normalizeRead(raw, url)
+      if (!json) throw new Error(typeof raw?.error === 'string' ? raw.error : 'The reader answered with a shape this viewer does not understand.')
       setDoc(json)
       // A wiki always has something worth reading; an HTML page that came back
       // empty because the site renders itself in JavaScript opens on Browser.
@@ -116,6 +151,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
   useEffect(() => {
     if (!open || !source) return
     setTab('read'); setFrameState('idle'); setActiveId(null)
+    setFrame(source && isHostileToEmbedding(source.url) ? 'proxied' : 'direct')
     void load(source.url)
   }, [key, open, load])
 
@@ -266,10 +302,10 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                 </div>
                 <div className="flex items-center gap-1.5 text-[10.5px] truncate" style={{ color: 'var(--text-3)' }}>
                   <span className="truncate">{source.url}</span>
-                  {doc?.ok && doc.blocks.length > 0 && (
+                  {doc?.ok && (doc.blocks?.length ?? 0) > 0 && (
                     <>
                       <span>·</span>
-                      <span>{doc.wordCount.toLocaleString()} words · {doc.minutes} min</span>
+                      <span>{(doc.wordCount ?? 0).toLocaleString()} words · {doc.minutes ?? 0} min</span>
                       <span>·</span>
                       <span className="flex items-center gap-1">
                         {doc.via === 'wikipedia' ? <BookOpen size={9} /> : <Type size={9} />}
@@ -328,7 +364,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
               {tab === 'read' ? (
                 <>
                   {/* outline rail — only when the document actually has structure */}
-                  {doc && doc.outline.length > 2 && (
+                  {doc && (doc.outline?.length ?? 0) > 2 && (
                     <motion.aside
                       initial={reduce ? { opacity: 0 } : { opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.28, delay: 0.06 }}
@@ -397,9 +433,9 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                           </p>
                         )}
                         {body}
-                        {doc.images.length > 0 && (
+                        {(doc.images?.length ?? 0) > 0 && (
                           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {doc.images.slice(0, 6).map((im, i) => (
+                            {(doc.images ?? []).slice(0, 6).map((im, i) => (
                               <img key={i} src={im.src} alt={im.alt ?? ''} loading="lazy"
                                 className="w-full h-[110px] object-cover rounded-[14px]"
                                 style={{ border: '1px solid var(--surface-border)' }}
@@ -423,10 +459,26 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
               ) : (
                 <div className="flex-1 min-w-0 flex flex-col">
                   <div className="flex items-center gap-2 px-4 py-2 text-[11px] shrink-0" style={{ color: 'var(--text-3)' }}>
-                    {frameState === 'slow'
-                      ? <><AlertTriangle size={11} style={{ color: 'var(--warning)' }} /> The page is taking its time — it may refuse to load inside another app. The Read tab always works.</>
-                      : <><Globe size={11} /> Loading the real page. Sites that block being embedded are normal; Read is the fallback.</>}
+                    {frame === 'proxied'
+                      ? <><Globe size={11} /> {h || 'This site'} refuses to be embedded, so the app's own server fetched the page and serves it here. Links stay inside the app.</>
+                      : frameState === 'slow'
+                        ? <><AlertTriangle size={11} style={{ color: 'var(--warning)' }} /> The page is taking its time — it may refuse to load inside another app. Try the proxied view; Read always works.</>
+                        : <><Globe size={11} /> Loading the real page. Sites that block being embedded are normal; the proxied view and Read are the fallbacks.</>}
                     <div className="flex-1" />
+                    <div className="flex items-center p-0.5 rounded-full shrink-0" data-ui="embed-toggle"
+                      style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+                      {(['direct', 'proxied'] as const).map((f) => (
+                        <button key={f} onClick={() => { setFrame(f); setFrameState('idle') }}
+                          aria-pressed={frame === f}
+                          className="px-2 py-0.5 rounded-full"
+                          style={{
+                            color: frame === f ? 'var(--text)' : 'var(--text-3)',
+                            background: frame === f ? 'color-mix(in srgb, var(--primary) 18%, transparent)' : 'transparent',
+                          }}>
+                          {f === 'direct' ? 'Direct' : 'Proxied'}
+                        </button>
+                      ))}
+                    </div>
                     <button onClick={() => setFrameState('idle')} title="Reload the frame"
                       className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ color: 'var(--text-2)' }}>
                       <RefreshCw size={10} /> Reload
@@ -441,9 +493,9 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                       </div>
                     )}
                     <iframe
-                      key={key + frameState}
+                      key={key + frameState + frame}
                       title={doc?.title || source.title || source.url}
-                      src={source.url}
+                      src={frame === 'proxied' ? proxyPath(source.url) : source.url}
                       className="w-full h-full border-0"
                       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
                       referrerPolicy="no-referrer"
@@ -459,8 +511,8 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
               style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
               {busy
                 ? <><Loader2 size={10} className="animate-spin" /> Reading the source…</>
-                : doc?.ok && doc.blocks.length > 0
-                  ? <><Check size={10} style={{ color: 'var(--secondary)' }} /> Parsed {doc.blocks.length} blocks · {doc.outline.length} sections · {doc.images.length} images{doc.via === 'wikipedia' ? ' · via the Wikipedia API' : ''}</>
+                : doc?.ok && (doc.blocks?.length ?? 0) > 0
+                  ? <><Check size={10} style={{ color: 'var(--secondary)' }} /> Parsed {doc.blocks?.length ?? 0} blocks · {doc.outline?.length ?? 0} sections · {doc.images?.length ?? 0} images{doc.via === 'wikipedia' ? ' · via the Wikipedia API' : ''}</>
                   : <><AlertTriangle size={10} /> No text could be reduced from this page · the Browser tab is the way in</>}
               <div className="flex-1" />
               <span>Esc closes</span>

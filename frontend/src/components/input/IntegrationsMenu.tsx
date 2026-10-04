@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Check, ChevronRight, Github, HardDrive, Loader2, Mail, Calendar, Settings2,
+  Check, ChevronRight, Github, HardDrive, Loader2, Mail, Calendar, Settings2, GraduationCap,
   StickyNote, Hash, FolderOpen, Plug, AlertCircle, Unplug,
 } from 'lucide-react'
 import { INTEGRATIONS, FIELD_LABELS, integrationById, type IntegrationId } from '@/lib/integrations/registry'
@@ -131,6 +131,11 @@ export function IntegrationsMenu({
           <Plug size={13} strokeWidth={1.8} style={{ color: 'var(--text-3)' }} />
           <span className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: 'var(--text-3)' }}>Connected data</span>
           <span className="flex-1" />
+          <button onClick={() => { useUI.getState().set({ integrationTutorial: true }); openSettings() }}
+            className="text-[11px] px-2 py-0.5 rounded-full flex items-center gap-1"
+            style={{ color: 'var(--text-3)' }} title="A step-by-step walk: the console, the credential, the real test">
+            <GraduationCap size={11} /> Tutorial
+          </button>
           <button onClick={openSettings} className="text-[11px] px-2 py-0.5 rounded-full flex items-center gap-1"
             style={{ color: 'var(--text-2)', background: 'var(--surface)' }}>
             <Settings2 size={11} /> Manage

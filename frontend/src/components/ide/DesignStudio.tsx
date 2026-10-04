@@ -57,7 +57,13 @@ function themeAccent(): { accent?: string; soft?: string; ink?: string } {
   return { accent, soft: `color-mix(in srgb, ${accent} 16%, transparent)`, ink }
 }
 
-export function DesignStudio({ project, tree, onExit }: { project: string; tree: TreeNode[]; onExit: () => void }) {
+export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
+  project: string
+  tree: TreeNode[]
+  onExit: () => void
+  /** Arrived from the Library's UI vertical: open on the hub, searching this. */
+  hubSeed?: string
+}) {
   const [state, setState] = useState<PreviewState | null>(null)
   const [starting, setStarting] = useState(false)
   // The pointer carries the real user: their display name, their initials or
@@ -111,7 +117,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
-  const [tab, setTab] = useState<Tab>('assistant')
+  const [tab, setTab] = useState<Tab>(hubSeed ? 'hub' : 'assistant')
   /** The design grids drawn over the preview: columns, baseline, 8 pt, safe areas. */
   const [grids, setGrids] = useState<GridOptions>(defaultGrids)
   const [picking, setPicking] = useState(false)
@@ -702,7 +708,7 @@ export function DesignStudio({ project, tree, onExit }: { project: string; tree:
 
             {tab === 'hub' && (
               <div className="h-full overflow-y-auto p-3">
-                <ComponentHub />
+                <ComponentHub initialQuery={hubSeed ?? ''} />
               </div>
             )}
 

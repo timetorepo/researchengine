@@ -10,7 +10,8 @@ import { useUI } from '@/stores/useUI'
 import { BorderBeam } from 'border-beam'
 import { SkillPicker } from './SkillPicker'
 import { IntegrationPicker } from './IntegrationPicker'
-import { ModeMenu, type ModeOption } from './ModeMenu'
+import { type ModeOption } from './ModeMenu'
+import { ModeStrip } from './ModeStrip'
 import { IntegrationsMenu } from './IntegrationsMenu'
 import { clsx } from 'clsx'
 import { themeKind } from '@/lib/themes/meta'
@@ -327,16 +328,18 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
           {/* Bottom row: pills + send */}
           <div className="flex items-center gap-1.5 px-2.5 pb-2.5 pt-1">
             <div className="relative">
-              <button ref={modeButtonRef} onClick={() => setModeOpen((v) => !v)} title="Choose a mode" aria-label="Choose a mode" aria-expanded={modeOpen}
+              <button ref={modeButtonRef} onClick={() => setModeOpen((v) => !v)} title={modeOpen ? 'Fold the modes' : 'Choose a mode'} aria-label="Choose a mode" aria-expanded={modeOpen}
                 className="flex items-center justify-center w-9 h-8 rounded-full transition-colors hover:bg-[var(--elevated)]"
-                style={{ color: pills.some((p) => p.active) ? 'var(--primary)' : 'var(--text-3)', background: modeOpen ? 'var(--elevated)' : 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+                style={{ color: pills.some((p) => p.active) || modeOpen ? 'var(--primary)' : 'var(--text-3)', background: modeOpen ? 'var(--elevated)' : 'var(--surface)', border: '1px solid var(--surface-border)' }}>
                 <SlidersHorizontal size={15} strokeWidth={1.7} />
               </button>
-              {modeOpen && (
-                <ModeMenu pills={pills} anchor={modeButtonRef.current} onClose={() => setModeOpen(false)} />
-              )}
             </div>
-            <span className="hidden sm:inline text-[11px]" style={{ color: 'var(--text-3)' }}>{pills.filter((p) => p.active).map((p) => p.label).join(' · ') || 'Mode'}</span>
+            {/* The modes expand sideways instead of opening a menu — each pill
+                carries a tooltip, presses toggle and stay open. */}
+            {modeOpen && <ModeStrip pills={pills} />}
+            {!modeOpen && (
+              <span className="hidden sm:inline text-[11px]" style={{ color: 'var(--text-3)' }}>{pills.filter((p) => p.active).map((p) => p.label).join(' · ') || 'Mode'}</span>
+            )}
 
             <div className="flex-1" />
 

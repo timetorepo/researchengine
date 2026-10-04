@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react'
-import { Menu, Wind, ListChecks, ArrowDownToLine, X } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Menu, Wind, ListChecks, ArrowDownToLine, X, Maximize2, Minimize2 } from 'lucide-react'
+import { fullscreenSupported, isFullscreen, onFullscreenChange, toggleFullscreen } from '@/lib/dom/fullscreen'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -14,6 +15,32 @@ import { ResourceMeter } from '@/components/topbar/ResourceMeter'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
 import AIContextMeter from '@/components/smoothui/ai-context-meter'
 import { contextWindowFor } from '@/lib/providers/context-window'
+
+/**
+ * One press gives the app the whole window. The icon tracks the browser's
+ * real fullscreen state — F11, the webview's own menu and this button all
+ * agree — and where the shell has no fullscreen API the button is absent
+ * rather than dead.
+ */
+function FullscreenButton() {
+  const [on, setOn] = useState(isFullscreen())
+  const [supported] = useState(fullscreenSupported())
+  useEffect(() => onFullscreenChange(() => setOn(isFullscreen())), [])
+  if (!supported) return null
+  return (
+    <button
+      onClick={() => { void toggleFullscreen().then(() => setOn(isFullscreen())) }}
+      aria-label={on ? 'Leave fullscreen' : 'Fullscreen'}
+      aria-pressed={on}
+      title={on ? 'Leave fullscreen' : 'Fullscreen — the whole window for the app'}
+      data-ui="fullscreen-toggle"
+      className="p-2 rounded-[10px] hover:bg-[var(--elevated)]"
+      style={{ color: on ? 'var(--primary)' : 'var(--text-3)' }}
+    >
+      {on ? <Minimize2 size={16} strokeWidth={1.6} /> : <Maximize2 size={16} strokeWidth={1.6} />}
+    </button>
+  )
+}
 
 export function TopBar() {
   const ui = useUI()
@@ -148,6 +175,11 @@ export function TopBar() {
           </button>
         </div>
       )}
+      {/* Fullscreen — the whole window for the app. The icon tracks the real
+          fullscreen state (including F11 and the webview's own menus), and on
+          a shell without the API the button simply is not there. */}
+      <FullscreenButton />
+
       {/* Live machine load — memory, processor and GPU, from the server's own
           samples. Sits beside the privacy shield because it answers the other
           "what is this app doing" question. */}

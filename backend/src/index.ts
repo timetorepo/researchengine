@@ -32,6 +32,7 @@ async function main() {
   const { healthRoutes } = await import('./routes/health')
   const { feedbackRoutes } = await import('./routes/feedback')
   const { libraryRoutes } = await import('./routes/library')
+  const { proxyRoutes } = await import('./routes/proxy')
   const { skillsRoutes } = await import('./routes/skills')
   const { searchRoutes } = await import('./routes/search')
   const { chatRoutes } = await import('./routes/chat')
@@ -78,6 +79,7 @@ async function main() {
   app.route('/api', linkRoutes)
   app.route('/api/feedback', feedbackRoutes)
   app.route('/api/library', libraryRoutes)
+  app.route('/api/proxy', proxyRoutes)
   app.route('/api/skills', skillsRoutes)
 
   app.onError((err, c) => {

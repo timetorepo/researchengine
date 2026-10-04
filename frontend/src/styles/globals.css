@@ -3290,3 +3290,64 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
   background: color-mix(in srgb, var(--ide-faint) 45%, transparent);
   border-radius: 3px;
 }
+
+/* --------------------------------------------------------------------------
+   R27 — the composer's modes expand sideways.
+   The three-lines button unfolds a strip of pills next to itself instead of
+   opening a menu; each pill explains itself with its own tooltip on hover.
+   The strip walks in from the button (spring, staggered), the tooltip is a
+   plain fade-and-settle — two movements nothing else in the composer uses.
+   -------------------------------------------------------------------------- */
+.mode-strip { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: visible; }
+.mode-pill {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 500; white-space: nowrap;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+.mode-pill:hover { color: var(--text); }
+.mode-tip {
+  position: absolute; left: 50%; bottom: calc(100% + 9px);
+  transform: translate(-50%, 5px);
+  width: max-content; max-width: 230px; white-space: normal; text-align: left;
+  padding: 7px 9px; border-radius: 10px;
+  font-size: 10.5px; line-height: 1.45; font-weight: 400;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .5);
+  backdrop-filter: blur(12px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 70;
+}
+.mode-tip b { display: block; color: var(--text); font-weight: 600; margin-bottom: 1px; }
+.mode-pill:hover .mode-tip, .mode-pill:focus-visible .mode-tip { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) {
+  .mode-tip { transition: none; }
+}
+
+/* --------------------------------------------------------------------------
+   R27 — the component preview stage (Design mode's hub).
+   A framed stage with its own light/dark switch so a component is judged on
+   both surfaces; the meta side carries the honest install line.
+   -------------------------------------------------------------------------- */
+.cmp-stage {
+  position: relative; border-radius: 12px; overflow: hidden;
+  min-height: 170px; max-height: 320px; overflow-y: auto;
+  display: grid; place-items: center; padding: 18px;
+  border: 1px solid var(--surface-border);
+}
+.cmp-stage > * { max-width: 100%; }
+
+/* R27 — integration tutorial wizard */
+.tut-dots { display: flex; align-items: center; gap: 5px; }
+.tut-dots span {
+  width: 7px; height: 7px; border-radius: 999px;
+  background: var(--elevated); border: 1px solid var(--surface-border);
+  transition: width 220ms ease, background 220ms ease;
+}
+.tut-dots span.on { width: 18px; background: var(--primary); border-color: transparent; }
+.tut-dots span.done { background: color-mix(in srgb, var(--success) 60%, var(--elevated)); }
+@media (prefers-reduced-motion: reduce) { .tut-dots span { transition: none; } }

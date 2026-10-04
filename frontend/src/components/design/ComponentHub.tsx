@@ -8,14 +8,20 @@
  * catalog" is never a dead end, it is a copied command.
  */
 import React, { useMemo, useState } from 'react'
-import { Search, Plus, Check, ExternalLink, Filter, Info } from 'lucide-react'
+import { Search, Plus, Check, ExternalLink, Filter, Info, Eye } from 'lucide-react'
 import { UI_PROVIDERS, commandsFor, searchCommandFor, uiProviderById, type UiProvider } from '@/lib/design/providers'
-import { searchCatalog } from '@/lib/design/catalog'
+import { searchCatalog, type CatalogItem } from '@/lib/design/catalog'
 import { useDesign } from '@/stores/useDesign'
 import { DependencyBox } from './DependencyBox'
+import { ComponentPreview } from './ComponentPreview'
 
-export function ComponentHub({ compact = false }: { compact?: boolean }) {
-  const [query, setQuery] = useState('')
+export function ComponentHub({ compact = false, initialQuery = '' }: {
+  compact?: boolean
+  /** Arriving from the Library's UI vertical, already searching for one thing. */
+  initialQuery?: string
+}) {
+  const [query, setQuery] = useState(initialQuery)
+  const [preview, setPreview] = useState<CatalogItem | null>(null)
   const [providerFilter, setProviderFilter] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
   const [added, setAdded] = useState<string | null>(null)
@@ -114,6 +120,16 @@ export function ComponentHub({ compact = false }: { compact?: boolean }) {
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setPreview(item)}
+                    title="Preview it here"
+                    className="p-1.5 rounded-[7px]"
+                    style={{
+                      color: preview?.id === item.id ? 'var(--primary)' : 'var(--ide-faint, var(--text-3))',
+                      background: preview?.id === item.id ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'transparent',
+                    }}>
+                    <Eye size={12} />
+                  </button>
                   <a href={provider.kind === 'copy' || provider.kind === 'package' ? provider.url : `${provider.url}`}
                     target="_blank" rel="noreferrer noopener" title={`Open ${provider.name}`}
                     className="p-1.5 rounded-[7px]" style={{ color: 'var(--ide-faint, var(--text-3))' }}>
@@ -166,8 +182,12 @@ export function ComponentHub({ compact = false }: { compact?: boolean }) {
       </div>
 
       {!compact && (
-        <div className="p-2.5 rounded-[12px] xl:sticky xl:top-0 h-fit" style={{ background: 'var(--ide-surface, var(--surface))', border: '1px solid var(--ide-line, var(--surface-border))' }}>
-          <DependencyBox compact />
+        <div className="flex flex-col gap-2.5 xl:sticky xl:top-0 h-fit">
+          {/* The stage: a catalog hit you can look at, not just install. */}
+          {preview && <ComponentPreview item={preview} manager={manager} />}
+          <div className="p-2.5 rounded-[12px]" style={{ background: 'var(--ide-surface, var(--surface))', border: '1px solid var(--ide-line, var(--surface-border))' }}>
+            <DependencyBox compact />
+          </div>
         </div>
       )}
       {compact && (

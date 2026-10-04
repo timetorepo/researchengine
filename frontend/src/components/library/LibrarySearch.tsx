@@ -635,7 +635,8 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                       <meta.Icon size={15} className="mt-0.5 shrink-0" style={{ color: meta.tone }} />
                       <div className="min-w-0 flex-1">
                         {h.url.startsWith('app://') ? (
-                          <button onClick={() => { navigate('/code'); ui.toast('Design hub', 'Components and the registries are in the coding workspace.', 'info') }}
+                          <button onClick={() => navigate(`/code?hub=${encodeURIComponent(h.title)}`)}
+                            title="Preview it in design mode's component hub"
                             className="text-[13px] font-medium leading-snug text-left hover:underline" style={{ color: 'var(--text)' }}>
                             {h.title}
                           </button>

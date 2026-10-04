@@ -219,10 +219,12 @@ async function main() {
 
   console.log('\n[6] Recommendations read like a feed, and never invent a source')
   const { RecommendationsPanel } = await import('../src/components/library/RecommendationsPanel')
-  const now = Date.now()
+  // Anchor to the local calendar day, not to "an hour ago": an hour before
+  // midnight that story is yesterday's, and the feed would regroup under us.
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0)
   const stories = [
-    { title: 'A new attention variant', link: 'https://example.com/a', summary: 'A paper about sparse attention.', at: new Date(now - 3600_000).toISOString(), reason: 'new in The Gradient', source: 'https://example.com/feed', topic: 'The Gradient', via: 'feed' as const, publisher: 'The Gradient' },
-    { title: 'Transformer', link: 'https://en.wikipedia.org/?curid=2', summary: 'An architecture.', at: new Date(now - 30 * 3600_000).toISOString(), reason: 'matches your tag #models', source: 'https://en.wikipedia.org/?curid=2', topic: '#models', via: 'tag' as const, publisher: 'Wikipedia' },
+    { title: 'A new attention variant', link: 'https://example.com/a', summary: 'A paper about sparse attention.', at: new Date(startToday.getTime() + 10 * 60000).toISOString(), reason: 'new in The Gradient', source: 'https://example.com/feed', topic: 'The Gradient', via: 'feed' as const, publisher: 'The Gradient' },
+    { title: 'Transformer', link: 'https://en.wikipedia.org/?curid=2', summary: 'An architecture.', at: new Date(startToday.getTime() - 6 * 3600_000).toISOString(), reason: 'matches your tag #models', source: 'https://en.wikipedia.org/?curid=2', topic: '#models', via: 'tag' as const, publisher: 'Wikipedia' },
     { title: 'Undated story', link: 'https://example.com/c', reason: 'new in The Gradient', source: 'https://example.com/feed', topic: 'The Gradient', via: 'feed' as const, publisher: 'The Gradient' },
   ]
   const feedHost = win.document.createElement('div')

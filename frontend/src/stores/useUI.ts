@@ -57,6 +57,8 @@ interface UIState {
   pendingQuizFile: File | null
   /** Global prompt to unlock the encrypted-key vault passphrase. */
   vaultPrompt: boolean
+  /** Settings → Integrations should open straight into the tutorial. */
+  integrationTutorial: boolean
   /** Questions queued while the AI is busy answering the current one. Not persisted. */
   queue: Record<string, { id: string; prompt: string; mode?: Record<string, unknown>; extra?: Record<string, unknown> }[]>
   /** The surface the user is on, for the focus timer's context label. */
@@ -137,6 +139,7 @@ export const useUI = create<UIState>((set, get) => ({
   osMinimized: false,
   pendingQuizFile: null,
   vaultPrompt: false,
+  integrationTutorial: false,
   queue: {},
   activity: { kind: 'idle' },
 
