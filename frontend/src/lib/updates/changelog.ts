@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 31 versions, 0.39.0 back to 0.10.0.
+ * 32 versions, 0.40.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,124 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.40.0",
+    "tag": "v0.40.0-beta.1",
+    "name": "",
+    "date": "2026-10-04",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.40.0-beta.1",
+    "summary": "Two rounds in one cut: the interiors of both workspaces that the previous release only shelled, and the six asks that came after it, each done for real.",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "text": "This cut folds two rounds into one tag. The first did the interiors that the 0.39 shells promised: file-kind glyphs, a splittable bottom panel and a current-line wash on the coding side; the glass mode switch, the grouped toolbar, the two-tier rail and the filmstrip captures on the design side."
+          }
+        ]
+      },
+      {
+        "title": "The coding workspace, inside",
+        "items": [
+          {
+            "text": "Every file wears the glyph and the theme colour of its kind, in the tree and in the open-file tabs: code, data, text, style, markup, image, shell, config, database."
+          },
+          {
+            "text": "The bottom panel is a splittable pane: the gutter above it drags between 140 and 560 px, the height is remembered per machine, and a double click resets it to 220."
+          },
+          {
+            "text": "The editor washes the line the caret is on, and the wash rides the scroll, the way the reference editors do."
+          }
+        ]
+      },
+      {
+        "title": "The design studio, inside",
+        "items": [
+          {
+            "text": "The Code/Design switch is the same glass segmented control the code page uses; the device bar groups into the same glass pills as the status bar."
+          },
+          {
+            "text": "The eleven-tool rail is two tiers (look, build) instead of one scrolling row, and captures are a two-column filmstrip whose pictures carry their own hover actions."
+          }
+        ]
+      },
+      {
+        "title": "Components you can look at, in design mode",
+        "items": [
+          {
+            "text": "The hub gained a preview stage. For the components this app vendors (SmoothUI's set and the Aceternity pieces it ships, 28 live demos) the real component renders in place, with a light/dark switch and an error boundary per demo so one bad render cannot take the studio down."
+          },
+          {
+            "text": "Registries that are not vendored get the honest card: no live demo, here is the exact install line and the provider's page."
+          },
+          {
+            "text": "Library UI hits open design mode on the hub, already searching, instead of a toast that pointed elsewhere."
+          }
+        ]
+      },
+      {
+        "title": "Fullscreen",
+        "items": [
+          {
+            "text": "A top-bar toggle on the real Fullscreen API. The icon tracks the browser's state (F11 included) and the button is absent on shells without the API rather than dead."
+          }
+        ]
+      },
+      {
+        "title": "The integrations tutorial",
+        "items": [
+          {
+            "text": "Settings → Integrations and the composer's plug menu open a wizard per service: what it gives you, the numbered console walk with the token's shape and the classic miss, the real credential form, and a Save & test that finishes only when the service itself says yes."
+          }
+        ]
+      },
+      {
+        "title": "The reader that cannot crash",
+        "items": [
+          {
+            "text": "The source viewer normalizes every answer before it touches the render tree. An error body, an empty body, a missing field or a non-JSON answer is a failure card, never a blank page; the crash you could hit by reading a source is gone."
+          }
+        ]
+      },
+      {
+        "title": "\"Refused to connect\" has an answer",
+        "items": [
+          {
+            "text": "A local embedding proxy (/api/proxy): the server fetches the page, drops base tags, CSP metas and frame-busters, makes subresources absolute and loops links back through itself, so navigation stays in the app. The route is SSRF-guarded by the same rule as the reader."
+          },
+          {
+            "text": "Awwwards, Dribbble, Refero and the other policy-hostile hosts start on the proxied view with a line saying why; everything else keeps the direct frame, with a Direct/Proxied switch beside Reload. Design mode's reference browser uses the same viewer and inherits the fix."
+          }
+        ]
+      },
+      {
+        "title": "The composer",
+        "items": [
+          {
+            "text": "The three-lines button no longer opens a menu: it unfolds the five modes sideways next to itself, each pill carrying its own tooltip on hover. Presses toggle and stay open, because modes combine."
+          }
+        ]
+      },
+      {
+        "title": "Numbers",
+        "items": [
+          {
+            "text": "New: r27-test, 47 checks (proxy rewrite offline, hostile-list parity between frontend and backend, the viewer crash matrix, the embed switch, the mode strip, fullscreen, the tutorial walk, the demo registry)."
+          },
+          {
+            "text": "Green: render 857, r17 107, ui 60, library 58, integrations 51, ui-lab 44, workbench 36, design-browse 38, ide-chrome 35, updates 34, resilience 33, smoke 65, bridge-pick 24 (one measurement per hover), resources 19, api-json 11."
+          },
+          {
+            "text": "The installers below are built by CI from this tag; the portable builds in the repository's downloads folder carry their own SHA-256 sums."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 18,
+      "sections": 10
+    }
+  },
   {
     "version": "0.39.0",
     "tag": "v0.39.0-beta.1",
