@@ -3,7 +3,10 @@
 // newline-delimited JSON-RPC, and killed on completion or timeout.
 // Configured env vars are passed through but NEVER logged.
 import { spawn, type ChildProcess } from 'node:child_process'
+import { realpath, stat } from 'node:fs/promises'
 import { Hono } from 'hono'
+import type { Runtime } from '../runtime'
+import { isStrictlyWithinDir, projectDirOf, projectsRootOf } from '../preview/paths'
 
 const PROTOCOL_VERSION = '2024-11-05'
 const HANDSHAKE_TIMEOUT_MS = 12_000
@@ -94,19 +97,58 @@ function scrubServer(s: any): { command: string; args: string[]; env: Record<str
   return { command, args, env }
 }
 
-export function mcpRoutes() {
+/** Resolve an existing project root before substituting it into any argv. */
+export async function requireMcpProjectRoot(projectsRoot: string, project: unknown): Promise<string> {
+  if (typeof project !== 'string' || !project.trim()) {
+    throw new Error('Open a Coding project before connecting an MCP server.')
+  }
+  const candidate = projectDirOf(projectsRoot, project)
+  if (!candidate) throw new Error('The selected Coding project name is not valid.')
+
+  let isDirectory = false
+  try { isDirectory = (await stat(candidate)).isDirectory() } catch { /* report a stable, non-path-leaking message below */ }
+  if (!isDirectory) {
+    throw new Error('The selected Coding project folder does not exist or is not a directory.')
+  }
+
+  let realProjectsRoot: string
+  let realProjectRoot: string
+  try {
+    ;[realProjectsRoot, realProjectRoot] = await Promise.all([realpath(projectsRoot), realpath(candidate)])
+  } catch {
+    throw new Error('The selected Coding project folder is not available.')
+  }
+  if (!isStrictlyWithinDir(realProjectsRoot, realProjectRoot)) {
+    throw new Error('The selected Coding project folder must stay inside the projects directory.')
+  }
+  return realProjectRoot
+}
+
+/** Replace {project} only after the caller has validated a real project root. */
+export function resolveMcpProjectArgs(args: string[], projectDir: string): string[] {
+  return args.map((arg) => arg.replaceAll('{project}', projectDir))
+}
+
+export function mcpRoutes(rt: Runtime) {
+  const projectsRoot = projectsRootOf(rt.dataDir)
   const r = new Hono()
 
   // List tools across all configured servers.
   r.post('/mcp/tools', async (c) => {
-    let body: { servers?: any[] }
+    let body: { servers?: any[]; project?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    if (!body || typeof body !== 'object') return c.json({ error: 'Invalid MCP request body.' }, 400)
+    let projectRoot: string
+    try { projectRoot = await requireMcpProjectRoot(projectsRoot, body.project) }
+    catch (error) { return c.json({ error: String((error as Error)?.message ?? error) }, 400) }
+    if (body.servers != null && !Array.isArray(body.servers)) return c.json({ error: 'Servers must be an array.' }, 400)
+
     const out: { serverId: string; serverName: string; ok: boolean; error?: string; tools: { name: string; description?: string; inputSchema?: any }[] }[] = []
     for (const s of body.servers ?? []) {
       let session: McpSession | null = null
       try {
         const { command, args, env } = scrubServer(s)
-        session = new McpSession(command, args, env)
+        session = new McpSession(command, resolveMcpProjectArgs(args, projectRoot), env)
         await session.init()
         const res = await session.request('tools/list', {}, HANDSHAKE_TIMEOUT_MS)
         out.push({ serverId: s.id, serverName: s.name ?? s.id, ok: true, tools: (res?.tools ?? []).map((t: any) => ({ name: t.name, description: t.description ?? '', inputSchema: t.inputSchema ?? {} })) })
@@ -121,12 +163,16 @@ export function mcpRoutes() {
 
   // Call one tool on one server.
   r.post('/mcp/call', async (c) => {
-    let body: { server?: any; name?: string; arguments?: Record<string, unknown> }
+    let body: { server?: any; name?: string; arguments?: Record<string, unknown>; project?: string }
     try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON body.' }, 400) }
+    if (!body || typeof body !== 'object') return c.json({ error: 'Invalid MCP request body.' }, 400)
+    let projectRoot: string
+    try { projectRoot = await requireMcpProjectRoot(projectsRoot, body.project) }
+    catch (error) { return c.json({ error: String((error as Error)?.message ?? error) }, 400) }
     let session: McpSession | null = null
     try {
       const { command, args, env } = scrubServer(body.server)
-      session = new McpSession(command, args, env)
+      session = new McpSession(command, resolveMcpProjectArgs(args, projectRoot), env)
       await session.init()
       const res = await session.request('tools/call', { name: body.name, arguments: body.arguments ?? {} })
       // MCP tool results: { content: [{ type:'text', text }], isError? }

@@ -20,6 +20,7 @@ import {
 import { getAccess, setAccess, checkCommand, describeAccess } from '../services/agent-access'
 import { checkUrl, checkHash, getVtKey, setVtKey } from '../services/virustotal'
 import { createHash } from 'node:crypto'
+import { readProjectDependencies } from '../services/ide/dependencies'
 
 const EXEC_TIMEOUT_MS = 60_000
 const OUTPUT_CAP = 200_000
@@ -341,6 +342,16 @@ export function ideRoutes(rt: Runtime) {
       return out.sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name))
     }
     return c.json({ tree: await walk(dir, '', 0) })
+  })
+
+  r.get('/ide/dependencies', async (c) => {
+    const dir = scopedDir(c.req.query('project') ?? '', agentParam(c))
+    if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)
+    try {
+      return c.json(await readProjectDependencies(dir))
+    } catch (error: any) {
+      return c.json({ error: String(error?.message ?? error) }, 500)
+    }
   })
 
   r.get('/ide/file', async (c) => {

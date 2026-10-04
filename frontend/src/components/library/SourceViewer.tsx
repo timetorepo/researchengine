@@ -35,17 +35,18 @@ export interface OpenSource {
 }
 
 interface Block {
-  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code'
+  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code' | 'link'
   level?: number
   text?: string
   items?: string[]
   id?: string
+  href?: string
 }
 
 interface ReadResult {
   ok: boolean
   url: string
-  via: 'wikipedia' | 'html' | 'text'
+  via: 'wikipedia' | 'html' | 'text' | 'feed'
   title: string
   siteName?: string
   description?: string
@@ -111,7 +112,9 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
     return {
       ok: !!json.ok && blocks.length > 0,
       url: typeof json.url === 'string' ? json.url : url,
-      via: json.via === 'wikipedia' || json.via === 'wikipedia-api' ? 'wikipedia' : 'html',
+      via: json.via === 'wikipedia' || json.via === 'wikipedia-api'
+        ? 'wikipedia'
+        : json.via === 'feed' ? 'feed' : 'html',
       title: typeof json.title === 'string' && json.title ? json.title : (host(url) || url),
       siteName: typeof json.siteName === 'string' ? json.siteName : undefined,
       description: typeof json.description === 'string' ? json.description : undefined,
@@ -137,8 +140,10 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
       if (!json.ok || json.blocks.length === 0) {
         setFailure(json.warning ?? (json.via === 'wikipedia'
           ? 'Wikipedia returned no sections for this page.'
-          : 'This page is rendered by the site’s own JavaScript, so there is no text to reduce. Open it in the browser tab.'))
-        if (json.via !== 'wikipedia') setTab('browser')
+          : json.via === 'feed'
+            ? 'This feed does not contain any readable article entries.'
+            : 'This page is rendered by the site’s own JavaScript, so there is no text to reduce. Open it in the browser tab.'))
+        if (json.via === 'html') setTab('browser')
       }
     } catch (e: any) {
       setFailure(`The reader could not be reached: ${String(e?.message ?? e)}`)
@@ -237,6 +242,17 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
           </pre>
         )
       }
+      if (b.type === 'link') {
+        let href: string | null = null
+        try {
+          const parsed = new URL(b.href ?? '')
+          if (parsed.protocol === 'https:' || parsed.protocol === 'http:') href = parsed.toString()
+        } catch { /* invalid external link: keep the label, drop the target */ }
+        return href
+          ? <a key={i} href={href} target="_blank" rel="noopener noreferrer"
+              className="my-2 inline-flex text-[12px] underline underline-offset-2" style={{ color: 'var(--primary)' }}>{b.text}</a>
+          : <p key={i} className="my-2.5 text-[13.5px]" style={{ color: 'var(--text-2)' }}>{b.text}</p>
+      }
       return (
         <p key={i} className="my-2.5 text-[13.5px] leading-[1.75]" style={{ color: 'var(--text-2)' }}>
           {b.text}
@@ -309,7 +325,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                       <span>·</span>
                       <span className="flex items-center gap-1">
                         {doc.via === 'wikipedia' ? <BookOpen size={9} /> : <Type size={9} />}
-                        {doc.via === 'wikipedia' ? 'Wikipedia article text' : 'reduced from the page'}
+                        {doc.via === 'wikipedia' ? 'Wikipedia article text' : doc.via === 'feed' ? 'Feed article text' : 'reduced from the page'}
                       </span>
                     </>
                   )}

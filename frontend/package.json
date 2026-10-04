@@ -18,6 +18,7 @@
     "r17-ui-test": "tsx scripts/r17-ui-test.mts",
     "r18-test": "tsx scripts/r18-test.mts",
     "r18-ui-test": "tsx scripts/r18-ui-test.mts",
+    "r28-test": "tsx --tsconfig tsconfig.json scripts/r28-test.mts",
     "render-check": "tsx --tsconfig tsconfig.json scripts/render-check.mts",
     "render-probe": "tsx --tsconfig tsconfig.json scripts/render-probe.mts",
     "resilience-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/resilience-test.mts",

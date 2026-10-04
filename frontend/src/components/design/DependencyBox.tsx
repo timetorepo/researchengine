@@ -60,7 +60,7 @@ export function DependencyBox({ compact = false }: { compact?: boolean }) {
 
       {!box.length ? (
         <p className={compact ? 'text-[11px]' : 'text-[11.5px]'} style={{ color: 'var(--ide-faint, var(--text-3))' }}>
-          Nothing saved yet. Search below, press <b>Add</b> on anything you want, then come back here and copy the whole
+          Nothing saved yet. Go to Components and press <b>Save</b> on anything you want, then come back here and copy the whole
           block in one go.
         </p>
       ) : (

@@ -23,7 +23,9 @@
  * points at loopback, a private range or a link-local address is refused, which
  * matters because the agent can call this route.
  */
-import { decodeEntities, htmlToBlocks, looksLikeAppShell, metaOf, titleOf, type Block } from './html'
+import { htmlToBlocks, looksLikeAppShell, metaOf, titleOf, type Block } from './html'
+import { feedToBlocks, parseFeedXml } from './feed'
+import { wikipediaPageTarget } from './wikipedia'
 
 const UA = 'ResearchEngine/0.37 (+library reader; respects robots.txt)'
 const TIMEOUT = 12_000
@@ -33,7 +35,7 @@ export interface ReadResult {
   ok: boolean
   url: string
   /** Where the text actually came from. */
-  via: 'wikipedia-api' | 'html'
+  via: 'wikipedia-api' | 'html' | 'feed'
   title: string
   byline?: string
   siteName?: string
@@ -80,10 +82,16 @@ const slug = (s: string, i: number) =>
 
 /** Wikipedia, through its own API: plain text extracts, sections preserved. */
 async function readWikipedia(u: URL): Promise<ReadResult | null> {
+  const target = wikipediaPageTarget(u)
+  if (!target) return null
   const lang = (u.hostname.split('.')[0] || 'en').replace(/[^a-z-]/gi, '')
-  const title = decodeURIComponent(u.pathname.replace(/^\/wiki\//, ''))
-  if (!title) return null
-  const api = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|pageimages|info&inprop=url&explaintext=1&exsectionformat=wiki&piprop=original|thumbnail&pithumbsize=1000&redirects=1&titles=${encodeURIComponent(title)}`
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', prop: 'extracts|pageimages|info', inprop: 'url',
+    explaintext: '1', exsectionformat: 'wiki', piprop: 'original|thumbnail',
+    pithumbsize: '1000', redirects: '1',
+  })
+  params.set(target.parameter, target.value)
+  const api = `https://${lang}.wikipedia.org/w/api.php?${params.toString()}`
   const res = await fetch(api, { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT) })
   if (!res.ok) return null
   const json: any = await res.json().catch(() => null)
@@ -133,8 +141,8 @@ async function readWikipedia(u: URL): Promise<ReadResult | null> {
   const words = blocks.reduce((n, b) => n + (b.type === 'paragraph' ? b.text.split(/\s+/).length : b.type === 'list' ? b.items.join(' ').split(/\s+/).length : 0), 0)
   const image = page?.original?.source ?? page?.thumbnail?.source
   return {
-    ok: true, url: u.toString(), via: 'wikipedia-api',
-    title: page?.title ?? title.replace(/_/g, ' '),
+    ok: true, url: page?.fullurl ?? u.toString(), via: 'wikipedia-api',
+    title: page?.title ?? target.value.replace(/_/g, ' '),
     siteName: `${lang}.wikipedia.org`,
     wordCount: words,
     minutes: Math.max(1, Math.round(words / 220)),
@@ -152,11 +160,30 @@ async function readHtml(u: URL): Promise<ReadResult> {
     signal: AbortSignal.timeout(TIMEOUT),
   })
   const type = res.headers.get('content-type') ?? ''
-  if (!/text\/html|application\/xhtml/.test(type)) {
-    return failed(u, `That address answered with ${type || 'an unknown type'}, which is not a web page the reader can typeset.`)
+  const htmlType = /text\/html|application\/xhtml/i.test(type)
+  const feedType = /xml|rss|atom/i.test(type)
+  if (!htmlType && !feedType) {
+    return failed(u, `That address answered with ${type || 'an unknown type'}, which is not a readable web page or feed.`)
   }
   const raw = await res.text()
-  const html = raw.length > MAX_BYTES ? raw.slice(0, MAX_BYTES) : raw
+  const body = raw.length > MAX_BYTES ? raw.slice(0, MAX_BYTES) : raw
+  const feed = parseFeedXml(body, u.toString())
+  if (feed) {
+    const reduced = feedToBlocks(feed)
+    const words = reduced.wordCount
+    return {
+      ok: feed.articles.length > 0 && reduced.blocks.length > 0,
+      url: u.toString(), via: 'feed', title: feed.title, siteName: u.hostname,
+      wordCount: words, minutes: words ? Math.max(1, Math.round(words / 220)) : 0,
+      blocks: reduced.blocks, outline: reduced.outline, images: [],
+      warning: feed.articles.length ? undefined : 'This feed responded, but it contains no readable article entries.',
+      fetchedAt: Date.now(),
+    }
+  }
+  if (!htmlType) {
+    return failed(u, `That address answered with ${type || 'an unknown type'}, but its XML did not contain an RSS or Atom feed.`)
+  }
+  const html = body
 
   const { blocks, outline, images, dropped } = htmlToBlocks(html, u)
   const words = blocks.reduce((n, b) => n + (b.type === 'paragraph' ? b.text.split(/\s+/).length : b.type === 'list' ? b.items.join(' ').split(/\s+/).length : b.type === 'quote' ? b.text.split(/\s+/).length : 0), 0)

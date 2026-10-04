@@ -600,6 +600,10 @@ export interface Settings {
 
 export interface McpServerConfig {
   id: string
+  /** Optional catalog id, used to prevent adding the same recommendation twice. */
+  catalogId?: string
+  /** Set only after the user explicitly connects and the server responds. */
+  approved?: boolean
   name: string
   command: string
   args: string[]

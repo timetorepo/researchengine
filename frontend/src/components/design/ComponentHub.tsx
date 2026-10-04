@@ -25,6 +25,7 @@ export function ComponentHub({ compact = false, initialQuery = '' }: {
   const [providerFilter, setProviderFilter] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
   const [added, setAdded] = useState<string | null>(null)
+  const [hubView, setHubView] = useState<'discover' | 'saves'>('discover')
   const box = useDesign((s) => s.box)
   const manager = useDesign((s) => s.manager)
   const addToBox = useDesign((s) => s.addToBox)
@@ -39,9 +40,43 @@ export function ComponentHub({ compact = false, initialQuery = '' }: {
   }
 
   const inBox = (provider: string, item: string) => box.some((b) => b.provider === provider && b.item === item)
+  const tabs = (
+    <div className="flex items-center gap-1 p-1 rounded-[10px] w-fit" role="tablist" aria-label="Component hub">
+      <button role="tab" aria-selected={hubView === 'discover'} onClick={() => setHubView('discover')}
+        className="px-2.5 py-1.5 rounded-[8px] text-[11.5px]"
+        style={{ background: hubView === 'discover' ? 'var(--ide-surface, var(--surface))' : 'transparent', color: hubView === 'discover' ? 'var(--ide-text, var(--text))' : 'var(--ide-faint, var(--text-3))' }}>
+        Components
+      </button>
+      <button role="tab" aria-selected={hubView === 'saves'} onClick={() => setHubView('saves')}
+        className="px-2.5 py-1.5 rounded-[8px] text-[11.5px]"
+        style={{ background: hubView === 'saves' ? 'var(--ide-surface, var(--surface))' : 'transparent', color: hubView === 'saves' ? 'var(--ide-text, var(--text))' : 'var(--ide-faint, var(--text-3))' }}>
+        Saves{box.length ? ` · ${box.length}` : ''}
+      </button>
+    </div>
+  )
+
+  if (hubView === 'saves') {
+    return (
+      <div className="flex flex-col gap-2.5 min-h-0" data-component-hub>
+        {tabs}
+        <section className="flex flex-col gap-3 min-h-0 p-3 rounded-[12px]" data-component-saves
+          style={{ background: 'var(--ide-surface, var(--surface))', border: '1px solid var(--ide-line, var(--surface-border))' }}>
+          <div>
+            <h3 className="text-[13px] font-semibold" style={{ color: 'var(--ide-text, var(--text))' }}>Saved components and packages</h3>
+            <p className="mt-1 text-[11.5px]" style={{ color: 'var(--ide-faint, var(--text-3))' }}>
+              This list stays on this device. Choose a package manager, then copy one command block to install everything you saved.
+            </p>
+          </div>
+          <DependencyBox compact={compact} />
+        </section>
+      </div>
+    )
+  }
 
   return (
-    <div className={compact ? 'flex flex-col gap-3' : 'grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-3 min-h-0'}>
+    <div className="flex flex-col gap-2 min-h-0" data-component-hub>
+      {tabs}
+      <div className={compact ? 'flex flex-col gap-3' : 'grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-3 min-h-0'}>
       <div className="flex flex-col gap-2 min-h-0">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -143,7 +178,8 @@ export function ComponentHub({ compact = false, initialQuery = '' }: {
                       background: saved ? 'color-mix(in srgb, var(--success) 16%, transparent)' : 'var(--ide-surface, var(--surface))',
                       color: saved ? 'var(--success)' : 'var(--ide-text, var(--text))',
                     }}>
-                    {saved ? <Check size={11} /> : <Plus size={11} />} {saved ? 'In box' : 'Add'}
+                    {saved || added === `${provider.id}:${item.name}` ? <Check size={11} /> : <Plus size={11} />}
+                    {saved ? 'Saved' : added === `${provider.id}:${item.name}` ? 'Saved' : 'Save'}
                   </button>
                 </div>
               </div>
@@ -195,6 +231,7 @@ export function ComponentHub({ compact = false, initialQuery = '' }: {
           <DependencyBox compact />
         </div>
       )}
+      </div>
     </div>
   )
 }

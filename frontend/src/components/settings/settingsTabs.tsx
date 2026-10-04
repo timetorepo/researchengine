@@ -35,7 +35,7 @@ export const TABS = [
   { id: 'flow', label: 'AIFlowEngine', icon: Wind },
   { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'skills', label: 'Skills', icon: Wand2 },
-  { id: 'coding', label: 'Coding & MCP', icon: Code },
+  { id: 'coding', label: 'Coding', icon: Code },
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'data', label: 'Data', icon: Database },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },

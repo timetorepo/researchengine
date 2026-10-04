@@ -23,6 +23,7 @@
  * the agent calls the same route through a tool.
  */
 import { searchDdg, searchSearxngAuto } from '../search/adapters'
+import { wikipediaPageUrl } from './wikipedia'
 
 const UA = 'ResearchEngine/0.37 (+library search)'
 const TIMEOUT = 7000
@@ -81,7 +82,7 @@ async function wikipedia(q: string): Promise<MiniHit[]> {
   return (json?.query?.search ?? []).map((r: any) => ({
     id: `wiki-${r.pageid}`, vertical: 'wikipedia' as const,
     title: r.title,
-    url: `https://en.wikipedia.org/?curid=${r.pageid}`,
+    url: wikipediaPageUrl(r.title, r.pageid),
     snippet: String(r.snippet ?? '').replace(/<[^>]*>/g, ''),
     source: 'Wikipedia',
     action: 'read' as const,

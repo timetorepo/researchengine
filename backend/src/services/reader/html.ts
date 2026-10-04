@@ -15,6 +15,7 @@ export type Block =
   | { type: 'list'; items: string[] }
   | { type: 'quote'; text: string }
   | { type: 'code'; text: string }
+  | { type: 'link'; text: string; href: string }
 
 export const decodeEntities = (s: string): string =>
   s

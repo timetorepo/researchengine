@@ -16,6 +16,7 @@ import { CODING_RULES } from '@/lib/ide/coding-rules'
 import { isBuildIntent, pipelinePrompt } from '@/lib/design/directives'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 import { providerById } from '@/lib/providers/registry'
+import { modelSupportsVision } from '@/lib/providers/vision'
 import { streamDemo, DEMO_FOLLOW_UPS } from '@/lib/providers/demo'
 import { webSearch } from '@/lib/search/web'
 import { usableKey } from '@/lib/providers/keys'
@@ -238,6 +239,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     // codebase and one that confidently invents things. Loaded from the module
     // so the skill picker and this prompt can never drift apart.
     system += `\n\n${CODING_RULES}`
+    system += mcpContextBlock(opts.project)
     if (opts.projectTree) {
       const tree = shieldOutbound(opts.projectTree.slice(0, 4000))
       if (tree.findings.length) recordScan('coding project tree', tree.findings)
@@ -259,7 +261,6 @@ export async function runChat(opts: RunOptions): Promise<void> {
     system += `\n\nIf the user asks for code rather than an explanation — build me an app, write a script, make a website, fix this project, refactor that — call the start_coding_mode tool FIRST with a short project name and one line for the user, then do the work inside the coding workspace it opens. Do not ask permission to switch, and do not try to write files from a research chat: the file tools only exist there. Explaining code, answering questions about code, and reviewing a snippet do NOT need the switch.`
   }
   if (opts.preamble) system += `\n\n${opts.preamble}`
-  system += mcpContextBlock()
   system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`
 
   // ---- connector references attached from the chatbox picker ----
@@ -381,17 +382,21 @@ export async function runChat(opts: RunOptions): Promise<void> {
 
       // ---- wire messages: history + vision attachments + Privacy Shield ----
       const kind = providerMeta!.kind
-      const supportsVision = kind === 'openai' || kind === 'gemini' || kind === 'anthropic' || kind === 'compatible'
+      const supportsVision = modelSupportsVision(kind, model)
       const wire: any[] = pruned.messages.map((m: any, i: number) => {
         const isLastUser = i === pruned.messages.length - 1 && m.role === 'user'
         const note = Array.isArray(m.attachments) && m.attachments.length && !isLastUser
           ? `\n[attached image(s): ${m.attachments.map((a: any) => a.name).join(', ')}]` : ''
         let content: any = typeof m.content === 'string' ? m.content + note : m.content
-        if (isLastUser && opts.attachments?.length && supportsVision) {
-          content = [
-            ...opts.attachments.map((a) => ({ type: 'image', dataUrl: a.dataUrl })),
-            { type: 'text', text: content },
-          ]
+        if (isLastUser && opts.attachments?.length) {
+          if (supportsVision) {
+            content = [
+              ...opts.attachments.map((a) => ({ type: 'image', dataUrl: a.dataUrl })),
+              { type: 'text', text: content },
+            ]
+          } else {
+            content = `${typeof content === 'string' ? content : ''}\n[The user attached images, but ${providerMeta!.name} / ${model || 'the selected model'} cannot view them. Ask the user to switch to a vision-capable model before analyzing the references.]`
+          }
         }
         // Privacy Shield: redact secrets before anything leaves the device.
         if (typeof content === 'string') {

@@ -21,6 +21,7 @@ import { DEVICE_PRESETS, ensurePreviewServer, previewStatus, stopPreview, type P
 import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { GridOverlay, defaultGrids, type GridOptions } from '@/components/design/DevicePreview'
 import { ComponentHub } from '@/components/design/ComponentHub'
+import { extractVideoFrames } from '@/lib/ide/videoFrames'
 import { DesignBrief } from '@/components/design/DesignBrief'
 import { DesignBoard } from '@/components/design/DesignBoard'
 import { InspirationBoard } from '@/components/design/InspirationBoard'
@@ -152,6 +153,7 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
   // the floating pill (still draggable, still the same conversation).
   const [focus, setFocus] = useState(false)
   const frameRef = useRef<HTMLIFrameElement>(null)
+  const videoRef = useRef<HTMLInputElement>(null)
   const captures = useCaptures()
 
   const port = state?.port ?? 0
@@ -353,10 +355,26 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
     const shot = await designSession.call('screenshot', { full: false, format: 'jpeg', quality: 0.85 }, 25_000)
     if (!shot?.ok) return
     captureStore.add({ id: `c${Date.now()}`, dataUrl: shot.dataUrl, w: shot.width, h: shot.height, at: Date.now(), url: shot.url, label: 'Sent to AI' })
-    attachmentTray.add({ type: 'image', name: `screen-${new Date().toISOString().slice(11, 19).replace(/:/g, '')}.jpg`, dataUrl: shot.dataUrl })
+    const attached = attachmentTray.add({ type: 'image', name: `screen-${new Date().toISOString().slice(11, 19).replace(/:/g, '')}.jpg`, dataUrl: shot.dataUrl })
     setTab('assistant')
-    setBanner('Screenshot attached — send your next message and the AI will see it.')
+    setBanner(attached ? 'Screenshot attached — choose Build from screenshot/video or send your own prompt.' : 'The attachment tray is full. Send or remove an image before attaching this screenshot.')
   })
+
+  const queueVideoReference = async (file: File) => {
+    try {
+      const frames = await extractVideoFrames(file)
+      const result = attachmentTray.addMany(frames)
+      if (!result.added) {
+        setBanner('The attachment tray is full. Send or remove an image before adding video frames.')
+        return
+      }
+      setTab('assistant')
+      const omitted = result.omitted ? ` ${result.omitted} extra frames were omitted because the tray holds eight images.` : ''
+      setBanner(`${result.added} frames from “${file.name}” were sampled locally and attached. Choose Build from screenshot/video to recreate them.${omitted}`)
+    } catch (error) {
+      setBanner(`Video could not be sampled: ${String(error instanceof Error ? error.message : error)}`)
+    }
+  }
 
   const togglePick = () => {
     if (pointing) { endPointing(); setBanner(''); return }
@@ -811,6 +829,10 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
               <div className="h-full overflow-y-auto p-3 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
                   <span className="ide-section flex-1">Screenshots · {captures.length}</span>
+                  <input ref={videoRef} type="file" accept="video/*,.mp4,.webm,.mov" className="hidden"
+                    onChange={(e) => { const file = e.target.files?.[0]; if (file) void queueVideoReference(file); e.target.value = '' }} />
+                  <button onClick={() => videoRef.current?.click()} className="ide-btn outlined" style={{ height: 22 }}
+                    title="Sample up to six frames locally; the original video is not uploaded">video</button>
                   <button onClick={() => void capture(false)} disabled={!state?.ready} className="ide-btn primary" style={{ height: 22 }}>viewport</button>
                   <button onClick={() => void capture(true)} disabled={!state?.ready} className="ide-btn outlined" style={{ height: 22 }}>full page</button>
                 </div>
@@ -826,7 +848,7 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
                       </figcaption>
                       <div className="ide-shot-actions">
                         <a href={c.dataUrl} download={`${project}-${c.id}.jpg`} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Download"><Download size={11} /></a>
-                        <button onClick={() => { attachmentTray.add({ type: 'image', name: `${project}-${c.id}.jpg`, dataUrl: c.dataUrl }); setTab('assistant'); setBanner('Screenshot attached — send your next message.') }}
+                        <button onClick={() => { const added = attachmentTray.add({ type: 'image', name: `${project}-${c.id}.jpg`, dataUrl: c.dataUrl }); setTab('assistant'); setBanner(added ? 'Screenshot attached — choose Build from screenshot/video or send your own prompt.' : 'The attachment tray is full. Send or remove an image before attaching this screenshot.') }}
                           className="ide-btn" style={{ color: 'var(--ide-accent)' }}>
                           attach
                         </button>

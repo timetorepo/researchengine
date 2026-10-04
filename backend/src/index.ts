@@ -65,7 +65,7 @@ async function main() {
   app.route('/api', ideRoutes(rt))
   app.route('/api', previewRoutes(rt, previews))
   app.route('/api', connectorRoutes(rt))
-  app.route('/api', mcpRoutes())
+  app.route('/api', mcpRoutes(rt))
   app.route('/api/search', searchRoutes)
   const { voiceRoutes } = await import('./routes/voice')
   app.route('/api', voiceRoutes)

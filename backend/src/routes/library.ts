@@ -22,6 +22,7 @@ import { db } from '../db'
 import { searchDdg, searchSearxngAuto } from '../services/search/adapters'
 import { readSource } from '../services/reader/extract'
 import { miniSearch } from '../services/reader/mini'
+import { wikipediaPageUrl } from '../services/reader/wikipedia'
 
 export const libraryRoutes = new Hono()
 
@@ -222,7 +223,7 @@ async function wikipedia(q: string): Promise<Hit[]> {
   const json: any = await (await get(url)).json()
   const rows = json?.query?.search ?? []
   return rows.map((r: any, i: number) => {
-    const page = `https://en.wikipedia.org/?curid=${r.pageid}`
+    const page = wikipediaPageUrl(r.title, r.pageid)
     return {
       id: `wiki_${r.pageid ?? i}`,
       kind: 'wikipedia' as const,

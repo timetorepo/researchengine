@@ -227,7 +227,20 @@ const trayListeners = new Set<() => void>()
 export const attachmentTray = {
   subscribe(fn: () => void) { trayListeners.add(fn); return () => { trayListeners.delete(fn) } },
   get(): TrayAttachment[] { return tray },
-  add(a: TrayAttachment) { tray = [...tray, a].slice(0, 4); trayListeners.forEach((fn) => { try { fn() } catch { /* ignore */ } }) },
+  add(a: TrayAttachment) {
+    if (tray.length >= 8) return false
+    tray = [...tray, a]
+    trayListeners.forEach((fn) => { try { fn() } catch { /* ignore */ } })
+    return true
+  },
+  addMany(items: TrayAttachment[]) {
+    const accepted = items.slice(0, Math.max(0, 8 - tray.length))
+    if (accepted.length) {
+      tray = [...tray, ...accepted]
+      trayListeners.forEach((fn) => { try { fn() } catch { /* ignore */ } })
+    }
+    return { added: accepted.length, omitted: items.length - accepted.length }
+  },
   remove(i: number) { tray = tray.filter((_, idx) => idx !== i); trayListeners.forEach((fn) => { try { fn() } catch { /* ignore */ } }) },
   take(): TrayAttachment[] { const t = tray; tray = []; trayListeners.forEach((fn) => { try { fn() } catch { /* ignore */ } }); return t },
   clear() { tray = []; trayListeners.forEach((fn) => { try { fn() } catch { /* ignore */ } }) },

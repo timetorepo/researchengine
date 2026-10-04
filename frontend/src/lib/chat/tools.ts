@@ -4,6 +4,7 @@
 // Tool results feed straight back into the conversation loop in runChat.
 import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
+import { useMcpStore } from '@/stores/useMcpStore'
 import { useUI } from '@/stores/useUI'
 import { designSession, captureStore, formatSnapshot, formatFindings, formatControls } from '@/lib/ide/bridge'
 import { ensurePreviewServer, previewStatus, stopPreview } from '@/lib/ide/preview'
@@ -755,7 +756,8 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'mcp_call',
-    description: 'Call a tool on a configured MCP (Model Context Protocol) server. The available servers and their tools are listed in your system context.',
+    description: 'Call a tool on a configured MCP (Model Context Protocol) server in the open Coding project. The available servers and their tools are listed in your system context.',
+    needsProject: true,
     parameters: {
       type: 'object',
       properties: {
@@ -765,13 +767,16 @@ export const TOOLS: ToolDef[] = [
       },
       required: ['serverId', 'tool'],
     },
-    run: async (args) => {
-      const settings = useStore.getState().settings
-      const server = settings.mcpServers.find((s) => s.id === args?.serverId && s.enabled)
+    run: async (args, ctx) => {
+      if (!ctx.project) return 'MCP tools are available only inside an open Coding project.'
+      const server = useMcpStore.getState().servers.find((s) => s.id === args?.serverId && s.enabled)
       if (!server) return 'Unknown or disabled MCP server.'
       const res = await fetch('/api/mcp/call', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ server: { id: server.id, name: server.name, command: server.command, args: server.args, env: server.env }, name: String(args?.tool ?? ''), arguments: (args?.arguments as any) ?? {} }),
+        body: JSON.stringify({
+          server: { id: server.id, name: server.name, command: server.command, args: server.args, env: server.env },
+          name: String(args?.tool ?? ''), arguments: (args?.arguments as any) ?? {}, project: ctx.project,
+        }),
       })
       const out = await res.json()
       return out.text ?? 'No result.'
@@ -873,8 +878,9 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
 }
 
 /** MCP servers + tools rendered into the system prompt so the model knows what it can call. */
-export function mcpContextBlock(): string {
-  const servers = useStore.getState().settings.mcpServers.filter((s) => s.enabled)
+export function mcpContextBlock(project?: string): string {
+  if (!project) return ''
+  const servers = useMcpStore.getState().servers.filter((s) => s.enabled)
   if (!servers.length) return ''
-  return `\n\nMCP servers configured by the user (call them with the mcp_call tool):\n${servers.map((s) => `- ${s.name} (serverId: ${s.id}) — command: ${s.command}`).join('\n')}`
+  return `\n\nMCP servers configured for this Coding workspace (call them with the mcp_call tool):\n${servers.map((s) => `- ${s.name} (serverId: ${s.id}) — command: ${s.command}`).join('\n')}`
 }

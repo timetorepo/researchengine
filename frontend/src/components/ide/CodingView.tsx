@@ -5,7 +5,7 @@ import {
   TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,
   Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2,
   FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes,
-  Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles,
+  Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles, Server, Package,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -16,6 +16,8 @@ import { AgentsDock } from './AgentsDock'
 import { AgentTimeline } from './AgentTimeline'
 import { AgentSafety } from './AgentSafety'
 import { FrameworksPanel } from './FrameworksPanel'
+import { McpMarketplace } from './McpMarketplace'
+import { DependenciesPanel } from './DependenciesPanel'
 import { useDownloadNotices } from '@/hooks/useDownloadNotices'
 import { IDECommandPalette, ideActions, type PaletteAction } from './IDECommandPalette'
 import { useAgents, subscribeActivity, wireAgentActivity } from '@/lib/ide/agents'
@@ -57,6 +59,7 @@ export function CodingView() {
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null)
   const [open, setOpen] = useState<string | null>(null)
   const [design, setDesign] = useState(false)
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [err, setErr] = useState('')
@@ -201,10 +204,20 @@ export function CodingView() {
         project={open}
         tree={tree}
         onTreeRefresh={() => loadTree(open)}
-        onBack={() => { setOpen(null); setDesign(false); void refresh() }}
+        onBack={() => { setOpen(null); setDesign(false); setMarketplaceOpen(false); void refresh() }}
         onDesign={() => setDesign(true)}
         onRenamed={(next) => { setOpen(next); void loadTree(next); void refresh() }}
       />
+    )
+  }
+  if (marketplaceOpen) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        <div className="shrink-0 px-4 py-2" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+          <button onClick={() => setMarketplaceOpen(false)} className="text-[11.5px]" style={{ color: 'var(--primary)' }}>← Back to Coding</button>
+        </div>
+        <div className="flex-1 min-h-0"><McpMarketplace /></div>
+      </div>
     )
   }
 
@@ -225,6 +238,11 @@ export function CodingView() {
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
             style={{ background: 'var(--primary)', color: '#fff' }}>
             <Plus size={14} /> New project
+          </button>
+          <button onClick={() => setMarketplaceOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
+            style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}>
+            <Server size={14} /> MCP Marketplace
           </button>
           <button onClick={() => uploadRef.current?.click()}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
@@ -317,7 +335,7 @@ export function CodingView() {
 /* Workbench                                                          */
 /* ================================================================== */
 type Activity = 'explorer' | 'search' | 'git' | 'design'
-type PanelTab = 'terminal' | 'problems' | 'git' | 'preview' | 'safety' | 'frameworks'
+type PanelTab = 'terminal' | 'problems' | 'git' | 'preview' | 'safety' | 'frameworks' | 'dependencies' | 'mcp'
 
 function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }: {
   project: string
@@ -989,6 +1007,8 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                 <PanelTabBtn group="bottom" active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
                 <PanelTabBtn group="bottom" active={panel === 'safety'} onClick={() => { setPanel('safety'); setPanelOpen(true) }} icon={<ShieldCheck size={12} />} label="Agent access" />
                 <PanelTabBtn group="bottom" active={panel === 'frameworks'} onClick={() => { setPanel('frameworks'); setPanelOpen(true) }} icon={<Boxes size={12} />} label="Frameworks" />
+                <PanelTabBtn group="bottom" active={panel === 'dependencies'} onClick={() => { setPanel('dependencies'); setPanelOpen(true); setPanelH((height) => Math.max(height, 340)) }} icon={<Package size={12} />} label="Dependencies" />
+                <PanelTabBtn group="bottom" active={panel === 'mcp'} onClick={() => { setPanel('mcp'); setPanelOpen(true); setPanelH((height) => Math.max(height, 340)) }} icon={<Server size={12} />} label="MCP Servers" />
               </div>
               <div className="flex-1" />
               <button onClick={() => setPanelOpen((v) => !v)} className="ide-icon-btn shrink-0" style={{ width: 22, height: 22 }} aria-label="Toggle panel">
@@ -1000,6 +1020,8 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                 {panel === 'terminal' && <TerminalPanel project={project} />}
                 {panel === 'safety' && <AgentSafety />}
                 {panel === 'frameworks' && <FrameworksPanel project={project} files={tree.map((t) => t.path)} />}
+                {panel === 'dependencies' && <DependenciesPanel project={project} />}
+                {panel === 'mcp' && <McpMarketplace project={project} />}
                 {panel === 'git' && <GitPanel project={project} />}
                 {panel === 'problems' && <ProblemsPanel project={project} onDesign={onDesign} />}
                 {panel === 'preview' && <PreviewLogPanel project={project} preview={preview} onStart={() => void startPreview()} starting={starting} onDesign={onDesign} />}

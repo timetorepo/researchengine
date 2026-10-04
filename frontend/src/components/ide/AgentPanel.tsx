@@ -5,13 +5,15 @@ import {
   Sparkles, X, Square, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye,
   Plus, Send, CornerDownLeft, Bug, Hammer, Check, Search, Cpu, ChevronUp, Globe,
 } from 'lucide-react'
-import { PROVIDERS } from '@/lib/providers/registry'
+import { PROVIDERS, providerById } from '@/lib/providers/registry'
+import { modelSupportsVision } from '@/lib/providers/vision'
 import { useStore } from '@/stores/useStore'
 import { runChat, isStreamingChat, enqueuePrompt, stopStream } from '@/lib/chat/runChat'
 import { useUI } from '@/stores/useUI'
 import { Markdown } from '@/components/chat/Markdown'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard } from '@/components/chat/ToolUI'
 import { attachmentTray, type TrayAttachment } from '@/lib/ide/bridge'
+import { extractVideoFrames } from '@/lib/ide/videoFrames'
 import type { ChatMessage } from '@/types'
 import type { TreeNode } from './types'
 import { scrollToEnd } from '@/lib/dom/scroll'
@@ -64,6 +66,13 @@ export const INTENTS = [
 ] as const
 
 type IntentId = typeof INTENTS[number]['id']
+type AgentQuickAction = {
+  label: string
+  prompt: string
+  icon?: React.ReactNode
+  intent?: IntentId
+  needsAttachments?: boolean
+}
 
 /**
  * The coding conversation for a project.
@@ -99,7 +108,7 @@ export function AgentPanel({
   tree: TreeNode[]
   design?: boolean
   onClose?: () => void
-  quickActions?: { label: string; prompt: string; icon?: React.ReactNode }[]
+  quickActions?: AgentQuickAction[]
 }) {
   const [chatId, setChatId] = useState<string | null>(null)
   const [text, setText] = useState('')
@@ -241,6 +250,13 @@ export function AgentPanel({
 
   const send = (prompt: string, extraImages?: TrayAttachment[], optsIn?: { intent?: IntentId; forceNewChat?: boolean }) => {
     if (!chatId || (!prompt.trim() && !extraImages?.length)) return
+    if ((extraImages?.length ?? 0) + tray.length) {
+      const [providerId, ...modelParts] = (modelRef || settings.defaultModel).split(':')
+      if (!modelSupportsVision(providerById(providerId)?.kind, modelParts.join(':'))) {
+        ui.toast('Choose a model that can view images', 'The screenshot and video frames are still attached. Select a vision-capable model, then try again.', 'warning')
+        return
+      }
+    }
     const queued = attachmentTray.take()
     const attachments = [...(extraImages ?? []), ...queued]
     const preamble = (INTENTS.find((i) => i.id === (optsIn?.intent ?? intent)) ?? activeIntent).preamble
@@ -253,15 +269,40 @@ export function AgentPanel({
     void runChat({ chatId, prompt: prompt.trim() || '(see attached screenshot)', ...opts })
   }
 
-  const attachFile = (f: File) => {
-    if (!f.type.startsWith('image/')) return
-    const r = new FileReader()
-    r.onload = () => attachmentTray.add({ type: 'image', name: f.name, dataUrl: String(r.result) })
-    r.readAsDataURL(f)
+  const attachFile = async (f: File) => {
+    if (f.type.startsWith('image/')) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const added = attachmentTray.add({ type: 'image', name: f.name, dataUrl: String(reader.result) })
+        ui.toast(added ? 'Image attached' : 'Attachment limit reached', added ? `${f.name} will be sent with your next message.` : 'Send or remove an attachment before adding another.', added ? 'success' : 'warning')
+      }
+      reader.onerror = () => ui.toast('Image could not be read', 'Choose another image file and try again.', 'warning')
+      reader.readAsDataURL(f)
+      return
+    }
+    if (f.type.startsWith('video/') || /\.(mp4|m4v|mov|webm|ogv)$/i.test(f.name)) {
+      try {
+        const frames = await extractVideoFrames(f)
+        const result = attachmentTray.addMany(frames)
+        if (!result.added) {
+          ui.toast('Attachment limit reached', 'Send or remove an attachment before adding video frames.', 'warning')
+          return
+        }
+        const omitted = result.omitted ? ` ${result.omitted} more frame${result.omitted === 1 ? ' was' : 's were'} left out because the tray holds up to eight images.` : ''
+        ui.toast('Video frames attached', `${result.added} frames sampled locally from ${f.name}.${omitted}`, 'success')
+      } catch (error) {
+        ui.toast('Video could not be sampled', String(error instanceof Error ? error.message : error), 'warning')
+      }
+      return
+    }
+    ui.toast('Unsupported attachment', 'Choose an image or a video file.', 'warning')
   }
 
-  const defaultActions: { label: string; prompt: string; icon?: React.ReactNode; intent: IntentId }[] = design
+  const referencePrompt = 'Recreate the interface shown in the attached screenshot or sampled video frames in this project. First inspect the existing files, framework, assets and run scripts. Match the visible layout, hierarchy, spacing, typography, colors and interactions as closely as the references allow; make it responsive, reuse local assets and the project’s existing stack, and do not invent details that are not visible. For multiple frames from one clip, treat them as a sequence and build the coherent UI state or transition they show. Then run the app and verify the result against the references before reporting what changed.'
+
+  const defaultActions: AgentQuickAction[] = design
     ? [
+        { label: 'Build from screenshot/video', intent: 'build', needsAttachments: true, icon: <ImageIcon size={11} />, prompt: referencePrompt },
         { label: 'Audit the screen', intent: 'refine', icon: <Accessibility size={11} />, prompt: 'Run design_audit on the live preview, then design_snapshot. List the concrete UI problems you find, ranked by impact, with the exact selector for each. Do not edit files yet.' },
         { label: 'Fix the worst issue', intent: 'fix', icon: <Wand2 size={11} />, prompt: 'Audit the live preview, pick the single most impactful UI problem, fix it in the project files, restart the preview, then verify the fix with design_assert. Show me the before/after.' },
         { label: 'Test every button', intent: 'fix', icon: <MousePointerClick size={11} />, prompt: 'Enumerate the interactive controls with design_controls, then click every button and report which ones do nothing, throw console errors, or navigate somewhere unexpected. Summarise as a table of control → result.' },
@@ -269,7 +310,8 @@ export function AgentPanel({
         { label: 'Review the visuals', intent: 'refine', icon: <Eye size={11} />, prompt: 'Take a design_screenshot so I can see the screen, then critique spacing, hierarchy, contrast and alignment, and propose specific changes.' },
       ]
     : [
-        { label: 'What should we fix?', intent: 'refine', icon: <Wand2 size={11} />, prompt: 'Interview me about what I want to fix or refine in this project. Call the ask_user tool with 3-5 focused questions you generate from the project\'s actual files and stack (do not use canned questions). After I answer, inspect the relevant files and propose a concrete plan before changing anything.' },
+        { label: 'Build from screenshot/video', intent: 'build', needsAttachments: true, icon: <ImageIcon size={11} />, prompt: referencePrompt },
+        { label: 'What should we fix?' , intent: 'refine', icon: <Wand2 size={11} />, prompt: 'Interview me about what I want to fix or refine in this project. Call the ask_user tool with 3-5 focused questions you generate from the project\'s actual files and stack (do not use canned questions). After I answer, inspect the relevant files and propose a concrete plan before changing anything.' },
         { label: 'Find bugs', intent: 'fix', icon: <Sparkles size={11} />, prompt: 'Read the project files and find real bugs, dead code and fragility. Report each with file, line and a concrete fix. Then ask me which ones to apply.' },
         { label: 'Build something', intent: 'build', icon: <Hammer size={11} />, prompt: 'Look at this project and propose three things worth building next, ranked by value. Then ask me which one to implement and build it end to end.' },
         { label: 'Explain the project', intent: 'refine', icon: <Sparkles size={11} />, prompt: 'Explain how this project is structured: entry points, data flow, key files. Keep it tight and point at the files you read.' },
@@ -311,8 +353,9 @@ export function AgentPanel({
             className="shrink-0 overflow-hidden" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <div className="flex flex-wrap gap-1.5 p-2">
               {actions.map((a) => (
-                <button key={a.label} onClick={() => send(a.prompt, undefined, { intent: (a as any).intent ?? intent })}
-                  disabled={!chatId} className="ide-chip disabled:opacity-40" title={(a as any).intent ? `Runs as: ${(a as any).intent.toUpperCase()}` : undefined}>
+                <button key={a.label} onClick={() => send(a.prompt, undefined, { intent: a.intent ?? intent })}
+                  disabled={!chatId || (!!a.needsAttachments && tray.length === 0)} className="ide-chip disabled:opacity-40"
+                  title={a.needsAttachments && tray.length === 0 ? 'Attach a screenshot or video frames first' : a.intent ? `Runs as: ${a.intent.toUpperCase()}` : undefined}>
                   {a.icon}{a.label}
                 </button>
               ))}
@@ -518,11 +561,11 @@ export function AgentPanel({
             className="w-full bg-transparent outline-none text-[12.5px] resize-none px-1 py-1 max-h-32"
             style={{ color: 'var(--ide-text)' }} />
           <div className="flex items-center gap-1.5 pt-1">
-            <button onClick={() => fileRef.current?.click()} className="ide-btn outlined" title="Attach an image">
+            <button onClick={() => fileRef.current?.click()} className="ide-btn outlined" title="Attach images or sample frames from a video">
               <Plus size={11} /> Attach
             </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) attachFile(f); e.target.value = '' }} />
+            <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden"
+              onChange={(e) => { for (const f of Array.from(e.target.files ?? [])) void attachFile(f); e.target.value = '' }} />
             <button onClick={() => setShowActions(true)} className="ide-icon-btn" title="Quick actions" style={{ width: 24, height: 24 }}>
               <ImageIcon size={12} />
             </button>
