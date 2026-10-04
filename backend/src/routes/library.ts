@@ -377,7 +377,7 @@ libraryRoutes.post('/items', async (c) => {
   if (!title) return c.json({ error: 'An item needs a title.' }, 400)
   const item = {
     id: String(body?.id ?? `lib_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`),
-    kind: ['wikipedia', 'source', 'document', 'note', 'feed'].includes(String(body?.kind)) ? String(body.kind) : 'source',
+    kind: ['wikipedia', 'source', 'document', 'note', 'feed', 'component'].includes(String(body?.kind)) ? String(body.kind) : 'source',
     title: title.slice(0, 300),
     url: body?.url ? String(body.url).slice(0, 1000) : undefined,
     snippet: body?.snippet ? String(body.snippet).slice(0, 4000) : undefined,

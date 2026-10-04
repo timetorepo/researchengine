@@ -8,10 +8,12 @@
  * catalog" is never a dead end, it is a copied command.
  */
 import React, { useMemo, useState } from 'react'
-import { Search, Plus, Check, ExternalLink, Filter, Info, Eye } from 'lucide-react'
+import { Search, Plus, Check, ExternalLink, Filter, Info, Eye, Bookmark } from 'lucide-react'
 import { UI_PROVIDERS, commandsFor, searchCommandFor, uiProviderById, type UiProvider } from '@/lib/design/providers'
 import { searchCatalog, type CatalogItem } from '@/lib/design/catalog'
 import { useDesign } from '@/stores/useDesign'
+import { useUI } from '@/stores/useUI'
+import { nanoid } from 'nanoid'
 import { DependencyBox } from './DependencyBox'
 import { ComponentPreview } from './ComponentPreview'
 
@@ -39,6 +41,27 @@ export function ComponentHub({ compact = false, initialQuery = '' }: {
   }
 
   const inBox = (provider: string, item: string) => box.some((b) => b.provider === provider && b.item === item)
+
+  const [savedLib, setSavedLib] = useState<string[]>([])
+  /** Save a component to the Library so the installs accumulate in one shelf. */
+  const saveToLibrary = async (providerId: string, providerName: string, item: string, what: string, command: string) => {
+    const key = `${providerId}:${item}`
+    try {
+      const res = await fetch('/api/library/items', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          id: `lib_${nanoid(8)}`, kind: 'component',
+          title: `${item} · ${providerName}`, url: `app://component/${key}`,
+          snippet: what, tags: ['component'], extra: { provider: providerId, item, command },
+        }),
+      })
+      if (!res.ok) throw new Error(String(res.status))
+      setSavedLib((cur) => [...cur, key])
+      useUI.getState().toast('Saved to the library', 'Its install command joins your other saved components.', 'success')
+    } catch {
+      useUI.getState().toast('Could not save', 'The local server did not answer.', 'danger')
+    }
+  }
 
   return (
     <div className={compact ? 'flex flex-col gap-3' : 'grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-3 min-h-0'}>
@@ -120,6 +143,14 @@ export function ComponentHub({ compact = false, initialQuery = '' }: {
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => void saveToLibrary(provider.id, provider.name, item.name, item.what, cmds[0]?.command ?? '')}
+                    disabled={savedLib.includes(`${provider.id}:${item.name}`)}
+                    title="Save to the library — its install command accumulates with your other saves"
+                    className="p-1.5 rounded-[7px]"
+                    style={{ color: savedLib.includes(`${provider.id}:${item.name}`) ? 'var(--success)' : 'var(--ide-faint, var(--text-3))' }}>
+                    <Bookmark size={12} />
+                  </button>
                   <button
                     onClick={() => setPreview(item)}
                     title="Preview it here"

@@ -1,8 +1,7 @@
 <div align="center">
 
-![Research Engine](https://i.ibb.co/NnT9vHnL/latestprojectreveal.png)
-
-# Research Engine
+<h1 align="center">Research Engine</h1>
+<p align="center"><em>The open-source research app: search, read, study, write, code and design on your own computer.</em></p>
 
 ### The open-source research app.
 
@@ -45,6 +44,8 @@ You do not need to be technical to use it. You need one thing to get real AI ans
 | **Free models first** | Turn on **Free routing** and every question automatically goes to a free model you already have access to. If that model is busy, it quietly tries the next one. |
 | **See the cost** | Every answer reports how many tokens it used, so a month of research never surprises you. You can also set how long the app should wait for each provider before giving up. |
 | **Attach anything** | Drop in images for models that can see, PDFs and Word documents to read, and pick files from your own computer to use as context. |
+| **Feeds that read like feeds** | Open an RSS or Atom feed and the reader typesets it — channel, items, dates and text — instead of showing you a wall of XML. |
+| **Pages that resolve to the right page** | The reader follows stable article ids, so a search result always opens the article it says it opens. |
 
 ### Study it properly — Read & Quiz
 
@@ -78,8 +79,12 @@ A visual canvas for anything you do repeatedly: a trigger, a few AI steps, some 
 
 For the days when research turns into making something:
 
-- **Coding workspace** — your project's files in a real editor with an AI pair who edits alongside you, runs commands behind an approval gate, and keeps a record of every change it makes.
+- **Coding workspace** — your project's files in a real editor with an AI pair who edits alongside you, runs commands behind an approval gate, and keeps a record of every change it makes. Files wear their language's own mark (JavaScript, TypeScript, React, Python, C++, Rust, Go and more) instead of one grey page icon.
+- **Dependencies, visible** — a panel reads the open project's package.json: what is installed, what is declared, whether a lockfile pins it — next to a curated list of the dependencies people usually build AI features with, each one copy away.
+- **MCP servers, one click** — recommended Model Context Protocol servers (filesystem, fetch, memory, GitHub, Puppeteer, search…) install straight from the coding workspace, are tested against the live bridge, and link out to the open MCP registries for everything else.
+- **Screenshot to code** — drop an image of an interface and a vision model writes it back as code: a single HTML file with Tailwind, or a React component. Screen recordings work too: the panel samples frames across the video and rebuilds the final state. Copy the result or save it into the project.
 - **Design mode** — the app in front of you *shows itself* to the AI: it can read the real layout, colours and console, take screenshots, click and type through your screen, and then prove a fix with an assertion. You can also press every control yourself as a one-click test.
+- **UI components library** — browse ready-made components from the popular registries, preview them live inside design mode, save the ones you like, and copy one command that installs everything you saved.
 - **Start from nothing** — create a project, upload a ZIP, or press **Try a sample app** for a ready-made page with deliberate bugs to play with.
 
 ### Connect your own accounts
@@ -119,12 +124,14 @@ Plenty of apps answer questions. These are the parts you will not find elsewhere
 4. **A quiz engine, not a quiz toy.** Six question types generated from your own document, with a timer, streaks, a shareable result card, and a study timer that knows you are in Quiz mode.
 5. **Agent Flood.** A squad of agents on one objective, working in parallel, filing into a shared scratchpad, under a visible token budget, ending in one synthesised briefing — on a laptop.
 6. **A design workspace where the AI can actually see the screen.** It reads real geometry, colours and console output, takes screenshots, clicks and types through your running app, resizes it to phone widths, and then *proves* a fix with an assertion. You can press every control yourself as a one-click test.
-7. **Free routing.** Your questions go to a free model you already have — a local one first — and move on by themselves when a model is busy. Not a provider you have to choose, just a switch.
-8. **An updater that works for a private project.** A read-only token or a plain manifest link, the fingerprint checked *before* a single byte is unpacked, and an automatic rollback if the new version cannot start.
-9. **Integrations the assistant can actually use.** Real accounts with real sign-in — Drive, Gmail, Calendar, GitHub, Notion, Slack, your own files — searchable from the chatbox and readable by the agent, with "you have not connected this yet" as an answer instead of a made-up one.
-10. **Your work, one ZIP away.** Notes, chats, quizzes, articles, workflows and skills all live in a single folder on your disk. Back it up by copying it. Move it to a new computer by copying it. Nobody can revoke your access to your own work.
-11. **Everything local-first, with a shield.** Encrypted keys, no account, no telemetry, and three privacy postures that decide what is even allowed to leave the machine.
-12. **And a workspace, not a chat box.** Reader, quiz, notebooks, articles, agent teams, workflows, a coding desk and a design studio — in one app you own.
+7. **Screenshot to code, with video.** An interface on film becomes working code: images map straight to HTML/Tailwind or React, and a recording is sampled into frames so the AI rebuilds what it ends on.
+8. **MCP as a one-click shelf.** The coding workspace recommends the tool servers worth having, installs them into your config, tests them live, and points at the registries for the rest — nothing buried in settings.
+9. **Free routing.** Your questions go to a free model you already have — a local one first — and move on by themselves when a model is busy. Not a provider you have to choose, just a switch.
+10. **An updater that works for a private project.** A read-only token or a plain manifest link, the fingerprint checked *before* a single byte is unpacked, and an automatic rollback if the new version cannot start.
+11. **Integrations the assistant can actually use.** Real accounts with real sign-in — Drive, Gmail, Calendar, GitHub, Notion, Slack, your own files — searchable from the chatbox and readable by the agent, with "you have not connected this yet" as an answer instead of a made-up one.
+12. **Your work, one ZIP away.** Notes, chats, quizzes, articles, workflows and skills all live in a single folder on your disk. Back it up by copying it. Move it to a new computer by copying it. Nobody can revoke your access to your own work.
+13. **Everything local-first, with a shield.** Encrypted keys, no account, no telemetry, and three privacy postures that decide what is even allowed to leave the machine.
+14. **And a workspace, not a chat box.** Reader, quiz, notebooks, articles, agent teams, workflows, a coding desk and a design studio — in one app you own.
 
 ---
 

@@ -24,6 +24,7 @@
  * matters because the agent can call this route.
  */
 import { decodeEntities, htmlToBlocks, looksLikeAppShell, metaOf, titleOf, type Block } from './html'
+import { feedToBlocks, looksLikeFeed } from './feed'
 
 const UA = 'ResearchEngine/0.37 (+library reader; respects robots.txt)'
 const TIMEOUT = 12_000
@@ -33,10 +34,11 @@ export interface ReadResult {
   ok: boolean
   url: string
   /** Where the text actually came from. */
-  via: 'wikipedia-api' | 'html'
+  via: 'wikipedia-api' | 'html' | 'feed'
   title: string
   byline?: string
   siteName?: string
+  description?: string
   /** ISO date, when the page says so. */
   published?: string
   wordCount: number
@@ -75,15 +77,34 @@ export function parseTarget(raw: string): URL | null {
 
 const isWikipedia = (u: URL) => /(^|\.)wikipedia\.org$/.test(u.hostname) || /(^|\.)wikimedia\.org$/.test(u.hostname)
 
+/**
+ * Which article a Wikipedia URL points at, and by which handle.
+ *
+ * Search results across this app link to `?curid=<pageid>` (stable ids), while
+ * copied links carry `/wiki/<Title>`. The two must not be confused: reading a
+ * curid link by its pathname yields "/", and asking Wikipedia for the article
+ * titled "/" is how a search for JavaScript once came back as
+ * "Slash (punctuation)" — the page "/" redirects to.
+ */
+export function wikiRequestFor(u: URL): { by: 'pageids' | 'titles'; value: string } | null {
+  const curid = u.searchParams.get('curid') ?? u.searchParams.get('pageid')
+  if (curid && /^\d+$/.test(curid)) return { by: 'pageids', value: curid }
+  if (!u.pathname.startsWith('/wiki/')) return null
+  const title = decodeURIComponent(u.pathname.slice('/wiki/'.length))
+  if (!title || title === '/') return null
+  return { by: 'titles', value: title }
+}
+
 const slug = (s: string, i: number) =>
   (s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60) || `section-${i}`)
 
 /** Wikipedia, through its own API: plain text extracts, sections preserved. */
 async function readWikipedia(u: URL): Promise<ReadResult | null> {
   const lang = (u.hostname.split('.')[0] || 'en').replace(/[^a-z-]/gi, '')
-  const title = decodeURIComponent(u.pathname.replace(/^\/wiki\//, ''))
-  if (!title) return null
-  const api = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|pageimages|info&inprop=url&explaintext=1&exsectionformat=wiki&piprop=original|thumbnail&pithumbsize=1000&redirects=1&titles=${encodeURIComponent(title)}`
+  const req = wikiRequestFor(u)
+  if (!req) return null
+  const which = req.by === 'pageids' ? `pageids=${req.value}` : `titles=${encodeURIComponent(req.value)}`
+  const api = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&prop=extracts|pageimages|info&inprop=url&explaintext=1&exsectionformat=wiki&piprop=original|thumbnail&pithumbsize=1000&redirects=1&${which}`
   const res = await fetch(api, { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT) })
   if (!res.ok) return null
   const json: any = await res.json().catch(() => null)
@@ -134,7 +155,7 @@ async function readWikipedia(u: URL): Promise<ReadResult | null> {
   const image = page?.original?.source ?? page?.thumbnail?.source
   return {
     ok: true, url: u.toString(), via: 'wikipedia-api',
-    title: page?.title ?? title.replace(/_/g, ' '),
+    title: page?.title ?? req.value.replace(/_/g, ' '),
     siteName: `${lang}.wikipedia.org`,
     wordCount: words,
     minutes: Math.max(1, Math.round(words / 220)),
@@ -157,6 +178,21 @@ async function readHtml(u: URL): Promise<ReadResult> {
   }
   const raw = await res.text()
   const html = raw.length > MAX_BYTES ? raw.slice(0, MAX_BYTES) : raw
+
+  // Feeds are pages too — but their honest reading is a digest, not a frame
+  // full of XML. Detect before the page reducer guesses at markup.
+  if (looksLikeFeed(html, type)) {
+    const f = feedToBlocks(html, u)
+    const words = f.blocks.reduce((n, b) => n + (b.type === 'paragraph' ? b.text.split(/\s+/).length : b.type === 'quote' ? b.text.split(/\s+/).length : 0), 0)
+    return {
+      ok: f.blocks.length > 0, url: u.toString(), via: 'feed',
+      title: f.title, siteName: u.hostname, description: f.description,
+      wordCount: words, minutes: Math.max(1, Math.round(words / 220)),
+      blocks: f.blocks, outline: f.outline, images: [],
+      warning: f.blocks.length === 0 ? 'The feed had no items to typeset.' : undefined,
+      fetchedAt: Date.now(),
+    }
+  }
 
   const { blocks, outline, images, dropped } = htmlToBlocks(html, u)
   const words = blocks.reduce((n, b) => n + (b.type === 'paragraph' ? b.text.split(/\s+/).length : b.type === 'list' ? b.items.join(' ').split(/\s+/).length : b.type === 'quote' ? b.text.split(/\s+/).length : 0), 0)

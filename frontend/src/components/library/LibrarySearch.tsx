@@ -16,7 +16,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import {
+import {Copy, 
   BookOpen, Globe, FileText, Plus, Trash2, Tag, Tags, Rss, Upload, RefreshCw, FolderPlus, ExternalLink, ChevronLeft,
   Folder as FolderIcon, Check, Star, Sparkles, AlertTriangle, BookMarked, Loader2,
 } from 'lucide-react'
@@ -34,6 +34,7 @@ import { RecommendationsPanel } from '@/components/library/RecommendationsPanel'
 // The registry index the design hub already uses — one catalogue, searched from
 // two places, rather than a second list that drifts from the first.
 import { componentHits } from '@/lib/design/component-search'
+import { copyText } from '@/lib/utils'
 
 // The matcher is shared with the agent's tool and the design hub; re-exported so
 // the Library keeps one obvious entry point for "what components match this".
@@ -775,6 +776,20 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                 : 'This folder is empty. Save a result into it from the search above.'}
             </p>
           ) : (
+            <>
+            {visibleItems.filter((i) => i.kind === 'component' && i.extra?.command).length > 0 && (
+              <button
+                onClick={async () => {
+                  const cmds = visibleItems.filter((i) => i.kind === 'component' && i.extra?.command).map((i) => i.extra.command as string)
+                  const ok = await copyText(cmds.join(' && '))
+                  ui.toast(ok ? 'Install commands copied' : 'Copy blocked', ok ? `${cmds.length} command${cmds.length === 1 ? '' : 's'}, ready to paste in a terminal.` : 'Select them from the rows below instead.', ok ? 'success' : 'warning')
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[9px] text-[11px] font-medium mb-1.5 w-fit"
+                style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}
+                data-ui="copy-component-installs">
+                <Copy size={11} /> Copy {visibleItems.filter((i) => i.kind === 'component' && i.extra?.command).length} install command{visibleItems.filter((i) => i.kind === 'component' && i.extra?.command).length === 1 ? '' : 's'}
+              </button>
+            )}
             <div className="flex flex-col gap-1.5 min-h-[200px] max-h-[320px] overflow-y-auto pr-1">
               {visibleItems.map((it) => (
                 <div key={it.id} className="flex items-start gap-2 px-2 py-1.5 rounded-[9px]" style={{ background: 'var(--elevated)' }}>
@@ -782,10 +797,17 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                     ? React.createElement(KIND_META[it.kind].Icon, { size: 12, className: 'mt-0.5 shrink-0', style: { color: KIND_META[it.kind].tone } })
                     : <FileText size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--text-3)' }} />}
                   <div className="min-w-0 flex-1">
-                    {it.url
-                      ? <button onClick={() => setViewerFor({ url: it.url as string, title: it.title, kind: (it.kind as any) })}
+{it.kind === 'component' && it.url?.startsWith('app://component')
+                      ? <button onClick={() => navigate(`/code?hub=${encodeURIComponent(it.extra?.item ?? it.title)}`)}
+                          title="Open its preview in design mode"
                           className="text-[12px] truncate text-left hover:underline block max-w-full" style={{ color: 'var(--text)' }}>{it.title}</button>
-                      : <div className="text-[12px] truncate">{it.title}</div>}
+                      : it.url
+                        ? <button onClick={() => setViewerFor({ url: it.url as string, title: it.title, kind: (it.kind as any) })}
+                            className="text-[12px] truncate text-left hover:underline block max-w-full" style={{ color: 'var(--text)' }}>{it.title}</button>
+                        : <div className="text-[12px] truncate">{it.title}</div>}
+                    {it.kind === 'component' && it.extra?.command && (
+                      <code className="block text-[10px] font-mono truncate mt-0.5" style={{ color: 'var(--text-3)' }}>{it.extra.command}</code>
+                    )}
                     <div className="flex items-center gap-1.5 flex-wrap text-[10px]" style={{ color: 'var(--text-3)' }}>
                       <span>{timeAgo(it.savedAt)}</span>
                       {folders.find((f) => f.id === it.folderId) && <span>· {folders.find((f) => f.id === it.folderId)?.name}</span>}
@@ -796,6 +818,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                 </div>
               ))}
             </div>
+            </>
           )}
         </div>
 

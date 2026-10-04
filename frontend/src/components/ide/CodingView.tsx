@@ -6,9 +6,13 @@ import {
   Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2,
   FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes,
   Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles,
+  Package, Plug, Camera,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import { DepsPanel } from './DepsPanel'
+import { McpPanel } from './McpPanel'
+import { ScreenshotPanel } from './ScreenshotPanel'
 import { DesignStudio } from './DesignStudio'
 import { AgentPanel, chatIdFor } from './AgentPanel'
 import { AIFloat, FocusButton } from './AIFloat'
@@ -316,7 +320,7 @@ export function CodingView() {
 /* ================================================================== */
 /* Workbench                                                          */
 /* ================================================================== */
-type Activity = 'explorer' | 'search' | 'git' | 'design'
+type Activity = 'explorer' | 'search' | 'git' | 'deps' | 'mcp' | 'shot' | 'design'
 type PanelTab = 'terminal' | 'problems' | 'git' | 'preview' | 'safety' | 'frameworks'
 
 function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }: {
@@ -801,6 +805,9 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           <ActivityBtn active={activity === 'explorer'} onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} icon={<Files size={17} />} label="Explorer" />
           <ActivityBtn active={activity === 'search'} onClick={() => { setActivity('search'); setSidebarOpen(true) }} icon={<SearchIcon size={17} />} label="Search" />
           <ActivityBtn active={activity === 'git'} onClick={() => { setActivity('git'); setSidebarOpen(true); setPanel('git'); setPanelOpen(true) }} icon={<GitBranch size={17} />} label="Source control" />
+          <ActivityBtn active={activity === 'deps'} onClick={() => { setActivity('deps'); setSidebarOpen(true) }} icon={<Package size={17} />} label="Dependencies" />
+          <ActivityBtn active={activity === 'mcp'} onClick={() => { setActivity('mcp'); setSidebarOpen(true) }} icon={<Plug size={17} />} label="MCP servers" />
+          <ActivityBtn active={activity === 'shot'} onClick={() => { setActivity('shot'); setSidebarOpen(true) }} icon={<Camera size={17} />} label="Screenshot to code" />
           <ActivityBtn active={false} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalIcon size={17} />} label="Terminal" />
           <ActivityBtn active={false} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={17} />} label="Problems" />
           <div className="flex-1" />
@@ -864,6 +871,9 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
             )}
 
             {activity === 'git' && <GitSidebar project={project} />}
+            {activity === 'deps' && <DepsPanel project={project} />}
+            {activity === 'mcp' && <McpPanel />}
+            {activity === 'shot' && <ScreenshotPanel project={project} />}
           </div>
         )}
 

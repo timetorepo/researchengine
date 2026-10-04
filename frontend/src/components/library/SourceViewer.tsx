@@ -45,7 +45,7 @@ interface Block {
 interface ReadResult {
   ok: boolean
   url: string
-  via: 'wikipedia' | 'html' | 'text'
+  via: 'wikipedia' | 'html' | 'text' | 'feed'
   title: string
   siteName?: string
   description?: string
@@ -111,7 +111,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
     return {
       ok: !!json.ok && blocks.length > 0,
       url: typeof json.url === 'string' ? json.url : url,
-      via: json.via === 'wikipedia' || json.via === 'wikipedia-api' ? 'wikipedia' : 'html',
+      via: json.via === 'wikipedia' || json.via === 'wikipedia-api' ? 'wikipedia' : json.via === 'feed' ? 'feed' : 'html',
       title: typeof json.title === 'string' && json.title ? json.title : (host(url) || url),
       siteName: typeof json.siteName === 'string' ? json.siteName : undefined,
       description: typeof json.description === 'string' ? json.description : undefined,
@@ -309,7 +309,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                       <span>·</span>
                       <span className="flex items-center gap-1">
                         {doc.via === 'wikipedia' ? <BookOpen size={9} /> : <Type size={9} />}
-                        {doc.via === 'wikipedia' ? 'Wikipedia article text' : 'reduced from the page'}
+                        {doc.via === 'wikipedia' ? 'Wikipedia article text' : doc.via === 'feed' ? 'feed, typeset for reading' : 'reduced from the page'}
                       </span>
                     </>
                   )}
@@ -512,7 +512,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
               {busy
                 ? <><Loader2 size={10} className="animate-spin" /> Reading the source…</>
                 : doc?.ok && (doc.blocks?.length ?? 0) > 0
-                  ? <><Check size={10} style={{ color: 'var(--secondary)' }} /> Parsed {doc.blocks?.length ?? 0} blocks · {doc.outline?.length ?? 0} sections · {doc.images?.length ?? 0} images{doc.via === 'wikipedia' ? ' · via the Wikipedia API' : ''}</>
+                  ? <><Check size={10} style={{ color: 'var(--secondary)' }} /> Parsed {doc.blocks?.length ?? 0} blocks · {doc.outline?.length ?? 0} sections · {doc.images?.length ?? 0} images{doc.via === 'wikipedia' ? ' · via the Wikipedia API' : doc.via === 'feed' ? ' · via the feed reader' : ''}</>
                   : <><AlertTriangle size={10} /> No text could be reduced from this page · the Browser tab is the way in</>}
               <div className="flex-1" />
               <span>Esc closes</span>

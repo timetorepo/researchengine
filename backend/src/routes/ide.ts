@@ -323,6 +323,25 @@ export function ideRoutes(rt: Runtime) {
   })
 
   // ---------- files ----------
+  /** Installed dependencies of the open project, read from its package.json. */
+  r.get('/ide/deps', async (c) => {
+    const dir = scopedDir(c.req.query('project') ?? '', agentParam(c))
+    if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)
+    const pkgPath = join(dir, 'package.json')
+    if (!existsSync(pkgPath)) return c.json({ ok: true, packageJson: false, deps: [], installed: false, lock: null })
+    try {
+      const pkg = JSON.parse(await readFile(pkgPath, 'utf8'))
+      const deps = [
+        ...Object.entries(pkg.dependencies ?? {}).map(([name, version]) => ({ name, version: String(version), dev: false })),
+        ...Object.entries(pkg.devDependencies ?? {}).map(([name, version]) => ({ name, version: String(version), dev: true })),
+      ].sort((a, b) => a.name.localeCompare(b.name))
+      const lock = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb'].find((l) => existsSync(join(dir, l))) ?? null
+      return c.json({ ok: true, packageJson: true, deps, installed: existsSync(join(dir, 'node_modules')), lock })
+    } catch {
+      return c.json({ error: 'package.json could not be parsed.' }, 422)
+    }
+  })
+
   r.get('/ide/tree', async (c) => {
     const dir = scopedDir(c.req.query('project') ?? '', agentParam(c))
     if (!dir || !existsSync(dir)) return c.json({ error: 'Project not found.' }, 404)

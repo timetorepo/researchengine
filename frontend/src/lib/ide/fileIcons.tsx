@@ -63,9 +63,49 @@ export function fileKind(path: string): FileKind {
   return KIND.plain
 }
 
-/** The glyph itself, in the colour of its kind. */
+/**
+ * The language mark for a path, when one is vendored.
+ *
+ * The marks live in public/lang-logos/ — drawn offline-safe versions committed
+ * to the repo, replaceable with the real simple-icons brand set (CC0) by
+ * running scripts/vendor-lang-logos.mjs on any machine with a network. The
+ * user asked for logos "from an API once, saved to the repo"; this is exactly
+ * that, minus the network this sandbox does not have.
+ */
+const LOGO_BY_EXT: Record<string, string> = {
+  js: 'javascript', mjs: 'javascript', cjs: 'javascript',
+  ts: 'typescript', mts: 'typescript', cts: 'typescript',
+  jsx: 'react', tsx: 'react',
+  html: 'html', htm: 'html', css: 'css', scss: 'css', less: 'css', sass: 'css',
+  json: 'json', jsonc: 'json', md: 'markdown', mdx: 'markdown',
+  py: 'python', c: 'c', h: 'c', cpp: 'cplusplus', cc: 'cplusplus', cxx: 'cplusplus',
+  hpp: 'cplusplus', cs: 'csharp', rs: 'rust', go: 'go', java: 'java', kt: 'kotlin',
+  swift: 'swift', rb: 'ruby', php: 'php', vue: 'vue', svelte: 'svelte', sql: 'sql',
+  sh: 'shell', bash: 'shell', zsh: 'shell', fish: 'shell', ps1: 'shell',
+  svg: 'svg', yml: 'yaml', yaml: 'yaml',
+  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', avif: 'image',
+}
+
+export const langLogo = (path: string): string | null => {
+  const name = (path.split('/').pop() ?? '').toLowerCase()
+  const ext = name.includes('.') ? name.split('.').pop() ?? '' : ''
+  return LOGO_BY_EXT[ext] ?? null
+}
+
+/** The glyph itself: the language's own mark where one is vendored, the kind
+ *  glyph (in the colour of its kind) everywhere else — and if a mark ever
+ *  fails to load, the glyph again rather than a broken image. */
 export function FileGlyph({ path, size = 11, className }: { path: string; size?: number; className?: string }) {
   const kind = fileKind(path)
   const Icon = kind.icon
+  const [broken, setBroken] = React.useState(false)
+  const logo = broken ? null : langLogo(path)
+  if (logo) {
+    return (
+      <img src={`/lang-logos/${logo}.svg`} alt="" width={size} height={size}
+        className={className} style={{ borderRadius: 3, opacity: 0.95 }}
+        onError={() => setBroken(true)} draggable={false} />
+    )
+  }
   return <Icon size={size} className={className} style={{ color: kind.color, opacity: 0.95 }} />
 }
