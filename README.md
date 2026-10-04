@@ -8,7 +8,7 @@
 
 **Ask a question. Get an answer with real sources. Keep every page, note, quiz and draft on your own computer.**
 
-[![Release](https://img.shields.io/badge/release-v0.37.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v0.40.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#-your-work-stays-yours)
@@ -34,7 +34,7 @@ You do not need to be technical to use it. You need one thing to get real AI ans
 
 ## What it does
 
-### 🔎 Find things, and know where they came from
+### Find things, and know where they came from
 
 | | |
 |---|---|
@@ -46,7 +46,7 @@ You do not need to be technical to use it. You need one thing to get real AI ans
 | **See the cost** | Every answer reports how many tokens it used, so a month of research never surprises you. You can also set how long the app should wait for each provider before giving up. |
 | **Attach anything** | Drop in images for models that can see, PDFs and Word documents to read, and pick files from your own computer to use as context. |
 
-### 📚 Study it properly — Read & Quiz
+### Study it properly — Read & Quiz
 
 | | |
 |---|---|
@@ -56,7 +56,7 @@ You do not need to be technical to use it. You need one thing to get real AI ans
 | **Steps that look like steps** | Lines meant as steps, lists and "Step 2 —" runs are turned into properly numbered steps and bullets **as you read them**, at no extra cost and with no extra AI call. |
 | **Revise against the clock** | A study timer lives in the top bar and knows what it is timing — Quiz, Reading, or Coding — with pause, play, skip and reset. |
 
-### ✍️ Write it up
+### Write it up
 
 | | |
 |---|---|
@@ -66,15 +66,15 @@ You do not need to be technical to use it. You need one thing to get real AI ans
 | **Your own voice** | One click of **Humanize** rewrites a reply so it reads like a person wrote it — uneven rhythm, plain words, no chatbot style — while every fact, number and citation stays exactly where it was. The rewrite shows in green, and the original waits in red behind a hover. |
 | **Export everything** | A versioned ZIP of your whole library, and an import that merges it back. |
 
-### 🐝 Send a team of agents — Agent Flood
+### Send a team of agents — Agent Flood
 
 Point a swarm of assistants at one topic and let them work in parallel. Pick a squad (Deep Research, Software Design, and more), give them an objective, and watch them file findings into a shared scratchpad while a budget keeps the cost visible. When they are done you get one synthesised briefing instead of five separate answers.
 
-### 🔁 Put your routine on rails — Workflows
+### Put your routine on rails — Workflows
 
 A visual canvas for anything you do repeatedly: a trigger, a few AI steps, some logic, a transform, an output. Build it once with drag and drop, run it whenever, read the run history, and share a workflow as a single file.
 
-### 💻 Build things — Coding & Design workspaces
+### Build things — Coding & Design workspaces
 
 For the days when research turns into making something:
 
@@ -82,17 +82,17 @@ For the days when research turns into making something:
 - **Design mode** — the app in front of you *shows itself* to the AI: it can read the real layout, colours and console, take screenshots, click and type through your screen, and then prove a fix with an assertion. You can also press every control yourself as a one-click test.
 - **Start from nothing** — create a project, upload a ZIP, or press **Try a sample app** for a ready-made page with deliberate bugs to play with.
 
-### 🔌 Connect your own accounts
+### Connect your own accounts
 
 Research Engine can read the places your work already lives — **Google Drive, Gmail, Google Calendar, GitHub, Notion, Slack**, and files on your own computer. Connect an account by pasting a token *once*, and the app **tests it against the real service before trusting it** and tells you which account it is signed in as.
 
 Once connected, you can search all of it from the chatbox and attach a result to your question — and the assistant can look things up itself, asking you to connect an account instead of inventing what might be in it. Your tokens are encrypted on your machine and are never sent anywhere except the service they belong to.
 
-### 🎙️ Talk to it
+### Talk to it
 
 Dictation works with three engines — your browser's own, a transcription service you already have an account with, or a **Whisper server on your own machine** for anything confidential. Hold the mic to talk or click it to start and stop, watch the glow around the chatbox move with your voice, and your words land in the composer ready to send.
 
-### 🧩 Make it work your way
+### Make it work your way
 
 - **Skills** — reusable standards you can put on any task. Three ship with the app: a **design pass** that scores its own work and must clear 8/10, a **zero-hallucination pass** that verifies every claim against the real project, and a **no-filler pass** that refuses to leave TODOs and placeholders behind. Write your own in plain language.
 - **Master prompts** — the instructions behind every answer are readable and versioned. Change them, compare them, roll them back.
@@ -101,7 +101,7 @@ Dictation works with three engines — your browser's own, a transcription servi
 - **Privacy Shield** — three postures in one switch: **No Privacy**, **Privated** (the default — secrets are scrubbed from anything that leaves your machine), or **Top Secret** (nothing leaves except your chosen AI provider; search runs offline from what you already have).
 - **Feels like an app, not a website** — a command palette (`Ctrl/Cmd + K`), right-click menus everywhere, animated page changes, live toasts, a scroll indicator, and a desktop app that opens like any other program.
 
-### ♻️ Keeps itself up to date
+### Keeps itself up to date
 
 Press update and it fetches the new version, **checks the file against its published fingerprint before unpacking anything**, installs it, and — if the new version cannot start — puts the old one back by itself. Your library is never part of that swap. (You can also hand it a file you downloaded yourself, or point it at a private source if you run a fork.)
 
@@ -109,7 +109,7 @@ Press update and it fetches the new version, **checks the file against its publi
 
 ---
 
-## ⭐ Only in Research Engine
+## Only in Research Engine
 
 Plenty of apps answer questions. These are the parts you will not find elsewhere — the reason this app exists:
 
@@ -156,7 +156,7 @@ Portable builds are also kept in this repository under [`downloads/`](downloads)
 
 ---
 
-## 🔒 Your work stays yours
+## Your work stays yours
 
 Everything Research Engine writes lives in **one folder** on the machine running it:
 
@@ -174,7 +174,7 @@ The desktop app, a browser tab and a portable copy on the same machine all read 
 
 ---
 
-## ⌨️ Keyboard shortcuts
+## Keyboard shortcuts
 
 | | |
 |---|---|
@@ -197,7 +197,7 @@ In the Quiz, `Space` or `Enter` moves on to the next question. On the Workflow c
 
 ---
 
-## ❓ Questions people ask
+## Questions people ask
 
 **Do I need an AI account?** Not to try it — the built-in offline model runs every part of the app so you can explore. For real answers you add a provider you already pay for, or a model on your own machine, and you pay them directly instead of paying us.
 
@@ -215,7 +215,7 @@ In the Quiz, `Space` or `Enter` moves on to the next question. On the Workflow c
 
 ---
 
-## 🧾 Credits & license
+## Credits & license
 
 **MIT licensed** — Copyright (c) 2026 dnishh. See [LICENSE](LICENSE). Use it, change it, ship it inside your own product, even sell it; just keep the copyright notice with the copy.
 
