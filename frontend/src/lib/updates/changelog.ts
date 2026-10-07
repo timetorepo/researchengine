@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 34 versions, 0.42.0 back to 0.10.0.
+ * 35 versions, 0.43.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,98 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.43.0",
+    "tag": "v0.43.0-beta.1",
+    "name": "",
+    "date": "2026-10-07",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.43.0-beta.1",
+    "summary": "The Perplexity round. We researched what Perplexity does well and what it gets wrong, then built the good parts ourselves and fixed the rest.",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "text": "Every item here is backed by a check in the new r30-test suite (61 assertions), so none of it can quietly regress."
+          }
+        ]
+      },
+      {
+        "title": "A real RAG pipeline with deep research",
+        "items": [
+          {
+            "text": "Quality mode now runs deep multi-step research: the query is parsed into an intent, split into up to three subqueries, searched in parallel, and fused into one numbered context block before the model writes a single word."
+          },
+          {
+            "text": "The fused context is capped at 3200 characters (about 800 tokens), every source is numbered and labelled with its trust tier, and page bodies are raced against a read deadline so the answer never waits on a slow fetch."
+          },
+          {
+            "text": "One source per host: dedupe keeps the best-scoring hit per domain, so ten mirrors of one blog cannot drown out ten different sources."
+          },
+          {
+            "text": "A dead search ladder returns an honest failure. Demo placeholders can never ground an answer."
+          }
+        ]
+      },
+      {
+        "title": "What Perplexity gets wrong, fixed",
+        "items": [
+          {
+            "text": "Citation audit: after the answer is written, every [n] marker outside the retrieved source set is stripped, and you are told when markers were removed. Independent studies found up to 13.3% of deep-research citations in other products fully hallucinated; here they do not survive."
+          },
+          {
+            "text": "Trust tiers: primary sources (Wikipedia, .gov, official docs hosts) outrank trusted docs, which outrank the open web. A LinkedIn spam post can no longer rank like Nature."
+          },
+          {
+            "text": "Conflicting sources must be surfaced, not blended: the grounding rules tell the model to say so when sources disagree."
+          },
+          {
+            "text": "Weak grounding is disclosed. If retrieval came back thin, the answer says so instead of bluffing."
+          }
+        ]
+      },
+      {
+        "title": "Rankings: the world and yours",
+        "items": [
+          {
+            "text": "World board: live from the OpenRouter models API, free models first, then context per blended dollar, and every row explains its rank."
+          },
+          {
+            "text": "Yours board: your own connection log, ranked by calls, success rate, and recency, grouped per provider and model."
+          },
+          {
+            "text": "Both boards say plainly that they are value rankings, not arena scores. The trophy toggle lives in the model picker."
+          }
+        ]
+      },
+      {
+        "title": "Faster, on fewer tokens",
+        "items": [
+          {
+            "text": "Subquery planning is deterministic, so deep research adds zero extra LLM calls. Retrieval runs in parallel, and the whole pipeline reports its own stats: passes, hits, pages read, fused characters, estimated tokens."
+          },
+          {
+            "text": "The classic snippet grounding path stays as the fallback whenever the pipeline is offline, and it follows the same cite-only-what-you-read rules."
+          }
+        ]
+      },
+      {
+        "title": "Home screen frame rate",
+        "items": [
+          {
+            "text": "The spotlight cards no longer re-render React on every mousemove; they write two CSS variables instead."
+          },
+          {
+            "text": "The aurora background and the revolving text now pause when the tab is hidden or reduced motion is preferred, and resume on their own."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 16,
+      "sections": 6
+    }
+  },
   {
     "version": "0.42.0",
     "tag": "v0.42.0-beta.1",
