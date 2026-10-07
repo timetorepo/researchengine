@@ -57,7 +57,9 @@ export function RevolvingText({
 
   useEffect(() => {
     if (items.length < 2) return
-    const iv = setInterval(() => setIndex((i) => (i + 1) % items.length), intervalMs)
+    // A hidden tab has no audience: skip the tick instead of animating into
+    // the dark, so coming back never triggers a burst of catch-up motion.
+    const iv = setInterval(() => { if (!document.hidden) setIndex((i) => (i + 1) % items.length) }, intervalMs)
     return () => clearInterval(iv)
   }, [items.length, intervalMs])
 

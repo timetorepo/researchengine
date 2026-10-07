@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlignJustify, Check, ChevronDown, EyeOff, Filter, Loader2, Plus, RefreshCw, RotateCcw, Search, Settings2, Waves } from 'lucide-react'
+import { AlignJustify, Check, ChevronDown, Trophy, EyeOff, Filter, Loader2, Plus, RefreshCw, RotateCcw, Search, Settings2, Waves } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
+import { RankingsView } from './RankingsView'
 import { useUI } from '@/stores/useUI'
 import { PROVIDERS, providerById } from '@/lib/providers/registry'
 import { refreshAllModels, refreshProviderModels } from '@/lib/providers/refresh'
@@ -79,6 +80,7 @@ export function ModelPicker() {
   const setFilter = (v: TierFilter) => patchSettings({ modelTierFilter: v })
   const setSort = (v: TierSort) => patchSettings({ modelSort: v })
   const [showHidden, setShowHidden] = useState(false)
+  const [view, setView] = useState<'models' | 'rankings'>('models')
   const [refreshing, setRefreshing] = useState(false)
   const [hovered, setHovered] = useState<number | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -237,6 +239,12 @@ export function ModelPicker() {
                   placeholder="Search models" aria-label="Search models"
                   className="w-full bg-transparent outline-none text-[12px]" />
                 {query && <button onClick={() => setQuery('')} aria-label="Clear model search" style={{ color: 'var(--text-3)' }}>×</button>}
+                <button onClick={() => setView(view === 'rankings' ? 'models' : 'rankings')} data-ui="rankings-toggle"
+                  title={view === 'rankings' ? 'Back to the model list' : 'Model rankings — world and yours'}
+                  className="p-1 rounded-full shrink-0"
+                  style={{ color: view === 'rankings' ? 'var(--primary)' : 'var(--text-3)', background: view === 'rankings' ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'transparent' }}>
+                  <Trophy size={12} />
+                </button>
               </div>
               {hasAnyModels && (
                 <div className="flex items-center gap-1.5 mt-1.5">
@@ -283,6 +291,8 @@ export function ModelPicker() {
               )}
             </div>
 
+            {view === 'rankings' && <RankingsView />}
+            {view === 'models' && (<>
             {!hasAnyModels ? (
               <div className="flex flex-col items-center text-center px-4 py-6">
                 <button onClick={openProviders} aria-label="Add models"
@@ -410,6 +420,7 @@ export function ModelPicker() {
                 </button>
               )}
             </div>
+            </>)}
           </motion.div>
         )}
       </AnimatePresence>

@@ -3,6 +3,7 @@ import {
   searchSearxngAuto, searchBrave, searchSerper, searchTavily, searchDdg, searchDemo, searchStatus,
   type SearchKeys, type SearchResult,
 } from '../services/search/adapters'
+import { prepareRag, type RagHit } from '../services/rag'
 
 export const searchRoutes = new Hono()
 
@@ -103,4 +104,46 @@ searchRoutes.get('/status', async (c) => {
   const own = c.req.query('searxng') || process.env.SEARXNG_URL || null
   const status = await searchStatus(keys, own)
   return c.json(status)
+})
+
+/**
+ * POST /api/rag/prepare — the retrieval-augmented pipeline.
+ *
+ * Body: { query, deep?, maxSources?, searxng? }. Runs the search ladder,
+ * reads the winning pages through the reader, deduplicates and ranks them by
+ * relevance and trust tier, and answers with a numbered, capped context block
+ * plus honest stats. No demo placeholders ever enter the grounding: a RAG
+ * answer grounded on invented results would be worse than no grounding, so an
+ * empty ladder answers `ok: false` and the chat falls back to plain search.
+ */
+searchRoutes.post('/rag/prepare', async (c) => {
+  const body = await c.req.json().catch(() => ({} as any))
+  const query = String(body?.query ?? '').trim()
+  if (!query) return c.json({ error: 'Missing query.' }, 400)
+
+  const keys = keysFrom(c)
+  const own = typeof body?.searxng === 'string' && body.searxng ? body.searxng : (process.env.SEARXNG_URL || null)
+  const searchFn = async (q: string): Promise<RagHit[]> => {
+    try {
+      const sx = await searchSearxngAuto(q, { own, timeoutMs: 5000 })
+      if (sx.results.length) return sx.results
+    } catch { /* down the ladder */ }
+    try {
+      return await searchDdg(q, 5000)
+    } catch { return [] }
+  }
+
+  try {
+    const outcome = await prepareRag({
+      query,
+      deep: Boolean(body?.deep),
+      maxSources: Math.max(2, Math.min(Number(body?.maxSources) || 5, 8)),
+      timeoutMs: 2600,
+      search: searchFn,
+    })
+    if (!outcome.sources.length) return c.json({ ok: false, reason: 'The search ladder returned nothing for this query.', stats: outcome.stats })
+    return c.json({ ok: true, ...outcome })
+  } catch (e: any) {
+    return c.json({ ok: false, reason: e?.message ?? 'The RAG pipeline failed.' }, 502)
+  }
 })
