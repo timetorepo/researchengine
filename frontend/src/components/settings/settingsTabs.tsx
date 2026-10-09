@@ -1,8 +1,5 @@
 import React from 'react'
-import {
-  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound,
-  Terminal, ArrowDownToLine, Mic, Bell,
-} from 'lucide-react'
+import { KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -15,6 +12,8 @@ import { SkillsTab } from './SkillsTab'
 import { AgentsTab } from './AgentsTab'
 import { DataTab } from './DataTab'
 import { ShortcutsTab } from './ShortcutsTab'
+import { PersonasTab } from './PersonasTab'
+import { McpPanel } from '@/components/ide/McpPanel'
 import { AboutTab } from './AboutTab'
 import { PerformanceTab } from './PerformanceTab'
 import { DeveloperTab } from './DeveloperTab'
@@ -35,6 +34,8 @@ export const TABS = [
   { id: 'flow', label: 'AIFlowEngine', icon: Wind },
   { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'skills', label: 'Skills', icon: Wand2 },
+  { id: 'mcp', label: 'MCP Servers', icon: Store },
+  { id: 'personas', label: 'Personas', icon: BookMarked },
   { id: 'coding', label: 'Coding & MCP', icon: Code },
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'data', label: 'Data', icon: Database },
@@ -42,6 +43,18 @@ export const TABS = [
   { id: 'developer', label: 'Developer', icon: Terminal },
   { id: 'about', label: 'About', icon: Info },
 ]
+
+export function McpTab() {
+  return (
+    <div className="h-full flex flex-col">
+      <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>MCP Servers</h2>
+      <p className="text-[13px] mb-3" style={{ color: 'var(--text-2)' }}>
+        Tool servers for the agent, in coding sessions and in chats. Install from the catalog with one click, test the connection, and the model gets the tools on its next turn.
+      </p>
+      <div className="flex-1 min-h-0 surface overflow-hidden"><McpPanel /></div>
+    </div>
+  )
+}
 
 export function renderTab(tab: string): React.ReactNode {
   switch (tab) {
@@ -57,6 +70,8 @@ export function renderTab(tab: string): React.ReactNode {
     case 'flow': return <FlowTab />
     case 'performance': return <PerformanceTab />
     case 'skills': return <SkillsTab />
+    case 'mcp': return <McpTab />
+    case 'personas': return <PersonasTab />
     case 'coding': return <CodingTab />
     case 'agents': return <AgentsTab />
     case 'data': return <DataTab />

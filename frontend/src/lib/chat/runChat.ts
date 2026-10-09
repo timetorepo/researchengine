@@ -10,6 +10,7 @@ import { createFlowRun, shapeConfigFrom } from '@/lib/flow/engine'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
+import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
 import { freeCandidates, isFailoverWorthy, pickFreeModel, type FreeCandidate } from '@/lib/providers/free'
 import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
 import { CODING_RULES } from '@/lib/ide/coding-rules'
@@ -202,6 +203,16 @@ export async function runChat(opts: RunOptions): Promise<void> {
   const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality, flow: settings.flowEnabled }, settings.masterPromptOverrides)
   const customSys = settings.customSystemPrompts[mode.math ? 'math' : 'default']
   let system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
+  // Persona overlay: a vendored system prompt picked per chat (or as the
+  // default in Settings), with the Codex astra prompt as the built-in voice
+  // for coding sessions. It layers ON TOP of the base prompt, never hides it.
+  {
+    const slug = liveChat.personaId ?? settings.defaultPersonaId ?? (liveChat.kind === 'coding' ? CODING_PERSONA_SLUG : '')
+    if (slug) {
+      const pt = await personaText(slug)
+      if (pt) system = `# Persona (follow its voice and rules where they do not conflict with the user)\n${pt.slice(0, 8000)}\n\n${system}`
+    }
+  }
 
   // ---- real web search sources, through the RAG pipeline ----
   // Privacy Shield: in Top Secret mode nothing reaches for the web — prepareRag

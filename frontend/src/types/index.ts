@@ -395,6 +395,8 @@ export interface Settings {
   effort?: string
   /** Session switcher shortcut, e.g. "alt+shift". */
   sessionSwitchKey?: string
+  /** Persona attached by default to new chats (empty: none). */
+  defaultPersonaId?: string
   modelDefaults: Record<string, { temperature: number; topP: number; maxTokens: number }>
   customSystemPrompts: Record<string, string>
   /**

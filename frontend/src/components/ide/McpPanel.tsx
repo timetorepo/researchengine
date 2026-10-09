@@ -3,11 +3,14 @@
  *
  * The panel shows the servers already configured, a curated list of the ones
  * worth having with one-click installs (they join settings.mcpServers and can
- * be tested against /api/mcp/tools right away), and links out to the open MCP
- * registries for everything else. Nothing about MCP remains in Settings.
+ * be tested against /api/mcp/tools right away), a 4,000-server catalog parsed
+ * from the awesome list (refreshable live from mcpservers.org), and links out
+ * to the open registries. The same panel is mounted in Settings, because MCP
+ * is now a whole-app concern: chats get the tools too.
  */
-import { useState } from 'react'
-import { Plus, Power, Trash2, Zap, ExternalLink, Loader2, Store, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, Power, Trash2, Zap, ExternalLink, Loader2, Store, Search, Globe } from 'lucide-react'
+import { MCP_SEED, MCP_SEED_SOURCE, refreshCatalog, searchCatalog, type McpCatalogEntry } from '@/lib/mcp/catalog'
 import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -49,6 +52,10 @@ export function McpPanel() {
   const [envDrafts, setEnvDrafts] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState(false)
   const [custom, setCustom] = useState({ name: '', command: '' })
+  const [catQ, setCatQ] = useState('')
+  const [catEntries, setCatEntries] = useState<McpCatalogEntry[]>(MCP_SEED)
+  const [catSource, setCatSource] = useState<string>(MCP_SEED_SOURCE)
+  const [refreshing, setRefreshing] = useState(false)
 
   const setServers = (next: McpServerConfig[]) =>
     useStore.setState((s) => ({ settings: { ...s.settings, mcpServers: next } }))
@@ -99,6 +106,29 @@ export function McpPanel() {
 
   const q = filter.trim().toLowerCase()
   const shown = RECOS.filter((r) => !q || r.name.toLowerCase().includes(q) || r.pkg.toLowerCase().includes(q) || r.why.toLowerCase().includes(q))
+  const catShown = useMemo(() => searchCatalog(catEntries, catQ, 40), [catEntries, catQ])
+  const guessPkg = (e: McpCatalogEntry) => {
+    const m = e.url.match(/github\.com\/([^/]+)\/([^/#?]+)/i)
+    return m ? `@${m[1].toLowerCase()}/${m[2].toLowerCase()}` : ''
+  }
+  const installCatalog = (e: McpCatalogEntry) => {
+    const pkg = guessPkg(e)
+    if (pkg) {
+      setServers([...servers, { id: nanoid(8), name: e.name, command: 'npx', args: ['-y', pkg], enabled: true }])
+      ui.toast(`${e.name} added`, 'Test it with the bolt button; swap the package if the repo ships another.', 'success')
+    } else {
+      setAdding(true)
+      setCustom({ name: e.name, command: '' })
+      ui.toast('Paste the run command', `This one lives at ${e.url} — copy its npx/uvx command.`, 'info')
+    }
+  }
+  const doRefresh = async () => {
+    setRefreshing(true)
+    const live = await refreshCatalog()
+    if (live) { setCatEntries(live.entries); setCatSource(live.source) }
+    else setCatSource(`${MCP_SEED_SOURCE} · live refresh unreachable from here, seed kept`)
+    setRefreshing(false)
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-2.5 pb-3 text-[11px]">
@@ -185,8 +215,39 @@ export function McpPanel() {
       })}
       {!shown.length && <p className="px-1" style={{ color: 'var(--ide-faint)' }}>Nothing matches that filter.</p>}
 
+      {/* catalog */}
+      <div className="ide-section px-0.5 pt-3.5 pb-1.5 flex items-center gap-1">
+        <Store size={10} /> The catalog
+        <button onClick={doRefresh} className="ml-auto flex items-center gap-1 opacity-70 hover:opacity-100" title="Refresh live from mcpservers.org">
+          {refreshing ? <Loader2 size={10} className="animate-spin" /> : <Globe size={10} />}
+          <span className="text-[9px]">live</span>
+        </button>
+      </div>
+      <div className="px-1 pb-2">
+        <div className="relative">
+          <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--ide-faint)' }} />
+          <input value={catQ} onChange={(e) => setCatQ(e.target.value)} placeholder={`Search ${catEntries.length} servers…`}
+            className="ide-input w-full pl-6" />
+        </div>
+        <p className="pt-1 text-[9px] leading-snug" style={{ color: 'var(--ide-faint)' }}>{catSource}</p>
+      </div>
+      {catShown.map((e) => (
+        <div key={`${e.name}|${e.url}`} className="px-1.5 py-1.5 rounded-[6px] mb-1 hover:bg-[var(--ide-hover)]">
+          <div className="flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <span className="block text-[10.5px] truncate" style={{ color: 'var(--ide-text)' }}>{e.name}</span>
+              <span className="block leading-snug" style={{ color: 'var(--ide-dim)' }}>{e.description || e.category}</span>
+            </div>
+            <a href={e.url} target="_blank" rel="noreferrer" title={e.url} className="shrink-0 opacity-70 hover:opacity-100"><ExternalLink size={10} /></a>
+            <button onClick={() => installCatalog(e)}
+              className="shrink-0 px-1.5 py-1 rounded-[6px] text-[9.5px] font-medium"
+              style={{ background: 'var(--ide-accent)', color: '#fff' }}>Add</button>
+          </div>
+        </div>
+      ))}
+
       {/* marketplace */}
-      <div className="ide-section px-0.5 pt-3.5 pb-1.5 flex items-center gap-1"><Store size={10} /> The marketplace</div>
+      <div className="ide-section px-0.5 pt-3.5 pb-1.5 flex items-center gap-1"><Store size={10} /> The registries</div>
       <p className="px-1 pb-1.5 leading-relaxed" style={{ color: 'var(--ide-faint)' }}>
         Everything else lives in the open MCP registries. Find a server, copy its npx command, paste it above.
       </p>
