@@ -163,6 +163,8 @@ export interface Chat {
   personaId?: string
   /** MCP server ids enabled for this chat. */
   mcp?: string[]
+  /** Vendored upstream skill packs attached to this chat. */
+  skillPacks?: string[]
   messages: ChatMessage[]
 }
 

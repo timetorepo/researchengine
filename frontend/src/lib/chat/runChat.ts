@@ -11,6 +11,7 @@ import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
 import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
+import { packText } from '@/lib/skills/packs'
 import { freeCandidates, isFailoverWorthy, pickFreeModel, type FreeCandidate } from '@/lib/providers/free'
 import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
 import { CODING_RULES } from '@/lib/ide/coding-rules'
@@ -212,6 +213,12 @@ export async function runChat(opts: RunOptions): Promise<void> {
       const pt = await personaText(slug)
       if (pt) system = `# Persona (follow its voice and rules where they do not conflict with the user)\n${pt.slice(0, 8000)}\n\n${system}`
     }
+  }
+  // Attached skill packs ride below the base prompt, capped per pack.
+  if ((liveChat.skillPacks ?? []).length) {
+    const texts = await Promise.all(liveChat.skillPacks!.slice(0, 3).map((id) => packText(id)))
+    const joined = texts.filter(Boolean).join('\n\n---\n\n')
+    if (joined) system = `${system}\n\n# Attached skill packs (apply their rules while answering)\n${joined}`
   }
 
   // ---- real web search sources, through the RAG pipeline ----

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react'
-import { Download, Wand2, Trash2, ShieldCheck } from 'lucide-react'
+import { Download, Wand2, Trash2, ShieldCheck, Package, Eye } from 'lucide-react'
+import { SKILL_PACKS, packText } from '@/lib/skills/packs'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { download } from '@/lib/utils'
@@ -103,6 +104,72 @@ export function SkillsTab() {
           </div>
         ))}
       </div>
+
+      <h3 className="text-[13px] font-semibold mt-7 mb-1 flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
+        <Package size={13} /> Upstream packs, vendored in full
+      </h3>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
+        Apple-style design knowledge (emilkowalski/skills) and the ian-xiaohei illustration pack with a cross-model adapter.
+        Attach up to three to the open chat; their rules ride along in the context.
+      </p>
+      <PacksSection />
     </div>
+  )
+}
+
+function PacksSection() {
+  const activeChatId = useStore((st) => st.activeChatId)
+  const attached = useStore((st) => st.chats.find((c) => c.id === st.activeChatId)?.skillPacks ?? [])
+  const [view, setView] = useState<{ id: string; text: string } | null>(null)
+  const toggle = (id: string) => {
+    if (!activeChatId) return
+    useStore.setState((st) => ({
+      chats: st.chats.map((c) => c.id === activeChatId
+        ? { ...c, skillPacks: (c.skillPacks ?? []).includes(id) ? (c.skillPacks ?? []).filter((x) => x !== id) : [...(c.skillPacks ?? []), id].slice(0, 3) }
+        : c),
+    }))
+  }
+  return (
+    <>
+      <div className="space-y-2">
+        {SKILL_PACKS.map((p) => (
+          <div key={p.id} className="surface p-3.5 flex items-center gap-3">
+            <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
+              style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
+              <Package size={15} strokeWidth={1.5} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13.5px] font-medium">{p.name}</div>
+              <div className="text-[11.5px] truncate" style={{ color: 'var(--text-3)' }}>{p.description}</div>
+              <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{p.origin} · {p.files.length} files</div>
+            </div>
+            <button className="p-1.5 rounded hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }} title="Read the SKILL.md"
+              onClick={() => { void packText(p.id, 20000).then((t) => setView({ id: p.id, text: t ?? 'missing' })) }}>
+              <Eye size={13} />
+            </button>
+            <button
+              disabled={!activeChatId}
+              onClick={() => toggle(p.id)}
+              className="px-2.5 py-1.5 rounded-[10px] text-[11px] font-medium disabled:opacity-40"
+              style={{ background: attached.includes(p.id) ? 'var(--primary)' : 'var(--elevated)', color: attached.includes(p.id) ? '#fff' : 'var(--text-2)' }}>
+              {attached.includes(p.id) ? 'Attached' : 'Attach to chat'}
+            </button>
+          </div>
+        ))}
+      </div>
+      {view && (
+        <div className="fixed inset-0 z-[80] grid place-items-center p-6" style={{ background: 'rgb(0 0 0 / .5)', backdropFilter: 'blur(6px)' }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setView(null) }}>
+          <div className="w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl overflow-hidden"
+            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+            <div className="flex items-center px-4 py-3" style={{ borderBottom: '1px solid var(--surface-border)' }}>
+              <span className="text-[12.5px] font-medium flex-1" style={{ color: 'var(--text-1)' }}>{view.id}/SKILL.md</span>
+              <button className="px-2.5 py-1 rounded-lg text-[10.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }} onClick={() => setView(null)}>close</button>
+            </div>
+            <pre className="flex-1 overflow-auto px-4 py-3 text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>{view.text}</pre>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
