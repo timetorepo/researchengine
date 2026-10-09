@@ -14,9 +14,29 @@ export interface StreamRequest {
   temperature?: number
   maxTokens?: number
   signal?: AbortSignal
+  /**
+   * How long to wait for the provider before giving up, in ms. This is *our*
+   * patience, set per provider in Settings → Providers — not the provider's own
+   * server-side limit, which we cannot see from here.
+   */
+  timeoutMs?: number
   onFirstByte?: () => void
   /** OpenAI-style tool specs; provider dialects are translated by the proxy. */
   tools?: any[]
+}
+
+/**
+ * What a response actually cost.
+ *
+ * `reported` is the important field: when a provider tells us the counts we use
+ * them verbatim, and when it does not we say so — the UI shows a `≈` then, so a
+ * guess is never presented as a measurement.
+ */
+export interface TokenUsage {
+  prompt: number
+  completion: number
+  total: number
+  reported: boolean
 }
 
 export interface StreamToolCall {
@@ -75,12 +95,21 @@ async function extractError(res: Response): Promise<string> {
 export async function streamToCallback(
   req: StreamRequest,
   onChunk: (text: string) => void,
-): Promise<{ promptEstimate: number; completionTokens: number; toolCalls: StreamToolCall[] }> {
+): Promise<{ promptEstimate: number; completionTokens: number; toolCalls: StreamToolCall[]; usage: TokenUsage }> {
   const meta = providerById(req.providerId)
   if (!meta) throw new ProviderError(req.providerId, 'Unknown provider')
   const base = (req.baseUrl || meta.baseUrl).replace(/\/$/, '')
   let completionChars = 0
   const toolCalls: StreamToolCall[] = []
+  // Filled in by whichever dialect the provider speaks; null means "it did not
+  // tell us", and the caller falls back to an estimate.
+  let reported: { prompt: number; completion: number } | null = null
+  const takeOpenAIUsage = (u: any) => {
+    if (!u) return
+    const prompt = Number(u.prompt_tokens ?? u.input_tokens ?? 0)
+    const completion = Number(u.completion_tokens ?? u.output_tokens ?? 0)
+    if (prompt || completion) reported = { prompt, completion }
+  }
 
   if (meta.id === 'ollama') {
     // localhost — no CORS concerns, call directly
@@ -117,6 +146,10 @@ export async function streamToCallback(
           const json = JSON.parse(line)
           const t = json.message?.content
           if (t) { completionChars += t.length; onChunk(t) }
+          // Ollama reports its own counts on the last frame.
+          if (json.done && (json.prompt_eval_count || json.eval_count)) {
+            reported = { prompt: Number(json.prompt_eval_count ?? 0), completion: Number(json.eval_count ?? 0) }
+          }
         } catch { /* skip partial */ }
       }
     }
@@ -128,12 +161,16 @@ export async function streamToCallback(
     const onOuter = () => ctrl.abort()
     req.signal?.addEventListener('abort', onOuter)
     let gotChunk = false
-    const timer = setTimeout(() => { if (!gotChunk && !req.signal?.aborted) ctrl.abort() }, 45000)
+    const patience = Math.max(3_000, req.timeoutMs ?? 45_000)
+    const timer = setTimeout(() => { if (!gotChunk && !req.signal?.aborted) ctrl.abort() }, patience)
     const chunk = (t: string) => {
       if (!gotChunk && t) { gotChunk = true; clearTimeout(timer) }
       onChunk(t)
     }
     try {
+      // One hop: our own backend translates the dialect and streams it back.
+      // (FreeRoute used to need a branch here — it was a provider. It is a
+      // routing feature now, so every model goes the same way.)
       const res = await fetch('/api/chat', {
         method: 'POST', signal: ctrl.signal,
         headers: { 'content-type': 'application/json' },
@@ -148,7 +185,18 @@ export async function streamToCallback(
       req.onFirstByte?.()
       if (meta.kind === 'anthropic') {
         let toolAcc: { id: string; name: string; json: string } | null = null
+        let anthropicIn = 0
+        let anthropicOut = 0
         await readSSE(res, () => false, (_evt, json) => {
+          if (json.type === 'message_start' && json.message?.usage) {
+            // input tokens are only known up front; output arrives at the end
+            anthropicIn = Number(json.message.usage.input_tokens ?? 0)
+            anthropicOut = Math.max(anthropicOut, Number(json.message.usage.output_tokens ?? 0))
+            if (anthropicIn) reported = { prompt: anthropicIn, completion: anthropicOut }
+          } else if (json.type === 'message_delta' && json.usage) {
+            anthropicOut = Number(json.usage.output_tokens ?? anthropicOut)
+            if (anthropicIn) reported = { prompt: anthropicIn, completion: anthropicOut }
+          }
           if (json.type === 'content_block_start' && json.content_block?.type === 'tool_use') {
             toolAcc = { id: json.content_block.id, name: json.content_block.name, json: '' }
           } else if (json.type === 'content_block_delta' && json.delta?.type === 'input_json_delta' && toolAcc) {
@@ -166,6 +214,12 @@ export async function streamToCallback(
         // Gemini SSE: each data frame carries candidates[0].content.parts[].text.
         let n = 0
         await readSSE(res, (json) => {
+          const um = json.usageMetadata
+          if (um) {
+            const prompt = Number(um.promptTokenCount ?? 0)
+            const completion = Number(um.candidatesTokenCount ?? um.totalTokenCount ?? 0)
+            if (prompt || completion) reported = { prompt, completion }
+          }
           const parts = json.candidates?.[0]?.content?.parts
           if (Array.isArray(parts)) {
             for (const p of parts) {
@@ -184,6 +238,8 @@ export async function streamToCallback(
         // OpenAI-dialect tool_calls arrive as incremental chunks keyed by index.
         const acc = new Map<number, { id: string; name: string; args: string; thoughtSignature?: string }>()
         await readSSE(res, (json) => {
+          // With stream_options.include_usage the last frame carries the counts.
+          takeOpenAIUsage(json.usage)
           const delta = json.choices?.[0]?.delta
           if (Array.isArray(delta?.tool_calls)) {
             for (const tc of delta.tool_calls) {
@@ -228,7 +284,17 @@ export async function streamToCallback(
       : Array.isArray(m.content) ? m.content.reduce((x: number, p: any) => x + (p.type === 'text' ? (p.text?.length ?? 0) : 2000), 0)
       : 0
   ), 0) / 4)
-  return { promptEstimate: sysTokens + msgTokens, completionTokens: Math.max(1, Math.round(completionChars / 4)), toolCalls }
+  const promptEstimate = sysTokens + msgTokens
+  const completionEstimate = Math.max(1, Math.round(completionChars / 4))
+  const usage: TokenUsage = reported
+    ? { prompt: reported.prompt, completion: reported.completion, total: reported.prompt + reported.completion, reported: true }
+    : { prompt: promptEstimate, completion: completionEstimate, total: promptEstimate + completionEstimate, reported: false }
+  return {
+    promptEstimate: usage.reported ? usage.prompt : promptEstimate,
+    completionTokens: usage.reported ? usage.completion : completionEstimate,
+    toolCalls,
+    usage,
+  }
 }
 
 /**

@@ -1,5 +1,5 @@
 import React from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 
 /** Aceternity-style moving border — a light sweeps around the edge. */
 export function MovingBorder({

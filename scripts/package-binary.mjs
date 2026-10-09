@@ -11,11 +11,15 @@
 //   node scripts/package-binary.mjs [--out release] [--rebuild]
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { join, resolve } from 'node:path'
 
-const root = new URL('..', import.meta.url).pathname
+// fileURLToPath keeps this correct on Windows (`.pathname` gives "/D:/…").
+const root = fileURLToPath(new URL('..', import.meta.url))
 const args = process.argv.slice(2)
-const outDir = resolve(root, args[args.indexOf('--out') + 1] ?? 'release')
+// NB: indexOf returns -1 when the flag is absent — look up the value only then.
+const outIdx = args.indexOf('--out')
+const outDir = resolve(root, outIdx >= 0 && args[outIdx + 1] ? args[outIdx + 1] : 'release')
 const rebuild = args.includes('--rebuild')
 const useBun = args.includes('--bun')
 // --target lets us cross-package a platform-independent portable folder.

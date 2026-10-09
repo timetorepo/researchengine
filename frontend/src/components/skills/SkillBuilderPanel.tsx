@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { X, Wand2, Plus, Trash2, Sparkles } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { Skill, SkillParam, ParamType } from '@/types'

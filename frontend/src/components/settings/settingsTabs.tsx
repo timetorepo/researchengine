@@ -1,7 +1,9 @@
 import React from 'react'
 import {
-  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code,
+  KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound,
+  Terminal, ArrowDownToLine, Mic, Bell,
 } from 'lucide-react'
+import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
 import { IntegrationsTab } from './IntegrationsTab'
@@ -15,10 +17,18 @@ import { DataTab } from './DataTab'
 import { ShortcutsTab } from './ShortcutsTab'
 import { AboutTab } from './AboutTab'
 import { PerformanceTab } from './PerformanceTab'
+import { DeveloperTab } from './DeveloperTab'
+import { UpdatesTab } from './UpdatesTab'
+import { VoiceTab } from './VoiceTab'
+import { NotificationsTab } from './NotificationsTab'
 
 export const TABS = [
+  { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'providers', label: 'Providers', icon: KeyRound },
+  { id: 'updates', label: 'Updates', icon: ArrowDownToLine },
   { id: 'integrations', label: 'Integrations', icon: Plug },
+  { id: 'voice', label: 'Voice', icon: Mic },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'search', label: 'Search', icon: Search },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'models', label: 'Models', icon: Cpu },
@@ -29,13 +39,18 @@ export const TABS = [
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'data', label: 'Data', icon: Database },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
+  { id: 'developer', label: 'Developer', icon: Terminal },
   { id: 'about', label: 'About', icon: Info },
 ]
 
 export function renderTab(tab: string): React.ReactNode {
   switch (tab) {
+    case 'profile': return <ProfileTab />
     case 'providers': return <ProvidersTab />
+    case 'updates': return <UpdatesTab />
     case 'integrations': return <IntegrationsTab />
+    case 'voice': return <VoiceTab />
+    case 'notifications': return <NotificationsTab />
     case 'search': return <SearchTab />
     case 'appearance': return <AppearanceTab />
     case 'models': return <ModelsTab />
@@ -46,6 +61,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'agents': return <AgentsTab />
     case 'data': return <DataTab />
     case 'shortcuts': return <ShortcutsTab />
+    case 'developer': return <DeveloperTab />
     case 'about': return <AboutTab />
     default: return <ProvidersTab />
   }

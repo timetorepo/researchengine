@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { X } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
 import { TABS, renderTab } from './settingsTabs'

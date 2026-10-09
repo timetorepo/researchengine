@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   Search, Layers, BookOpen, Hammer, ShieldCheck, Map, Clock, Scale, Flag, Wrench, Sparkles,
   ChevronDown, Copy, Check, FileText, Users, Loader2, Wand2,

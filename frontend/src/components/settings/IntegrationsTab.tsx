@@ -4,19 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
-import { INTEGRATION_META } from '@/components/input/IntegrationPicker'
+import { IntegrationAccounts } from './IntegrationAccounts'
+import { IntegrationTutorial } from './IntegrationTutorial'
+import { GraduationCap } from 'lucide-react'
 import { timeAgo, fmt } from '@/lib/utils'
 import type { DocumentRecord } from '@/types'
 
-const SERVICES = [
-  { id: 'drive', scopes: ['drive.readonly'], desc: 'A working local Drive: upload files the AI can search and read (Local connector data below).' },
-  { id: 'gmail', scopes: ['gmail.readonly'], desc: 'A working local Mail store: add messages the AI can search and reference.' },
-  { id: 'gcal', scopes: ['calendar.readonly'], desc: 'A working local Calendar: add events the AI can plan around.' },
-  { id: 'github', scopes: ['repo:read'], desc: 'Read repos, reference code, open issues (with consent).' },
-  { id: 'notion', scopes: ['read_content'], desc: 'Read pages, insert research summaries.' },
-  { id: 'zotero', scopes: ['library:read'], desc: 'Sync your citation library.' },
-  { id: 'files', scopes: ['scoped-folder'], desc: 'Upload, browse and importing files from the Research Engine files folder on this machine.' },
-]
 
 const TEXTISH = /\.(txt|md|markdown|csv|json|log|tex|rst|yml|yaml|xml|html)$/i
 const STUDYABLE = /\.(txt|md|markdown|pdf|docx)$/i
@@ -313,72 +306,41 @@ export function IntegrationsTab() {
   const integrations = useStore((s) => s.integrations)
   const log = useStore((s) => s.connectionLog)
   const ui = useUI()
+  const [tutorial, setTutorial] = useState(false)
 
-  const toggle = (id: string, scopes: string[]) => {
-    const cur = integrations[id]
-    const meta = INTEGRATION_META[id]
-    if (cur?.connected) {
-      useStore.setState((s) => ({ integrations: { ...s.integrations, [id]: { ...cur, connected: false } } }))
-      ui.toast(`${meta.name} disconnected`, 'OAuth tokens removed from the local vault.')
-    } else {
-      // OAuth handled locally via a localhost callback server; simulated here.
-      useStore.setState((s) => ({
-        integrations: { ...s.integrations, [id]: { id, connected: true, scopes, lastSync: Date.now() } },
-      }))
-      useStore.getState().logConnection(`oauth://localhost/callback`, `${meta.name} OAuth grant`, 512, 'local')
-      ui.toast(`${meta.name} connected`, `Scopes: ${scopes.join(', ')}. Read-only until you grant write access.`, 'success')
+  // The composer's plug menu can send the user here straight into the walk.
+  useEffect(() => {
+    if (useUI.getState().integrationTutorial) {
+      useUI.setState({ integrationTutorial: false })
+      setTutorial(true)
     }
-  }
+  }, [])
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Integrations</h2>
+      <div className="flex items-start gap-3 mb-5">
+        <div className="flex-1">
+          <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Integrations</h2>
+        </div>
+        <button onClick={() => setTutorial((t) => !t)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-medium"
+          style={{
+            background: tutorial ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'var(--primary)',
+            color: tutorial ? 'var(--primary)' : '#fff',
+          }}>
+          <GraduationCap size={13} /> {tutorial ? 'Close the tutorial' : 'Step-by-step tutorial'}
+        </button>
+      </div>
+
+      <IntegrationTutorial open={tutorial} onClose={() => setTutorial(false)} />
       <p className="text-[13px] mb-5" style={{ color: 'var(--text-2)' }}>
-        Read-only by default, with explicit consent for write access. Tokens are encrypted and stored locally.
+        Real accounts, read-only by default. A connection is only "connected" once the service itself accepted the
+        credential — press <b>Save &amp; test</b> and it makes an authenticated call to prove it. Below the accounts
+        is your local workspace: files, mail notes, calendar notes and documents that live on this machine.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-        {SERVICES.map((svc) => {
-          const meta = INTEGRATION_META[svc.id]
-          const st = integrations[svc.id]
-          const connected = !!st?.connected
-          return (
-            <div key={svc.id} className="surface p-4 flex flex-col">
-              <div className="flex items-center gap-2.5 mb-2">
-                <span className="w-8 h-8 rounded-[10px] flex items-center justify-center"
-                  style={{ background: `hsl(${meta.hue} 50% 45% / 0.18)`, color: `hsl(${meta.hue} 62% 62%)` }}>
-                  <meta.icon size={16} strokeWidth={1.5} />
-                </span>
-                <div className="flex-1">
-                  <div className="font-medium text-[13.5px]">{meta.name}</div>
-                  <div className="text-[10.5px]" style={{ color: connected ? 'var(--success)' : 'var(--text-3)' }}>
-                    {connected ? `Connected · last sync ${st.lastSync ? timeAgo(st.lastSync) : 'now'}` : 'Not connected'}
-                  </div>
-                </div>
-              </div>
-              <p className="text-[11.5px] flex-1 mb-3" style={{ color: 'var(--text-2)' }}>{svc.desc}</p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => toggle(svc.id, svc.scopes)}
-                  className="flex-1 px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors"
-                  style={{
-                    background: connected ? 'color-mix(in srgb, var(--danger) 14%, transparent)' : 'var(--primary)',
-                    color: connected ? 'var(--danger)' : '#fff',
-                  }}>
-                  {connected ? 'Disconnect' : 'Connect'}
-                </button>
-              </div>
-              {connected && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {svc.scopes.map((sc) => (
-                    <span key={sc} className="px-1.5 py-0.5 rounded-full text-[9.5px] font-mono" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>{sc}</span>
-                  ))}
-                </div>
-              )}
-              {connected && svc.id === 'files' && <LocalFilesPanel />}
-            </div>
-          )
-        })}
-      </div>
+      <IntegrationAccounts />
+
 
       {/* Working connector data — everything here is local and queryable by the AI. */}
       <ConnectorDataPanel />

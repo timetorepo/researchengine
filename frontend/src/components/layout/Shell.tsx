@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Sidebar } from '@/components/sidebar/Sidebar'
@@ -21,9 +21,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const glassMode = useStore((s) => s.settings.glassMode)
 
   // Gradient style lives on <html> so every gradient surface follows.
+  //
+  // Swapping gradient *values* is instant and reads as a jump-cut, so while the
+  // new palette takes over we run `re-grad-settle`: the mesh pans across each
+  // gradient card and eases back to centre, the way the colour "finds" its
+  // place. Runs on the toggle AND on a theme change (theme-matched gradients are
+  // derived from the palette, so a theme switch recolours them too).
+  const gradSettleRan = React.useRef(false)
   useEffect(() => {
-    document.documentElement.dataset.grad = themeGradients ? 'theme' : 'vibrant'
-  }, [themeGradients])
+    const root = document.documentElement
+    root.dataset.grad = themeGradients ? 'theme' : 'vibrant'
+    if (!gradSettleRan.current) { gradSettleRan.current = true; return }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear = 0
+    const timer = window.setTimeout(() => {
+      root.classList.add('re-grad-settle')
+      window.dispatchEvent(new CustomEvent('re:gradient-settle'))
+      // The pan ends at the *new* palette — drop the class so the oversized
+      // background and the will-change hint don't linger.
+      clear = window.setTimeout(() => root.classList.remove('re-grad-settle'), 1250)
+    }, 30)
+    return () => { window.clearTimeout(timer); window.clearTimeout(clear) }
+  }, [themeGradients, theme])
 
   // Glass theme (chatbox + Dynamic Island) also lives on <html>.
   useEffect(() => {

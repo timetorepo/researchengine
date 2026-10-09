@@ -1,0 +1,112 @@
+{
+  "$comment": "Vendored shadcn-space blocks. Re-check with: node frontend/scripts/shadcnspace-vendor.mjs --verify",
+  "registry": "https://shadcnspace.com/r/{name}.json",
+  "upstream": {
+    "repo": "shadcnspace/shadcnspace",
+    "commit": "315a4366dfa9",
+    "checked": "2026-10-02",
+    "license": "MIT"
+  },
+  "raw": "https://raw.githubusercontent.com/shadcnspace/shadcnspace/315a4366dfa9/{path}",
+  "primitivePaths": [
+    "components/ui/button.tsx",
+    "components/ui/badge.tsx",
+    "components/ui/button-group.tsx",
+    "components/ui/dropdown-menu.tsx",
+    "components/ui/separator.tsx"
+  ],
+  "items": {
+    "animated-list-02": {
+      "title": "Animated List 02 - Setup Steps",
+      "dependencies": [
+        "motion",
+        "lucide-react"
+      ],
+      "registryDependencies": [],
+      "files": {
+        "src/components/shadcn-space/animated-list/animated-list-02.tsx": "714ea156205f82e1eb06d14f0f762ad5abc0e300789ab096b37a274013407944"
+      }
+    },
+    "badge-13": {
+      "title": "Badge 13 - Streak Display",
+      "dependencies": [
+        "motion",
+        "lucide-react",
+        "@number-flow/react"
+      ],
+      "registryDependencies": [
+        "badge"
+      ],
+      "files": {
+        "src/components/shadcn-space/badge/badge-13.tsx": "514636d8cc1397aab3470a37911b11c9a820411801ded416880a257906b0f483"
+      },
+      "patches": {
+        "src/components/shadcn-space/badge/badge-13.tsx": {
+          "upstream_sha256": "7db3e307c5c56a9b1559bbed6d0ffeab9c978d3b19f3076ec459e5b841e64deb",
+          "reason": "`StreakBadge` and `StreakBadgeProps` are exported. Upstream keeps the component private and default-exports the timer demo, which cannot be driven by a real streak."
+        }
+      }
+    },
+    "button-28": {
+      "title": "Button 28 - Hold to Charge",
+      "dependencies": [
+        "motion",
+        "lucide-react"
+      ],
+      "registryDependencies": [],
+      "files": {
+        "src/components/shadcn-space/button/button-28.tsx": "d7be8ecfa9c6ca24e89fba833b536d3fb0a2c5ac4a64fbaf4d623e1870f0c96f"
+      }
+    },
+    "button-group-12": {
+      "title": "Button Group 12 - Action Dropdown",
+      "dependencies": [
+        "lucide-react",
+        "motion"
+      ],
+      "registryDependencies": [
+        "button",
+        "button-group",
+        "dropdown-menu"
+      ],
+      "files": {
+        "src/components/shadcn-space/button-group/button-group-12.tsx": "6174544dc1f545685b6d2dd0e2566089422e9e1f7111a5ab09e65a55a9efed4e"
+      },
+      "patches": {
+        "src/components/shadcn-space/button-group/button-group-12.tsx": {
+          "upstream_sha256": "f7053f845d64455385f5c83b9bd615c38136427d8b65ee7db296002bbb802d6c",
+          "reason": "Locally adapted, deliberately: `satisfies Variants` on the two variant maps (upstream ships them untyped and this repository typechecks), and the labels/handlers became props (label, icon, items, onPrimary, onAction, disabled, menuLabel) so the same Execute-button-group drives the coding toolbar's Run/Save actions and can name what is behind its chevron. Structure, animation, separator and staggered menu are upstream's. The defaults still render the upstream demo."
+        }
+      }
+    },
+    "button-group-10": {
+      "title": "Button Group 10 - Editor Toolbar",
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button",
+        "button-group"
+      ],
+      "files": {
+        "src/components/shadcn-space/button-group/button-group-10.tsx": "4b91c04d13c0be410f6f9affd87eb8ae0e9f9cdea320d2c26e5dbb1cc2ea8487"
+      },
+      "patches": {
+        "src/components/shadcn-space/button-group/button-group-10.tsx": {
+          "upstream_sha256": "61cf9d8aecf052ffcff93f277218ddbb810145d679ff522ded6bd3f7fe6df2e1",
+          "reason": "The toolbar and its command helpers are exported (`EditorToolbar`, `runEditorCommand`, `readEditorState`, `EditorSelectionState`) and take props, because upstream welds the toolbar to one demo contentEditable and the article editor owns its own surface. The default `Pattern` demo is unchanged in behaviour and still uses the same pieces."
+        }
+      }
+    }
+  },
+  "primitives": {
+    "src/components/ui/button.tsx": "d14549ab3ba7a9d5d1f424c2599233bffa0b317121abf3b6efa2fb902d5e2781",
+    "src/components/ui/badge.tsx": "968b0403af74a785c9408ca69a677235e49d0c80b2c27fb9858ad421a8778c7d",
+    "src/components/ui/button-group.tsx": "fe97631e1a07bc0add09503c5032002e37f4c71ef5dd3c7475b856a29848583d",
+    "src/components/ui/dropdown-menu.tsx": "1c1ae4ec02de9778286f84e0d15a1b74cc610c13c5b6a13c1ada2e6770eeb4e1",
+    "src/components/ui/separator.tsx": "75085bd84ff6965e4a356c53a4689799cabf65caa93c0bba064d5a0c6fa78f13"
+  },
+  "watch": [
+    "src/components/shadcn-space"
+  ]
+}

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { Wand2, CornerDownLeft } from 'lucide-react'
 import type { Skill } from '@/types'
 import { useStore } from '@/stores/useStore'

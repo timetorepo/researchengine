@@ -1,4 +1,28 @@
 @import "tailwindcss";
+/*
+ ---break---
+ */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * HeroUI components (Modal, Tabs) are real packages here, not look-alikes: the
+ * source of each is scanned so every class they use is generated, and the
+ * tokens the names refer to (`content1`, `foreground`, `divider` …) are mapped
+ * onto this app's palette below. That is the whole integration — no theme
+ * plugin, no second design system, no two copies of anything: the components
+ * arrive with their behaviour and take the colours of the surface they open on.
+ */
+@source "../../../node_modules/@heroui/modal/dist";
+@source "../../../node_modules/@heroui/tabs/dist";
+/* The slot classes come from `@heroui/theme`, which is a single file holding
+   every component — so the two we use are pinned by name instead of scanned.
+   Regenerate by running `node scripts/heroui-classes.mjs` (it rewrites the
+   block below in place) after upgrading HeroUI. */
+/* @heroui-classes:begin — generated, do not edit */
+/* 284 class candidates from @heroui/theme@2.4.26, pinned with
+   Tailwind v4 `@source inline` so only Modal and Tabs are paid for. */
+@source inline("!rounded-none absolute active:bg-default-200 after:absolute after:bottom-0 after:h-[2px] after:opacity-0 after:w-[80%] appearance-none backdrop-blur-md backdrop-opacity-disabled backdrop-saturate-150 bg-background bg-content1 bg-danger bg-danger/20 bg-default bg-default-100 bg-default/40 bg-foreground bg-foreground/10 bg-image bg-overlay/30 bg-overlay/50 bg-primary bg-primary/20 bg-secondary bg-secondary/20 bg-stripe-gradient-danger bg-stripe-gradient-default bg-stripe-gradient-primary bg-stripe-gradient-secondary bg-stripe-gradient-success bg-stripe-gradient-warning bg-success bg-success/20 bg-transparent bg-warning bg-warning/20 bg-white block blur border-danger border-default border-default-200 border-foreground border-medium border-primary border-secondary border-success border-w border-warning bordered bottom-0 bottom-center box-border cursor cursor-pointer danger dark:bg-default dark:bg-transparent dark:text-danger-500 dark:text-success dark:text-warning data-[animated=true]:duration-250 data-[animated=true]:ease-out data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-30 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 data-[focus-visible=true]:z-10 data-[hover-unselected=true]:opacity-disabled data-[inert=true]:hidden data-[initialized=true]:visible data-[selected=true]:after:bg-danger data-[selected=true]:after:bg-foreground data-[selected=true]:after:bg-primary data-[selected=true]:after:bg-secondary data-[selected=true]:after:bg-success data-[selected=true]:after:bg-warning data-[selected=true]:after:opacity-100 data-[selected=true]:bg-danger data-[selected=true]:bg-default data-[selected=true]:bg-primary data-[selected=true]:bg-secondary data-[selected=true]:bg-success data-[selected=true]:bg-warning data-[selected=true]:text-danger-foreground data-[selected=true]:text-default-foreground data-[selected=true]:text-primary-foreground data-[selected=true]:text-secondary-foreground data-[selected=true]:text-success-foreground data-[selected=true]:text-warning-foreground default disabled divider end-1 fade-out fixed flex flex-1 flex-col flex-col-reverse flex-initial flex-nowrap flex-row flex-row-reverse font-semibold font-size function gap-2 gap-3 group group-data-[selected=true]:text-danger group-data-[selected=true]:text-danger-foreground group-data-[selected=true]:text-default-foreground group-data-[selected=true]:text-foreground group-data-[selected=true]:text-primary group-data-[selected=true]:text-primary-foreground group-data-[selected=true]:text-secondary group-data-[selected=true]:text-secondary-foreground group-data-[selected=true]:text-success group-data-[selected=true]:text-success-foreground group-data-[selected=true]:text-warning group-data-[selected=true]:text-warning-foreground h-(--visual-viewport-height) h-[100dvh] h-[2px] h-7 h-8 h-9 h-fit h-screen hidden hover:bg-default-100 infinite inherit inline-flex inset-0 invisible items-center items-end items-start justify-center justify-end large left lg light line-height linear max-h-[calc(100%_-_8rem)] max-w-2xl max-w-3xl max-w-4xl max-w-5xl max-w-full max-w-lg max-w-md max-w-sm max-w-xl max-w-xs md medium min-h-[100dvh] mx-0 mx-1 my-0 my-1 my-16 none normal object opacity-disabled opaque outline-solid outline-transparent overflow-x-auto overflow-x-scroll overflow-y-auto overflow-y-hidden p-1 p-2 pointer-events-none primary px-1 px-3 px-6 py-0 py-1 py-2 py-3 py-4 relative rotate rounded-full rounded-large rounded-medium rounded-none rounded-small scrollbar-hide scrollbar-width secondary select-none shadow-danger/40 shadow-default/50 shadow-foreground/40 shadow-large shadow-lg shadow-medium shadow-none shadow-primary/40 shadow-secondary/40 shadow-small shadow-success/40 shadow-warning/40 shadow-xs sm sm:items-center sm:items-end sm:items-start sm:mx-0 sm:mx-6 sm:my-0 sm:my-16 small solid strict stroke success tab tabList tailwind-variants tap-highlight-transparent text-background text-danger text-danger-600 text-danger-foreground text-default-500 text-default-700 text-default-foreground text-foreground text-foreground-500 text-inherit text-large text-medium text-primary text-primary-600 text-primary-foreground text-secondary text-secondary-600 text-secondary-foreground text-small text-success text-success-700 text-success-foreground text-tiny text-warning text-warning-700 text-warning-foreground tiny top-1 top-center translate(140%) transparent underlined use var(--heroui-font-size-large) var(--heroui-font-size-medium) var(--heroui-font-size-small) var(--heroui-font-size-tiny) var(--heroui-line-height-large) var(--heroui-line-height-medium) var(--heroui-line-height-small) var(--heroui-line-height-tiny) w-[80%] w-full w-screen warning whitespace-nowrap z-0 z-10 z-50");
+/* @heroui-classes:end */
 
 /* ============================================================
    RESEARCH ENGINE — DESIGN TOKENS
@@ -50,36 +74,298 @@
     linear-gradient(160deg, #1e2749 0%, #1d1f3d 55%, #251e46 100%);
 
   --font-scale: 1;
+
+  /*
+   * The palette the SmoothUI components name (installed via
+   * `npx shadcn@latest add @smoothui/...`). The registry ships literal light
+   * values in `:root` and a `.dark` block to go with them; a second, parallel
+   * theme system is exactly the "dark island" this app does not have, so the
+   * neutral ramp is expressed in terms of the app's own surfaces and text
+   * instead. The result is one vocabulary: a SmoothUI component recolours with
+   * every theme in the picker, because it is reading the same variables
+   * everything else reads.
+   */
+  --smooth-50: var(--bg);
+  --smooth-100: var(--surface);
+  --smooth-200: var(--elevated);
+  --smooth-300: color-mix(in srgb, var(--text) 10%, var(--surface));
+  --smooth-400: color-mix(in srgb, var(--text) 22%, var(--surface));
+  --smooth-500: color-mix(in srgb, var(--text) 34%, var(--surface));
+  --smooth-600: color-mix(in srgb, var(--text) 46%, var(--surface));
+  --smooth-700: color-mix(in srgb, var(--text) 58%, var(--surface));
+  --smooth-800: color-mix(in srgb, var(--text) 70%, var(--surface));
+  --smooth-900: color-mix(in srgb, var(--text) 84%, var(--surface));
+  --smooth-950: color-mix(in srgb, var(--text) 94%, var(--surface));
+  --smooth-1000: var(--text);
+
+  --amber: oklch(0.77 0.16 75);
+
+  --amber-fg: oklch(0.22 0 0);
+
+  --amber-hover: oklch(0.71 0.17 70);
+
+  --blue: oklch(0.62 0.19 256);
+
+  --blue-fg: #fff;
+
+  --blue-hover: oklch(0.56 0.2 256);
+
+  --green: oklch(0.7 0.17 152);
+
+  --green-fg: #fff;
+
+  --green-hover: oklch(0.64 0.18 152);
+
+
 }
+
+/* ============================================================
+   HEROUI TOKENS
+
+   HeroUI's components name their colours semantically (`bg-content1`,
+   `text-foreground-500`, `bg-overlay`), and those names are generated into
+   Tailwind from the block below. This is the entire theme integration: the
+   names point at the palette every other surface here already uses, so a
+   HeroUI modal in Catppuccin Latte is a Catppuccin Latte modal, and the same
+   component costs nothing in a new theme.
+
+   The numeric shades collapse onto the three text tones the app has, which is
+   deliberate — a design system with 400 greys cannot live inside one with
+   three, and pretending otherwise is how a component ends up the wrong colour.
+   ============================================================ */
+@theme {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  /* ---------- shadcn / SmoothUI vocabulary (R15) ----------
+     The 20 SmoothUI components are written against the shadcn token names
+     (`border-border`, `bg-muted`, `text-muted-foreground`, `bg-card`, `ring-ring`,
+     `text-destructive`, `bg-brand`). None of those existed here, so they are
+     mapped onto the app's own variables instead of shadcn's light/dark ramps:
+     every SmoothUI surface therefore follows whichever of the 13 themes is
+     active, the same way the rest of the app does. */
+  --color-border: var(--surface-border);
+  --color-input: var(--surface-border);
+  --color-ring: var(--primary);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-muted: var(--elevated);
+  --color-muted-foreground: var(--text-2);
+  --color-accent: var(--elevated);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-brand: var(--primary);
+  --color-brand-light: color-mix(in srgb, var(--primary) 72%, #ffffff);
+  --color-brand-lighter: color-mix(in srgb, var(--primary) 46%, #ffffff);
+  --color-brand-secondary: var(--secondary);
+  --color-foreground-50: var(--text);
+  --color-foreground-100: var(--text);
+  --color-foreground-200: var(--text-2);
+  --color-foreground-300: var(--text-2);
+  --color-foreground-400: var(--text-3);
+  --color-foreground-500: var(--text-3);
+  --color-foreground-600: var(--text-2);
+  --color-foreground-700: var(--text-2);
+  --color-foreground-800: var(--text);
+  --color-foreground-900: var(--text);
+  --color-content1: var(--surface);
+  --color-content2: var(--elevated);
+  --color-content3: var(--elevated);
+  --color-content4: var(--surface-border);
+  --color-default: var(--elevated);
+  --color-default-50: var(--surface);
+  --color-default-100: var(--elevated);
+  --color-default-200: var(--surface-border);
+  --color-default-300: var(--surface-border);
+  --color-default-400: var(--text-3);
+  --color-default-500: var(--text-3);
+  --color-default-600: var(--text-2);
+  --color-default-700: var(--text-2);
+  --color-default-800: var(--text);
+  --color-default-900: var(--text);
+  --color-default-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-primary-50: color-mix(in srgb, var(--primary) 12%, transparent);
+  --color-primary-100: color-mix(in srgb, var(--primary) 18%, transparent);
+  --color-primary-200: color-mix(in srgb, var(--primary) 28%, transparent);
+  --color-primary-300: color-mix(in srgb, var(--primary) 42%, transparent);
+  --color-primary-400: color-mix(in srgb, var(--primary) 62%, transparent);
+  --color-primary-500: var(--primary);
+  --color-primary-600: var(--primary);
+  --color-primary-700: color-mix(in srgb, var(--primary) 82%, var(--text));
+  --color-primary-800: color-mix(in srgb, var(--primary) 70%, var(--text));
+  --color-primary-900: color-mix(in srgb, var(--primary) 58%, var(--text));
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: #ffffff;
+  --color-secondary-50: color-mix(in srgb, var(--secondary) 12%, transparent);
+  --color-secondary-100: color-mix(in srgb, var(--secondary) 18%, transparent);
+  --color-secondary-200: color-mix(in srgb, var(--secondary) 30%, transparent);
+  --color-secondary-300: color-mix(in srgb, var(--secondary) 46%, transparent);
+  --color-secondary-400: color-mix(in srgb, var(--secondary) 68%, transparent);
+  --color-secondary-500: var(--secondary);
+  --color-secondary-600: var(--secondary);
+  --color-secondary-700: color-mix(in srgb, var(--secondary) 80%, var(--text));
+  --color-secondary-800: color-mix(in srgb, var(--secondary) 68%, var(--text));
+  --color-secondary-900: color-mix(in srgb, var(--secondary) 56%, var(--text));
+  --color-success: var(--success);
+  --color-success-foreground: #ffffff;
+  --color-success-50: color-mix(in srgb, var(--success) 12%, transparent);
+  --color-success-100: color-mix(in srgb, var(--success) 20%, transparent);
+  --color-success-200: color-mix(in srgb, var(--success) 32%, transparent);
+  --color-success-300: color-mix(in srgb, var(--success) 48%, transparent);
+  --color-success-400: color-mix(in srgb, var(--success) 70%, transparent);
+  --color-success-500: var(--success);
+  --color-success-600: var(--success);
+  --color-success-700: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-foreground: #ffffff;
+  --color-warning-50: color-mix(in srgb, var(--warning) 12%, transparent);
+  --color-warning-100: color-mix(in srgb, var(--warning) 20%, transparent);
+  --color-warning-200: color-mix(in srgb, var(--warning) 32%, transparent);
+  --color-warning-300: color-mix(in srgb, var(--warning) 48%, transparent);
+  --color-warning-400: color-mix(in srgb, var(--warning) 70%, transparent);
+  --color-warning-500: var(--warning);
+  --color-warning-600: var(--warning);
+  --color-warning-700: var(--warning);
+  --color-danger: var(--danger);
+  --color-danger-foreground: #ffffff;
+  --color-danger-50: color-mix(in srgb, var(--danger) 12%, transparent);
+  --color-danger-100: color-mix(in srgb, var(--danger) 20%, transparent);
+  --color-danger-200: color-mix(in srgb, var(--danger) 32%, transparent);
+  --color-danger-300: color-mix(in srgb, var(--danger) 48%, transparent);
+  --color-danger-400: color-mix(in srgb, var(--danger) 70%, transparent);
+  --color-danger-500: var(--danger);
+  --color-danger-600: var(--danger);
+  --color-danger-700: var(--danger);
+  --color-divider: var(--surface-border);
+  --color-overlay: var(--scrim);
+  --color-backdrop: var(--scrim);
+  --color-focus: var(--primary);
+
+  /* Shape and depth, mapped onto the scale the rest of the app uses. */
+  --radius-small: var(--radius-chip);
+  --radius-medium: var(--radius-card);
+  --radius-large: var(--radius-modal);
+  --shadow-small: 0 2px 8px -4px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+  --shadow-large: 0 28px 80px -28px rgba(0, 0, 0, 0.65);
+}
+
+/* HeroUI's overlay uses `backdrop-opacity-disabled` to say "dim me with the
+   overlay colour, do not also filter me". In their Tailwind plugin that name
+   is registered as a neutral utility; without the plugin it would be dead —
+   and a dead class name is how a backdrop ends up as an opaque wall. */
+@utility backdrop-opacity-disabled {
+  --tw-backdrop-opacity: 1;
+}
+
+/* ---- HeroUI's own utilities, in Tailwind v4's `@utility` form -------------
+   HeroUI v2 ships its component styles as *class names* and expects its Tailwind
+   plugin to have registered the utility each name resolves to. We deliberately
+   do not use that plugin (it is Tailwind v3 API), so every one of these names
+   was dead text: `scrollbar-hide` on a tab list still showed a scrollbar,
+   `text-tiny` changed nothing, and a disabled tab was not dimmed.
+
+   There is no place in v4 to "add classes to the theme", so they are written
+   out. Values are HeroUI's own, with their `--heroui-*` variables first and the
+   plugin defaults as the fallback — the components then read correctly with or
+   without the provider that would set those variables. */
+
+@utility leading-inherit { line-height: inherit; }
+@utility bg-img-inherit { background-image: inherit; }
+@utility bg-clip-inherit { background-clip: inherit; }
+@utility text-fill-inherit { -webkit-text-fill-color: inherit; }
+@utility tap-highlight-transparent { -webkit-tap-highlight-color: transparent; }
+@utility input-search-cancel-button-none {
+  &::-webkit-search-cancel-button { -webkit-appearance: none; }
+}
+
+/* Scrollbars: `scrollbar-hide` is what the tab list uses to stay one row tall. */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+@utility scrollbar-default {
+  -ms-overflow-style: auto;
+  scrollbar-width: auto;
+  &::-webkit-scrollbar { display: block; }
+}
+
+/* The type scale HeroUI's components ask for by name. */
+@utility text-tiny {
+  font-size: var(--heroui-font-size-tiny, 0.75rem);
+  line-height: var(--heroui-line-height-tiny, 1rem);
+}
+@utility text-small {
+  font-size: var(--heroui-font-size-small, 0.875rem);
+  line-height: var(--heroui-line-height-small, 1.25rem);
+}
+@utility text-medium {
+  font-size: var(--heroui-font-size-medium, 1rem);
+  line-height: var(--heroui-line-height-medium, 1.5rem);
+}
+@utility text-large {
+  font-size: var(--heroui-font-size-large, 1.125rem);
+  line-height: var(--heroui-line-height-large, 1.75rem);
+}
+
+/* State opacities (`opacity-disabled` is on every disabled HeroUI control). */
+@utility opacity-disabled { opacity: var(--heroui-disabled-opacity, 0.5); }
+@utility opacity-hover { opacity: var(--heroui-hover-opacity, 0.8); }
+
+/* Border widths, same names as the plugin's `borderWidth` scale. */
+@utility border-small { border-width: var(--heroui-border-width-small, 1px); }
+@utility border-medium { border-width: var(--heroui-border-width-medium, 2px); }
+@utility border-large { border-width: var(--heroui-border-width-large, 3px); }
 
 /* Theme-matched gradients — same mesh construction, but every stop is mixed
    from the active theme's own primary/secondary/bg, so cards always belong
    to the palette. Enabled via Settings > Appearance. */
 :root[data-grad="theme"] {
+  /* What the theme-derived gradients are mixed *into*. The page colour is right
+   * for dark palettes (deep, saturated cards), but in a light palette mixing a
+   * brand colour with a near-white page produces pastel washes — and everything
+   * that sits on these surfaces is white type, so it disappeared entirely
+   * ("the card is just white"). Light themes therefore mix the same brand
+   * colours into the theme's own text ink, which keeps them deep, keeps them
+   * theme-matched, and keeps the labels readable. */
+  --grad-base: var(--bg);
   --grad-research:
-    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 66%, var(--bg)) 0%, transparent 58%),
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 66%, var(--grad-base)) 0%, transparent 58%),
     radial-gradient(95% 105% at 42% 62%, color-mix(in srgb, var(--primary) 32%, var(--secondary)) 0%, transparent 64%),
-    linear-gradient(160deg, color-mix(in srgb, var(--primary) 26%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--secondary) 22%, var(--bg)) 100%);
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 26%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--secondary) 22%, var(--grad-base)) 100%);
   --grad-math:
-    radial-gradient(120% 150% at 90% -10%, color-mix(in srgb, var(--warning) 70%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -10% 110%, color-mix(in srgb, var(--primary) 55%, var(--bg)) 0%, transparent 60%),
-    linear-gradient(160deg, color-mix(in srgb, var(--warning) 24%, var(--bg)) 0%, var(--bg) 60%, color-mix(in srgb, var(--primary) 20%, var(--bg)) 100%);
+    radial-gradient(120% 150% at 90% -10%, color-mix(in srgb, var(--warning) 70%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -10% 110%, color-mix(in srgb, var(--primary) 55%, var(--grad-base)) 0%, transparent 60%),
+    linear-gradient(160deg, color-mix(in srgb, var(--warning) 24%, var(--grad-base)) 0%, var(--grad-base) 60%, color-mix(in srgb, var(--primary) 20%, var(--grad-base)) 100%);
   --grad-quiz:
-    radial-gradient(125% 150% at 85% -12%, color-mix(in srgb, var(--success) 72%, var(--bg)) 0%, transparent 56%),
-    radial-gradient(115% 135% at -12% 105%, color-mix(in srgb, var(--primary) 60%, var(--bg)) 0%, transparent 58%),
+    radial-gradient(125% 150% at 85% -12%, color-mix(in srgb, var(--success) 72%, var(--grad-base)) 0%, transparent 56%),
+    radial-gradient(115% 135% at -12% 105%, color-mix(in srgb, var(--primary) 60%, var(--grad-base)) 0%, transparent 58%),
     radial-gradient(90% 100% at 55% 70%, color-mix(in srgb, var(--success) 30%, var(--secondary)) 0%, transparent 62%),
-    linear-gradient(155deg, color-mix(in srgb, var(--success) 26%, var(--bg)) 0%, var(--bg) 60%, color-mix(in srgb, var(--primary) 22%, var(--bg)) 100%);
+    linear-gradient(155deg, color-mix(in srgb, var(--success) 26%, var(--grad-base)) 0%, var(--grad-base) 60%, color-mix(in srgb, var(--primary) 22%, var(--grad-base)) 100%);
   --grad-article:
-    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--secondary) 74%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--primary) 62%, var(--bg)) 0%, transparent 58%),
-    linear-gradient(160deg, color-mix(in srgb, var(--secondary) 26%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--primary) 22%, var(--bg)) 100%);
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--secondary) 74%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--primary) 62%, var(--grad-base)) 0%, transparent 58%),
+    linear-gradient(160deg, color-mix(in srgb, var(--secondary) 26%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--primary) 22%, var(--grad-base)) 100%);
   --grad-flood:
-    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--bg)) 0%, transparent 55%),
-    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 70%, var(--bg)) 0%, transparent 58%),
-    linear-gradient(160deg, color-mix(in srgb, var(--primary) 28%, var(--bg)) 0%, var(--bg) 58%, color-mix(in srgb, var(--secondary) 24%, var(--bg)) 100%);
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 70%, var(--grad-base)) 0%, transparent 58%),
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 28%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--secondary) 24%, var(--grad-base)) 100%);
 }
 
+/* Light palettes: the same gradients, mixed into ink instead of page. */
+:root[data-grad="theme"][data-theme="light"],
+:root[data-grad="theme"][data-theme="catppuccin-latte"],
+:root[data-grad="theme"][data-theme="solarized-light"] {
+  /* Mixed into the ink rather than the page, but not pure black: the cards keep
+   * the palette's hue, they just get deep enough for white type. */
+  --grad-base: color-mix(in srgb, var(--text) 86%, var(--primary));
+}
 /* ---------- Default Dark (signature) ---------- */
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -293,6 +579,11 @@
 * { border-color: var(--surface-border); }
 
 html, body, #root { height: 100%; }
+/* The app shell is a fixed-height frame; every view scrolls inside it. Anything
+   rendered next to the shell (an overlay that forgot to be fixed, a stray
+   element) must not be able to grow the document — that is how a duplicate
+   focus timer ended up below the fold and made the page scroll oddly. */
+#root { overflow: hidden; }
 
 body {
   margin: 0;
@@ -416,6 +707,33 @@ body {
 .pane-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; }
 .pane-scroll:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-3) 42%, transparent); }
 .pane-scroll::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text-3) 68%, transparent); }
+
+/* Settings → Developer → UI lab.
+   `.re-ui-flash` is the ring the lab puts around a component in the running
+   app when it takes you to where that component lives; `.re-ui-grid` draws a
+   12px grid behind a preview so alignment problems are visible rather than
+   guessed at. Both are keyed to the app's own variables, so they read
+   correctly in all thirteen themes. */
+@keyframes re-ui-flash {
+  0%, 100% { outline-color: transparent; }
+  25%, 75% { outline-color: var(--primary); }
+}
+.re-ui-flash {
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  border-radius: var(--radius-card, 14px);
+  animation: re-ui-flash 1.4s ease-in-out 2;
+  scroll-margin-block: 30vh;
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-ui-flash { animation: none; outline-color: var(--primary); }
+}
+.re-ui-grid {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--text-3) 16%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--text-3) 16%, transparent) 1px, transparent 1px) !important;
+  background-size: 12px 12px !important;
+}
 
 /* 16ms press acknowledgement — primary actions compress slightly on tap */
 .press-tap { transition: transform 0.016s ease; }
@@ -630,8 +948,19 @@ body {
 /* Chat input: the surrounding surface is the affordance — no focus ring */
 .chat-input:focus-visible, .chat-input:focus { outline: none !important; }
 
-input, textarea, select, button { font: inherit; color: inherit; }
-input::placeholder, textarea::placeholder { color: var(--text-3); }
+/* Form controls take this app's font and colour instead of the browser's.
+ *
+ * This belongs in the base layer, and that is not a detail: an unlayered author
+ * rule outranks *every* layered one, so while this sat outside `@layer base` it
+ * silently overrode every Tailwind utility that set a colour on a button —
+ * including the vendored React Bits controls, which is how an armed send
+ * button could fill itself with the light ink and then draw its arrow in the
+ * same colour (a white square), and how the dictation pill could never show
+ * its listening colour. Utilities are meant to win over a reset; now they do. */
+@layer base {
+  input, textarea, select, button { font: inherit; color: inherit; }
+  input::placeholder, textarea::placeholder { color: var(--text-3); }
+}
 
 /* Rubber-band sheets */
 .sheet-scrim { background: var(--scrim); backdrop-filter: blur(6px); }
@@ -703,3 +1032,2322 @@ input::placeholder, textarea::placeholder { color: var(--text-3); }
   :root[data-glass="liquid"] .glass-chat::before,
   :root[data-glass="liquid"] .island-glass::before { display: none; }
 }
+
+/* ================================================================== */
+/* IDE shell (Coding / Design mode)                                    */
+/*                                                                     */
+/* The workbench is denser than the rest of the app but it must still   */
+/* belong to the SAME theme the user picked: every token below is       */
+/* derived from the active theme variables, so switching to Catppuccin  */
+/* or a light theme re-skins the editor too. Only the *proportions*     */
+/* (row heights, tab strip, panel chrome) are IDE-specific.             */
+/* ================================================================== */
+.ide-shell {
+  /* Surfaces: the editor sits one step "deeper" than the app chrome. */
+  --ide-bg: var(--bg);
+  --ide-panel: color-mix(in srgb, var(--surface) 88%, var(--bg));
+  --ide-elevated: var(--elevated);
+  --ide-hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --ide-active: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  --ide-border: var(--surface-border);
+  --ide-border-strong: color-mix(in srgb, var(--text) 16%, transparent);
+  --ide-text: var(--text);
+  --ide-dim: var(--text-2);
+  --ide-faint: var(--text-3);
+  --ide-accent: var(--primary);
+  --ide-accent-soft: color-mix(in srgb, var(--primary) 14%, transparent);
+  --ide-accent-ink: #fff;
+  --ide-cyan: var(--secondary);
+  --ide-warn: var(--warning);
+  --ide-danger: var(--danger);
+  --ide-code-bg: var(--code-bg);
+  --ide-shadow: 0 18px 48px -22px rgba(0, 0, 0, 0.55);
+
+  background: var(--ide-bg);
+  color: var(--ide-text);
+  font-size: 12.5px;
+}
+/* Light themes need a shallower shadow and a darker accent ink check. */
+:root[data-theme="light"] .ide-shell,
+:root[data-theme="catppuccin-latte"] .ide-shell,
+:root[data-theme="solarized-light"] .ide-shell {
+  --ide-shadow: 0 16px 40px -24px rgba(15, 23, 42, 0.28);
+}
+
+.ide-shell * { border-color: var(--ide-border); }
+.ide-shell ::selection { background: color-mix(in srgb, var(--ide-accent) 30%, transparent); }
+.ide-shell *::-webkit-scrollbar { width: 9px; height: 9px; }
+.ide-shell *::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 16%, transparent); border-radius: 99px; }
+.ide-shell *::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text) 28%, transparent); }
+.ide-shell *::-webkit-scrollbar-track { background: transparent; }
+
+/* Syntax highlighting follows the theme's own token colours (no IDE override). */
+
+/* ---------- controls ---------- */
+.ide-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 10px; border-radius: 7px;
+  font-size: 11.5px; color: var(--ide-dim);
+  background: transparent; border: 1px solid transparent;
+  transition: background 140ms var(--ease-ios), color 140ms var(--ease-ios),
+              border-color 140ms var(--ease-ios), transform 140ms var(--ease-ios);
+  white-space: nowrap;
+}
+.ide-btn:hover:not(:disabled) { background: var(--ide-hover); color: var(--ide-text); }
+/* iOS-style tactile press on every IDE control. */
+.ide-btn:active:not(:disabled), .ide-icon-btn:active:not(:disabled), .ide-chip:active:not(:disabled) { transform: scale(0.97); }
+.ide-btn:active:not(:disabled) { transform: scale(0.97); }
+.ide-btn:disabled { opacity: 0.4; }
+.ide-btn.outlined { border-color: var(--ide-border-strong); }
+.ide-btn.outlined:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border-strong)); color: var(--ide-text); }
+.ide-btn.primary { background: var(--ide-accent); color: var(--ide-accent-ink); font-weight: 600; }
+.ide-btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--ide-accent) 88%, var(--text)); }
+.ide-btn.soft { background: var(--ide-accent-soft); color: var(--ide-accent); }
+.ide-btn.soft:hover:not(:disabled) { background: color-mix(in srgb, var(--ide-accent) 22%, transparent); }
+.ide-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 7px; color: var(--ide-dim);
+  transition: background 140ms var(--ease-ios), color 140ms var(--ease-ios), transform 140ms var(--ease-ios);
+}
+.ide-icon-btn:hover { background: var(--ide-hover); color: var(--ide-text); }
+.ide-icon-btn:active { transform: scale(0.94); }
+.ide-icon-btn.active { background: var(--ide-active); color: var(--ide-text); }
+
+/* segmented control: [Preview | Code] + Design */
+.ide-seg {
+  display: inline-flex; align-items: center; padding: 2px; gap: 2px;
+  border-radius: 9px; background: color-mix(in srgb, var(--text) 7%, transparent);
+  border: 1px solid var(--ide-border);
+}
+.ide-seg > button {
+  height: 22px; padding: 0 11px; border-radius: 7px; font-size: 11.5px; color: var(--ide-dim);
+  transition: background 180ms var(--ease-ios), color 180ms var(--ease-ios), transform 140ms var(--ease-ios);
+}
+.ide-seg > button:hover { color: var(--ide-text); }
+.ide-seg > button:active { transform: scale(0.97); }
+.ide-seg > button[data-active="true"] { background: var(--surface); color: var(--ide-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
+.ide-seg > button.design[data-active="true"] { background: var(--ide-accent); color: var(--ide-accent-ink); font-weight: 600; }
+
+/* badges (status pills) */
+.ide-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; line-height: 1; padding: 3px 7px; border-radius: 999px;
+  border: 1px solid var(--ide-border-strong); color: var(--ide-dim); background: transparent;
+}
+.ide-badge.accent { color: var(--ide-accent); border-color: color-mix(in srgb, var(--ide-accent) 35%, transparent); background: var(--ide-accent-soft); }
+.ide-badge.cyan { color: var(--ide-cyan); border-color: color-mix(in srgb, var(--ide-cyan) 35%, transparent); background: color-mix(in srgb, var(--ide-cyan) 14%, transparent); }
+.ide-badge.danger { color: var(--ide-danger); border-color: color-mix(in srgb, var(--ide-danger) 35%, transparent); background: color-mix(in srgb, var(--ide-danger) 12%, transparent); }
+.ide-badge.warn { color: var(--ide-warn); border-color: color-mix(in srgb, var(--ide-warn) 35%, transparent); background: color-mix(in srgb, var(--ide-warn) 12%, transparent); }
+
+/* ---------- tabs ---------- */
+.ide-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 10px 0 12px; font-size: 11.5px;
+  color: var(--ide-faint); border-right: 1px solid var(--ide-border);
+  border-top: 1px solid transparent; background: transparent;
+  transition: color 160ms var(--ease-ios), background 160ms var(--ease-ios);
+}
+.ide-tab:hover { color: var(--ide-dim); background: var(--ide-hover); }
+.ide-tab[data-active="true"] { background: var(--ide-bg); color: var(--ide-text); border-top-color: var(--ide-accent); }
+/* Tabs scroll sideways without the strip jumping between rows. */
+.ide-tabstrip { scrollbar-width: none; overscroll-behavior-x: contain; scroll-behavior: smooth; }
+.ide-tabstrip::-webkit-scrollbar { height: 0; }
+/* Hollow amber dot: "this file changed on disk". */
+.ide-stale-dot {
+  width: 6px; height: 6px; border-radius: 99px; flex: none; margin-left: 2px;
+  border: 1.5px solid var(--ide-warn); background: transparent;
+  animation: ios-pop-in 260ms var(--ease-spring) both;
+}
+
+/* ---------- tree / list rows ---------- */
+.ide-row { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11.5px; color: var(--ide-dim); }
+.ide-row:hover { background: var(--ide-hover); color: var(--ide-text); }
+.ide-row[data-active="true"] { background: var(--ide-active); color: var(--ide-text); }
+.ide-row .name-dirty { color: var(--ide-accent); }
+.ide-section {
+  font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ide-faint); font-weight: 600;
+}
+
+/* ---------- inputs ---------- */
+.ide-input {
+  width: 100%; height: 26px; padding: 0 8px; border-radius: 7px;
+  background: color-mix(in srgb, var(--bg) 65%, var(--surface));
+  border: 1px solid var(--ide-border);
+  color: var(--ide-text); font-size: 11.5px; outline: none;
+  transition: border-color 160ms var(--ease-ios), box-shadow 160ms var(--ease-ios);
+}
+.ide-input:focus { border-color: color-mix(in srgb, var(--ide-accent) 50%, var(--ide-border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ide-accent) 18%, transparent); }
+.ide-input::placeholder { color: var(--ide-faint); }
+
+/* ---------- terminal / panel ---------- */
+/* ---------- the workbench canvas: nested panels, not shared hairlines ----- */
+/* Tahoe draws a Finder window as surfaces floating on one background: the
+   sidebar is a rounded panel, the inspector is another, and the gap between
+   them is the window. The workspace is drawn the same way — the rail, the
+   explorer, the editor, the panel below it and the assistant are each their own
+   surface with a gutter around them, so nothing shares an edge with anything. */
+.ide-canvas {
+  gap: 6px;
+  padding: 6px 6px 0;
+  background: var(--ide-bg);
+}
+.ide-pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--ide-border);
+  border-radius: 13px;
+  background: var(--ide-panel);
+  animation: ide-pane-in 300ms var(--ease-ios) both;
+}
+@keyframes ide-pane-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ide-pane { animation: none; } }
+.ide-pane-elev { box-shadow: var(--ide-shadow); }
+.ide-rail { padding-top: 6px; padding-bottom: 6px; }
+/* The groups of a toolbar, drawn like the status pills: one glass surface per
+   group with the canvas showing between them. */
+.ide-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--ide-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ide-panel) 76%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+/* The horizontal twin of .re-split-handle: the panel's own gutter. */
+.re-split-handle-h {
+  position: relative;
+  height: 6px;
+  margin: -3px 0;
+  cursor: row-resize;
+  flex: none;
+  z-index: 5;
+  background: transparent;
+}
+.re-split-handle-h::after {
+  content: '';
+  position: absolute;
+  inset: 2px 45% 2px 45%;
+  border-radius: 999px;
+  background: var(--ide-border);
+  transition: inset 160ms ease, background 160ms ease;
+}
+.re-split-handle-h:hover::after, .re-split-handle-h:active::after {
+  inset: 2px 20% 2px 20%;
+  background: var(--ide-accent);
+}
+/* A row of the inspector's rail: two tiers beat one row that scrolls. */
+.ide-rail-row { display: flex; align-items: center; gap: 2px; overflow-x: auto; }
+/* A shot in the filmstrip: the picture is the card, the actions appear on it. */
+.ide-shot {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--ide-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ide-elevated);
+}
+.ide-shot img { display: block; width: 100%; }
+.ide-shot-meta {
+  padding: 4px 8px;
+  font-size: 10.5px;
+  color: var(--ide-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ide-shot-actions {
+  position: absolute;
+  left: 6px; right: 6px; bottom: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ide-panel) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 160ms var(--ease-ios), transform 160ms var(--ease-ios);
+  pointer-events: none;
+}
+.ide-shot:hover .ide-shot-actions,
+.ide-shot:focus-within .ide-shot-actions {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ide-shot-actions { transition: none; transform: none; }
+}
+.ide-panel-strip { background: color-mix(in srgb, var(--ide-panel) 62%, var(--ide-bg)); }
+
+/* The status bar is two glass pills with the canvas showing between them. */
+.ide-statuspill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--ide-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ide-panel) 76%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* One row of the welcome window. */
+.ide-welcomerow { border-top: 1px solid var(--ide-border); }
+.ide-welcomerow:first-child { border-top: 0; }
+.ide-welcomerow:hover { background: var(--ide-hover); }
+.ide-welcomerow:active { background: var(--ide-active); }
+.ide-caret { display: inline-block; width: 7px; height: 14px; background: var(--ide-accent); vertical-align: -2px; margin-left: 2px; animation: ide-blink 1.1s step-end infinite; }
+@keyframes ide-blink { 50% { opacity: 0; } }
+
+/* ---------- agent panel (composer) ---------- */
+.ide-composer {
+  border: 1px solid var(--ide-border-strong); border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+  transition: border-color 200ms var(--ease-ios), box-shadow 200ms var(--ease-ios);
+}
+.ide-composer:focus-within {
+  border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border-strong));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ide-accent) 14%, transparent);
+}
+.ide-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 8px; border-radius: 999px;
+  font-size: 10.5px; color: var(--ide-dim);
+  border: 1px solid var(--ide-border-strong); background: transparent;
+  transition: color 150ms var(--ease-ios), border-color 150ms var(--ease-ios), transform 120ms var(--ease-ios);
+}
+.ide-chip:hover { color: var(--ide-text); border-color: color-mix(in srgb, var(--ide-accent) 35%, var(--ide-border-strong)); }
+.ide-chip:active { transform: scale(0.96); }
+.ide-chip[data-active="true"] { background: var(--ide-accent-soft); border-color: color-mix(in srgb, var(--ide-accent) 45%, transparent); color: var(--ide-accent); }
+.ide-msg-user { background: color-mix(in srgb, var(--ide-accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ide-accent) 22%, transparent); border-radius: 12px; }
+.ide-msg-agent { background: var(--ide-elevated); border: 1px solid var(--ide-border); border-radius: 12px; }
+.ide-diff-add { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.ide-diff-del { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+
+/* progress: segmented bars */
+.ide-progress { display: flex; gap: 3px; }
+.ide-progress > i { flex: 1; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--text) 9%, transparent); transition: background 260ms var(--ease-ios); }
+.ide-progress > i.on { background: var(--ide-cyan); }
+
+/* ================================================================== */
+/* Gradient settle — colours travel into place instead of snapping     */
+/* ================================================================== */
+/* Registered properties are animatable, so the mesh can genuinely move
+   rather than cross-fade. Browsers without @property simply skip it. */
+@property --grad-drift-x { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --grad-drift-y { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --grad-tilt { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+
+.grad-research, .grad-math, .grad-quiz, .grad-article, .grad-flood {
+  background-size: 100% 100%;
+  background-position: var(--grad-drift-x) var(--grad-drift-y);
+  transition: background-position 900ms var(--ease-ios), filter 900ms var(--ease-ios);
+}
+
+@keyframes re-grad-pan {
+  0%   { --grad-drift-x: 8%;  --grad-drift-y: 6%;  filter: saturate(1.45) brightness(1.1); }
+  28%  { --grad-drift-x: 82%; --grad-drift-y: 34%; filter: saturate(1.3) brightness(1.05); }
+  58%  { --grad-drift-x: 24%; --grad-drift-y: 88%; filter: saturate(1.16) brightness(1.02); }
+  100% { --grad-drift-x: 50%; --grad-drift-y: 50%; filter: none; }
+}
+
+/* While settling, every gradient surface is oversized a touch so the mesh
+   visibly slides across it — the colour arrives rather than appearing. */
+.re-grad-settle .grad-research,
+.re-grad-settle .grad-math,
+.re-grad-settle .grad-quiz,
+.re-grad-settle .grad-article,
+.re-grad-settle .grad-flood {
+  background-size: 168% 168%;
+  animation: re-grad-pan 1150ms var(--ease-ios) both;
+  will-change: background-position, filter;
+}
+
+/* ================================================================== */
+/* Reading mode — motion with a purpose                                */
+/* Everything here is one-shot (entrance, ink, flash) so a long        */
+/* document never re-animates while you are reading it, and the whole  */
+/* block is disabled under reduce-motion.                              */
+/* ================================================================== */
+@keyframes re-ink-swipe {
+  from { background-size: 0% 100%; }
+  to   { background-size: 100% 100%; }
+}
+@keyframes re-flash {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); }
+  40%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 12%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* The highlight washing in, like a marker being drawn. */
+.re-mark { background-repeat: no-repeat; transition: background-color 200ms ease; }
+.re-mark-ink { animation: re-ink-swipe 480ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* A paragraph you jumped to pulses once so the eye finds it. */
+.re-para-flash { animation: re-flash 1000ms ease-out; border-radius: 8px; }
+
+/* The paragraph you just marked keeps a whisper of colour for a moment, so the
+   new highlight has somewhere to land instead of appearing out of nowhere. */
+.re-para-fresh { position: relative; }
+.re-para-fresh::before {
+  content: '';
+  position: absolute;
+  inset: -6px -10px;
+  border-radius: 10px;
+  background: var(--primary);
+  opacity: 0;
+  pointer-events: none;
+  animation: re-fresh-fade 700ms ease-out both;
+}
+@keyframes re-fresh-fade { from { opacity: 0.10; } to { opacity: 0; } }
+
+/* Paragraphs carry no transform once settled — transform on text harms
+   subpixel rendering, so it is cleared by the entrance animation itself. */
+.re-para { will-change: opacity, transform; }
+.re-para:hover { }
+
+/* Figures fade up as they arrive. */
+.re-figure { animation: re-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes re-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.995); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The progress rail glides instead of stepping. */
+.re-rail { transition: height 180ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+.reduce-motion .re-mark-ink,
+.reduce-motion .re-para-flash,
+.reduce-motion .re-para-fresh::before,
+.reduce-motion .re-figure { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .re-mark-ink, .re-para-flash, .re-para-fresh::before, .re-figure { animation: none; }
+  .re-rail { transition: none; }
+}
+
+/* ================================================================== */
+/* Study lists — cleanly marked steps and bullets in Read & Quiz       */
+/* The text arrives in whatever dialect the model used; the reader      */
+/* normalises it and draws its own markers so every list looks alike.   */
+/* ================================================================== */
+.study-list, .study-steps { list-style: none; margin: 1em 0; padding: 0; }
+.study-list .study-list { margin: 0.35em 0 0.15em; }
+.study-li {
+  position: relative; padding-left: 26px; margin-bottom: 0.45em;
+  line-height: inherit;
+}
+.study-li:last-child { margin-bottom: 0; }
+.study-text { display: inline; }
+
+/* Bullets: a small tilted square in the theme's accent. */
+.study-list > .study-li > .study-marker {
+  position: absolute; left: 5px; top: 0.62em;
+  width: 7px; height: 7px; border-radius: 2px;
+  background: color-mix(in srgb, var(--primary) 80%, var(--text));
+  transform: rotate(45deg);
+}
+.study-list .study-list > .study-li > .study-marker {
+  background: color-mix(in srgb, var(--secondary) 85%, var(--text));
+  width: 5px; height: 5px;
+}
+
+/* Steps: a counted badge, so a renumbered list always reads 1, 2, 3. */
+.study-steps { counter-reset: study-step var(--study-start, 0); }
+.study-steps > .study-li { counter-increment: study-step; padding-left: 32px; margin-bottom: 0.6em; }
+.study-steps > .study-li > .study-marker {
+  position: absolute; left: 0; top: 0.12em;
+  width: 22px; height: 22px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: Inter, system-ui, sans-serif; font-size: 11.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.study-steps > .study-li > .study-marker::after { content: counter(study-step); }
+/* A bullet that belongs to a step sits inside the step, indented to its text. */
+.study-steps .study-list { margin-left: 32px; }
+
+/* ================================================================== */
+/* Humanized answers (chat only)                                       */
+/* Green = the rewrite · red = the previous response                   */
+/* ================================================================== */
+.humanized-block { position: relative; }
+.humanized-text {
+  color: var(--success);
+  border-left: 2px solid color-mix(in srgb, var(--success) 45%, transparent);
+  padding-left: 12px; margin-left: -14px;
+  border-radius: 2px;
+  outline: none;
+  transition: background 160ms var(--ease-ios), border-color 160ms var(--ease-ios);
+}
+.humanized-text:hover, .humanized-text:focus-visible {
+  background: color-mix(in srgb, var(--success) 7%, transparent);
+  border-left-color: var(--success);
+}
+/* Markdown inside the rewrite keeps the humanized ink, links stay readable. */
+.humanized-text a { color: var(--success); text-decoration: underline; text-underline-offset: 2px; }
+.humanized-text code, .humanized-text pre { color: var(--text); }
+
+.previous-text {
+  color: var(--danger);
+  border-left: 2px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  padding-left: 12px;
+  border-radius: 2px;
+}
+.previous-text a { color: var(--danger); text-decoration: underline; }
+.previous-text code, .previous-text pre { color: var(--text); }
+.previous-text * { color: inherit; }
+
+.humanize-tip {
+  position: fixed; z-index: 70; border-radius: 16px; overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+.humanize-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 32%, transparent);
+}
+.humanize-action {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 500; cursor: pointer;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  transition: background 160ms var(--ease-ios), transform 160ms var(--ease-ios), border-color 160ms var(--ease-ios);
+}
+.humanize-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+  transform: translateY(-1px);
+}
+.humanize-action:active:not(:disabled) { transform: scale(0.97); }
+.humanize-action:disabled { opacity: 0.7; cursor: progress; }
+
+.humanize-mini {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 7px; border-radius: 999px; font-size: 10.5px; cursor: pointer;
+  color: var(--text-2); border: 1px solid var(--surface-border);
+  transition: color 140ms var(--ease-ios), border-color 140ms var(--ease-ios), transform 140ms var(--ease-ios);
+}
+.humanize-mini:hover { color: var(--text); border-color: color-mix(in srgb, var(--text) 24%, transparent); }
+.humanize-mini:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .humanize-mini:active { transform: none; }
+}
+
+/* ================================================================== */
+/* iOS-flavoured motion + materials                                    */
+/* ================================================================== */
+:root {
+  /* Apple's sheet/ease-out curve, and a soft spring for scale pops. */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ios-material {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(1.7);
+  backdrop-filter: blur(28px) saturate(1.7);
+  border: 1px solid var(--ide-border-strong, var(--surface-border));
+  box-shadow: var(--ide-shadow, 0 18px 48px -22px rgba(0, 0, 0, 0.55));
+}
+.ios-press { transition: transform 140ms var(--ease-ios), opacity 140ms var(--ease-ios); }
+.ios-press:active { transform: scale(0.96); }
+.ios-lift { transition: transform 220ms var(--ease-ios), box-shadow 220ms var(--ease-ios); }
+.ios-lift:hover { transform: translateY(-2px); box-shadow: var(--ide-shadow, 0 18px 48px -22px rgba(0, 0, 0, 0.45)); }
+
+@keyframes ios-pop-in {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.ios-pop { animation: ios-pop-in 260ms var(--ease-spring) both; }
+
+@keyframes ios-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ios-rise { animation: ios-fade-up 320ms var(--ease-ios) both; }
+
+/* Sheen sweep used on the floating assistant pill. */
+@keyframes ios-sheen {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+.ios-sheen::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, #fff 12%, transparent) 48%, transparent 62%);
+  animation: ios-sheen 4.5s var(--ease-ios) 1.2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-pop, .ios-rise, .ios-sheen::after { animation: none; }
+  .ios-press:active, .ios-lift:hover { transform: none; }
+  .ide-btn:active:not(:disabled), .ide-icon-btn:active:not(:disabled), .ide-chip:active:not(:disabled) { transform: none; }
+}
+
+/* ================================================================== */
+/* The dock — collapsed sidebar                                        */
+/* Modeled on the macOS dock and Cult UI's Dock component: the icon    */
+/* under the pointer swells, its neighbours lean away to make room,    */
+/* and its name appears beside it. The movement lives in framer-motion */
+/* (springs), this is only the surface treatment.                      */
+/* ================================================================== */
+.re-dock {
+  position: relative;
+  gap: 2px;
+  /* The rail is 60px wide; the labels fly out of it, so nothing may clip. */
+  overflow: visible;
+}
+.re-dock-item { will-change: transform; }
+.re-dock-label {
+  /* Above the page content, never in the way of the pointer. */
+  z-index: 20;
+  pointer-events: none;
+  backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--glass);
+  border: 1px solid var(--surface-border);
+}
+/* A quiet shelf edge, so the rail reads as a surface rather than a gap. */
+.re-dock::before {
+  content: '';
+  position: absolute;
+  left: 6px; right: 6px; top: 4px; bottom: 6px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--elevated) 40%, transparent);
+  opacity: 0;
+  transition: opacity 220ms var(--ease-ios, ease-out);
+  pointer-events: none;
+}
+.re-dock:hover::before { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Without motion the dock still has to work: no lean, no swell. */
+  .re-dock-item { transform: none !important; }
+}
+.reduce-motion .re-dock-item { transform: none !important; }
+
+/* ================================================================== */
+/* Toasts — Sonner (emilkowalski), wearing the app's existing toast    */
+/*                                                                     */
+/* Sonner is the engine (hover-to-pause, stacking, swipe-to-dismiss);  */
+/* the surface is the one this app already had: `.glass-chat` — the    */
+/* same blurred glass as the chatbox and the Dynamic Island, so it     */
+/* follows Settings → Appearance → Glass mode (off / blur / liquid).   */
+/* Tone is carried by one colour on the icon, exactly as before; the   */
+/* card itself is never repainted, which is what keeps it readable in  */
+/* every theme.                                                        */
+/* ================================================================== */
+.re-sonner-toast {
+  /* This block is the old toast's surface (`glass` + hairline + that shadow),
+     mirrored instead of reused: `.glass-chat` sets `position: relative` in
+     liquid mode, and Sonner stacks its toasts with position: absolute. */
+  background: var(--glass) !important;
+  border: 1px solid var(--surface-border) !important;
+  color: var(--text) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.45) !important;
+  /* Glass mode off (the default): exactly what the previous toast used — the
+     `.glass` surface, blur(24px) saturate(1.4). */
+  -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
+  backdrop-filter: blur(24px) saturate(1.4) !important;
+  padding: 12px !important;
+  gap: 10px !important;
+  /* The old toast aligned its icon to the first line of text, not to the
+     middle of a two-line body. */
+  align-items: flex-start !important;
+  /* Sonner's icon slot ships negative inline margins; line it up with the
+     text the way the old stack did instead. */
+  --toast-icon-margin-start: 0px;
+  --toast-icon-margin-end: 0px;
+  --toast-svg-margin-start: 0px;
+  --toast-svg-margin-end: 0px;
+}
+.re-sonner-title {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  color: var(--text) !important;
+}
+.re-sonner-desc {
+  font-size: 12px !important;
+  line-height: 1.375 !important;
+  color: var(--text-2) !important;
+  margin-top: 2px !important;
+}
+/* Sonner marks the icon slot with [data-icon]; the classNames hook is kept too
+   so the styling survives a change to either. */
+.re-sonner-icon,
+[data-sonner-toast] [data-icon] {
+  margin-top: 2px !important;   /* the old mt-0.5 */
+  flex-shrink: 0 !important;
+  height: auto !important;
+}
+.re-sonner-icon svg,
+[data-sonner-toast] [data-icon] svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Tone: the icon, and nothing else. */
+.re-toast-info .re-sonner-icon svg, [data-sonner-toast].re-toast-info [data-icon] svg { color: var(--primary); }
+.re-toast-success .re-sonner-icon svg, [data-sonner-toast].re-toast-success [data-icon] svg { color: var(--success); }
+.re-toast-warning .re-sonner-icon svg, [data-sonner-toast].re-toast-warning [data-icon] svg { color: var(--warning); }
+.re-toast-danger .re-sonner-icon svg, [data-sonner-toast].re-toast-danger [data-icon] svg { color: var(--danger); }
+
+/* The dismiss: a quiet little X in the corner, as before — not a button.
+   (Sonner also marks it [data-close-button]; both hooks are styled.) */
+.re-sonner-close,
+[data-sonner-toast] [data-close-button] {
+  top: 8px !important;
+  right: 8px !important;
+  left: auto !important;
+  transform: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--text-3) !important;
+  opacity: 0.85;
+}
+.re-sonner-close:hover,
+[data-sonner-toast] [data-close-button]:hover { color: var(--text) !important; opacity: 1; background: var(--elevated) !important; }
+.re-sonner-close svg,
+[data-sonner-toast] [data-close-button] svg { width: 13px !important; height: 13px !important; }
+.re-sonner-action { font-size: 12px !important; }
+
+/* Glass mode, mirrored from .glass-chat so a toast matches the chatbox.
+   The specular sweep is an extra background layer, never a pseudo-element:
+   Sonner already uses ::before (swipe) and ::after (expanded gap). */
+:root[data-glass="liquid"] .re-sonner-toast {
+  background:
+    linear-gradient(115deg, transparent 18%, color-mix(in srgb, #fff 14%, transparent) 38%, color-mix(in srgb, #fff 4%, transparent) 47%, transparent 60%),
+    color-mix(in srgb, var(--glass) 62%, transparent) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend) !important;
+  backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend) !important;
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--surface-border)) !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 22%, transparent) inset,
+    0 -1px 0 color-mix(in srgb, #000 18%, transparent) inset,
+    0 16px 48px -20px rgba(0, 0, 0, 0.5) !important;
+}
+:root[data-glass="blur"] .re-sonner-toast {
+  background: color-mix(in srgb, var(--glass) 70%, transparent) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  backdrop-filter: blur(14px) !important;
+  box-shadow: 0 12px 36px -18px rgba(0, 0, 0, 0.45) !important;
+}
+/* Reduce-motion: arrive, do not animate. Sonner's stacking is the point of
+   the library, so it stays — only the entrance/exit is flattened. */
+.re-toast-static [data-sonner-toast] { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast] { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+
+/* ================================================================== */
+/* Icon entrance + micro-motion                                        */
+/*                                                                     */
+/* Every lucide icon fades and settles in instead of blinking into     */
+/* place, and interactive icons answer the pointer with a small lift.  */
+/* Spinners and pulses are excluded — their own animation must win —   */
+/* and the whole block stands down under reduce-motion.                */
+/* ================================================================== */
+@keyframes re-icon-in {
+  from { opacity: 0; transform: scale(0.82) translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+svg.lucide:not(.animate-spin):not(.animate-pulse):not(.animate-ping):not(.animate-bounce):not([data-static-icon]) {
+  animation: re-icon-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), color 220ms ease;
+}
+/* Interactive icons: the icon responds, not just its button. */
+button:hover > svg.lucide, [role="button"]:hover > svg.lucide, a:hover > svg.lucide {
+  transform: scale(1.09);
+}
+button:active > svg.lucide, [role="button"]:active > svg.lucide { transform: scale(0.94); }
+
+/* Groups whose icons should arrive in sequence rather than all at once. */
+.re-icon-stagger > * > svg.lucide,
+.re-icon-stagger > svg.lucide { animation-delay: calc(var(--i, 0) * 45ms); }
+.re-icon-stagger > *:nth-child(1) > svg.lucide { animation-delay: 0ms; }
+.re-icon-stagger > *:nth-child(2) > svg.lucide { animation-delay: 45ms; }
+.re-icon-stagger > *:nth-child(3) > svg.lucide { animation-delay: 90ms; }
+.re-icon-stagger > *:nth-child(4) > svg.lucide { animation-delay: 135ms; }
+.re-icon-stagger > *:nth-child(5) > svg.lucide { animation-delay: 180ms; }
+.re-icon-stagger > *:nth-child(6) > svg.lucide { animation-delay: 225ms; }
+.re-icon-stagger > *:nth-child(7) > svg.lucide { animation-delay: 270ms; }
+.re-icon-stagger > *:nth-child(8) > svg.lucide { animation-delay: 315ms; }
+.re-icon-stagger > *:nth-child(n+9) > svg.lucide { animation-delay: 360ms; }
+
+/* ================================================================== */
+/* Quiz — the card, the options, the moment of answering               */
+/*                                                                     */
+/* Structure follows the reference card: centred source pills, a big   */
+/* centred title, a hairline rule, the question, then full-width       */
+/* option rows carrying a radio ring. Interaction is the part that has */
+/* to feel alive: options rise in one after another, the ring springs  */
+/* when picked, a pointer-tracked glow follows the cursor, and the     */
+/* answer lands with a sweep, a shake or a check that pops.            */
+/* ================================================================== */
+.re-quiz-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 26px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 28px 90px -32px rgba(0, 0, 0, 0.55);
+}
+/* A hint of the accent breathing at the top edge, like a lit surface. */
+.re-quiz-card::before {
+  content: '';
+  position: absolute;
+  inset: -40% 20% auto 20%;
+  height: 60%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 26%, transparent), transparent);
+  filter: blur(30px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.re-quiz-rule { height: 1px; background: var(--surface-border); border: 0; }
+
+.re-quiz-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.re-quiz-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  text-align: left;
+  background: var(--elevated);
+  border: 2px solid transparent;
+  color: var(--text);
+  transition: background 200ms ease, border-color 200ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms ease;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The pointer-tracked glow (set --mx/--my in the component). */
+.re-quiz-option::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(140px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--primary) 22%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+  z-index: -1;
+}
+.re-quiz-option:hover::after { opacity: 1; }
+.re-quiz-option:not([data-locked="true"]):hover { transform: translateY(-1px); background: color-mix(in srgb, var(--elevated) 70%, var(--surface-border)); }
+.re-quiz-option:not([data-locked="true"]):active { transform: scale(0.99); }
+.re-quiz-option[data-state="picked"] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--elevated));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 14%, transparent), 0 14px 34px -18px color-mix(in srgb, var(--primary) 60%, transparent);
+}
+.re-quiz-option[data-state="correct"] {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 16%, var(--elevated));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 14%, transparent);
+}
+.re-quiz-option[data-state="wrong"] {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--elevated));
+}
+.re-quiz-option[data-state="dim"] { opacity: 0.5; }
+/* The pointer ring the reference shows: a soft outline that only appears on
+   the option the cursor is actually over. */
+.re-quiz-option[data-hovered="true"] { border-color: color-mix(in srgb, var(--primary) 55%, transparent); }
+
+.re-quiz-radio {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--text-3) 70%, transparent);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+.re-quiz-radio[data-on="true"] { border-color: var(--primary); }
+.re-quiz-radio[data-on="true"][data-tone="success"] { border-color: var(--success); }
+.re-quiz-radio[data-on="true"][data-tone="danger"] { border-color: var(--danger); }
+.re-quiz-radio i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+.re-quiz-radio[data-tone="success"] i { background: var(--success); }
+.re-quiz-radio[data-tone="danger"] i { background: var(--danger); }
+
+@keyframes re-quiz-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(5px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  80% { transform: translateX(-1px); }
+}
+.re-quiz-shake { animation: re-quiz-shake 460ms cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+
+@keyframes re-quiz-sweep { from { transform: translateX(-101%); } to { transform: translateX(0); } }
+.re-quiz-sweep { animation: re-quiz-sweep 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* The progress capsule for the question you are on breathes. */
+@keyframes re-quiz-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.re-quiz-capsule-current { animation: re-quiz-pulse 1.8s ease-in-out infinite; }
+
+/* ================================================================== */
+/* Sidebar (expanded) — hover that answers                             */
+/* ================================================================== */
+.re-nav-item {
+  position: relative;
+  transition: background 220ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-nav-item:hover { background: color-mix(in srgb, var(--elevated) 80%, transparent); transform: translateX(2px); }
+.re-nav-item:hover svg.lucide { transform: scale(1.12) rotate(-3deg); }
+.re-nav-item:active { transform: translateX(2px) scale(0.99); }
+/* react-router marks the current row aria-current="page" — no extra prop */
+.re-nav-item[aria-current="page"] svg.lucide { animation: none; }
+/* The active marker: one element that slides between rows (framer layoutId),
+   lifted off the background so the row it belongs to reads as chosen. */
+.re-nav-indicator { box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 55%, transparent); }
+
+/* Rows that reveal their actions only when you are on them. */
+.re-row-actions { opacity: 0; transform: translateX(4px); transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1); }
+.re-row:hover .re-row-actions, .re-row:focus-within .re-row-actions { opacity: 1; transform: none; }
+
+/* ================================================================== */
+/* Page transitions — the shell stays, the page arrives                */
+/*                                                                     */
+/* Navigation is wrapped in the View Transitions API where it exists   */
+/* (see hooks/useViewTransitions). The sidebar and top bar are named   */
+/* so they hold still while the page cross-fades, and the active nav   */
+/* marker carries `re-nav` so it visibly travels from the old item to  */
+/* the new one instead of blinking.                                    */
+/* ================================================================== */
+@media (min-width: 768px) {
+  .re-vt-topbar { view-transition-name: re-topbar; }
+  .re-vt-sidebar { view-transition-name: re-sidebar; }
+}
+::view-transition-old(root) { animation: re-page-out 180ms cubic-bezier(0.4, 0, 1, 1) both; }
+::view-transition-new(root) { animation: re-page-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes re-page-out { to { opacity: 0; transform: scale(0.995); } }
+@keyframes re-page-in { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: none; } }
+::view-transition-group(re-topbar), ::view-transition-group(re-sidebar) { animation: none; }
+::view-transition-old(re-topbar), ::view-transition-new(re-topbar),
+::view-transition-old(re-sidebar), ::view-transition-new(re-sidebar) { animation: none; opacity: 1; }
+/* One snapshot only. Both were painted at full opacity, and the sidebar's own
+   background is transparent between its rows — so any difference between the
+   two snapshots (a hovered row shifted 2px, the active marker mid-slide, a
+   label that reflowed while the rail animated its width) showed *through* the
+   new one as a ghost: the doubled label in the sidebar that survived several
+   rounds of fixes. Hiding the outgoing snapshot removes the possibility rather
+   than the symptom. */
+::view-transition-old(re-sidebar), ::view-transition-old(re-topbar) { display: none; }
+
+/* ================================================================== */
+/* Workflows — cards, nodes, edges                                     */
+/* ================================================================== */
+@keyframes re-node-in {
+  from { opacity: 0; transform: scale(0.9) translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.re-node { animation: re-node-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.re-node[data-running="true"] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent), 0 12px 40px -16px color-mix(in srgb, var(--primary) 70%, transparent);
+  animation: re-node-pulse 1.4s ease-in-out infinite;
+}
+@keyframes re-node-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent), 0 10px 30px -18px color-mix(in srgb, var(--primary) 60%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 18%, transparent), 0 14px 44px -18px color-mix(in srgb, var(--primary) 80%, transparent); }
+}
+/* An edge that has carried data draws itself once. */
+@keyframes re-edge-draw { from { stroke-dashoffset: var(--len, 240); } to { stroke-dashoffset: 0; } }
+.re-edge-flow { stroke-dasharray: var(--len, 240); animation: re-edge-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.re-wf-card { transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 260ms ease, border-color 220ms ease; }
+.re-wf-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 60px -26px rgba(0, 0, 0, 0.6);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--surface-border));
+}
+.re-wf-card:hover .re-wf-icon { transform: scale(1.08) rotate(-4deg); }
+.re-wf-icon { transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  svg.lucide { animation: none !important; }
+  .re-node, .re-node[data-running="true"], .re-edge-flow, .re-quiz-shake, .re-quiz-sweep, .re-quiz-capsule-current { animation: none !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+}
+.reduce-motion svg.lucide { animation: none !important; }
+.reduce-motion .re-node[data-running="true"] { animation: none !important; }
+
+/* Node hover + connector feedback on the workflow canvas. Nodes lift a hair,
+   their icon leans in, and the connector you point at lights up — so the
+   canvas answers the pointer instead of sitting there like a diagram. */
+.re-node { transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 200ms ease; }
+.re-node:hover { transform: translateY(-1.5px); }
+.re-node:hover .re-node-icon { transform: scale(1.07) rotate(-3deg); }
+.re-node[data-running="true"] .re-node-icon { animation: re-icon-breathe 1.8s ease-in-out infinite; }
+.re-node[data-selected="true"] { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent), 0 10px 34px -14px rgba(0, 0, 0, 0.55); }
+.re-node-icon { transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+.re-handle { opacity: 0.65; transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.re-node:hover .re-handle, .re-node[data-selected="true"] .re-handle { opacity: 1; transform: translateY(1px) scale(1.12); }
+@keyframes re-icon-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes re-pop-in { from { opacity: 0; transform: scale(0.94) translateY(-4px); } to { opacity: 1; transform: none; } }
+.re-pop-in { animation: re-pop-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: top right; }
+@keyframes re-badge-pop { from { opacity: 0; transform: scale(0.5); } 60% { transform: scale(1.12); } to { opacity: 1; transform: none; } }
+.re-badge-pop { animation: re-badge-pop 340ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.re-edge-line { transition: stroke 200ms ease, stroke-width 200ms ease, filter 200ms ease; }
+.re-edge-line[data-hot="true"] { stroke-width: 2.5; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 45%, transparent)); }
+.re-edge-add { opacity: 0.35; transform: scale(0.9); transition: opacity 200ms ease, transform 240ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms ease, color 200ms ease; }
+.re-edge-add[data-hot="true"], .re-edge-add:hover, .re-edge-add:focus-visible {
+  opacity: 1; transform: scale(1.16);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--surface-border));
+  color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .re-node[data-running="true"] .re-node-icon { animation: none !important; }
+  .re-pop-in, .re-badge-pop { animation: none !important; }
+}
+.reduce-motion .re-node[data-running="true"] .re-node-icon { animation: none !important; }
+.reduce-motion .re-pop-in, .reduce-motion .re-badge-pop { animation: none !important; }
+
+/* The option's letter, sitting quietly at the row's right edge until you point
+   at it (the numeric shortcut takes its place then). */
+.re-quiz-letter {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  opacity: 0.5;
+  transition: opacity 200ms ease, transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-quiz-option[data-hovered="true"] .re-quiz-letter { opacity: 0.9; transform: translateX(1px); }
+.re-quiz-option[data-locked="true"] .re-quiz-letter { opacity: 0.35; }
+
+/* "New research" — the one button in the rail that starts something, so it gets
+   a slow sheen that crosses it on hover. */
+.re-new-research {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--primary) 80%, transparent);
+}
+.re-new-research::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 32%, color-mix(in srgb, #fff 26%, transparent) 48%, transparent 64%);
+  transform: translateX(-130%);
+  transition: transform 680ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-new-research:hover::after { transform: translateX(130%); }
+
+/* Progress capsule fill — themed by data attribute so the change is a CSS
+   colour transition between tokens rather than an interpolation of var(). */
+.re-quiz-capsule { background: var(--text-3); transition: background 240ms ease; }
+.re-quiz-capsule[data-fill="current"] { background: var(--primary); }
+.re-quiz-capsule[data-fill="ok"] { background: var(--success); }
+.re-quiz-capsule[data-fill="bad"] { background: var(--danger); }
+
+/* The "you panned away" chip on the workflow canvas — it arrives with the same
+   spring everything else uses, so it reads as the canvas handing you a hand. */
+@keyframes re-lost-in { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: none; } }
+.re-canvas-lost { animation: re-lost-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both; transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 200ms ease; }
+.re-canvas-lost:hover { transform: translateY(-1px); box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6); }
+.re-canvas-lost:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) { .re-canvas-lost { animation: none !important; } }
+.reduce-motion .re-canvas-lost { animation: none !important; }
+
+/* ------------------------------------------------------------------ */
+/* Design mode — the preview gets the room it deserves                 */
+/* ------------------------------------------------------------------ */
+/* The device frame is scaled with `transform`, so its layout box stays its
+   natural size: the shell has to collapse to the scaled box or the pane
+   scrolls around a screen that is visually tiny. */
+.re-preview-shell { display: flex; will-change: transform; transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* The divider between the running app and the inspector: a hairline that grows
+   a grab area on hover, the way a desktop IDE does it. */
+.re-split-handle {
+  position: relative;
+  width: 5px;
+  margin: 0 -2px;
+  cursor: col-resize;
+  flex: none;
+  z-index: 5;
+  background: transparent;
+  transition: background 160ms ease;
+}
+.re-split-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 2px;
+  border-radius: 999px;
+  background: var(--ide-border);
+  transition: background 160ms ease, inset 160ms ease;
+}
+.re-split-handle:hover::after, .re-split-handle:active::after {
+  inset: 0 1px;
+  background: var(--ide-accent);
+}
+@media (prefers-reduced-motion: reduce) { .re-preview-shell { transition: none; } }
+
+/* ================================================================== */
+/* Coding mode — the Cursor × Windsurf chrome                          */
+/*                                                                     */
+/* The IDE has its own tokens (--ide-*) so it follows the app theme:   */
+/* every surface below is a mix of those tokens, never a fixed colour. */
+/* ================================================================== */
+
+/* ---- activity rail ---- */
+.re-rail-badge {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--ide-accent);
+  color: var(--ide-bg, #0b0d12);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--ide-panel);
+}
+
+/* ---- the dock's tab strip ---- */
+.re-dock-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 5px 6px 0;
+  border-bottom: 1px solid var(--ide-border);
+  background: color-mix(in srgb, var(--ide-panel) 88%, var(--ide-bg));
+}
+.re-dock-tabs > button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px 7px;
+  border-radius: 8px 8px 0 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ide-faint);
+  transition: color 180ms ease, background 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-dock-tabs > button:hover { color: var(--ide-dim); background: var(--ide-hover); }
+.re-dock-tabs > button[data-active="true"] { color: var(--ide-text); background: var(--ide-active); }
+.re-dock-tabs > button[data-active="true"]::after {
+  content: '';
+  position: absolute;
+  left: 8px; right: 8px; bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--ide-accent);
+  animation: re-tab-underline 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes re-tab-underline { from { transform: scaleX(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+.re-tab-count {
+  min-width: 15px; height: 15px; padding: 0 4px;
+  border-radius: 999px; font-size: 9.5px; line-height: 15px; text-align: center;
+  background: var(--ide-hover); color: var(--ide-dim);
+}
+.re-tab-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--ide-warn, var(--warning)); }
+.re-tab-dot[data-live="true"] { background: var(--ide-accent); animation: re-dot-pulse 1.6s ease-in-out infinite; }
+@keyframes re-dot-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ide-accent) 60%, transparent); } 50% { box-shadow: 0 0 0 4px transparent; } }
+
+/* ---- live activity ---- */
+.re-timeline { display: flex; flex-direction: column; padding: 4px 0; }
+.re-timeline-live {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px 8px; font-size: 10.5px; letter-spacing: 0.02em; text-transform: uppercase;
+  color: var(--ide-accent);
+}
+.re-pulse-dot {
+  width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+  animation: re-dot-pulse 1.5s ease-in-out infinite;
+}
+.re-act-row {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; padding: 5px 12px; text-align: left;
+  font-size: 11.5px; color: var(--ide-dim);
+  border-left: 2px solid transparent;
+  transition: background 160ms ease, border-color 200ms ease, color 160ms ease;
+}
+button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(--ide-accent); color: var(--ide-text); }
+.re-act-icon { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
+.re-act-verb { font-weight: 600; color: var(--ide-text); margin-right: 5px; }
+.re-act-path {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ide-accent);
+  text-decoration: underline dotted color-mix(in srgb, var(--ide-accent) 40%, transparent);
+}
+.re-act-detail { margin-left: 5px; font-size: 10.5px; color: var(--ide-faint); }
+.re-act-clock { margin-left: auto; font-size: 9.5px; color: var(--ide-faint); }
+.re-act-count {
+  margin-left: auto; padding: 0 6px; border-radius: 999px; font-size: 9.5px;
+  background: var(--ide-hover); color: var(--ide-dim);
+}
+.re-composer-activity {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 6px 4px;
+  border-top: 1px solid var(--ide-border);
+}
+.re-composer-activity .re-act-row { padding: 5px 6px; }
+
+/* ---- agent pool ---- */
+.re-task {
+  margin: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--ide-border);
+  background: color-mix(in srgb, var(--ide-bg) 55%, transparent);
+  overflow: hidden;
+  transition: border-color 220ms ease, box-shadow 240ms ease;
+}
+.re-task[data-status="running"] { border-color: color-mix(in srgb, var(--ide-accent) 45%, var(--ide-border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ide-accent) 10%, transparent); }
+.re-task[data-status="conflict"] { border-color: color-mix(in srgb, var(--ide-warn, var(--warning)) 45%, var(--ide-border)); }
+.re-task[data-status="merged"] { border-color: color-mix(in srgb, var(--ide-ok, var(--success)) 40%, var(--ide-border)); }
+.re-task-head { display: flex; align-items: center; gap: 6px; padding: 8px 9px 6px; }
+.re-task-dot { width: 7px; height: 7px; border-radius: 999px; flex: none; }
+.re-task-dot[data-live="true"] { animation: re-dot-pulse 1.5s ease-in-out infinite; }
+.re-task-title { display: block; font-size: 12px; font-weight: 600; color: var(--ide-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-task-id { font-family: var(--font-mono); font-size: 9.5px; color: var(--ide-faint); }
+.re-task-claim { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 9px 6px; }
+.re-filechip {
+  font-family: var(--font-mono); font-size: 9.5px;
+  padding: 2px 6px; border-radius: 6px;
+  background: var(--ide-hover); color: var(--ide-dim);
+  border: 1px solid var(--ide-border);
+}
+.re-task-activity { border-top: 1px solid var(--ide-border); padding: 3px 0; }
+.re-task-changes { border-top: 1px solid var(--ide-border); }
+.re-task-changes-head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 6px 9px; font-size: 11px; color: var(--ide-dim);
+}
+.re-task-changes-head:hover { background: var(--ide-hover); }
+.re-diff-count { font-family: var(--font-mono); font-size: 10px; padding: 0 3px; border-radius: 4px; }
+.re-diff-count.add { color: var(--ide-ok, var(--success)); background: color-mix(in srgb, var(--ide-ok, var(--success)) 14%, transparent); }
+.re-diff-count.del { color: var(--ide-danger, var(--danger)); background: color-mix(in srgb, var(--ide-danger, var(--danger)) 14%, transparent); }
+.re-file-row { display: flex; align-items: center; gap: 6px; padding: 3px 9px; font-size: 11px; }
+.re-file-row:hover { background: var(--ide-hover); }
+.re-file-toggle {
+  width: 15px; height: 15px; border-radius: 4px; flex: none;
+  display: grid; place-items: center;
+  border: 1px solid var(--ide-border-strong, var(--ide-border));
+  color: transparent;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.re-file-toggle[data-on="true"] {
+  background: color-mix(in srgb, var(--ide-ok, var(--success)) 22%, transparent);
+  border-color: color-mix(in srgb, var(--ide-ok, var(--success)) 55%, transparent);
+  color: var(--ide-ok, var(--success));
+}
+.re-file-name {
+  flex: 1; min-width: 0; text-align: left;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ide-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.re-file-name:hover { color: var(--ide-accent); }
+.re-file-kind { margin-left: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ide-faint); }
+.re-task-actions { display: flex; align-items: center; gap: 5px; padding: 7px 9px; border-top: 1px solid var(--ide-border); }
+.re-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 500;
+  background: var(--ide-hover); color: var(--ide-dim);
+  border: 1px solid var(--ide-border);
+}
+.re-chip[data-tone="cloud"] { color: var(--ide-accent); border-color: color-mix(in srgb, var(--ide-accent) 40%, transparent); }
+.re-chip[data-tone="local"] { color: var(--ide-dim); }
+.re-chip[data-tone="run"] { color: var(--ide-accent); border-color: color-mix(in srgb, var(--ide-accent) 40%, transparent); }
+.re-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--ide-hover); }
+.re-seg > button {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 6px; font-size: 10.5px; color: var(--ide-faint);
+  transition: background 180ms ease, color 180ms ease;
+}
+.re-seg > button[data-active="true"] { background: var(--ide-active); color: var(--ide-accent); }
+
+/* ---- slash menu ---- */
+.re-slash {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--ide-border-strong, var(--ide-border));
+  background: var(--ide-elevated, var(--ide-panel));
+  box-shadow: 0 22px 60px -22px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+.re-slash-head {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ide-faint);
+  border-bottom: 1px solid var(--ide-border);
+}
+.re-slash-head kbd {
+  font-family: var(--font-mono); font-size: 9px;
+  padding: 1px 4px; border-radius: 4px;
+  background: var(--ide-hover); color: var(--ide-dim);
+}
+.re-slash-list { max-height: 320px; overflow-y: auto; padding: 4px; }
+.re-slash-item {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  text-align: left;
+  transition: background 150ms ease;
+}
+.re-slash-item[data-active="true"] { background: var(--ide-active); }
+.re-slash-name { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--ide-accent); }
+.re-slash-sum { font-size: 11px; color: var(--ide-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-slash-src {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 2px 6px; border-radius: 999px;
+  background: var(--ide-hover); color: var(--ide-faint);
+}
+.re-slash-src[data-src="claude"] { color: #C08A5A; }
+.re-slash-src[data-src="codex"] { color: #7FB08A; }
+.re-slash-src[data-src="devin"] { color: #7FA6D0; }
+.re-slash-src[data-src="cursor"] { color: #B49AD8; }
+
+/* ---- command palette ---- */
+.re-palette-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-top: 12vh;
+  background: color-mix(in srgb, #000 40%, transparent);
+  backdrop-filter: blur(3px);
+}
+.re-palette {
+  width: 100%; max-width: 620px;
+  border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--ide-border-strong, var(--ide-border));
+  background: var(--ide-elevated, var(--ide-panel));
+  box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.7);
+}
+.re-palette-input { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--ide-border); }
+.re-palette-input kbd { font-family: var(--font-mono); font-size: 9.5px; padding: 2px 5px; border-radius: 5px; background: var(--ide-hover); color: var(--ide-faint); }
+.re-palette-list { max-height: 52vh; overflow-y: auto; padding: 5px; }
+.re-palette-item {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 8px 10px; border-radius: 9px; text-align: left;
+  transition: background 140ms ease;
+}
+.re-palette-item[data-active="true"] { background: var(--ide-active); }
+.re-palette-icon { display: grid; place-items: center; width: 18px; color: var(--ide-faint); }
+.re-palette-label { font-size: 12px; color: var(--ide-text); flex: none; }
+.re-palette-detail { flex: 1; min-width: 0; font-size: 11px; color: var(--ide-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-palette-kind { margin-left: auto; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ide-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .re-dock-tabs > button[data-active="true"]::after,
+  .re-pulse-dot, .re-tab-dot[data-live="true"], .re-task-dot[data-live="true"] { animation: none !important; }
+}
+.reduce-motion .re-dock-tabs > button[data-active="true"]::after,
+.reduce-motion .re-pulse-dot, .reduce-motion .re-tab-dot[data-live="true"] { animation: none !important; }
+
+/* ================================================================== */
+/* Route loading — the click was heard                                 */
+/*                                                                     */
+/* A cold route has to fetch its chunk. The page underneath stays      */
+/* interactive (the navigation waits for the module instead of         */
+/* freezing a snapshot over an inert frame), and this hairline is the  */
+/* acknowledgement that the tap landed.                                */
+/* ================================================================== */
+.re-route-progress {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 90;
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.re-route-progress-bar {
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), color-mix(in srgb, var(--primary) 40%, #fff));
+  animation: re-route-sweep 900ms cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes re-route-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(260%); }
+}
+@media (prefers-reduced-motion: reduce) { .re-route-progress-bar { animation: none; width: 100%; } }
+.reduce-motion .re-route-progress-bar { animation: none; width: 100%; }
+
+/* ================================================================== */
+/* Conversation kinds — research vs coding                             */
+/*                                                                     */
+/* Two kinds of conversation live in the same store but are not the    */
+/* same work, so the history list shows one at a time and each row     */
+/* says which it is.                                                   */
+/* ================================================================== */
+.re-history-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  margin: 0 2px 6px;
+  border-radius: 9px;
+  background: var(--elevated);
+}
+.re-history-tabs > button {
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+  transition: background 200ms cubic-bezier(0.22, 1, 0.36, 1), color 180ms ease;
+}
+.re-history-tabs > button:hover { color: var(--text-2); }
+.re-history-tabs > button[data-active="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+.re-history-count {
+  min-width: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  line-height: 15px;
+  text-align: center;
+  color: var(--text-3);
+}
+/* A coding row carries a small brace chip so it is recognisable even in a
+   mixed list (search results, the command palette, the Chats page). */
+.chat-row[data-kind="coding"] .chat-title::before {
+  content: '‹›';
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: -1px;
+  margin-right: 5px;
+  color: var(--primary);
+  opacity: 0.85;
+}
+
+/* ================================================================== */
+/* Share studio — the results card you actually want to post           */
+/* ================================================================== */
+.re-share-frame {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--elevated);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.6);
+}
+.re-share-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+.re-share-style {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border-radius: 11px;
+  text-align: left;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  transition: border-color 200ms ease, background 200ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-share-style:hover { transform: translateY(-1px); background: var(--elevated); }
+.re-share-style[data-active="true"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.re-share-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex: none;
+  position: relative;
+  overflow: hidden;
+}
+.re-share-swatch[data-style="liquid"]::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.65), transparent 60%);
+}
+.re-share-swatch[data-style="solid"]::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.22), transparent);
+}
+.re-share-swatch[data-style="image"]::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.7));
+}
+
+/* The row you picked while its page is still being fetched: a small pulse at
+   the icon, so a cold navigation is visibly yours rather than a dead click. */
+.re-nav-item[data-pending="true"] { background: color-mix(in srgb, var(--elevated) 70%, transparent); }
+.re-nav-item[data-pending="true"]::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px; height: 6px;
+  margin-top: -3px;
+  border-radius: 999px;
+  background: var(--primary);
+  animation: re-dot-pulse 1.2s ease-in-out infinite;
+}
+.re-dock-pending {
+  position: absolute;
+  right: 2px; bottom: 2px;
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--bg);
+  animation: re-dot-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-nav-item[data-pending="true"]::after, .re-dock-pending { animation: none; }
+}
+.reduce-motion .re-nav-item[data-pending="true"]::after, .reduce-motion .re-dock-pending { animation: none; }
+
+/* ============================================================
+   SMOOTH CARET (Skiper UI "smooth caret input", reimplemented)
+   The native caret is hidden; a spring-animated bar tracks the
+   text. `.re-smooth-caret` marks a field, `.re-smooth-caret-bar`
+   is the bar itself, positioned against the field's wrapper.
+   ============================================================ */
+.re-smooth-caret {
+  caret-color: transparent;
+}
+.re-smooth-caret::selection {
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
+}
+.re-smooth-caret-bar {
+  position: absolute;
+  left: 0;
+  width: 1.5px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 45%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+/* The bar is drawn even in a textarea that scrolls: the host is the wrapper. */
+.re-caret-host {
+  position: relative;
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-smooth-caret-bar {
+    transition: none !important;
+  }
+}
+/* Number Flow digits: keep the width stable so a countdown cannot nudge its
+   neighbours, and let the roll read as one motion rather than a flip. */
+.re-number-flow {
+  font-variant-numeric: tabular-nums;
+  --number-flow-mask-height: 0.2em;
+}
+
+/* ================================================================== */
+/* DOCK SHELF (Cult UI's magnified dock, on this app's tokens)         */
+/* The rail is a glass shelf that materialises under the pointer, and  */
+/* the icon being pointed at casts a short reflection into it — the     */
+/* detail that makes a dock read as physical rather than a column of    */
+/* buttons. Magnification itself lives in framer-motion.               */
+/* ================================================================== */
+.re-dock::before {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 55%, transparent),
+    color-mix(in srgb, var(--elevated) 22%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent),
+    0 10px 30px -18px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px) saturate(1.25);
+}
+/* The active marker slides between items instead of blinking on and off. */
+.re-dock-item > button {
+  transition: background-color 220ms var(--ease-ios, ease-out), color 220ms var(--ease-ios, ease-out);
+}
+/* A pointer-following sheen on the highlighted item. */
+.re-dock-item[data-pointed='true'] > button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%);
+  pointer-events: none;
+}
+/* Reflection: a short mirror of the pointed icon, fading out quickly. */
+.re-dock-item[data-pointed='true'] .re-dock-reflection {
+  opacity: 1;
+  transform: scaleY(-0.45) translateY(1px);
+}
+.re-dock-reflection {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% 0;
+  opacity: 0;
+  filter: blur(2px);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 70%);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 70%);
+  pointer-events: none;
+  transition: opacity 180ms var(--ease-ios, ease-out), transform 180ms var(--ease-ios, ease-out);
+}
+@media (prefers-reduced-motion: reduce), (prefers-contrast: more) {
+  .re-dock-reflection { display: none; }
+}
+
+/* ================================================================== */
+/* CssLink — links whose underline is drawn, not switched on           */
+/* (Skiper's CSS link, reimplemented on our tokens)                    */
+/* ================================================================== */
+/* The rule is a background gradient on the text box: it is wiped in from
+   the left on hover and stays for touch/focus, so the underline "grows"
+   rather than blinking into place. The gradient stops are the row's own
+   colour, so an inline link in prose, a citation chip and a call-to-action
+   card all underline in the colour that belongs to them. */
+.re-css-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28em;
+  color: var(--primary);
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 calc(100% - 0.06em);
+  background-size: 0% 1px;
+  transition: background-size 320ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms ease;
+  border-radius: 6px;
+}
+.re-css-link:hover, .re-css-link:focus-visible { background-size: 100% 1px; }
+.re-css-link:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
+.re-css-link:hover .re-css-link-arrow { opacity: 1; transform: translate(1px, -1px); }
+.re-css-link-arrow {
+  display: inline-flex;
+  opacity: 0.35;
+  transform: translate(0, 0);
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-css-link-icon { display: inline-flex; align-items: center; }
+.re-css-link-text { min-width: 0; }
+
+/* Citations: a real chip — the number, the source, its host — because a
+   footnote-looking number is what the reader is scanning for. */
+.re-css-link[data-variant="chip"] {
+  gap: 0.4em;
+  padding: 1px 7px 1px 5px;
+  border: 1px solid var(--surface-border);
+  background-color: var(--elevated);
+  border-radius: 999px;
+  font-size: 0.92em;
+  background-position: 0.35em calc(100% - 0.1em);
+  background-size: 0 calc(100% - 0.15em);
+}
+.re-css-link[data-variant="chip"]:hover,
+.re-css-link[data-variant="chip"]:focus-visible { background-size: calc(100% - 0.7em) calc(100% - 0.15em); background-color: transparent; }
+.re-css-link-index { font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.85em; opacity: 0.7; padding-left: 2px; }
+.re-css-link-quote { opacity: 0.55; flex-shrink: 0; }
+.re-css-link-host { color: var(--text-3); font-size: 0.86em; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.re-css-link[data-variant="chip"] .re-css-link-title { max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Standalone: a whole card that happens to be a link. */
+.re-css-link[data-variant="standalone"] {
+  display: flex;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  background: var(--elevated);
+  border-radius: 14px;
+  background-image: none;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), border-color 240ms ease, box-shadow 240ms ease;
+}
+.re-css-link[data-variant="standalone"]:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--surface-border));
+  box-shadow: 0 12px 30px -16px rgba(0, 0, 0, 0.5);
+}
+
+/* An underline that never animates is the honest fallback. */
+@media (prefers-reduced-motion: reduce) {
+  .re-css-link { transition: none; background-size: 100% 1px; background-position: 0 calc(100% - 0.06em); }
+  .re-css-link[data-variant="chip"] { background-size: calc(100% - 0.7em) calc(100% - 0.15em); }
+  .re-css-link-arrow { transition: none; }
+}
+
+/* The row arrow: it is the affordance, so it never disappears on the row you
+   are pointing at — it is already there when the cube takes its place. */
+.re-nav-arrow { color: var(--text-3); }
+.re-nav-item:hover .re-nav-arrow { color: var(--primary); }
+.re-nav-item[aria-current="page"] .re-nav-arrow { color: color-mix(in srgb, var(--primary) 70%, var(--text-3)); }
+
+/* ================================================================== */
+/* Context menu (shadcn's component, dressed in our tokens)            */
+/* ================================================================== */
+.re-ctx-content {
+  z-index: 80;
+  min-width: 200px;
+  padding: 5px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7), 0 2px 8px -4px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(18px) saturate(1.4);
+  color: var(--text);
+  font-size: 12.5px;
+  /* Radix drives enter/exit with these attributes. */
+  animation: re-ctx-in 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.re-ctx-content[data-state='closed'] { animation: re-ctx-out 110ms ease-in forwards; }
+@keyframes re-ctx-in { from { opacity: 0; transform: scale(0.96) translateY(-2px); } to { opacity: 1; transform: none; } }
+@keyframes re-ctx-out { to { opacity: 0; transform: scale(0.98); } }
+.re-ctx-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  cursor: default;
+  user-select: none;
+  outline: none;
+  color: var(--text-2);
+  transition: background 120ms ease, color 120ms ease;
+}
+.re-ctx-item > svg { color: var(--text-3); flex-shrink: 0; }
+.re-ctx-item[data-highlighted] { background: var(--elevated); color: var(--text); }
+.re-ctx-item[data-highlighted] > svg { color: var(--primary); }
+.re-ctx-item[data-disabled] { opacity: 0.45; }
+.re-ctx-item[data-disabled][data-highlighted] { background: transparent; }
+.re-ctx-item[data-tone='danger'] { color: var(--danger); }
+.re-ctx-item[data-tone='danger'][data-highlighted] { background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.re-ctx-item[data-state='open'] { background: var(--elevated); color: var(--text); }
+.re-ctx-label { padding: 5px 9px 3px; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.re-ctx-separator { height: 1px; margin: 4px 6px; background: var(--surface-border); }
+.re-ctx-shortcut { margin-left: auto; padding-left: 12px; font-size: 10.5px; letter-spacing: 0.04em; color: var(--text-3); font-family: var(--font-mono, ui-monospace, monospace); }
+@media (prefers-reduced-motion: reduce) {
+  .re-ctx-content, .re-ctx-content[data-state='closed'] { animation: none; }
+}
+
+/* The dock's name plate: bigger, still quiet. */
+.re-dock-label {
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+}
+
+/* ---------- React Bits Micro: theme integration ----------
+ * The vendored components ship opinionated defaults (zinc greys, a near-white
+ * "ink"). They are used as-is; what follows only maps them onto this app's
+ * palette so a control never disappears into the surface it sits on — the one
+ * thing the components cannot know about. */
+
+/* Prompt Bar: the send control is this app's primary action, so it wears the
+ * app's primary even when the model's "ink" is a light colour on a light
+ * button (which read as an empty white square). */
+.re-promptbar [aria-label='Send'][data-armed] { background: var(--primary); }
+.re-promptbar [aria-label='Send'][data-armed] svg { color: #fff; }
+.re-promptbar [aria-label='Send']:disabled { background: color-mix(in srgb, var(--text) 12%, var(--surface)); }
+.re-promptbar [aria-label='Stop'] { background: var(--danger); }
+.re-promptbar [aria-label='Stop'] svg { color: #fff; }
+.re-promptbar [aria-label='Dictate'][data-on] { color: var(--primary); }
+
+/* Voice Pill: the waveform keeps the accent colour it was given, but the pill
+ * body follows the surface it floats over. */
+.re-composer-voice [data-state='listening'] { color: var(--primary); }
+
+/* Mode menu + connected-data popover: one look, one entrance. */
+.re-mode-menu, .re-int-menu {
+  animation: re-pop 160ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  backdrop-filter: saturate(140%) blur(12px);
+}
+@keyframes re-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-mode-menu, .re-int-menu { animation: none; }
+}
+/*
+ ---break---
+ */
+@theme inline {
+  --color-brand: var(--brand, oklch(0.72 0.2 352.53));
+  --color-brand-light: var(--brand-light, oklch(0.78 0.15 352.53));
+  --color-brand-lighter: var(--brand-lighter, oklch(0.85 0.1 352.53));
+  --color-brand-secondary: var(--brand-secondary, oklch(0.66 0.21 354.31));
+  --color-amber: var(--amber);
+  --color-amber-fg: var(--amber-fg);
+  --color-amber-hover: var(--amber-hover);
+  --color-blue: var(--blue);
+  --color-blue-fg: var(--blue-fg);
+  --color-blue-hover: var(--blue-hover);
+  --color-green: var(--green);
+  --color-green-fg: var(--green-fg);
+  --color-green-hover: var(--green-hover);
+  --color-smooth-50: var(--smooth-50);
+  --color-smooth-100: var(--smooth-100);
+  --color-smooth-200: var(--smooth-200);
+  --color-smooth-300: var(--smooth-300);
+  --color-smooth-400: var(--smooth-400);
+  --color-smooth-500: var(--smooth-500);
+  --color-smooth-600: var(--smooth-600);
+  --color-smooth-700: var(--smooth-700);
+  --color-smooth-800: var(--smooth-800);
+  --color-smooth-900: var(--smooth-900);
+  --color-smooth-950: var(--smooth-950);
+  --color-smooth-1000: var(--smooth-1000);
+}
+/*
+ ---break---
+ */
+
+/*
+ * Gooey Input (Aceternity).
+ *
+ * The vendored component only names its classes; this is the layout those names
+ * were written against. It lives in `@layer components` on purpose: an
+ * unlayered rule would outrank every Tailwind utility and override the colours
+ * the caller passes through `classNames` (that is exactly what made a vendored
+ * control white-on-white in 0.31.1).
+ *
+ * The sizes here are the whole bug fix: without a width and height the search
+ * glyph stretched to fill its bubble and the "field" was a 500px square. Every
+ * box is 34px tall, the icon is 15px, and nothing is unbounded.
+ */
+@layer components {
+  .gooey-input {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 34px;
+  }
+  /* The filter definition itself draws nothing. */
+  .gooey-input__filter {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+  .gooey-input__filter-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 34px;
+  }
+  .gooey-input__button-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 34px;
+  }
+  .gooey-input__trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 34px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .gooey-input__open-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+    padding: 0 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 12.5px;
+    white-space: nowrap;
+    cursor: text;
+  }
+  .gooey-input__open-button:hover { color: var(--text); }
+  .gooey-input__icon {
+    display: block;
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+  .gooey-input__field {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    padding: 0 14px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+  }
+  /* The expanded modifier is where the input is at its widest; the pill has
+     already grown by then, so nothing else has to change — but the class exists
+     in the markup, so it exists here too. */
+  .gooey-input__field--expanded { text-overflow: ellipsis; }
+  .gooey-input__field::placeholder { color: var(--text-3); }
+  .gooey-input__field::-webkit-search-cancel-button { display: none; }
+  /* The detached bubble overlaps the pill so the goo filter can bridge them. */
+  .gooey-input__bubble {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    margin-left: -12px;
+  }
+  .gooey-input__bubble-surface {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+  }
+  .gooey-input__surface {
+    background: var(--elevated);
+    border: 1px solid var(--surface-border);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* The goo is decoration; the control itself must still be readable. */
+    .gooey-input__filter-wrap { filter: none !important; }
+  }
+}
+
+
+/* ------------------------------------------------------------ notifications */
+/* The bell in the sidebar rail, and the count SmoothUI's Notification Badge
+   draws on it. The badge itself positions absolutely; this only has to give it
+   a box with a little room, and give the button the same hover language as the
+   other rail controls. */
+@layer components {
+  .re-notify-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    color: var(--text-3);
+    transition: color .18s ease, background-color .18s ease, transform .18s ease;
+  }
+  .re-notify-btn:hover { color: var(--text); background: var(--elevated); }
+  .re-notify-btn:active { transform: scale(.96); }
+  .re-notify-btn.compact { width: 100%; height: 100%; background: transparent; }
+  .re-notify-btn.compact:hover { background: transparent; }
+}
+
+
+/* ------------------------------------------------- formatted article blocks */
+/* shadcn-space's button-group-10 toolbar drives a contentEditable this app
+   owns, so the surface itself needs a little styling: lists have to be lists,
+   links have to look like links, and an empty block needs a placeholder. The
+   toolbar's own buttons come from the vendored primitives and the token ramp. */
+@layer components {
+  .re-rich-editor,
+  .re-rich-block {
+    font-family: var(--font-body);
+  }
+  .re-rich-editor ul,
+  .re-rich-block ul { list-style: disc; padding-left: 1.3rem; margin: .35rem 0; }
+  .re-rich-editor ol,
+  .re-rich-block ol { list-style: decimal; padding-left: 1.3rem; margin: .35rem 0; }
+  .re-rich-editor li,
+  .re-rich-block li { margin: .15rem 0; }
+  .re-rich-editor p,
+  .re-rich-block p { margin: .35rem 0; }
+  .re-rich-editor a,
+  .re-rich-block a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .re-rich-editor:focus { box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
+  .re-rich-editor:empty::before {
+    content: 'Write, or paste something in — the toolbar formats the selection.';
+    color: var(--text-3);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .re-rich-editor, .re-rich-block { transition: none; }
+  }
+}
+
+/* ================================================================== */
+/* R24 — the coding workspace's chrome.                                */
+/*                                                                     */
+/* Xcode 26 groups controls on a translucent bar; Zed keeps the chrome */
+/* quiet and the text loud; Cursor 3 treats an agent as a row with a   */
+/* state. These classes are that, wired to the IDE tokens so every     */
+/* theme (including the light ones) re-skins them.                     */
+/* ================================================================== */
+
+.re-glassbar {
+  position: relative;
+  background: color-mix(in srgb, var(--ide-panel) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-bottom: 1px solid var(--ide-border);
+}
+.re-glassbar::after {
+  /* the inner highlight that makes a surface read as glass rather than as paint */
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  pointer-events: none;
+}
+
+.re-glassgroup {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent) inset;
+}
+.ide-shell[data-theme-light='true'] .re-glassgroup,
+:root[data-theme-mode='light'] .re-glassgroup { background: color-mix(in srgb, #000 4%, transparent); }
+
+.re-glassbtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  color: var(--ide-dim);
+  white-space: nowrap;
+  transition: background 140ms ease, color 140ms ease, box-shadow 160ms ease;
+}
+.re-glassbtn:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--ide-text); }
+.re-glassbtn:active:not(:disabled) { transform: scale(0.96); }
+.re-glassbtn:disabled { opacity: 0.35; }
+.re-glassbtn.is-active {
+  background: var(--ide-active);
+  color: var(--ide-text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ide-accent) 28%, transparent) inset;
+}
+/* the grow movement: a hairline that widens from where you clicked */
+.re-glassbtn.grow::after {
+  content: '';
+  position: absolute;
+  left: var(--re-grow-x, 50%);
+  right: calc(100% - var(--re-grow-x, 50%));
+  bottom: 2px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--ide-accent);
+  transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1), right 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.re-glassbtn.grow:hover::after { left: 6px; right: 6px; }
+.re-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  border: 1px solid var(--ide-accent);
+  pointer-events: none;
+}
+
+.re-glasstabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent) inset;
+}
+.re-glasstabs-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  color: var(--ide-faint);
+  transition: color 140ms ease;
+}
+.re-glasstabs-item:hover { color: var(--ide-text); }
+.re-glasstabs-item[data-active='true'] { color: var(--ide-text); }
+.re-glasstabs-pill {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  background: var(--ide-panel);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22), 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+/* the switch: the thumb slides, and squashes while it does */
+.re-glassswitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 9px;
+  color: var(--ide-dim);
+  transition: background 150ms ease, color 150ms ease;
+}
+.re-glassswitch:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--ide-text); }
+.re-glassswitch-thumb {
+  width: 26px;
+  height: 15px;
+  border-radius: 99px;
+  padding: 1.5px;
+  display: inline-flex;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  transition: background 180ms ease;
+}
+.re-glassswitch[data-on='true'] .re-glassswitch-thumb { background: var(--ide-accent); }
+.re-glassswitch-thumb > span {
+  width: 12px;
+  height: 12px;
+  border-radius: 99px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.re-glassswitch[data-on='true'] .re-glassswitch-thumb > span { margin-left: auto; }
+
+/* breadcrumbs: quiet, monochrome, one line */
+.re-breadcrumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10.5px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.re-breadcrumbs-sep { color: var(--ide-faint); opacity: 0.6; flex-shrink: 0; }
+.re-breadcrumbs-item {
+  position: relative;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--ide-faint);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 140ms ease, background 140ms ease;
+}
+.re-breadcrumbs-item:hover { color: var(--ide-text); background: color-mix(in srgb, var(--text) 7%, transparent); }
+.re-breadcrumbs-item[data-last='true'] { color: var(--ide-dim); }
+
+/* status bar: small panel buttons, the Zed habit */
+.re-statusitem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--ide-faint);
+}
+.ide-shell .re-glassbtn { height: 20px; padding: 0 6px; border-radius: 7px; }
+
+.re-agentdot {
+  display: inline-block;
+  border-radius: 99px;
+  background: var(--ide-faint);
+  opacity: 0.5;
+}
+.re-agentrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: background 150ms ease;
+}
+.re-agentrow:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.re-agentrow[data-state='working'] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ide-accent) 22%, transparent) inset; }
+.re-agentrow[data-state='ready'] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ide-cyan) 26%, transparent) inset; }
+.re-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 9.5px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--ide-dim);
+  flex-shrink: 0;
+}
+
+/* the review bar: rises from the bottom edge, and is the only thing that does */
+.re-reviewbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ide-panel) 92%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--ide-border);
+}
+.re-reviewbar-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ide-dim);
+}
+.re-reviewbar-count b { color: var(--ide-text); font-weight: 600; }
+.re-reviewbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  color: var(--ide-text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  transition: background 150ms ease, transform 150ms ease;
+}
+.re-reviewbar-btn:hover { background: color-mix(in srgb, var(--text) 14%, transparent); }
+.re-reviewbar-btn:active { transform: scale(0.97); }
+.re-reviewbar-btn.ghost { color: var(--ide-dim); background: transparent; }
+.re-reviewbar-btn.ghost:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--ide-text); }
+.re-reviewbar-btn.primary { background: var(--ide-accent); color: var(--ide-accent-ink); font-weight: 600; }
+.re-reviewbar-btn.primary:hover { background: color-mix(in srgb, var(--ide-accent) 88%, var(--text)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .re-glassbtn, .re-glasstabs-item, .re-glassswitch, .re-breadcrumbs-item, .re-agentrow, .re-reviewbar-btn { transition: none; }
+  .re-glassbtn:active:not(:disabled), .re-reviewbar-btn:active { transform: none; }
+  .re-glassbtn.grow::after { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   IDE strips scroll sideways on a trackpad or a wheel, so the bar itself can
+   stay out of the way: three pixels, only while scrolling, and never a second
+   row of content. Before this, a wrapped panel tab and a wrapped hint sentence
+   were what a narrow workspace looked like.
+   -------------------------------------------------------------------------- */
+.ide-tabstrip, .ide-tabscroll { scrollbar-width: thin; }
+.ide-tabstrip::-webkit-scrollbar, .ide-tabscroll::-webkit-scrollbar { height: 3px; }
+.ide-tabstrip::-webkit-scrollbar-track, .ide-tabscroll::-webkit-scrollbar-track { background: transparent; }
+.ide-tabstrip::-webkit-scrollbar-thumb, .ide-tabscroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ide-faint) 45%, transparent);
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   R27 — the composer's modes expand sideways.
+   The three-lines button unfolds a strip of pills next to itself instead of
+   opening a menu; each pill explains itself with its own tooltip on hover.
+   The strip walks in from the button (spring, staggered), the tooltip is a
+   plain fade-and-settle — two movements nothing else in the composer uses.
+   -------------------------------------------------------------------------- */
+.mode-strip { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: visible; }
+.mode-pill {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 500; white-space: nowrap;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+.mode-pill:hover { color: var(--text); }
+.mode-tip {
+  position: absolute; left: 50%; bottom: calc(100% + 9px);
+  transform: translate(-50%, 5px);
+  width: max-content; max-width: 230px; white-space: normal; text-align: left;
+  padding: 7px 9px; border-radius: 10px;
+  font-size: 10.5px; line-height: 1.45; font-weight: 400;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .5);
+  backdrop-filter: blur(12px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  z-index: 70;
+}
+.mode-tip b { display: block; color: var(--text); font-weight: 600; margin-bottom: 1px; }
+.mode-pill:hover .mode-tip, .mode-pill:focus-visible .mode-tip { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) {
+  .mode-tip { transition: none; }
+}
+
+/* --------------------------------------------------------------------------
+   R27 — the component preview stage (Design mode's hub).
+   A framed stage with its own light/dark switch so a component is judged on
+   both surfaces; the meta side carries the honest install line.
+   -------------------------------------------------------------------------- */
+.cmp-stage {
+  position: relative; border-radius: 12px; overflow: hidden;
+  min-height: 170px; max-height: 320px; overflow-y: auto;
+  display: grid; place-items: center; padding: 18px;
+  border: 1px solid var(--surface-border);
+}
+.cmp-stage > * { max-width: 100%; }
+
+/* R27 — integration tutorial wizard */
+.tut-dots { display: flex; align-items: center; gap: 5px; }
+.tut-dots span {
+  width: 7px; height: 7px; border-radius: 999px;
+  background: var(--elevated); border: 1px solid var(--surface-border);
+  transition: width 220ms ease, background 220ms ease;
+}
+.tut-dots span.on { width: 18px; background: var(--primary); border-color: transparent; }
+.tut-dots span.done { background: color-mix(in srgb, var(--success) 60%, var(--elevated)); }
+@media (prefers-reduced-motion: reduce) { .tut-dots span { transition: none; } }

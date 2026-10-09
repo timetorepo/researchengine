@@ -1,6 +1,6 @@
 // Stepped orthogonal edges with rounded corners, animated during runs, and an
 // inline "+" on each connector that inserts a node at that point.
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { WorkflowNode, WorkflowEdge } from '@/lib/workflows/types'
 import { NODE_W } from '@/lib/workflows/types'
@@ -53,6 +53,9 @@ interface Props {
 
 export function EdgeLayer({ nodes, edges, activeEdges, onInsert, selectedEdge, onSelectEdge }: Props) {
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes])
+  // Which connector the pointer is on. An edge answers you when you point at
+  // it — the line thickens and lights up, and its "+" comes forward.
+  const [hover, setHover] = useState<string | null>(null)
 
   return (
     <>
@@ -65,16 +68,17 @@ export function EdgeLayer({ nodes, edges, activeEdges, onInsert, selectedEdge, o
           const isSel = selectedEdge === e.id
           const accent = KIND_COLOR[from.kind]
           return (
-            <g key={e.id}>
+            <g key={e.id} onPointerEnter={() => setHover(e.id)} onPointerLeave={() => setHover((h) => (h === e.id ? null : h))}>
               {/* fat invisible hit area */}
               <path d={d} stroke="transparent" strokeWidth={14} fill="none"
                 style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                 onClick={() => onSelectEdge(isSel ? null : e.id)} />
               <path d={d} fill="none"
+                className="re-edge-line"
+                data-hot={isSel || active || hover === e.id ? 'true' : 'false'}
                 stroke={isSel ? 'var(--primary)' : active ? accent : 'var(--surface-border)'}
                 strokeWidth={isSel || active ? 2 : 1.5}
                 strokeDasharray={active ? '6 5' : undefined}
-                style={{ transition: 'stroke 0.2s ease' }}
               >
                 {active && <animate attributeName="stroke-dashoffset" from="22" to="0" dur="0.6s" repeatCount="indefinite" />}
               </path>
@@ -99,7 +103,8 @@ export function EdgeLayer({ nodes, edges, activeEdges, onInsert, selectedEdge, o
             title="Insert a node here"
             onPointerDown={(ev) => ev.stopPropagation()}
             onClick={(ev) => { ev.stopPropagation(); onInsert(e.id, mx, my) }}
-            className="absolute w-[18px] h-[18px] rounded-full flex items-center justify-center z-10 transition-transform hover:scale-110"
+            className="re-edge-add absolute w-[18px] h-[18px] rounded-full flex items-center justify-center z-10"
+            data-hot={hover === e.id || selectedEdge === e.id ? 'true' : 'false'}
             style={{
               left: mx - 9, top: my - 9,
               background: 'var(--elevated)', border: '1px solid var(--surface-border)',

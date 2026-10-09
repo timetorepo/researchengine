@@ -41,6 +41,10 @@ export const PROVIDERS: ProviderMeta[] = [
     needsKey: true, hint: 'One OpenAI-compatible key for many model providers',
   },
   {
+    id: 'kilocode', name: 'Kilo Code', kind: 'openai', baseUrl: 'https://api.kilo.ai/api/gateway',
+    needsKey: true, hint: 'Kilo Code gateway key, from the Kilo dashboard — one key for many models',
+  },
+  {
     id: 'together', name: 'Together', kind: 'openai', baseUrl: 'https://api.together.xyz/v1', needsKey: true,
   },
   {
@@ -49,6 +53,34 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: 'lmstudio', name: 'LM Studio', kind: 'openai', baseUrl: 'http://localhost:1234/v1',
     needsKey: false, hint: 'Local server — start it in LM Studio',
+  },
+  {
+    id: 'mercury', name: 'Inception · Mercury', kind: 'openai', baseUrl: 'https://api.inceptionlabs.ai/v1',
+    needsKey: true, hint: 'Diffusion LLM (Mercury 2 / Mercury Edit) — OpenAI-compatible, very fast',
+  },
+  {
+    id: 'grok', name: 'xAI · Grok', kind: 'openai', baseUrl: 'https://api.x.ai/v1',
+    needsKey: true, hint: 'xAI key from console.x.ai',
+  },
+  {
+    id: 'deepseek', name: 'DeepSeek', kind: 'openai', baseUrl: 'https://api.deepseek.com/v1',
+    needsKey: true, hint: 'platform.deepseek.com — /models auto-detects (deepseek-v4-*)',
+  },
+  {
+    id: 'kimi', name: 'Moonshot · Kimi', kind: 'openai', baseUrl: 'https://api.moonshot.ai/v1',
+    needsKey: true, hint: 'platform.moonshot.ai — kimi-k3 and code models',
+  },
+  {
+    id: 'glm', name: 'Z.ai · GLM', kind: 'openai', baseUrl: 'https://api.z.ai/api/paas/v4',
+    needsKey: true, hint: 'GLM-4.7-Flash / 4.5-Flash are free; GLM-5 for the heavy work',
+  },
+  {
+    id: 'minimax', name: 'MiniMax', kind: 'openai', baseUrl: 'https://api.minimax.io/v1',
+    needsKey: true, hint: 'MiniMax-M3 — enter the model id manually, /models is not exposed',
+  },
+  {
+    id: 'mimo', name: 'Xiaomi · MiMo', kind: 'openai', baseUrl: 'https://api.xiaomimimo.com/v1',
+    needsKey: true, hint: 'MiMo open platform key (sk-…, or tp-… from a Token Plan) — /models auto-detects mimo-v2.6-pro, flash and the TTS models',
   },
   {
     id: 'custom', name: 'Custom (OpenAI-compatible)', kind: 'openai', baseUrl: 'http://localhost:5000/v1',

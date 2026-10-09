@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { MotionConfig } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
@@ -24,24 +24,44 @@ const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowE
 const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
 const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
-import { Toasts } from '@/components/shared/Toasts'
-import { CommandPalette } from '@/components/shared/CommandPalette'
-import { ShortcutsOverlay } from '@/components/shared/ShortcutsOverlay'
-import { SkillBuilderPanel } from '@/components/skills/SkillBuilderPanel'
-import { SkillRunModal } from '@/components/skills/SkillRunModal'
-import { StarField } from '@/components/easter/StarField'
-import { DiagnosticsOverlay } from '@/components/easter/DiagnosticsOverlay'
-import { FocusPill } from '@/components/shared/FocusPill'
-import { Onboarding } from '@/components/onboarding/Onboarding'
+const RemoverAlpha = React.lazy(() => import('@/components/alpha/RemoverAlpha').then((m) => ({ default: m.RemoverAlpha })))
+const FeedbackView = React.lazy(() => import('@/components/feedback/FeedbackView').then((m) => ({ default: m.FeedbackView })))
+import { AppToaster } from '@/components/shared/AppToaster'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { SettingsSheet } from '@/components/settings/SettingsSheet'
+/**
+ * On-demand overlays. None of these is on screen at first paint, so none of
+ * them belongs in the entry chunk: each is imported the moment its own flag
+ * turns on, and the idle preload below warms them so the first open is instant
+ * anyway. Settings alone is ~250 kB of tabs that used to load for every visit.
+ */
+const SettingsSheet = React.lazy(() => import('@/components/settings/SettingsSheet').then((m) => ({ default: m.SettingsSheet })))
+const TasksPanel = React.lazy(() => import('@/components/tasks/TasksPanel').then((m) => ({ default: m.TasksPanel })))
+const CommandPalette = React.lazy(() => import('@/components/shared/CommandPalette').then((m) => ({ default: m.CommandPalette })))
+const ShortcutsOverlay = React.lazy(() => import('@/components/shared/ShortcutsOverlay').then((m) => ({ default: m.ShortcutsOverlay })))
+const SkillBuilderPanel = React.lazy(() => import('@/components/skills/SkillBuilderPanel').then((m) => ({ default: m.SkillBuilderPanel })))
+const SkillRunModal = React.lazy(() => import('@/components/skills/SkillRunModal').then((m) => ({ default: m.SkillRunModal })))
+const Onboarding = React.lazy(() => import('@/components/onboarding/Onboarding').then((m) => ({ default: m.Onboarding })))
+const StarField = React.lazy(() => import('@/components/easter/StarField').then((m) => ({ default: m.StarField })))
+const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/DiagnosticsOverlay').then((m) => ({ default: m.DiagnosticsOverlay })))
+import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
+import { AppContextMenu } from '@/components/shared/AppContextMenu'
+import { UpdateModal } from '@/components/updates/UpdateModal'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
+import { installViewTransitions } from '@/hooks/useViewTransitions'
+import { markVisited, routePathOf } from '@/lib/routes/registry'
+import { installFramePin } from '@/lib/dom/scroll'
+import { watchFrameBudget } from '@/lib/system/frame-budget'
+import { wireAgentActivity } from '@/lib/ide/agents'
 
 /** Preload every lazy route chunk during idle time — first paint stays lean,
  *  but palette/navigation targets are warm by the time the user needs them. */
 function useRoutePreload() {
   useEffect(() => {
+    // Routes first: navigation should never wait on the network — and on a
+    // machine where the server is local or on the LAN, warming all of them is a
+    // disk read. Overlays follow, so the first open of Settings or the palette
+    // feels like it was always there.
     const load = () => {
       Promise.all([
         import('@/components/chat/ChatView'),
@@ -51,15 +71,22 @@ function useRoutePreload() {
         import('@/components/articles/ArticlesView'),
         import('@/components/library/LibraryView'),
         import('@/components/compare/CompareView'),
-      ]).catch(() => {})
+      ]).then(() => Promise.all([
+        import('@/components/settings/SettingsSheet'),
+        import('@/components/tasks/TasksPanel'),
+        import('@/components/shared/CommandPalette'),
+      ])).catch(() => {})
     }
-    const idle = (window as any).requestIdleCallback
-    if (typeof idle === 'function') {
-      const id = idle(load, { timeout: 4000 })
-      return () => (window as any).cancelIdleCallback?.(id)
-    }
-    const t = setTimeout(load, 2500)
-    return () => clearTimeout(t)
+    // Two frames after mount is "the shell is on screen": the user's first
+    // paint is never delayed, but the warm-up does not wait for a timeout
+    // either. The timer is a floor for a background tab, where rAF never fires.
+    let cancelled = false
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => { if (!cancelled) load() })
+    })
+    const t = setTimeout(() => { if (!cancelled) load() }, 1500)
+    return () => { cancelled = true; cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t) }
   }, [])
 }
 
@@ -67,6 +94,10 @@ export default function App() {
   const settings = useStore((s) => s.settings)
   const notFound = useUI((s) => s.notFound)
   useRoutePreload()
+
+  // Navigation is wrapped in the View Transitions API where the browser has it:
+  // the shell stays put, the page cross-fades, the nav marker travels.
+  useEffect(() => { installViewTransitions() }, [])
 
   // Apply theme + font scale + motion prefs whenever they change
   useEffect(() => {
@@ -80,7 +111,7 @@ export default function App() {
     return (
       <>
         <Onboarding />
-        <Toasts />
+        <AppToaster />
       </>
     )
   }
@@ -91,16 +122,82 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={reduced ? 'always' : 'user'} transition={{ type: 'spring', damping: 26, stiffness: 320 }}>
       <HashRouter>
-        <RoutedApp />
+        {/* One right-click menu for the whole app. The scroll indicator, chat
+            rows and other surfaces that own their right-click stop the event
+            before it reaches this, so theirs is the one you get. */}
+        <AppContextMenu>
+          <RoutedApp />
+        </AppContextMenu>
       </HashRouter>
     </MotionConfig>
   )
 }
 
+/**
+ * Cold routes have to fetch a chunk. Rather than freezing the frame or showing
+ * a bare skeleton, a two-pixel bar crosses the top of the window — the same
+ * signal every browser gives — and the rail marks the row you picked.
+ */
+function RouteProgress() {
+  const loading = useUI((s) => s.routeLoading)
+  return (
+    <AnimatePresence>
+      {loading && (
+        <motion.div
+          key="route-progress"
+          className="re-route-progress"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          role="progressbar"
+          aria-label="Loading page"
+        >
+          <span className="re-route-progress-bar" />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+function RouteLatch() {
+  const location = useLocation()
+  const path = routePathOf(`#${location.pathname}`)
+  useEffect(() => { markVisited(path) }, [path])
+  return null
+}
+
 function RoutedApp() {
   const starfield = useUI((s) => s.starfield)
+  // One subscription for the overlay flags, so toggling any of them re-renders
+  // this component (and only mounts the overlay that turned on).
+  const overlay = useUI((s) => ({
+    settingsSheet: s.settingsSheet,
+    tasksPanel: s.tasksOpen,
+    paletteOpen: s.paletteOpen,
+    shortcutsOpen: s.shortcutsOpen,
+    skillBuilder: s.skillBuilderOpen,
+    skillRun: s.skillRun,
+    diagnostics: s.diagnostics,
+  }))
+  // First run only — a returning user never pays for the tour's chunk.
+  const firstRun = useStore((s) => s.settings.onboarded !== true)
   const location = useLocation()
   useGlobalShortcuts()
+
+  // The app frame is a fixed, non-scrolling box. Anything that scrolls it — a
+  // stray scrollIntoView from a list, the browser revealing a focused input —
+  // leaves the whole UI parked off-centre and the user cannot scroll it back,
+  // because `overflow: hidden` ignores the wheel. Put it back, always.
+  useEffect(() => installFramePin(), [])
+
+  // Agent tasks and the chat share one activity feed (coding mode only).
+  useEffect(() => { wireAgentActivity() }, [])
+
+  // Adaptive quality: one short sample of the real frame rate a few seconds in,
+  // and again whenever the window comes back from being hidden. The animated
+  // canvases read the level; Settings → Performance shows it.
+  useEffect(() => watchFrameBudget(), [])
 
   // Transient overlays must never survive navigation: any leftover full-screen
   // scrim would silently swallow every click until a refresh. Close them all
@@ -113,6 +210,7 @@ function RoutedApp() {
       skillRun: null,
       islandExpanded: false,
       sidebarOpenMobile: false,
+      routeLoading: null,
     })
   }, [location.key])
 
@@ -127,9 +225,19 @@ function RoutedApp() {
           </filter>
         </defs>
       </svg>
+      {/* A hairline that says the click was heard while a route chunk loads.
+          The page underneath stays interactive the whole time. */}
+      <RouteProgress />
       <ErrorBoundary>
       <Shell>
         <Suspense fallback={<RouteSkeleton />}>
+        {/* Inside the boundary on purpose. When a route suspends, everything in
+            here — this latch included — is replaced by the skeleton and mounts
+            again the moment the chunk lands, so the effect below fires exactly
+            when the route has rendered for real. The View Transitions layer
+            reads that mark; a route is never animated into before then, because
+            flushing a render that suspends loses the navigation. */}
+        <RouteLatch />
         <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/chat/:id" element={<ChatView />} />
@@ -144,22 +252,40 @@ function RoutedApp() {
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/code" element={<CodingView />} />
           <Route path="/chats" element={<ChatsView />} />
+          <Route path="/alpha" element={<RemoverAlpha />} />
+          <Route path="/feedback" element={<FeedbackView />} />
           <Route path="/secrets" element={<SecretsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
       </Shell>
       </ErrorBoundary>
-      <Toasts />
-      <SettingsSheet />
+      <AppToaster />
+      {/* Always mounted: the vault prompt has to be able to appear over
+          anything, and the scroll rail follows whichever surface scrolls. */}
       <VaultUnlock />
-      <CommandPalette />
-      <ShortcutsOverlay />
-      <SkillBuilderPanel />
-      <SkillRunModal />
-      <FocusPill />
-      {starfield && <StarField />}
-      <DiagnosticsOverlay />
+      {/* The new-release popup lives outside the router on purpose — a version
+          announcement should be able to reach the user on any page. */}
+      <UpdateModal />
+      <ScrollProgress />
+      {/* Each overlay mounts only once its own flag is on, so the chunk is
+          fetched when it is actually wanted (and the idle preload has usually
+          fetched it already). */}
+      <Suspense fallback={null}>
+        {overlay && (
+          <>
+            {overlay.settingsSheet && <SettingsSheet />}
+            {overlay.tasksPanel && <TasksPanel />}
+            {overlay.paletteOpen && <CommandPalette />}
+            {overlay.shortcutsOpen && <ShortcutsOverlay />}
+            {overlay.skillBuilder && <SkillBuilderPanel />}
+            {overlay.skillRun && <SkillRunModal />}
+            {firstRun && <Onboarding />}
+            {starfield && <StarField />}
+            {overlay.diagnostics && <DiagnosticsOverlay />}
+          </>
+        )}
+      </Suspense>
     </>
   )
 }

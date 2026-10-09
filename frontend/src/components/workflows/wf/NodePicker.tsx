@@ -1,8 +1,9 @@
 // Spotlight-style node picker (cmdk pattern): search across the library,
 // grouped by kind, arrow-key navigable.
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { Search } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { NODE_LIBRARY, KIND_COLOR, KIND_LABEL, type NodeDef } from '@/lib/workflows/library'
 import type { NodeKind } from '@/lib/workflows/types'
 
@@ -35,7 +36,8 @@ export function NodePicker({ open, onClose, onPick, title = 'Add a node' }: Prop
   useEffect(() => { setIdx(0) }, [q])
   useEffect(() => {
     const el = listRef.current?.querySelector('[data-active="true"]')
-    el?.scrollIntoView({ block: 'nearest' })
+    // Keep the highlighted row visible inside the picker's list only.
+    scrollChildIntoView(listRef.current, el as HTMLElement | null, { block: 'nearest' })
   }, [idx])
 
   const pick = (d: NodeDef) => { onPick(d); onClose() }

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import {
   Search, MessageSquare, Wand2, Settings, BookOpen, GraduationCap, Users, Home, Moon,
   FileText, Folder, Plug, PenLine, History, Hammer, Workflow as WorkflowIcon,
