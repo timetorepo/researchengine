@@ -364,6 +364,22 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   // The right dock is a workspace of its own now: the chat, the parallel agent
   // pool, and a live "what did the AI just touch" feed.
   const [dockTab, setDockTab] = useState<'ai' | 'agents' | 'activity' | 'changes'>('ai')
+  // Branch and change count for the status bar, refreshed while the project is open.
+  const [gitSummary, setGitSummary] = useState<{ branch: string; files: number } | null>(null)
+  useEffect(() => {
+    let live = true
+    const read = () => fetch(`/api/ide/git/status?project=${encodeURIComponent(project)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!live) return
+        if (!j || j.repo === false) { setGitSummary(null); return }
+        setGitSummary({ branch: j.branch ?? '', files: (j.files ?? []).length })
+      })
+      .catch(() => {})
+    void read()
+    const t = window.setInterval(() => void read(), 15000)
+    return () => { live = false; window.clearInterval(t) }
+  }, [project])
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [sessionActivity, setSessionActivity] = useState<IdeActivity[]>([])
   const agentTasks = useAgents((st) => st.tasks.filter((t) => t.project === project))
@@ -1114,7 +1130,12 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
       <div className="shrink-0 flex items-center gap-1.5 px-2 pt-1.5 pb-2 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
         <div className="ide-statuspill min-w-0">
           <StatusItem motionKind="grow" icon={<FolderOpen size={10} />} onClick={onBack} title="Back to projects">{project}</StatusItem>
-          <StatusItem icon={<GitBranch size={10} />} title="This project runs on your machine — nothing is pushed anywhere">local</StatusItem>
+          <StatusItem icon={<GitBranch size={10} />} title="This project runs on your machine. Nothing is pushed anywhere.">local</StatusItem>
+          {gitSummary?.branch && (
+            <StatusItem icon={<GitBranch size={10} />} title={gitSummary.files ? `${gitSummary.files} changed files on ${gitSummary.branch}` : `On ${gitSummary.branch}, nothing changed`}>
+              {gitSummary.branch}{gitSummary.files ? ` · ${gitSummary.files} changed` : ''}
+            </StatusItem>
+          )}
           <StatusItem icon={<ShieldCheck size={10} />}
             title="Commands run inside the project folder, destructive commands are blocked, and mutating ones need your approval."
             onClick={() => { setPanel('safety'); setPanelOpen(true) }}>

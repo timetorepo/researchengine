@@ -754,6 +754,65 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'open_section',
+    description: 'Open a part of Research Engine for the user: "quiz" (Read & Quiz), "coding" (the coding workspace), "chats" (sessions) or "library" (sources). Use it when the user would benefit from that section. It changes nothing else.',
+    parameters: {
+      type: 'object',
+      properties: { section: opt('string', 'quiz, coding, chats or library') },
+      required: ['section'],
+    },
+    run: async (args) => {
+      const to = ({ quiz: '/quiz', coding: '/code', chats: '/chats', library: '/library' } as Record<string, string>)[String(args?.section ?? '')]
+      if (!to) return 'Unknown section. Use quiz, coding, chats or library.'
+      window.dispatchEvent(new CustomEvent('re-navigate', { detail: to }))
+      return `Opened ${String(args.section)} for the user.`
+    },
+  },
+  {
+    name: 'session_sandbox',
+    description: 'Run work for this session inside its own isolated container or VM instead of on the host. Actions: status (what this machine can run), start (create the session sandbox), exec (run one shell command inside it), stop (remove it). target is "docker" (default) or "vm". Start one only when the task needs isolation, and tell the user you did.',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: opt('string', 'status, start, exec or stop'),
+        target: opt('string', 'docker (default) or vm'),
+        command: opt('string', 'For exec: the shell command to run inside the sandbox'),
+      },
+      required: ['action'],
+    },
+    run: async (args, ctx) => {
+      const json = { 'content-type': 'application/json' }
+      const probe = await fetch('/api/sandbox/probe').then((r) => r.json()).catch(() => null)
+      const action = String(args?.action ?? '')
+      if (action === 'status') return JSON.stringify(probe ?? { error: 'probe unreachable' })
+      const vm = String(args?.target ?? '').toLowerCase() === 'vm'
+      const label = vm ? 'VM (multipass)' : 'Docker'
+      if (!(vm ? probe?.vm : probe?.docker)) {
+        return `${label} is not available on this machine: ${vm ? probe?.vmDetail : probe?.dockerDetail ?? 'probe failed'}. Work on the host, or ask the user to install it.`
+      }
+      const base = vm ? '/api/sandbox/vm' : '/api/sandbox/container'
+      if (action === 'start') {
+        const r = await fetch(base, { method: 'POST', headers: json, body: JSON.stringify({ id: ctx.chatId }) }).then((x) => x.json())
+        if (!r.ok) return `Could not start the ${label} sandbox: ${r.error}`
+        const name = r.container ?? r.vm
+        useStore.setState((s) => ({ chats: s.chats.map((c) => c.id === ctx.chatId ? { ...c, session: { isolation: vm ? 'vm' as const : 'docker' as const, container: name } } : c) }))
+        return `Session sandbox ${name} is running (${label}, isolated from the host).`
+      }
+      if (action === 'exec') {
+        const cmd = String(args?.command ?? '').trim()
+        if (!cmd) return 'exec needs a command.'
+        const r = await fetch(vm ? '/api/sandbox/vm-exec' : '/api/sandbox/exec', { method: 'POST', headers: json, body: JSON.stringify({ id: ctx.chatId, cmd }) }).then((x) => x.json())
+        return JSON.stringify(r.ok ? { stdout: r.stdout, stderr: r.stderr } : { error: r.error, stderr: r.stderr })
+      }
+      if (action === 'stop') {
+        await fetch(base, { method: 'DELETE', headers: json, body: JSON.stringify({ id: ctx.chatId }) }).catch(() => {})
+        useStore.setState((s) => ({ chats: s.chats.map((c) => c.id === ctx.chatId ? { ...c, session: undefined } : c) }))
+        return `Session ${label} sandbox removed.`
+      }
+      return 'Unknown action. Use status, start, exec or stop.'
+    },
+  },
+  {
     name: 'mcp_call',
     description: 'Call a tool on a configured MCP (Model Context Protocol) server. The available servers and their tools are listed in your system context.',
     parameters: {

@@ -52,9 +52,14 @@ function IsolationButton({ chatId }: { chatId: string }) {
         if (r.ok) setSession({ isolation: 'docker', container: r.container })
         else setSession({ isolation: 'local', note: r.error })
       } else if (iso === 'vm') {
-        setSession(probe?.vm ? { isolation: 'vm', note: probe.vmDetail } : { isolation: 'local', note: probe?.vmDetail ?? 'no hypervisor on this machine' })
+        // Only a VM that actually launched counts as isolation.
+        const r = await fetch('/api/sandbox/vm', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: chatId }) })
+          .then((x) => x.json()).catch(() => ({ ok: false, error: 'The app server did not answer.' }))
+        if (r.ok) setSession({ isolation: 'vm', container: r.vm })
+        else setSession({ isolation: 'local', note: r.error })
       } else {
         if (session?.isolation === 'docker') await fetch('/api/sandbox/container', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: chatId }) }).catch(() => {})
+        if (session?.isolation === 'vm') await fetch('/api/sandbox/vm', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: chatId }) }).catch(() => {})
         setSession(undefined)
       }
     } finally { setBusy(false); setOpen(false) }
@@ -72,7 +77,7 @@ function IsolationButton({ chatId }: { chatId: string }) {
         <div className="absolute right-0 top-full mt-1 z-40 w-64 rounded-xl p-1"
           style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 12px 32px rgb(0 0 0 / .25)' }}>
           {([['local', 'This machine', 'no isolation, fastest'], ['docker', 'Docker container', probe?.docker ? 'capped container per session' : probe ? probe.dockerDetail : 'probing…'], ['vm', 'Virtual machine', probe?.vm ? (probe.vmDetail ?? '') : probe ? probe.vmDetail : 'probing…']] as const).map(([id, label, hint]) => (
-            <button key={id} disabled={busy || (id === 'docker' && probe ? !probe.docker : false)}
+            <button key={id} disabled={busy || (id === 'docker' && probe ? !probe.docker : false) || (id === 'vm' && probe ? !probe.vm : false)}
               className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] hover:bg-[var(--elevated)] disabled:opacity-40"
               style={{ color: iso === id || (id === 'local' && !iso) ? 'var(--primary)' : 'var(--text-2)' }}
               onClick={() => pick(id)}>

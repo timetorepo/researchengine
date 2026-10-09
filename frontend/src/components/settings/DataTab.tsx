@@ -131,6 +131,9 @@ export function DataTab() {
         </div>
       </div>
 
+      {/* Bring conversations from other AI products */}
+      <ImportSection />
+
       {/* Selective export */}
       <div className="surface p-4 mb-4">
         <div className="text-[12.5px] font-medium mb-2 flex items-center gap-1.5"><Archive size={13} style={{ color: 'var(--primary)' }} /> Collections to include in ZIP export</div>
@@ -215,6 +218,61 @@ export function DataTab() {
         Nothing here is ever uploaded. There is no Research Engine cloud, account, or sync service — by design.
         Imported chats are tagged <span style={{ color: 'var(--warning)' }}>[Imported]</span> so you always know their source.
       </p>
+    </div>
+  )
+}
+
+/**
+ * Transfer in: a ChatGPT or Claude export becomes ordinary Sessions in this
+ * history. The file is read in the browser; nothing is uploaded.
+ */
+function ImportSection() {
+  const ui = useUI()
+  const ref = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [last, setLast] = useState('')
+
+  const pick = async (file: File) => {
+    setBusy(true)
+    try {
+      const { readExportFile } = await import('@/lib/transfer/import')
+      const makeId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`)
+      const res = await readExportFile(file, makeId)
+      if (!res || res.chats.length === 0) {
+        ui.toast('Nothing to import', 'That is not a ChatGPT or Claude export. Choose conversations.json, or the zip ChatGPT sends.', 'warning')
+        return
+      }
+      useStore.setState((st) => ({ chats: [...res.chats, ...st.chats] }))
+      const from = res.source === 'chatgpt' ? 'ChatGPT' : 'Claude'
+      const skipped = res.skipped ? `, ${res.skipped} empty one${res.skipped === 1 ? '' : 's'} skipped` : ''
+      const msg = `${res.chats.length} conversation${res.chats.length === 1 ? '' : 's'} from ${from}${skipped}.`
+      setLast(msg)
+      ui.toast('Imported', msg, 'success')
+    } catch {
+      ui.toast('Import failed', 'That file could not be read. Check that it is the JSON or zip the provider exported.', 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="surface p-4 mb-4">
+      <div className="text-[12.5px] font-medium mb-1">Bring your conversations from ChatGPT or Claude</div>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
+        Export your data from the provider, then choose the zip or conversations.json here. Each conversation becomes a Session in your history, read entirely in this browser.
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => ref.current?.click()} disabled={busy}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-medium disabled:opacity-50"
+          style={{ background: 'var(--primary)', color: '#fff' }}>
+          <Upload size={13} /> {busy ? 'Reading…' : 'Choose export file'}
+        </button>
+        {last && <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{last}</span>}
+        <input ref={ref} type="file" accept=".json,.zip,application/json,application/zip" hidden
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = '' }} />
+      </div>
     </div>
   )
 }

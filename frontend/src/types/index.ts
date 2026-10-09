@@ -159,6 +159,8 @@ export interface Chat {
   settings?: { project?: string }
   /** Session isolation for multitasking: where this chat's work executes. */
   session?: { isolation: 'local' | 'docker' | 'vm'; container?: string; note?: string }
+  /** Where an imported conversation came from. */
+  importedFrom?: 'chatgpt' | 'claude'
   /** Persona (vendored system prompt) attached to this chat. */
   personaId?: string
   /** MCP server ids enabled for this chat. */

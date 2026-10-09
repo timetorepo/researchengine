@@ -1,20 +1,21 @@
 /**
- * MCP tool servers live where they are used: the coding workspace.
+ * MCP tool servers, shared by the coding workspace and Settings → MCP Servers.
+ * Chats get the same servers: the chat tool loop reads settings.mcpServers.
  *
- * The panel shows the servers already configured, a curated list of the ones
- * worth having with one-click installs (they join settings.mcpServers and can
- * be tested against /api/mcp/tools right away), a 4,000-server catalog parsed
- * from the awesome list (refreshable live from mcpservers.org), and links out
- * to the open registries. The same panel is mounted in Settings, because MCP
- * is now a whole-app concern: chats get the tools too.
+ * Three ways in: a short list of servers worth having (one click), the open
+ * index of about 7,700 servers (one click where the index verified a run
+ * command, a link everywhere else), and a paste box for anything else.
  */
-import { useMemo, useState } from 'react'
-import { Plus, Power, Trash2, Zap, ExternalLink, Loader2, Store, Search, Globe } from 'lucide-react'
-import { MCP_SEED, MCP_SEED_SOURCE, refreshCatalog, searchCatalog, type McpCatalogEntry } from '@/lib/mcp/catalog'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Power, Trash2, Zap, ExternalLink, Loader2, Store, Search, Copy, Check } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import type { McpServerConfig } from '@/types'
+import {
+  loadMcpCatalog, searchCatalog, splitCommand, MCP_REGISTRY_URL, MCP_REGISTRY_LISTED,
+  type McpCatalog, type McpCatalogEntry,
+} from '@/lib/mcp/catalog'
 
 interface Reco {
   name: string
@@ -37,9 +38,9 @@ const RECOS: Reco[] = [
 ]
 
 const REGISTRIES: { name: string; url: string; note: string }[] = [
+  { name: 'mcpservers.org', url: MCP_REGISTRY_URL, note: `${MCP_REGISTRY_LISTED} listed` },
   { name: 'Smithery', url: 'https://smithery.ai', note: 'installable registry' },
   { name: 'Glama', url: 'https://glama.ai/mcp/servers', note: 'directory with reviews' },
-  { name: 'mcp.so', url: 'https://mcp.so', note: 'community servers' },
   { name: 'Official servers', url: 'https://github.com/modelcontextprotocol/servers', note: 'the reference set' },
 ]
 
@@ -53,9 +54,17 @@ export function McpPanel() {
   const [adding, setAdding] = useState(false)
   const [custom, setCustom] = useState({ name: '', command: '' })
   const [catQ, setCatQ] = useState('')
-  const [catEntries, setCatEntries] = useState<McpCatalogEntry[]>(MCP_SEED)
-  const [catSource, setCatSource] = useState<string>(MCP_SEED_SOURCE)
-  const [refreshing, setRefreshing] = useState(false)
+  const [cat, setCat] = useState<McpCatalog | null>(null)
+  const [catEnv, setCatEnv] = useState<Record<string, string>>({})
+  const [copied, setCopied] = useState<string | null>(null)
+
+  useEffect(() => {
+    let live = true
+    loadMcpCatalog()
+      .then((c) => { if (live) setCat(c) })
+      .catch(() => { if (live) setCat({ source: 'unavailable', count: 0, withCommand: 0, entries: [] }) })
+    return () => { live = false }
+  }, [])
 
   const setServers = (next: McpServerConfig[]) =>
     useStore.setState((s) => ({ settings: { ...s.settings, mcpServers: next } }))
@@ -76,6 +85,26 @@ export function McpPanel() {
     ui.toast(`${reco.name} installed`, 'It starts on demand the first time the agent needs its tools.', 'success')
   }
 
+  const addFromCatalog = (e: McpCatalogEntry) => {
+    const { command, args } = splitCommand(e.command)
+    if (!command) return
+    if (servers.some((s) => s.name === e.name)) {
+      ui.toast('Already added', `${e.name} is in your servers.`, 'info')
+      return
+    }
+    const key = e.env[0]
+    const value = (catEnv[e.name] ?? '').trim()
+    if (key && !value) return
+    setServers([...servers, { id: nanoid(8), name: e.name, command, args, env: key ? { [key]: value } : undefined, enabled: true }])
+    ui.toast(`${e.name} added`, 'It starts on demand, in coding sessions and in chats.', 'success')
+  }
+
+  const copyLink = (link: string, id: string) => {
+    void navigator.clipboard?.writeText(link)
+    setCopied(id)
+    setTimeout(() => setCopied((c) => (c === id ? null : c)), 1400)
+  }
+
   const test = async (s: McpServerConfig) => {
     setTesting(s.id)
     setTestNote((n) => ({ ...n, [s.id]: '' }))
@@ -86,7 +115,7 @@ export function McpPanel() {
       })
       const j = await res.json()
       const one = j.servers?.[0]
-      if (one?.ok) setTestNote((n) => ({ ...n, [s.id]: `connected — ${one.tools.length} tool${one.tools.length === 1 ? '' : 's'}: ${one.tools.map((t: any) => t.name).slice(0, 4).join(', ')}${one.tools.length > 4 ? '…' : ''}` }))
+      if (one?.ok) setTestNote((n) => ({ ...n, [s.id]: `connected: ${one.tools.length} tool${one.tools.length === 1 ? '' : 's'}, ${one.tools.map((t: any) => t.name).slice(0, 4).join(', ')}${one.tools.length > 4 ? '…' : ''}` }))
       else setTestNote((n) => ({ ...n, [s.id]: one?.error ?? 'Could not connect from this machine.' }))
     } catch {
       setTestNote((n) => ({ ...n, [s.id]: 'Could not reach the MCP bridge from here.' }))
@@ -97,8 +126,8 @@ export function McpPanel() {
   const addCustom = () => {
     const cmd = custom.command.trim()
     if (!cmd) { ui.toast('Command required', 'Example: npx -y @modelcontextprotocol/server-filesystem /path', 'warning'); return }
-    const [command, ...rest] = cmd.split(/\s+/)
-    setServers([...servers, { id: nanoid(8), name: custom.name.trim() || command, command, args: rest, enabled: true }])
+    const { command, args } = splitCommand(cmd)
+    setServers([...servers, { id: nanoid(8), name: custom.name.trim() || command, command, args, enabled: true }])
     setCustom({ name: '', command: '' })
     setAdding(false)
     ui.toast('MCP server added', 'Test it with the bolt button once you are online.', 'success')
@@ -106,29 +135,7 @@ export function McpPanel() {
 
   const q = filter.trim().toLowerCase()
   const shown = RECOS.filter((r) => !q || r.name.toLowerCase().includes(q) || r.pkg.toLowerCase().includes(q) || r.why.toLowerCase().includes(q))
-  const catShown = useMemo(() => searchCatalog(catEntries, catQ, 40), [catEntries, catQ])
-  const guessPkg = (e: McpCatalogEntry) => {
-    const m = e.url.match(/github\.com\/([^/]+)\/([^/#?]+)/i)
-    return m ? `@${m[1].toLowerCase()}/${m[2].toLowerCase()}` : ''
-  }
-  const installCatalog = (e: McpCatalogEntry) => {
-    const pkg = guessPkg(e)
-    if (pkg) {
-      setServers([...servers, { id: nanoid(8), name: e.name, command: 'npx', args: ['-y', pkg], enabled: true }])
-      ui.toast(`${e.name} added`, 'Test it with the bolt button; swap the package if the repo ships another.', 'success')
-    } else {
-      setAdding(true)
-      setCustom({ name: e.name, command: '' })
-      ui.toast('Paste the run command', `This one lives at ${e.url} — copy its npx/uvx command.`, 'info')
-    }
-  }
-  const doRefresh = async () => {
-    setRefreshing(true)
-    const live = await refreshCatalog()
-    if (live) { setCatEntries(live.entries); setCatSource(live.source) }
-    else setCatSource(`${MCP_SEED_SOURCE} · live refresh unreachable from here, seed kept`)
-    setRefreshing(false)
-  }
+  const catShown = useMemo(() => searchCatalog(cat?.entries ?? [], catQ, 40), [cat, catQ])
 
   return (
     <div className="flex-1 overflow-y-auto px-2.5 pb-3 text-[11px]">
@@ -177,7 +184,7 @@ export function McpPanel() {
       )}
 
       {/* recommended */}
-      <div className="ide-section px-0.5 pt-3.5 pb-1.5">Recommended — one click</div>
+      <div className="ide-section px-0.5 pt-3.5 pb-1.5">Recommended, one click</div>
       <div className="px-1 pb-2">
         <div className="relative">
           <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--ide-faint)' }} />
@@ -207,7 +214,7 @@ export function McpPanel() {
             </div>
             {r.envKey && !installed && (
               <input value={envDrafts[r.pkg] ?? ''} onChange={(e) => setEnvDrafts((d) => ({ ...d, [r.pkg]: e.target.value }))}
-                placeholder={`${r.envKey} — ${r.envHint ?? 'required'}`} type="password"
+                placeholder={`${r.envKey} (${r.envHint ?? 'required'})`} type="password"
                 className="ide-input w-full mt-1.5 font-mono" style={{ fontSize: 9.5 }} />
             )}
           </div>
@@ -216,40 +223,70 @@ export function McpPanel() {
       {!shown.length && <p className="px-1" style={{ color: 'var(--ide-faint)' }}>Nothing matches that filter.</p>}
 
       {/* catalog */}
-      <div className="ide-section px-0.5 pt-3.5 pb-1.5 flex items-center gap-1">
-        <Store size={10} /> The catalog
-        <button onClick={doRefresh} className="ml-auto flex items-center gap-1 opacity-70 hover:opacity-100" title="Refresh live from mcpservers.org">
-          {refreshing ? <Loader2 size={10} className="animate-spin" /> : <Globe size={10} />}
-          <span className="text-[9px]">live</span>
-        </button>
-      </div>
+      <div className="ide-section px-0.5 pt-3.5 pb-1.5 flex items-center gap-1"><Store size={10} /> The catalog</div>
       <div className="px-1 pb-2">
         <div className="relative">
           <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--ide-faint)' }} />
-          <input value={catQ} onChange={(e) => setCatQ(e.target.value)} placeholder={`Search ${catEntries.length} servers…`}
+          <input value={catQ} onChange={(e) => setCatQ(e.target.value)} placeholder={cat ? `Search ${cat.count.toLocaleString()} servers…` : 'Loading the catalog…'}
             className="ide-input w-full pl-6" />
         </div>
-        <p className="pt-1 text-[9px] leading-snug" style={{ color: 'var(--ide-faint)' }}>{catSource}</p>
+        <p className="pt-1 text-[9px] leading-snug" style={{ color: 'var(--ide-faint)' }}>
+          {cat ? `${cat.count.toLocaleString()} servers in the open index. ${cat.withCommand} install in one click; the rest open their project page.` : ''}
+        </p>
       </div>
-      {catShown.map((e) => (
-        <div key={`${e.name}|${e.url}`} className="px-1.5 py-1.5 rounded-[6px] mb-1 hover:bg-[var(--ide-hover)]">
-          <div className="flex items-center gap-1.5">
-            <div className="min-w-0 flex-1">
-              <span className="block text-[10.5px] truncate" style={{ color: 'var(--ide-text)' }}>{e.name}</span>
-              <span className="block leading-snug" style={{ color: 'var(--ide-dim)' }}>{e.description || e.category}</span>
+      {catShown.map((e) => {
+        const installed = servers.some((s) => s.name === e.name)
+        const oneClick = !!e.command
+        const needsKey = oneClick && !!e.env[0] && !installed
+        const keyMissing = needsKey && !(catEnv[e.name] ?? '').trim()
+        return (
+          <div key={`${e.name}|${e.url}`} className="px-1.5 py-1.5 rounded-[6px] mb-1 hover:bg-[var(--ide-hover)]">
+            <div className="flex items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                <span className="block text-[10.5px] truncate" style={{ color: 'var(--ide-text)' }}>{e.name}</span>
+                <span className="block leading-snug truncate" title={e.description} style={{ color: 'var(--ide-dim)' }}>{e.description || e.category}</span>
+                <span className="block font-mono text-[9px] truncate" style={{ color: 'var(--ide-faint)' }}>
+                  {oneClick ? e.command : e.transport ? `${e.transport}, hosted` : 'link only'}
+                </span>
+              </div>
+              {(e.url || e.endpoint) && (
+                <a href={e.url || e.endpoint} target="_blank" rel="noreferrer" title="Open the project page" className="shrink-0 opacity-70 hover:opacity-100">
+                  <ExternalLink size={10} />
+                </a>
+              )}
+              {installed ? (
+                <span className="text-[9.5px] shrink-0" style={{ color: 'var(--success)' }}>added</span>
+              ) : oneClick ? (
+                <button onClick={() => addFromCatalog(e)} disabled={keyMissing}
+                  title={keyMissing ? `Enter ${e.env[0]} first` : 'Add to your servers'}
+                  className="shrink-0 px-1.5 py-1 rounded-[6px] text-[9.5px] font-medium disabled:opacity-40"
+                  style={{ background: 'var(--ide-accent)', color: '#fff' }}>
+                  Add
+                </button>
+              ) : (
+                <button onClick={() => copyLink(e.url || e.endpoint || '', e.name)} title="Copy the link"
+                  className="shrink-0 flex items-center gap-1 px-1.5 py-1 rounded-[6px] text-[9.5px]"
+                  style={{ color: 'var(--ide-dim)' }}>
+                  {copied === e.name ? <Check size={10} /> : <Copy size={10} />}
+                  {copied === e.name ? 'copied' : 'link'}
+                </button>
+              )}
             </div>
-            <a href={e.url} target="_blank" rel="noreferrer" title={e.url} className="shrink-0 opacity-70 hover:opacity-100"><ExternalLink size={10} /></a>
-            <button onClick={() => installCatalog(e)}
-              className="shrink-0 px-1.5 py-1 rounded-[6px] text-[9.5px] font-medium"
-              style={{ background: 'var(--ide-accent)', color: '#fff' }}>Add</button>
+            {needsKey && (
+              <input type="password" value={catEnv[e.name] ?? ''} onChange={(ev) => setCatEnv((d) => ({ ...d, [e.name]: ev.target.value }))}
+                placeholder={`${e.env[0]} (required)`} className="ide-input w-full mt-1.5 font-mono" style={{ fontSize: 9.5 }} />
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
+      {cat && catShown.length === 0 && (
+        <p className="px-1 pb-1" style={{ color: 'var(--ide-faint)' }}>Nothing in the index matches. Try a broader word, or browse the full directory below.</p>
+      )}
 
-      {/* marketplace */}
+      {/* registries */}
       <div className="ide-section px-0.5 pt-3.5 pb-1.5 flex items-center gap-1"><Store size={10} /> The registries</div>
       <p className="px-1 pb-1.5 leading-relaxed" style={{ color: 'var(--ide-faint)' }}>
-        Everything else lives in the open MCP registries. Find a server, copy its npx command, paste it above.
+        Everything else lives in the open MCP directories. Find a server, copy its run command, paste it above.
       </p>
       {REGISTRIES.map((r) => (
         <a key={r.url} href={r.url} target="_blank" rel="noreferrer"

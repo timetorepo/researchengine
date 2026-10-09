@@ -69,22 +69,37 @@ function refIcon(box: ContextRef['box']) {
   return <CalendarDays size={size} />
 }
 
-const EFFORT_STEPS = [
-  { id: 'instant', label: 'Instant', hint: 'answers now, thinks least' },
-  { id: 'low', label: 'Low', hint: 'light reasoning' },
-  { id: 'medium', label: 'Medium', hint: 'the daily default' },
-  { id: 'high', label: 'High', hint: 'reasons before answering' },
-  { id: 'xhigh', label: 'xHigh', hint: 'deep reasoning, where the model offers it' },
-  { id: 'max', label: 'Max', hint: 'everything the model will spend' },
-] as const
+type EffortStep = { id: string; label: string; hint: string }
 
 /**
- * Effort ladder, per the Claude and ChatGPT effort controls. Providers that
- * understand effort get it mapped onto their dialect; the rest ignore it.
- * Instant doubles as the switch that skips asking for chain of thought.
+ * Effort in each provider's own vocabulary. Claude's five levels come from its
+ * effort doc; ChatGPT's are the ladder people know (Instant is minimal
+ * reasoning, Max is Ultra). Both store the same ids; the backend maps them onto
+ * the wire value for each dialect.
  */
+const EFFORT_SETS: Record<string, EffortStep[]> = {
+  anthropic: [
+    { id: 'low', label: 'Low', hint: 'fastest, least thinking' },
+    { id: 'medium', label: 'Medium', hint: 'default on Opus 5.5 and Haiku 5.5' },
+    { id: 'high', label: 'High', hint: 'default on most Claude models' },
+    { id: 'xhigh', label: 'xHigh', hint: 'long agentic and coding work' },
+    { id: 'max', label: 'Max', hint: 'no limit on thinking or output' },
+  ],
+  openai: [
+    { id: 'instant', label: 'Instant', hint: 'answers now, minimal reasoning' },
+    { id: 'low', label: 'Low', hint: 'light reasoning' },
+    { id: 'medium', label: 'Medium', hint: 'the daily default' },
+    { id: 'high', label: 'High', hint: 'reasons before answering' },
+    { id: 'xhigh', label: 'xHigh', hint: 'the deepest reasoning the model offers' },
+    { id: 'max', label: 'Max', hint: 'Ultra: the most the model will spend' },
+  ],
+}
+
+/** Effort pill: follows the provider of the default model. */
 function EffortPill() {
   const effort = useStore((s) => s.settings.effort ?? 'medium')
+  const provider = useStore((s) => (s.settings.defaultModel ?? '').split(':')[0])
+  const steps = EFFORT_SETS[provider] ?? EFFORT_SETS.openai
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -93,23 +108,23 @@ function EffortPill() {
     window.addEventListener('mousedown', close)
     return () => window.removeEventListener('mousedown', close)
   }, [open])
-  const current = EFFORT_STEPS.find((e) => e.id === effort) ?? EFFORT_STEPS[2]
+  const current = steps.find((e) => e.id === effort) ?? steps.find((e) => e.id === 'medium') ?? steps[0]
   return (
     <div className="relative" ref={ref}>
       <button className="flex items-center gap-1 p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors text-[10.5px]"
-        style={{ color: effort === 'medium' ? 'var(--text-3)' : 'var(--primary)' }}
+        style={{ color: current.id === 'medium' ? 'var(--text-3)' : 'var(--primary)' }}
         aria-label="Effort" aria-expanded={open}
-        title="Effort — how hard the model thinks (Claude, ChatGPT and other reasoning models)">
+        title="Effort: how hard the model thinks before it answers">
         <Gauge size={15} strokeWidth={1.5} />
         <span>{current.label}</span>
       </button>
       {open && (
         <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl p-1 z-40"
           style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 12px 32px rgb(0 0 0 / .25)' }}>
-          {EFFORT_STEPS.map((e) => (
+          {steps.map((e) => (
             <button key={e.id}
               className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-[11px] hover:bg-[var(--elevated)]"
-              style={{ color: e.id === effort ? 'var(--primary)' : 'var(--text-2)' }}
+              style={{ color: e.id === current.id ? 'var(--primary)' : 'var(--text-2)' }}
               onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, effort: e.id } })); setOpen(false) }}>
               <span className="font-medium w-14">{e.label}</span>
               <span className="opacity-70 text-[10px]">{e.hint}</span>

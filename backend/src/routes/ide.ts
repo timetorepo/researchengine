@@ -746,39 +746,89 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ ok: true, path: relative(dir, dest), bytes, sha256, before, after })
   })
 
-  // ---------- changes panel: status, diff, commit ----------
-  // The coding view's right-hand rail reads like a source client: what is
-  // uncommitted, how each file changed, one click to commit. Read-only git
-  // plus an explicit commit; nothing pushes, nothing rewrites history.
+  // ---------- changes panel: status, diff, stage, revert, commit ----------
+  // The coding view's right rail: what changed, what is staged, how each file
+  // changed, and the three moves a person makes with it. Git runs locally;
+  // nothing is pushed, and nothing is discarded without an explicit confirm.
   const git = (dir: string, args: string[], timeout = 8000) =>
     spawnSync('git', args, { cwd: dir, timeout, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 })
+
+  const numstat = (dir: string, extra: string[]) => {
+    const m = new Map<string, { add: number; del: number }>()
+    for (const line of (git(dir, ['diff', '--numstat', ...extra]).stdout || '').split('\n')) {
+      const [a, d, ...rest] = line.split('\t')
+      if (!rest.length) continue
+      m.set(rest.join('\t'), { add: a === '-' ? 0 : Number(a) || 0, del: d === '-' ? 0 : Number(d) || 0 })
+    }
+    return m
+  }
 
   r.get('/git/status', async (c) => {
     const dir = projectDir(c.req.query('project') ?? '')
     if (!dir) return c.json({ error: 'unknown project' }, 404)
     if (!existsSync(join(dir, '.git'))) return c.json({ repo: false, files: [] })
-    const out = git(dir, ['status', '--porcelain'])
+    const out = git(dir, ['status', '--porcelain=v1', '-uall'])
     if (out.status !== 0) return c.json({ repo: true, files: [], error: (out.stderr || '').slice(0, 300) })
-    const files = (out.stdout || '').split('\n').filter(Boolean).map((line) => ({
-      st: line.slice(0, 2).trim() || '??',
-      file: line.slice(3).replace(/ -> .+$/, '').replace(/^"|"$/g, ''),
-    }))
-    return c.json({ repo: true, files })
+    const branch = (git(dir, ['rev-parse', '--abbrev-ref', 'HEAD']).stdout || '').trim() || 'HEAD'
+    const unstaged = numstat(dir, [])
+    const staged = numstat(dir, ['--cached'])
+    const files = (out.stdout || '').split('\n').filter((l) => l.length > 3).map((line) => {
+      const x = line[0]
+      const y = line[1]
+      const raw = line.slice(3).replace(/^"|"$/g, '')
+      const file = raw.includes(' -> ') ? raw.split(' -> ').pop() as string : raw
+      const untracked = x === '?' && y === '?'
+      const u = unstaged.get(file) ?? { add: 0, del: 0 }
+      const s = staged.get(file) ?? { add: 0, del: 0 }
+      return {
+        st: untracked ? '??' : (y !== ' ' ? y : x),
+        file,
+        staged: !untracked && x !== ' ',
+        unstaged: untracked || y !== ' ',
+        add: u.add + s.add,
+        del: u.del + s.del,
+      }
+    })
+    return c.json({ repo: true, branch, files })
   })
 
   r.get('/git/diff', async (c) => {
     const dir = projectDir(c.req.query('project') ?? '')
     const file = String(c.req.query('file') ?? '')
-    if (!dir || !file || file.includes('..')) return c.json({ error: 'bad request' }, 400)
-    const untracked = git(dir, ['ls-files', '--others', '--exclude-standard', '--', file]).stdout?.includes(file)
-    if (untracked) {
+    const staged = c.req.query('staged') === '1'
+    if (!dir || !file || file.includes('..') || file.startsWith('/')) return c.json({ error: 'bad request' }, 400)
+    const tracked = git(dir, ['ls-files', '--error-unmatch', '--', file]).status === 0
+    if (!tracked && !staged) {
+      // Untracked: every line is new. Shown as a hunk of additions.
       const body = await readFile(join(dir, file), 'utf8').catch(() => '')
-      const lines = body.split('\n').slice(0, 400).map((l) => `+${l}`).join('\n')
-      return c.json({ file, untracked: true, diff: `new file\n${lines}` })
+      const lines = body.split('\n').slice(0, 400)
+      return c.json({ file, untracked: true, diff: [`@@ -0,0 +1,${lines.length} @@`, ...lines.map((l) => `+${l}`)].join('\n') })
     }
-    const out = git(dir, ['diff', '-U3', '--', file])
-    const staged = git(dir, ['diff', '--cached', '-U3', '--', file])
-    return c.json({ file, diff: `${staged.stdout ?? ''}${out.stdout ?? ''}`.slice(0, 120000) })
+    const out = git(dir, staged ? ['diff', '--cached', '-U3', '--', file] : ['diff', '-U3', '--', file])
+    return c.json({ file, diff: (out.stdout ?? '').slice(0, 120000) })
+  })
+
+  r.post('/git/stage', async (c) => {
+    const body = await c.req.json().catch(() => ({}))
+    const proj = projectDir(String(body.project ?? ''))
+    if (!proj) return c.json({ error: 'unknown project' }, 404)
+    if (!existsSync(join(proj, '.git'))) return c.json({ error: 'not a git repository' }, 400)
+    const out = git(proj, ['add', '-A'])
+    if (out.status !== 0) return c.json({ error: (out.stderr || 'stage failed').slice(0, 300) }, 500)
+    return c.json({ ok: true })
+  })
+
+  r.post('/git/revert', async (c) => {
+    const body = await c.req.json().catch(() => ({}))
+    const proj = projectDir(String(body.project ?? ''))
+    if (!proj) return c.json({ error: 'unknown project' }, 404)
+    if (body.confirm !== true) return c.json({ error: 'Reverting discards work. Send confirm: true to go ahead.' }, 400)
+    if (!existsSync(join(proj, '.git'))) return c.json({ error: 'not a git repository' }, 400)
+    // Tracked files go back to the last commit, staged and unstaged alike.
+    // Untracked files are left alone: nothing is deleted from here.
+    const out = git(proj, ['reset', '--hard', '-q'])
+    if (out.status !== 0) return c.json({ error: (out.stderr || 'revert failed').slice(0, 300) }, 500)
+    return c.json({ ok: true })
   })
 
   r.post('/git/commit', async (c) => {
@@ -786,12 +836,16 @@ export function ideRoutes(rt: Runtime) {
     const proj = projectDir(String(body.project ?? ''))
     if (!proj) return c.json({ error: 'unknown project' }, 404)
     const message = String(body.message ?? '').trim()
-    if (!message) return c.json({ error: 'a commit message is required' }, 400)
-    const add = git(proj, ['add', '-A'])
-    if (add.status !== 0) return c.json({ error: (add.stderr || 'git add failed').slice(0, 300) }, 500)
+    if (!message) return c.json({ error: 'A commit message is required.' }, 400)
+    // What is staged gets committed. With nothing staged, everything is.
+    const anyStaged = git(proj, ['diff', '--cached', '--quiet']).status !== 0
+    if (!anyStaged) {
+      const add = git(proj, ['add', '-A'])
+      if (add.status !== 0) return c.json({ error: (add.stderr || 'git add failed').slice(0, 300) }, 500)
+    }
     const com = git(proj, ['commit', '-m', message.slice(0, 400)])
-    if (com.status !== 0) return c.json({ error: (com.stderr || com.stdout || 'nothing to commit').slice(0, 300) }, 400)
-    return c.json({ ok: true, out: (com.stdout || '').slice(0, 300) })
+    if (com.status !== 0) return c.json({ error: (com.stderr || com.stdout || 'Nothing to commit.').slice(0, 300) }, 400)
+    return c.json({ ok: true, out: (com.stdout || '').split('\n')[0].slice(0, 200) })
   })
 
   return r

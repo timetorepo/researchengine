@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import React from 'react'
 import { KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
@@ -12,7 +13,6 @@ import { SkillsTab } from './SkillsTab'
 import { AgentsTab } from './AgentsTab'
 import { DataTab } from './DataTab'
 import { ShortcutsTab } from './ShortcutsTab'
-import { PersonasTab } from './PersonasTab'
 import { McpPanel } from '@/components/ide/McpPanel'
 import { AboutTab } from './AboutTab'
 import { PerformanceTab } from './PerformanceTab'
@@ -44,6 +44,8 @@ export const TABS = [
   { id: 'about', label: 'About', icon: Info },
 ]
 
+const PersonasTab = lazy(() => import('./PersonasTab').then((m) => ({ default: m.PersonasTab })))
+
 export function McpTab() {
   return (
     <div className="h-full flex flex-col">
@@ -71,7 +73,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'performance': return <PerformanceTab />
     case 'skills': return <SkillsTab />
     case 'mcp': return <McpTab />
-    case 'personas': return <PersonasTab />
+    case 'personas': return <Suspense fallback={null}><PersonasTab /></Suspense>
     case 'coding': return <CodingTab />
     case 'agents': return <AgentsTab />
     case 'data': return <DataTab />

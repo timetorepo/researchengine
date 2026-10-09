@@ -1,25 +1,44 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BookMarked, Download, RefreshCw, Search } from 'lucide-react'
-import { PERSONAS_MANIFEST, personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
+import { PERSONAS_MANIFEST } from '@/content/personas/manifest'
+import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
 import { useStore } from '@/stores/useStore'
+import { useUI } from '@/stores/useUI'
 
 /**
- * The persona library: every system prompt in the upstream archive, browsable
- * offline. Vendored ones open their full text here; the rest open once the
- * machine mirrors the archive (one command, then this tab sees everything).
+ * The persona library: every system prompt in the upstream archive. The
+ * flagship set reads offline; the full archive is one sync away, pulled onto
+ * this machine by the app itself.
  */
 export function PersonasTab() {
   const [q, setQ] = useState('')
-  const [vendor, setVendor] = useState<string>('')
+  const [vendor, setVendor] = useState('')
   const [openSlug, setOpenSlug] = useState<string | null>(null)
   const [openText, setOpenText] = useState<string | null>(null)
-  const [openPath, setOpenPath] = useState<string>('')
+  const [openPath, setOpenPath] = useState('')
   const [mirror, setMirror] = useState<{ present: boolean; count: number } | null>(null)
+  const [syncing, setSyncing] = useState(false)
   const defaultPersonaId = useStore((s) => s.settings.defaultPersonaId ?? '')
+  const ui = useUI()
 
-  useEffect(() => {
+  const refreshMirror = () =>
     fetch('/api/personas/local').then((r) => r.json()).then(setMirror).catch(() => setMirror({ present: false, count: 0 }))
-  }, [])
+
+  useEffect(() => { void refreshMirror() }, [])
+
+  const syncArchive = async () => {
+    setSyncing(true)
+    const r = await fetch('/api/personas/sync', { method: 'POST' })
+      .then((x) => x.json())
+      .catch(() => ({ ok: false, error: 'The app server did not answer.' }))
+    setSyncing(false)
+    if (r.ok) {
+      ui.toast('Archive synced', `${r.count} prompts are on this machine now.`, 'success')
+      void refreshMirror()
+    } else {
+      ui.toast('Sync failed', r.error ?? 'Try again in a moment.', 'danger')
+    }
+  }
 
   const vendors = useMemo(() => {
     const counts = new Map<string, number>()
@@ -35,18 +54,19 @@ export function PersonasTab() {
   }, [q, vendor])
 
   const open = async (slug: string, path: string) => {
-    setOpenSlug(slug); setOpenPath(path); setOpenText(null)
+    setOpenSlug(slug)
+    setOpenPath(path)
+    setOpenText(null)
     if (slug) { setOpenText(await personaText(slug)); return }
     const r = await fetch(`/api/personas/text?path=${encodeURIComponent(path)}`).then((x) => x.json()).catch(() => null)
-    setOpenText(r?.text ? `${r.text}${r.truncated ? '\n\n(truncated at 200k chars)' : ''}` : null)
+    setOpenText(r?.text ? `${r.text}${r.truncated ? '\n\n(truncated at 200k characters)' : ''}` : (r?.error ?? null))
   }
 
   return (
     <div>
       <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Personas</h2>
       <p className="text-[13px] mb-4" style={{ color: 'var(--text-2)' }}>
-        {PERSONAS_MANIFEST.length} system prompts from the public archive, archived for research into what frontier products sound like.
-        Attach one to a chat and the model answers in its voice, on top of your own prompts.
+        {PERSONAS_MANIFEST.length} system prompts from the public archive. Attach one to a chat and the model answers in its voice, on top of your own prompts.
       </p>
 
       <div className="flex items-center gap-2 mb-3">
@@ -57,11 +77,12 @@ export function PersonasTab() {
             style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }} />
         </div>
         <button
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11.5px]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11.5px] disabled:opacity-50"
+          disabled={syncing}
           style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}
-          onClick={() => fetch('/api/personas/local').then((r) => r.json()).then(setMirror).catch(() => {})}>
-          <RefreshCw size={12} />
-          {mirror === null ? 'checking mirror…' : mirror.present ? `full mirror: ${mirror.count} prompts` : 'mirror not synced'}
+          onClick={() => void syncArchive()}>
+          <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
+          {syncing ? 'syncing the archive…' : mirror?.present ? `full archive: ${mirror.count} prompts` : 'sync the full archive'}
         </button>
       </div>
 
@@ -70,9 +91,7 @@ export function PersonasTab() {
           style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
           <Download size={12} className="mt-0.5 shrink-0" />
           <span>
-            The vendored set below opens offline. For the whole archive on this machine run
-            <code className="mx-1 font-mono" style={{ color: 'var(--text-2)' }}>node scripts/sync-personas.mjs</code>
-            once; the library then serves every entry.
+            Flagship prompts open offline. Sync the full archive once (about 28 MB, needs git) and every entry here reads in full.
           </span>
         </div>
       )}
@@ -102,17 +121,17 @@ export function PersonasTab() {
             <span className="text-[10px] shrink-0" style={{ color: 'var(--text-3)' }}>{p.vendor}{p.product ? ` / ${p.product}` : ''}</span>
             <span className="text-[9.5px] shrink-0 px-1.5 py-[1px] rounded-full"
               style={{ background: p.slug ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--elevated)', color: p.slug ? 'var(--success)' : 'var(--text-3)' }}>
-              {p.slug ? 'in app' : 'mirror'}
+              {p.slug ? 'in app' : 'archive'}
             </span>
           </button>
         ))}
         {rows.length === 0 && <div className="px-4 py-6 text-center text-[12px]" style={{ color: 'var(--text-3)' }}>Nothing matches.</div>}
       </div>
 
-      <div className="flex items-center gap-2 mt-4 text-[11.5px]" style={{ color: 'var(--text-2)' }}>
+      <div className="flex items-center gap-2 mt-4 text-[11.5px] flex-wrap" style={{ color: 'var(--text-2)' }}>
         <span>Default persona for new chats:</span>
         <select value={defaultPersonaId}
-          onChange={(e) => useStore.setState((s) => ({ settings: { ...s.settings, defaultPersonaId: e.target.value } }))}
+          onChange={(e) => useStore.setState((s) => ({ settings: { ...s.settings, defaultPersonaId: e.target.value || undefined } }))}
           className="px-2 py-1 rounded-lg text-[11px] outline-none"
           style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }}>
           <option value="">none (Research Engine voice)</option>
@@ -120,7 +139,7 @@ export function PersonasTab() {
             <option key={p.slug} value={p.slug}>{p.vendor} / {p.title.slice(0, 48)}</option>
           ))}
         </select>
-        <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>coding chats default to {CODING_PERSONA_SLUG} unless a chat picks otherwise</span>
+        <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>coding chats use {CODING_PERSONA_SLUG} unless a chat picks another</span>
       </div>
 
       {openSlug !== null && (
@@ -130,16 +149,18 @@ export function PersonasTab() {
             style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
             <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--surface-border)' }}>
               <span className="text-[12.5px] font-medium flex-1 truncate" style={{ color: 'var(--text-1)' }}>{openPath}</span>
-              <button className="px-2.5 py-1 rounded-lg text-[10.5px]"
-                style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}
-                onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, defaultPersonaId: openSlug || undefined } })); setOpenSlug(null) }}>
-                make default
-              </button>
+              {openSlug && (
+                <button className="px-2.5 py-1 rounded-lg text-[10.5px]"
+                  style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}
+                  onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, defaultPersonaId: openSlug } })); setOpenSlug(null) }}>
+                  make default
+                </button>
+              )}
               <button className="px-2.5 py-1 rounded-lg text-[10.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}
                 onClick={() => setOpenSlug(null)}>close</button>
             </div>
             <pre className="flex-1 overflow-auto px-4 py-3 text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>
-              {openText ?? 'sync the mirror to read this one: node scripts/sync-personas.mjs'}
+              {openText ?? 'Loading…'}
             </pre>
           </div>
         </div>
