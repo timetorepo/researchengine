@@ -746,5 +746,53 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ ok: true, path: relative(dir, dest), bytes, sha256, before, after })
   })
 
+  // ---------- changes panel: status, diff, commit ----------
+  // The coding view's right-hand rail reads like a source client: what is
+  // uncommitted, how each file changed, one click to commit. Read-only git
+  // plus an explicit commit; nothing pushes, nothing rewrites history.
+  const git = (dir: string, args: string[], timeout = 8000) =>
+    spawnSync('git', args, { cwd: dir, timeout, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 })
+
+  r.get('/git/status', async (c) => {
+    const dir = projectDir(c.req.query('project') ?? '')
+    if (!dir) return c.json({ error: 'unknown project' }, 404)
+    if (!existsSync(join(dir, '.git'))) return c.json({ repo: false, files: [] })
+    const out = git(dir, ['status', '--porcelain'])
+    if (out.status !== 0) return c.json({ repo: true, files: [], error: (out.stderr || '').slice(0, 300) })
+    const files = (out.stdout || '').split('\n').filter(Boolean).map((line) => ({
+      st: line.slice(0, 2).trim() || '??',
+      file: line.slice(3).replace(/ -> .+$/, '').replace(/^"|"$/g, ''),
+    }))
+    return c.json({ repo: true, files })
+  })
+
+  r.get('/git/diff', async (c) => {
+    const dir = projectDir(c.req.query('project') ?? '')
+    const file = String(c.req.query('file') ?? '')
+    if (!dir || !file || file.includes('..')) return c.json({ error: 'bad request' }, 400)
+    const untracked = git(dir, ['ls-files', '--others', '--exclude-standard', '--', file]).stdout?.includes(file)
+    if (untracked) {
+      const body = await readFile(join(dir, file), 'utf8').catch(() => '')
+      const lines = body.split('\n').slice(0, 400).map((l) => `+${l}`).join('\n')
+      return c.json({ file, untracked: true, diff: `new file\n${lines}` })
+    }
+    const out = git(dir, ['diff', '-U3', '--', file])
+    const staged = git(dir, ['diff', '--cached', '-U3', '--', file])
+    return c.json({ file, diff: `${staged.stdout ?? ''}${out.stdout ?? ''}`.slice(0, 120000) })
+  })
+
+  r.post('/git/commit', async (c) => {
+    const body = await c.req.json().catch(() => ({}))
+    const proj = projectDir(String(body.project ?? ''))
+    if (!proj) return c.json({ error: 'unknown project' }, 404)
+    const message = String(body.message ?? '').trim()
+    if (!message) return c.json({ error: 'a commit message is required' }, 400)
+    const add = git(proj, ['add', '-A'])
+    if (add.status !== 0) return c.json({ error: (add.stderr || 'git add failed').slice(0, 300) }, 500)
+    const com = git(proj, ['commit', '-m', message.slice(0, 400)])
+    if (com.status !== 0) return c.json({ error: (com.stderr || com.stdout || 'nothing to commit').slice(0, 300) }, 400)
+    return c.json({ ok: true, out: (com.stdout || '').slice(0, 300) })
+  })
+
   return r
 }

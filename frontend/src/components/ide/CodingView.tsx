@@ -1,13 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import {
-  FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch,
-  TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp,
-  Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2,
-  FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes,
-  Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles,
-  Package, Plug, Camera,
-} from 'lucide-react'
+import { FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch, TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp, Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2, FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes, Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles, Package, Plug, Camera, GitCompareArrows } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { DepsPanel } from './DepsPanel'
@@ -15,6 +8,7 @@ import { McpPanel } from './McpPanel'
 import { ScreenshotPanel } from './ScreenshotPanel'
 import { DesignStudio } from './DesignStudio'
 import { AgentPanel, chatIdFor } from './AgentPanel'
+import { ChangesPanel } from './ChangesPanel'
 import { AIFloat, FocusButton } from './AIFloat'
 import { AgentsDock } from './AgentsDock'
 import { AgentTimeline } from './AgentTimeline'
@@ -369,7 +363,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   const [preview, setPreview] = useState<{ running: boolean; port?: number; kind?: string; ready?: boolean; error?: string | null }>({ running: false })
   // The right dock is a workspace of its own now: the chat, the parallel agent
   // pool, and a live "what did the AI just touch" feed.
-  const [dockTab, setDockTab] = useState<'ai' | 'agents' | 'activity'>('ai')
+  const [dockTab, setDockTab] = useState<'ai' | 'agents' | 'activity' | 'changes'>('ai')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [sessionActivity, setSessionActivity] = useState<IdeActivity[]>([])
   const agentTasks = useAgents((st) => st.tasks.filter((t) => t.project === project))
@@ -696,8 +690,8 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
    * needs to know — and it must be decided *before* the tab state changes.
    */
   const dockDir = useRef(96)
-  const order = { ai: 0, agents: 1, activity: 2 } as const
-  const openDock = (tab: 'ai' | 'agents' | 'activity') => {
+  const order = { ai: 0, agents: 1, activity: 2, changes: 3 } as const
+  const openDock = (tab: 'ai' | 'agents' | 'activity' | 'changes') => {
     dockDir.current = order[tab] >= order[dockTab] ? 96 : -96
     setDockTab(tab)
   }
@@ -1051,6 +1045,11 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                         ),
                       },
                       {
+                        id: 'changes' as const,
+                        title: 'Uncommitted changes, per-file diffs, one-click commit',
+                        label: (<><GitCompareArrows size={11} /> Changes</>),
+                      },
+                      {
                         id: 'activity' as const,
                         title: 'Every file the AI touched',
                         label: (
@@ -1092,6 +1091,11 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                         <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
                           empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
                       </div>
+                    </motion.div>
+                  )}
+                  {dockTab === 'changes' && (
+                    <motion.div key="changes" className="h-full" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
+                      <ChangesPanel project={project} />
                     </motion.div>
                   )}
                   </AnimatePresence>
