@@ -36,7 +36,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Anthropic/anthropic_reminders",
   "chars": 10575,
   "vendored": true,
-  "slug": "Anthropic-anthropic-reminders"
+  "slug": "anthropic-anthropic-reminders"
  },
  {
   "path": "Anthropic/claude-code/agents/Explore.md",
@@ -146,7 +146,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "System prompt",
   "chars": 401143,
   "vendored": true,
-  "slug": "Anthropic-claude-code-claude-code-fable-5-1"
+  "slug": "anthropic-claude-code-claude-code-fable-5-1"
  },
  {
   "path": "Anthropic/claude-code/claude-code-fable-5.md",
@@ -3206,7 +3206,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Cursor/cursor",
   "chars": 18111,
   "vendored": true,
-  "slug": "Cursor-cursor"
+  "slug": "cursor-cursor"
  },
  {
   "path": "DeepSeek/deepseek-chat.md",
@@ -3216,7 +3216,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "DeepSeek/deepseek-chat",
   "chars": 438,
   "vendored": true,
-  "slug": "DeepSeek-deepseek-chat"
+  "slug": "deepseek-deepseek-chat"
  },
  {
   "path": "GLM/README.md",
@@ -3336,7 +3336,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Google/gemini-3.1-pro",
   "chars": 26345,
   "vendored": true,
-  "slug": "Google-gemini-3-1-pro"
+  "slug": "google-gemini-3-1-pro"
  },
  {
   "path": "Google/gemini-3.5-flash-ai-studio.md",
@@ -3386,7 +3386,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Core Mandates",
   "chars": 28860,
   "vendored": true,
-  "slug": "Google-gemini-cli"
+  "slug": "google-gemini-cli"
  },
  {
   "path": "Google/gemini-diffusion.md",
@@ -3486,7 +3486,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Kimi/kimi-3",
   "chars": 35888,
   "vendored": true,
-  "slug": "Kimi-kimi-3"
+  "slug": "kimi-kimi-3"
  },
  {
   "path": "Meta/muse-agent/AGENTS.md",
@@ -6606,7 +6606,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Microsoft/github-copilot",
   "chars": 35869,
   "vendored": true,
-  "slug": "Microsoft-github-copilot"
+  "slug": "microsoft-github-copilot"
  },
  {
   "path": "Microsoft/vscode-copilot-agent.md",
@@ -6646,7 +6646,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "The character info",
   "chars": 1294,
   "vendored": true,
-  "slug": "Misc-character-ai"
+  "slug": "misc-character-ai"
  },
  {
   "path": "Misc/commandcode-cli.md",
@@ -6676,7 +6676,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Modes",
   "chars": 17985,
   "vendored": true,
-  "slug": "Misc-devin-cli"
+  "slug": "misc-devin-cli"
  },
  {
   "path": "Misc/docker-gordon-ai.md",
@@ -6856,7 +6856,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Note: The bash tool operates in a *sandboxed* environment with the following restrictions:",
   "chars": 13583,
   "vendored": true,
-  "slug": "Mistral-mistral-code"
+  "slug": "mistral-mistral-code"
  },
  {
   "path": "Mistral/mistral-medium-3.5.md",
@@ -6876,7 +6876,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "AI",
   "chars": 46728,
   "vendored": true,
-  "slug": "Notion-notion-ai"
+  "slug": "notion-notion-ai"
  },
  {
   "path": "OpenAI/4o-2025-09-03-new-personality.md",
@@ -6996,7 +6996,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "SYSTEM INSTRUCTIONS",
   "chars": 359517,
   "vendored": true,
-  "slug": "OpenAI-Codex-codex-full"
+  "slug": "openai-codex-codex-full"
  },
  {
   "path": "OpenAI/Codex/codex-thread-title.md",
@@ -7046,7 +7046,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "General",
   "chars": 11966,
   "vendored": true,
-  "slug": "OpenAI-Codex-gpt-5-3-codex-spark"
+  "slug": "openai-codex-gpt-5-3-codex-spark"
  },
  {
   "path": "OpenAI/Codex/gpt-5.4-mini.md",
@@ -7066,7 +7066,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "General",
   "chars": 12896,
   "vendored": true,
-  "slug": "OpenAI-Codex-gpt-5-4"
+  "slug": "openai-codex-gpt-5-4"
  },
  {
   "path": "OpenAI/Codex/gpt-5.5.md",
@@ -7106,7 +7106,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "When to ask the user for permission",
   "chars": 479803,
   "vendored": true,
-  "slug": "OpenAI-Codex-gpt-6-astra"
+  "slug": "openai-codex-gpt-6-astra"
  },
  {
   "path": "OpenAI/Codex/gpt-6-luna.md",
@@ -7506,7 +7506,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Instructions",
   "chars": 3159,
   "vendored": true,
-  "slug": "OpenAI-chatgpt-atlas"
+  "slug": "openai-chatgpt-atlas"
  },
  {
   "path": "OpenAI/chatgpt-gpt-5-agent-mode.md",
@@ -7516,7 +7516,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Financial activities",
   "chars": 21381,
   "vendored": true,
-  "slug": "OpenAI-chatgpt-gpt-5-agent-mode"
+  "slug": "openai-chatgpt-gpt-5-agent-mode"
  },
  {
   "path": "OpenAI/chatgpt-personality-instructions.md",
@@ -7526,7 +7526,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "OpenAI/chatgpt-personality-instructions",
   "chars": 7946,
   "vendored": true,
-  "slug": "OpenAI-chatgpt-personality-instructions"
+  "slug": "openai-chatgpt-personality-instructions"
  },
  {
   "path": "OpenAI/dots/available-skills.md",
@@ -8136,7 +8136,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Cell 1",
   "chars": 30168,
   "vendored": true,
-  "slug": "Perplexity-deep-research"
+  "slug": "perplexity-deep-research"
  },
  {
   "path": "Perplexity/perplexity-ai.md",
@@ -8146,7 +8146,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Personalization Guidelines",
   "chars": 7864,
   "vendored": true,
-  "slug": "Perplexity-perplexity-ai"
+  "slug": "perplexity-perplexity-ai"
  },
  {
   "path": "Perplexity/perplexity-computer.md",
@@ -8176,7 +8176,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Pi/instructions",
   "chars": 2785,
   "vendored": true,
-  "slug": "Pi-instructions"
+  "slug": "pi-instructions"
  },
  {
   "path": "Qwen/qwen3.6-plus.md",
@@ -8196,7 +8196,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "Tools",
   "chars": 2415,
   "vendored": true,
-  "slug": "Qwen-qwen3-8-max"
+  "slug": "qwen-qwen3-8-max"
  },
  {
   "path": "README.md",
@@ -8226,7 +8226,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "title": "xAI/grok-4-with-new-safety-instructions",
   "chars": 20203,
   "vendored": true,
-  "slug": "xAI-grok-4-with-new-safety-instructions"
+  "slug": "xai-grok-4-with-new-safety-instructions"
  },
  {
   "path": "xAI/grok-4.1-beta.md",

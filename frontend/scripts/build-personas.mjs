@@ -84,7 +84,7 @@ mkdirSync(outDir, { recursive: true })
 for (const rel of PICK) {
   const abs = join(src, rel)
   if (!existsSync(abs)) { console.log(`skip (not upstream): ${rel}`); continue }
-  const slug = rel.replace(/\.md$/, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const slug = rel.replace(/\.md$/, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase()
   copyFileSync(abs, join(outDir, `${slug}.md`))
   vendoredBytes += statSync(abs).size
   const m = manifest.find((x) => x.path === rel)
