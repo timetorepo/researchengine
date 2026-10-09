@@ -134,6 +134,11 @@ chatRoutes.post('/', async (c) => {
   const maxTokens: number = body.maxTokens ?? 1024
   const temperature: number = body.temperature ?? 0.7
   const tools: any[] | null = Array.isArray(body.tools) && body.tools.length ? body.tools : null
+  const effort: string = typeof body.effort === 'string' ? body.effort : ''
+  const wantThinking: boolean = body.thinking === true
+  // Map the app's six-step effort ladder onto each dialect's vocabulary.
+  const anthropicEffort = ({ instant: 'low', low: 'low', medium: 'medium', high: 'high', xhigh: 'high', max: 'high' } as Record<string, string>)[effort]
+  const openaiEffort = ({ instant: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'xhigh' } as Record<string, string>)[effort]
 
   if (!model) return c.json({ error: 'model is required' }, 400)
   if (!base) return c.json({ error: 'base is required' }, 400)
@@ -161,6 +166,11 @@ chatRoutes.post('/', async (c) => {
     }
     const conv = toAnthropicBody(system, messages)
     payload = { model, stream: true, max_tokens: maxTokens, temperature, system: conv.system ?? '', messages: conv.messages }
+    if (anthropicEffort) payload.output_config = { effort: anthropicEffort }
+    if (wantThinking && maxTokens >= 2100) {
+      payload.thinking = { type: 'enabled', budget_tokens: Math.min(4000, maxTokens - 1000) }
+      payload.temperature = 1 // the API requires it once thinking is on
+    }
     if (tools) {
       payload.tools = tools.map((t) => ({ name: t.function.name, description: t.function.description ?? '', input_schema: t.function.parameters ?? { type: 'object', properties: {} } }))
     }
@@ -174,7 +184,10 @@ chatRoutes.post('/', async (c) => {
     }
     payload = {
       contents: toGeminiContents(messages),
-      generationConfig: { temperature, maxOutputTokens: maxTokens },
+      generationConfig: {
+        temperature, maxOutputTokens: maxTokens,
+        ...(wantThinking ? { thinkingConfig: { includeThoughts: true } } : {}),
+      },
     }
     if (system) payload.systemInstruction = { parts: [{ text: system }] }
     if (tools) {
@@ -202,6 +215,7 @@ chatRoutes.post('/', async (c) => {
       // response actually cost instead of guessing from character counts.
       stream_options: { include_usage: true },
     }
+    if (openaiEffort) payload.reasoning_effort = openaiEffort
     if (tools) {
       payload.tools = tools
       payload.tool_choice = 'auto'
@@ -226,8 +240,13 @@ chatRoutes.post('/', async (c) => {
   // nice-to-have, so drop it and ask again rather than failing the request.
   if (!upstream.ok && payload.stream_options && upstream.status >= 400 && upstream.status < 500) {
     const peek = await upstream.clone().text().catch(() => '')
-    if (/stream_options|unknown|unrecognized|additional propert|unsupported parameter/i.test(peek)) {
+    if (/stream_options|reasoning_effort|output_config|thinking|budget_tokens|unknown|unrecognized|additional propert|unsupported parameter/i.test(peek)) {
       delete payload.stream_options
+      delete payload.reasoning_effort
+      delete payload.output_config
+      delete payload.thinking
+      if (payload.generationConfig?.thinkingConfig) delete payload.generationConfig.thinkingConfig
+      if (payload.thinking) payload.temperature = undefined
       upstream = await send(payload)
     }
   }

@@ -67,6 +67,8 @@ export interface ChatMessage {
    * false means they are an estimate from the text, and the UI marks them.
    */
   usage?: { prompt: number; completion: number; total: number; reported: boolean }
+  /** Chain of thought: whatever the model let us see of its reasoning. */
+  thinking?: string
   /**
    * This message *is* the compressed context a fork carried over, not something
    * a model said. It is ordinary content as far as the request is concerned —
@@ -155,6 +157,12 @@ export interface Chat {
    */
   kind?: 'research' | 'coding'
   settings?: { project?: string }
+  /** Session isolation for multitasking: where this chat's work executes. */
+  session?: { isolation: 'local' | 'docker' | 'vm'; container?: string; note?: string }
+  /** Persona (vendored system prompt) attached to this chat. */
+  personaId?: string
+  /** MCP server ids enabled for this chat. */
+  mcp?: string[]
   messages: ChatMessage[]
 }
 
@@ -383,6 +391,10 @@ export interface Settings {
   flowEnabled: boolean
   flowMode: FlowMode
   defaultModel: string // "provider:model"
+  /** Effort level sent to providers that understand it (Claude, OpenAI…). */
+  effort?: string
+  /** Session switcher shortcut, e.g. "alt+shift". */
+  sessionSwitchKey?: string
   modelDefaults: Record<string, { temperature: number; topP: number; maxTokens: number }>
   customSystemPrompts: Record<string, string>
   /**

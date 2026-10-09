@@ -8202,6 +8202,7 @@ export const PERSONAS_MANIFEST: PersonaEntry[] = [
   "path": "README.md",
   "vendor": "README.md",
   "product": "",
+  "file": "README.md",
   "title": "System Prompts Leaks",
   "chars": 37365,
   "vendored": false,

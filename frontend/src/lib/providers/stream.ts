@@ -23,6 +23,12 @@ export interface StreamRequest {
   onFirstByte?: () => void
   /** OpenAI-style tool specs; provider dialects are translated by the proxy. */
   tools?: any[]
+  /** Effort ladder step (instant..max); the proxy maps it per dialect. */
+  effort?: string
+  /** Ask the provider to think on the record, where it knows how. */
+  thinking?: boolean
+  /** Chain-of-thought bytes, as the provider exposes them. */
+  onThinking?: (t: string) => void
 }
 
 /**
@@ -179,6 +185,7 @@ export async function streamToCallback(
           system: req.system, messages: req.messages,
           maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
           tools: req.tools?.length ? req.tools : undefined,
+          effort: req.effort || undefined, thinking: req.thinking || undefined,
         }),
       })
       if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
@@ -204,6 +211,8 @@ export async function streamToCallback(
           } else if (json.type === 'content_block_stop' && toolAcc) {
             toolCalls.push({ id: toolAcc.id, name: toolAcc.name, arguments: toolAcc.json || '{}' })
             toolAcc = null
+          } else if (json.type === 'content_block_delta' && json.delta?.type === 'thinking_delta' && json.delta.thinking) {
+            req.onThinking?.(json.delta.thinking)
           } else if (json.type === 'content_block_delta' && json.delta?.text) {
             completionChars += json.delta.text.length
             chunk(json.delta.text)
@@ -227,8 +236,8 @@ export async function streamToCallback(
                 const thoughtSignature = p.thoughtSignature ?? p.thought_signature
                 toolCalls.push({ id: `gmc_${++n}`, name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}), thoughtSignature })
               } else if (typeof p?.text === 'string' && p.text) {
-                completionChars += p.text.length
-                chunk(p.text)
+                if (p.thought) req.onThinking?.(p.text)
+                else { completionChars += p.text.length; chunk(p.text) }
               }
             }
           }
@@ -257,6 +266,8 @@ export async function streamToCallback(
           // models emit reasoning_content separately) — only count real text.
           const text = delta?.content
           if (text) { completionChars += text.length; chunk(text) }
+          const think = delta?.reasoning_content ?? delta?.reasoning ?? delta?.reasoning_text
+          if (typeof think === 'string' && think) req.onThinking?.(think)
           return false
         })
         for (const cur of acc.values()) {

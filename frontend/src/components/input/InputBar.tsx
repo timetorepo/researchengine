@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, Hammer, ListOrdered, ImagePlus, Plug, X, SlidersHorizontal, Calculator, BookOpen, Mic, FolderOpen, HardDrive, Mail, CalendarDays, Github, StickyNote, Hash } from 'lucide-react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, Hammer, ListOrdered, ImagePlus, Plug, X, SlidersHorizontal, Calculator, BookOpen, Mic, FolderOpen, HardDrive, Mail, CalendarDays, Github, StickyNote, Hash, Gauge } from 'lucide-react'
 import { VoiceBeam } from 'voice-glow'
 import VoicePill from '@/components/ui/reactbits/micro/VoicePill'
 import { useDictation } from '@/hooks/useDictation'
@@ -67,6 +67,58 @@ function refIcon(box: ContextRef['box']) {
   if (box === 'drive') return <HardDrive size={size} />
   if (box === 'mail') return <Mail size={size} />
   return <CalendarDays size={size} />
+}
+
+const EFFORT_STEPS = [
+  { id: 'instant', label: 'Instant', hint: 'answers now, thinks least' },
+  { id: 'low', label: 'Low', hint: 'light reasoning' },
+  { id: 'medium', label: 'Medium', hint: 'the daily default' },
+  { id: 'high', label: 'High', hint: 'reasons before answering' },
+  { id: 'xhigh', label: 'xHigh', hint: 'deep reasoning, where the model offers it' },
+  { id: 'max', label: 'Max', hint: 'everything the model will spend' },
+] as const
+
+/**
+ * Effort ladder, per the Claude and ChatGPT effort controls. Providers that
+ * understand effort get it mapped onto their dialect; the rest ignore it.
+ * Instant doubles as the switch that skips asking for chain of thought.
+ */
+function EffortPill() {
+  const effort = useStore((s) => s.settings.effort ?? 'medium')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [open])
+  const current = EFFORT_STEPS.find((e) => e.id === effort) ?? EFFORT_STEPS[2]
+  return (
+    <div className="relative" ref={ref}>
+      <button className="flex items-center gap-1 p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors text-[10.5px]"
+        style={{ color: effort === 'medium' ? 'var(--text-3)' : 'var(--primary)' }}
+        aria-label="Effort" aria-expanded={open}
+        title="Effort — how hard the model thinks (Claude, ChatGPT and other reasoning models)">
+        <Gauge size={15} strokeWidth={1.5} />
+        <span>{current.label}</span>
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl p-1 z-40"
+          style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 12px 32px rgb(0 0 0 / .25)' }}>
+          {EFFORT_STEPS.map((e) => (
+            <button key={e.id}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-[11px] hover:bg-[var(--elevated)]"
+              style={{ color: e.id === effort ? 'var(--primary)' : 'var(--text-2)' }}
+              onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, effort: e.id } })); setOpen(false) }}>
+              <span className="font-medium w-14">{e.label}</span>
+              <span className="opacity-70 text-[10px]">{e.hint}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emptyHistory, chatId, autoFocus = true, big = false }: Props) {
@@ -370,6 +422,8 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
                 {dictation.state === 'transcribing' ? 'Transcribing…' : 'Listening'}
               </span>
             )}
+
+            <EffortPill />
 
             <button className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors" style={{ color: 'var(--text-3)' }} aria-label="Attach document"
               onClick={() => { navigate('/quiz'); ui().toast('Read & Quiz', 'Drop a PDF, DOCX, TXT or Markdown file to study it.') }}>

@@ -396,6 +396,19 @@ export async function runChat(opts: RunOptions): Promise<void> {
     completionText += chunk
     run.ingest(chunk)
   }
+  // Chain of thought: whatever the provider exposes of its reasoning streams
+  // into the message live (throttled), exactly like the answer text does.
+  let thinkingText = ''
+  let lastThinkFlush = 0
+  const pushThinking = (t: string) => {
+    thinkingText += t
+    const now = Date.now()
+    if (now - lastThinkFlush > 160) {
+      lastThinkFlush = now
+      useStore.getState().updateMessage(chatId, asstId, { thinking: thinkingText })
+    }
+  }
+  const effortLevel = settings.effort ?? 'medium'
 
   // Flow cache hit?
   const cached = flowEnabled ? cacheGet(prompt + JSON.stringify(mode)) : null
@@ -463,6 +476,9 @@ export async function runChat(opts: RunOptions): Promise<void> {
           maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
           signal: controller.signal,
           tools: toolsAllowed ? specs : undefined,
+          effort: effortLevel,
+          thinking: effortLevel !== 'instant',
+          onThinking: pushThinking,
         }, pushChunk)
         promptTokens = res.promptEstimate
         completionTokens += res.completionTokens
@@ -520,6 +536,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     }
     if (e.name === 'AbortError') {
       // Keep exactly what was rendered — the pacer's un-emitted queue is dropped.
+      if (thinkingText) useStore.getState().updateMessage(chatId, asstId, { thinking: thinkingText })
       finish(chatId, asstId, '', { sources, usedDemo, promptTokens, completionTokens, pruned, aborted: true, usagePrompt, usageCompletion, usageReported, ragSourceCount })
       drainQueue(chatId)
       return
@@ -531,6 +548,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
   }
 
   if (flowEnabled && !cached) cacheSet(prompt + JSON.stringify(mode), completionText)
+  if (thinkingText) useStore.getState().updateMessage(chatId, asstId, { thinking: thinkingText })
   finish(chatId, asstId, completionText, { sources, usedDemo, promptTokens, completionTokens, pruned, usagePrompt, usageCompletion, usageReported, ragSourceCount })
   drainQueue(chatId)
 }

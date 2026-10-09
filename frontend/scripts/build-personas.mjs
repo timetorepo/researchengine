@@ -75,7 +75,7 @@ for (const abs of files) {
   const text = readFileSync(abs, 'utf8')
   const [vendor, ...rest] = rel.split('/')
   const product = rest.length > 1 ? rest.slice(0, -1).join('/') : ''
-  const entry = { path: rel, vendor, product, file: rest[rest.length - 1], title: titleOf(text, rel), chars: text.length, vendored: false, slug: '' }
+  const entry = { path: rel, vendor, product, file: rest[rest.length - 1] || rel, title: titleOf(text, rel), chars: text.length, vendored: false, slug: '' }
   manifest.push(entry)
 }
 
