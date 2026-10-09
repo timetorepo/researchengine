@@ -206,6 +206,16 @@ r17-ui 31 · bridge-pick 24 · resources 19 · api-json 11 · nav-repro OK ·
 bench 8/8. `design-test`/`sample-test` need a backend on :8787 (they read
 `RE_API`); start one before running them.
 
+## 4a. Test map at R31 (this round)
+
+r31 91 · r30 61 · r29 45 · r28 67 · r27 47 · smoke 65 · library 58 ·
+resilience 33 · nav 20 · fork 32 · models 96 · ide-chrome 35 ·
+updates-ui 34. r31 checks behaviour where node can run it (diff parsing,
+both export importers, command splitting, catalog search) and reads the
+source for wiring. Browser checks were done with headless Chromium through
+npm (@sparticuz/chromium + puppeteer-core, outside the repo); that path
+needs its bundled libraries on LD_LIBRARY_PATH.
+
 ## 5. Environment facts and traps (the expensive ones)
 
 - The sandbox has NO outbound network: backend fetches fail ("fetch failed"),

@@ -87,6 +87,8 @@ For the days when research turns into making something:
 - **UI components library** — browse ready-made components from the popular registries, preview them live inside design mode, save the ones you like, and copy one command that installs everything you saved.
 - **Start from nothing** — create a project, upload a ZIP, or press **Try a sample app** for a ready-made page with deliberate bugs to play with.
 
+**Changes, like a source client.** The coding dock's Changes tab lists unstaged and staged files with their line counts, opens each diff with line numbers and added lines in green, and offers stage all, revert all (a second click confirms it, because it discards work) and a commit. Nothing is pushed.
+
 ### Connect your own accounts
 
 Research Engine can read the places your work already lives — **Google Drive, Gmail, Google Calendar, GitHub, Notion, Slack**, and files on your own computer. Connect an account by pasting a token *once*, and the app **tests it against the real service before trusting it** and tells you which account it is signed in as.
@@ -97,9 +99,24 @@ Once connected, you can search all of it from the chatbox and attach a result to
 
 Dictation works with three engines — your browser's own, a transcription service you already have an account with, or a **Whisper server on your own machine** for anything confidential. Hold the mic to talk or click it to start and stop, watch the glow around the chatbox move with your voice, and your words land in the composer ready to send.
 
+### Run several sessions at once
+
+Every chat streams on its own, so one can think while you read another. Press **Alt + Shift** (rebindable in Settings → Shortcuts) and your sessions fly out as cards: press again to step through them, Enter to land. A session can run inside its own Docker container or a multipass VM when a task needs isolation, and the chat says so when it does.
+
+### Effort, and thinking you can read
+
+The composer's effort pill speaks each provider's own vocabulary: Claude's low, medium, high, xHigh and max, and ChatGPT's Instant through Max. Models that think show their chain of thought in a collapsible block above the answer. For Claude the app asks for a summary of the reasoning, never the raw chain of thought.
+
+### Bring your chats with you
+
+Settings → Data imports a ChatGPT export (the zip, or its conversations.json) or a Claude export. Each conversation becomes a session in your history, read entirely in your browser. For ChatGPT the branch you ended on is the one that comes across.
+
 ### Make it work your way
 
 - **Skills** — reusable standards you can put on any task. Three ship with the app: a **design pass** that scores its own work and must clear 8/10, a **zero-hallucination pass** that verifies every claim against the real project, and a **no-filler pass** that refuses to leave TODOs and placeholders behind. Write your own in plain language.
+- **Personas** — 836 system prompts from the public archive of frontier-product prompts. The flagship ones open offline; Settings → Personas syncs the full archive once. Attach one to a chat and the model answers in its voice, on top of your own instructions.
+- **Skill packs** — the full Apple-design pack from emilkowalski/skills, and the annotated-illustration pack with an adapter for models other than Codex. Attach them per chat.
+- **MCP servers** — Settings → MCP Servers and the coding panel share one list. The catalog holds 7,729 servers from an open index; the 116 with a verified run command install in one click, and the rest open their project page. mcpservers.org lists more, and links out from the panel.
 - **Master prompts** — the instructions behind every answer are readable and versioned. Change them, compare them, roll them back.
 - **Tasks** — a checklist you share with the assistant, pinned to the top so the AI works on what you actually care about.
 - **Make it beautiful** — light, dark, Catppuccin, Solarized, Nord, high-contrast and more; gradients that animate into a new theme instead of snapping; glass, frosted or solid surfaces; your own background image; a dock-style sidebar; and a profile avatar generated from your name.
@@ -186,6 +203,7 @@ The desktop app, a browser tab and a portable copy on the same machine all read 
 | | |
 |---|---|
 | `Ctrl/Cmd + K` | Command palette — jump anywhere, do anything |
+| `Alt + Shift` | Session switcher: step with the same keys, Enter to land (rebind in Settings → Shortcuts) |
 | `Ctrl/Cmd + N` | New chat |
 | `Ctrl/Cmd + Shift + N` | New chat with web search |
 | `Ctrl/Cmd + B` | Show or hide the sidebar |
