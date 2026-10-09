@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Sidebar } from '@/components/sidebar/Sidebar'
+import { SessionSwitcher } from '@/components/sessions/SessionSwitcher'
 import { TopBar } from '@/components/topbar/TopBar'
 import { TitleBar } from '@/components/os/TitleBar'
 import { DynamicIsland } from '@/components/os/DynamicIsland'
@@ -102,6 +103,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           )}
         </div>
         <PrivacyPanel />
+        <SessionSwitcher />
       </div>
     )
   }
@@ -119,6 +121,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {/* Optional everywhere: the island floats over any theme when enabled. */}
       {dynamicIsland && <DynamicIsland />}
       <PrivacyPanel />
+      <SessionSwitcher />
     </div>
   )
 }

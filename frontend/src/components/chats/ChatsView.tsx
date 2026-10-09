@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, PinOff, Download } from 'lucide-react'
+import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, PinOff, Download, Box, Monitor, ServerCog } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Tabs, Tab } from '@heroui/tabs'
 import { useStore } from '@/stores/useStore'
@@ -23,6 +23,70 @@ type Kind = 'all' | 'research' | 'coding'
  * This page is also where a conversation is managed now that the sidebar is
  * navigation-only: pin, rename (double-click a title), export, delete.
  */
+
+/**
+ * Where this session's work runs: the host, a Docker container, or a VM.
+ * Probes the machine first and says plainly what it finds; picking Docker
+ * spins up a small capped container the session can exec into.
+ */
+function IsolationButton({ chatId }: { chatId: string }) {
+  const session = useStore((st) => st.chats.find((c) => c.id === chatId)?.session)
+  const [open, setOpen] = useState(false)
+  const [probe, setProbe] = useState<{ docker: boolean; dockerDetail: string; vm: boolean; vmDetail: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    window.addEventListener('mousedown', close)
+    fetch('/api/sandbox/probe').then((r) => r.json()).then(setProbe).catch(() => setProbe({ docker: false, dockerDetail: 'probe failed', vm: false, vmDetail: 'probe failed' }))
+    return () => window.removeEventListener('mousedown', close)
+  }, [open])
+  const setSession = (patch: { isolation: 'local' | 'docker' | 'vm'; container?: string; note?: string } | undefined) =>
+    useStore.setState((st) => ({ chats: st.chats.map((c) => c.id === chatId ? { ...c, session: patch } : c) }))
+  const pick = async (iso: 'local' | 'docker' | 'vm') => {
+    setBusy(true)
+    try {
+      if (iso === 'docker') {
+        const r = await fetch('/api/sandbox/container', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: chatId }) }).then((x) => x.json())
+        if (r.ok) setSession({ isolation: 'docker', container: r.container })
+        else setSession({ isolation: 'local', note: r.error })
+      } else if (iso === 'vm') {
+        setSession(probe?.vm ? { isolation: 'vm', note: probe.vmDetail } : { isolation: 'local', note: probe?.vmDetail ?? 'no hypervisor on this machine' })
+      } else {
+        if (session?.isolation === 'docker') await fetch('/api/sandbox/container', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: chatId }) }).catch(() => {})
+        setSession(undefined)
+      }
+    } finally { setBusy(false); setOpen(false) }
+  }
+  const iso = session?.isolation
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen((o) => !o)} aria-label="Session isolation"
+        title={iso === 'docker' ? `Runs in ${session?.container}` : iso === 'vm' ? 'Runs in a VM' : 'Runs on this machine'}
+        className={`p-2 rounded-lg hover:bg-[var(--elevated)] transition-opacity ${iso ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}
+        style={{ color: iso ? 'var(--primary)' : 'var(--text-3)' }}>
+        {iso === 'docker' ? <Box size={14} /> : iso === 'vm' ? <ServerCog size={14} /> : <Monitor size={14} />}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-40 w-64 rounded-xl p-1"
+          style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 12px 32px rgb(0 0 0 / .25)' }}>
+          {([['local', 'This machine', 'no isolation, fastest'], ['docker', 'Docker container', probe?.docker ? 'capped container per session' : probe ? probe.dockerDetail : 'probing…'], ['vm', 'Virtual machine', probe?.vm ? (probe.vmDetail ?? '') : probe ? probe.vmDetail : 'probing…']] as const).map(([id, label, hint]) => (
+            <button key={id} disabled={busy || (id === 'docker' && probe ? !probe.docker : false)}
+              className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] hover:bg-[var(--elevated)] disabled:opacity-40"
+              style={{ color: iso === id || (id === 'local' && !iso) ? 'var(--primary)' : 'var(--text-2)' }}
+              onClick={() => pick(id)}>
+              <span className="font-medium">{label}</span>
+              <span className="block text-[10px] opacity-70">{hint}</span>
+            </button>
+          ))}
+          {session?.note && <div className="px-2 py-1 text-[10px]" style={{ color: 'var(--warning)' }}>{session.note}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ChatsView() {
   const navigate = useNavigate()
   const chats = useStore((s) => s.chats)
@@ -130,6 +194,7 @@ export function ChatsView() {
                   )}
                 </div>
               </button>
+              <IsolationButton chatId={chat.id} />
               <button onClick={() => setPinned(chat.id, !chat.pinned)} aria-label={chat.pinned ? 'Unpin chat' : 'Pin chat'}
                 title={chat.pinned ? 'Unpin' : 'Pin to the top'}
                 className={`p-2 rounded-lg hover:bg-[var(--elevated)] transition-opacity ${chat.pinned ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}
