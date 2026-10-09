@@ -91,12 +91,15 @@ const lines = readIf(join(repo, 'downloads', 'INSTALLERS.sha256')).split('\n')
 for (const line of lines) {
   const trimmed = line.trim()
   if (!trimmed || trimmed.startsWith('#')) continue
-  const parts = trimmed.split(/\s+/)
-  if (parts.length !== 2 || !/^[0-9a-f]{64}$/i.test(parts[0])) continue
-  const name = parts[1]
+  // Two record shapes are in use: `<hex>  <name>` (sha256sum) and the release
+  // record `sha256:<hex>  <name>  (<bytes> bytes)`. Both must publish.
+  const m = trimmed.match(/^(?:sha256:)?([0-9a-f]{64})\s+(\S+)(?:\s+\(\d+ bytes\))?$/i)
+  if (!m) continue
+  const digest = m[1]
+  const name = m[2]
   if (!name.includes(version)) continue
   const kind = kindOf(name)
-  installers.push({ name, href: assetUrl(name), kind, platform: platformOf(kind), sha256: parts[0] })
+  installers.push({ name, href: assetUrl(name), kind, platform: platformOf(kind), sha256: digest })
 }
 
 // Sizes for the installers, from the table downloads/README.md keeps current.
