@@ -220,6 +220,8 @@ export async function runChat(opts: RunOptions): Promise<void> {
     const joined = texts.filter(Boolean).join('\n\n---\n\n')
     if (joined) system = `${system}\n\n# Attached skill packs (apply their rules while answering)\n${joined}`
   }
+  // The model can hand work back to the app: markers the UI turns into chips.
+  system += `\n\n# App actions\nYou may open parts of the app for the user by emitting one marker on its own line:\n[RE:open:quiz] opens Read & Quiz\n[RE:open:read|<url>] opens a source in the reader\n[RE:open:coding] opens the coding workspace\n[RE:open:chats] opens the sessions list\nUse them only when the user would benefit, at most two per answer.`
 
   // ---- real web search sources, through the RAG pipeline ----
   // Privacy Shield: in Top Secret mode nothing reaches for the web — prepareRag

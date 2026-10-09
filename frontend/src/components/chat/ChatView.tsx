@@ -14,6 +14,8 @@ export function ChatView() {
   const { id } = useParams<{ id: string }>()
   const chat = useStore((s) => s.chats.find((c) => c.id === id))
   const flowEnabled = useStore((s) => s.settings.flowEnabled)
+  const [showAll, setShowAll] = useState(false)
+  useEffect(() => { setShowAll(false) }, [chat?.id])
   const [mathMode, setMathMode] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -167,7 +169,18 @@ export function ChatView() {
             transition={{ duration: 0.15 }}
           >
             {chat.messages.length === 0 && <EmptyHint math={mathMode} />}
-            {chat.messages.map((m) => (
+            {/* Long sessions stay at 60fps by rendering a window: everything
+                before it is one button away, never in the DOM. */}
+            {chat.messages.length > 60 && !showAll && (
+              <div className="max-w-[760px] mx-auto px-4 py-2">
+                <button onClick={() => setShowAll(true)}
+                  className="w-full py-2 rounded-xl text-[11.5px]"
+                  style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+                  Show {chat.messages.length - 60} earlier messages
+                </button>
+              </div>
+            )}
+            {(showAll ? chat.messages : chat.messages.slice(-60)).map((m) => (
               <Message key={m.id} chatId={chat.id} msg={m} streaming={streaming && m.id === chat.messages[chat.messages.length - 1].id && m.role === 'assistant'} onRegenerate={regenerate} />
             ))}
             <AnimatePresence>

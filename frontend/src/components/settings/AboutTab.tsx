@@ -347,6 +347,18 @@ export function AboutTab() {
         </Button>
       </div>
 
+      {/* Brand --------------------------------------------------------- */}
+      <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
+        <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>An independent product</div>
+        <p>
+          Research Engine routes to many AI providers and is not affiliated with, endorsed by, or connected to any of them unless they say so.
+          Provider names appear as plain text to identify whose answer you are reading; our features keep their own names: Sessions, Personas,
+          the Effort ladder, Chain of thought, Skills and MCP Servers. Coming from another product: conversations are Sessions (press your
+          switcher key, default Alt+Shift), GPTs and custom instructions are Personas, agent mode is the Coding workspace, and reasoning effort
+          is the effort pill in the composer.
+        </p>
+      </div>
+
       {/* Changelog ----------------------------------------------------- */}
       <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>

@@ -47,6 +47,25 @@ interface Props {
  * and collapsed. While the model is still thinking and no answer text has
  * landed yet, the block breathes so the wait reads as thinking, not hanging.
  */
+type SectionAction = { kind: 'quiz' | 'coding' | 'read' | 'chats'; target?: string }
+const SECTION_RE = /\[RE:open:(quiz|coding|read|chats)(?:\|([^\]]+))?\]/g
+const sectionActions = (content: string): SectionAction[] => {
+  const out: SectionAction[] = []
+  for (const m of content.matchAll(SECTION_RE)) {
+    out.push({ kind: m[1] as SectionAction['kind'], target: m[2]?.trim() })
+    if (out.length >= 2) break
+  }
+  return out
+}
+const stripMarkers = (content: string) => content.replace(SECTION_RE, '').replace(/\n{3,}/g, '\n\n').trim()
+function runSectionAction(a: SectionAction) {
+  const nav = (to: string) => window.dispatchEvent(new CustomEvent('re-navigate', { detail: to }))
+  if (a.kind === 'quiz') nav('/quiz')
+  else if (a.kind === 'coding') nav('/code')
+  else if (a.kind === 'chats') nav('/chats')
+  else if (a.kind === 'read' && a.target) nav(`/library?url=${encodeURIComponent(a.target)}`)
+}
+
 function ThinkingBlock({ text, live }: { text: string; live?: boolean }) {
   const [open, setOpen] = useState(false)
   if (!text && !live) return null
@@ -272,6 +291,14 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           <ThinkingBlock text={msg.thinking ?? ''} live={!!streaming} />
         )}
 
+        {sectionActions(msg.content).map((a, i) => (
+          <button key={i} onClick={() => runSectionAction(a)}
+            className="mb-2 mr-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium"
+            style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
+            {a.kind === 'quiz' ? 'Open Read & Quiz' : a.kind === 'coding' ? 'Open Coding' : a.kind === 'chats' ? 'Open Sessions' : `Read ${a.target ? new URL(a.target, 'http://x').host : ''}`}
+          </button>
+        ))}
+
         {/* Sources strip */}
         {msg.sources && msg.sources.length > 0 && (
           <SourceStrip sources={msg.sources} hoverId={hoverSource} onHover={setHoverSource}
@@ -320,7 +347,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                 onRestore={() => store.getState().updateMessage(chatId, msg.id, { humanized: undefined, humanizedBy: undefined, humanizeError: undefined })}
               />
             ) : (
-              !msg.humanizing && <Markdown content={msg.content} streaming={streaming} />
+              !msg.humanizing && <Markdown content={stripMarkers(msg.content)} streaming={streaming} />
             )}
             {msg.humanizeError && <HumanizeError message={msg.humanizeError} onRetry={() => void runHumanize()} />}
           </>

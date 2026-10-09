@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -13,6 +13,13 @@ import { PrivacyPanel } from '@/components/sidebar/PrivacyPanel'
 import { BackgroundLayer } from './BackgroundLayer'
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  // AI-driven navigation: message chips dispatch this event, the shell routes.
+  const nav = useNavigate()
+  useEffect(() => {
+    const h = (e: Event) => nav(String((e as CustomEvent).detail))
+    window.addEventListener('re-navigate', h)
+    return () => window.removeEventListener('re-navigate', h)
+  }, [nav])
   const theme = useStore((s) => s.settings.theme)
   const osMinimized = useUI((s) => s.osMinimized)
   const location = useLocation()
