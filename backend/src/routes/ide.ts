@@ -763,7 +763,7 @@ export function ideRoutes(rt: Runtime) {
     return m
   }
 
-  r.get('/git/status', async (c) => {
+  r.get('/ide/git/status', async (c) => {
     const dir = projectDir(c.req.query('project') ?? '')
     if (!dir) return c.json({ error: 'unknown project' }, 404)
     if (!existsSync(join(dir, '.git'))) return c.json({ repo: false, files: [] })
@@ -792,7 +792,7 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ repo: true, branch, files })
   })
 
-  r.get('/git/diff', async (c) => {
+  r.get('/ide/git/diff', async (c) => {
     const dir = projectDir(c.req.query('project') ?? '')
     const file = String(c.req.query('file') ?? '')
     const staged = c.req.query('staged') === '1'
@@ -808,7 +808,7 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ file, diff: (out.stdout ?? '').slice(0, 120000) })
   })
 
-  r.post('/git/stage', async (c) => {
+  r.post('/ide/git/stage', async (c) => {
     const body = await c.req.json().catch(() => ({}))
     const proj = projectDir(String(body.project ?? ''))
     if (!proj) return c.json({ error: 'unknown project' }, 404)
@@ -818,7 +818,7 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ ok: true })
   })
 
-  r.post('/git/revert', async (c) => {
+  r.post('/ide/git/revert', async (c) => {
     const body = await c.req.json().catch(() => ({}))
     const proj = projectDir(String(body.project ?? ''))
     if (!proj) return c.json({ error: 'unknown project' }, 404)
@@ -831,7 +831,7 @@ export function ideRoutes(rt: Runtime) {
     return c.json({ ok: true })
   })
 
-  r.post('/git/commit', async (c) => {
+  r.post('/ide/git/commit', async (c) => {
     const body = await c.req.json().catch(() => ({}))
     const proj = projectDir(String(body.project ?? ''))
     if (!proj) return c.json({ error: 'unknown project' }, 404)

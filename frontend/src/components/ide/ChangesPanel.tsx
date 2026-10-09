@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, GitCommitHorizontal, RefreshCw, Undo2 } from 'lucide-react'
 
 /**
@@ -78,6 +78,8 @@ export function ChangesPanel({ project }: { project: string }) {
 
   useEffect(() => { void load() }, [load])
   useEffect(() => { setOpen(null); setDiffs({}) }, [project])
+  // Like the reference: the first change arrives already open, once per project.
+  const autoOpened = useRef<string | null>(null)
 
   const unstaged = files.filter((f) => f.unstaged)
   const staged = files.filter((f) => f.staged)
@@ -98,6 +100,15 @@ export function ChangesPanel({ project }: { project: string }) {
       setDiffs((d) => ({ ...d, [key]: parseUnifiedDiff(j?.diff ?? '') }))
     }
   }
+
+  useEffect(() => {
+    if (autoOpened.current === project || files.length === 0) return
+    const first = files.find((f) => f.unstaged)
+    if (!first) return
+    autoOpened.current = project
+    void toggle(first)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, project])
 
   const act = async (path: string, body: Record<string, unknown>): Promise<boolean> => {
     setBusy(true)

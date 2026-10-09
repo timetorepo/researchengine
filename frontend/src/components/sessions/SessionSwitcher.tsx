@@ -28,6 +28,15 @@ const parseSpec = (spec: string): Spec => {
 const modsMatch = (sp: Spec, e: KeyboardEvent) =>
   sp.alt === e.altKey && sp.shift === e.shiftKey && sp.ctrl === e.ctrlKey && sp.meta === e.metaKey
 
+/** Plain text for a card: no markdown markers, no line breaks. */
+const plain = (t: string) => t
+  .replace(/```[\s\S]*?```/g, ' ')
+  .replace(/[*_`]{1,3}/g, '')
+  .replace(/^\s{0,3}(#{1,6}|>|[-+]|\d+\.)\s+/gm, '')
+  .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+  .replace(/\s+/g, ' ')
+  .trim()
+
 const ago = (t: number) => {
   const s = Math.max(1, Math.round((Date.now() - t) / 1000))
   if (s < 60) return `${s}s`
@@ -120,7 +129,7 @@ export function SessionSwitcher() {
                   </div>
                   <div className="mt-2 h-16 overflow-hidden rounded-lg px-2 py-1.5 text-[10.5px] leading-relaxed"
                     style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
-                    {last ? last.content.slice(0, 160) : 'No messages yet'}
+                    {last ? plain(last.content).slice(0, 160) : 'No messages yet'}
                   </div>
                   <div className="mt-1.5 flex items-center justify-between text-[9.5px]" style={{ color: 'var(--text-3)' }}>
                     <span>{c.messages.length} messages{c.kind === 'coding' ? ' · coding' : ''}</span>
