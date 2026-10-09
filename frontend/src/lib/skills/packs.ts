@@ -9,8 +9,13 @@ import { SKILL_PACKS, type SkillPack } from '@/content/skills/catalog'
 export { SKILL_PACKS }
 export type { SkillPack }
 
-const mods = import.meta.glob('/src/content/skills/upstream/*/SKILL.md', { query: '?raw', import: 'default' })
-const refs = import.meta.glob('/src/content/skills/upstream/ian-xiaohei-illustrations/MODEL-ADAPTERS.md', { query: '?raw', import: 'default' })
+// Vite resolves these globs at build time; under plain node they stay empty.
+let mods: Record<string, () => Promise<unknown>> = {}
+let refs: Record<string, () => Promise<unknown>> = {}
+try {
+  mods = import.meta.glob('/src/content/skills/upstream/*/SKILL.md', { query: '?raw', import: 'default' }) as typeof mods
+  refs = import.meta.glob('/src/content/skills/upstream/ian-xiaohei-illustrations/MODEL-ADAPTERS.md', { query: '?raw', import: 'default' }) as typeof refs
+} catch { /* no bundler: nothing to load */ }
 
 export const packById = (id: string) => SKILL_PACKS.find((p) => p.id === id)
 

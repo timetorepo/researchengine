@@ -40,6 +40,7 @@ const RECOS: Reco[] = [
 const REGISTRIES: { name: string; url: string; note: string }[] = [
   { name: 'mcpservers.org', url: MCP_REGISTRY_URL, note: `${MCP_REGISTRY_LISTED} listed` },
   { name: 'Smithery', url: 'https://smithery.ai', note: 'installable registry' },
+  { name: 'mcp.so', url: 'https://mcp.so', note: 'community servers' },
   { name: 'Glama', url: 'https://glama.ai/mcp/servers', note: 'directory with reviews' },
   { name: 'Official servers', url: 'https://github.com/modelcontextprotocol/servers', note: 'the reference set' },
 ]
