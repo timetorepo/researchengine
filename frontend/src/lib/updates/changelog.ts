@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 35 versions, 0.43.0 back to 0.10.0.
+ * 36 versions, 0.44.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,135 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.44.0",
+    "tag": "v0.44.0-beta.1",
+    "name": "",
+    "date": "2026-10-09",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.44.0-beta.1",
+    "summary": "The sessions round. Several chats can run at once without getting in each other's way, and Alt+Shift moves between them the way an app switcher does.",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "text": "The r31 suite (90 checks) and the earlier suites all pass, and CI builds the Windows and Linux installers from this exact commit. Live provider calls, Docker containers and VMs were not exercised in our test environment, so those are the first things to try on your machine."
+          }
+        ]
+      },
+      {
+        "title": "Sessions that do not collide",
+        "items": [
+          {
+            "text": "Alt+Shift opens a switcher of your sessions as cards. Press it again to step, Enter to land, Escape to dismiss. You can rebind it in Settings, under Shortcuts."
+          },
+          {
+            "text": "Each chat streams on its own, so one can think while you read another."
+          },
+          {
+            "text": "A session can run inside its own Docker container, or inside a multipass VM, when a task needs isolation. The chat says so when it does, and the AI can start one itself."
+          }
+        ]
+      },
+      {
+        "title": "Effort, and the thinking you can read",
+        "items": [
+          {
+            "text": "The effort pill in the composer speaks each provider's own vocabulary: Claude's low, medium, high, xHigh and max as Anthropic documents them, and ChatGPT's Instant through Max."
+          },
+          {
+            "text": "For Claude the app asks for a summary of the reasoning. Anthropic's docs say that text is always a summary, never the raw chain of thought."
+          },
+          {
+            "text": "A model that exposes its reasoning shows it in a collapsible block above the answer."
+          },
+          {
+            "text": "If a model refuses one setting, the app sends the request again with only that setting stepped down, so you still get an answer."
+          }
+        ]
+      },
+      {
+        "title": "Bring your chats with you",
+        "items": [
+          {
+            "text": "Settings, then Data: import a ChatGPT export (the zip, or its conversations.json) or a Claude export."
+          },
+          {
+            "text": "Each conversation becomes a session in your history. For ChatGPT, the branch you ended on is the one that comes across."
+          },
+          {
+            "text": "The file is read in your browser. Nothing is uploaded."
+          }
+        ]
+      },
+      {
+        "title": "One server list, and the prompts behind the voices",
+        "items": [
+          {
+            "text": "MCP servers: Settings, then MCP Servers, and the coding panel share one list. The catalog holds 7,729 servers from an open index. The 116 with a verified run command install in one click, and the rest open their project page. Chats get the same servers."
+          },
+          {
+            "text": "Personas: 836 system prompts from the public archive of frontier-product prompts. The 24 flagship ones open offline. Settings, then Personas, syncs the full archive once, which needs git."
+          },
+          {
+            "text": "Skill packs: the full Apple-design pack and the other emilkowalski skill packs, plus the annotated-illustration pack's instructions and references, with an adapter for models other than Codex. Attach them per chat."
+          }
+        ]
+      },
+      {
+        "title": "The coding dock",
+        "items": [
+          {
+            "text": "The Changes tab lists unstaged and staged files with their line counts. Each diff opens with line numbers, and added lines are green."
+          },
+          {
+            "text": "Stage all, revert all and commit are one click each. Revert all asks for a second click, because it discards work, and it only resets tracked files. Untracked files are never deleted from there."
+          },
+          {
+            "text": "The status bar shows the branch and how many files have changed."
+          },
+          {
+            "text": "The AI can open Read and Quiz, Coding, Sessions or Library when that would help you."
+          }
+        ]
+      },
+      {
+        "title": "Lighter to load",
+        "items": [
+          {
+            "text": "Long chats render their last 60 messages, and the older ones are one click away."
+          },
+          {
+            "text": "The MCP catalog and the persona manifest load only when their tabs open, so the first screen does not pay for them."
+          }
+        ]
+      },
+      {
+        "title": "Known limits",
+        "items": [
+          {
+            "text": "Docker sandboxes need Docker running. VM sandboxes need multipass installed. Without them the app says so instead of pretending."
+          },
+          {
+            "text": "The persona archive is about 28 MB. It syncs from GitHub and is not bundled in the app."
+          },
+          {
+            "text": "mcpservers.org lists more servers than the catalog holds, so the panel links out to it."
+          },
+          {
+            "text": "Servers that only offer a hosted endpoint open their project page. The app runs local servers only."
+          },
+          {
+            "text": "The portable archives were not rebuilt for this release. The installers are the release."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 25,
+      "sections": 8
+    }
+  },
   {
     "version": "0.43.0",
     "tag": "v0.43.0-beta.1",
