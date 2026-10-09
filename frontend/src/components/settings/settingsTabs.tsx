@@ -46,9 +46,21 @@ export const TABS = [
 
 const PersonasTab = lazy(() => import('./PersonasTab').then((m) => ({ default: m.PersonasTab })))
 
+/** The MCP panel was built for the coding view's tokens; map them onto Settings. */
+const MCP_TOKENS = {
+  '--ide-accent': 'var(--primary)',
+  '--ide-accent-ink': '#fff',
+  '--ide-text': 'var(--text)',
+  '--ide-dim': 'var(--text-2)',
+  '--ide-faint': 'var(--text-3)',
+  '--ide-hover': 'var(--elevated)',
+  '--ide-border': 'var(--surface-border)',
+  '--ide-warn': 'var(--warning)',
+} as any
+
 export function McpTab() {
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" style={MCP_TOKENS}>
       <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>MCP Servers</h2>
       <p className="text-[13px] mb-3" style={{ color: 'var(--text-2)' }}>
         Tool servers for the agent, in coding sessions and in chats. Install from the catalog with one click, test the connection, and the model gets the tools on its next turn.

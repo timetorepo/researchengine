@@ -67,6 +67,7 @@ console.log('\n— MCP index —')
   check('the catalog loads lazily, off the main bundle', src('src/lib/mcp/catalog.ts').includes("import('@/content/mcp-catalog.json')") && !src('src/lib/mcp/catalog.ts').includes("from '@/content/mcp-catalog.json'"))
   check('no guessed endpoint remains', !src('src/lib/mcp/catalog.ts').includes('api/servers'))
   check('the directory is linked, honestly sized', src('src/lib/mcp/catalog.ts').includes('mcpservers.org/all') && src('src/lib/mcp/catalog.ts').includes('14,916'))
+  check('the MCP tab maps the coding tokens onto Settings', src('src/components/settings/settingsTabs.tsx').includes("'--ide-accent': 'var(--primary)'"))
   check('settings and the coding panel share one panel', src('src/components/settings/settingsTabs.tsx').includes("case 'mcp'") && src('src/components/ide/CodingView.tsx').includes('McpPanel'))
   check('chats get the servers too (mcp context + mcp_call)', src('src/lib/chat/runChat.ts').includes('mcpContextBlock()') && src('src/lib/chat/tools.ts').includes("name: 'mcp_call'"))
 
