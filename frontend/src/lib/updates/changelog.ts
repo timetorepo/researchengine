@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 36 versions, 0.44.0 back to 0.10.0.
+ * 37 versions, 0.45.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,87 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.45.0",
+    "tag": "v0.45.0-beta.1",
+    "name": "beta: +1 new provider, UI refines, and an upgrade to Design Mode.",
+    "date": "2026-10-10",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.45.0-beta.1",
+    "summary": "Jev, a decision model, joins the providers; the rest of the React Bits set is real and used; and the interface learns to think out loud and to ship.",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "text": "This release also folds in the work since 0.44.0-beta.1: a sorted, named list of every system prompt; Strix running inside the coding workspace; Learn, the renamed Read and Quiz with named techniques and levels; Claude and ChatGPT themes and a Replicate gradient;"
+          }
+        ]
+      },
+      {
+        "title": "Jev, a decision model, not a chat model",
+        "items": [
+          {
+            "text": "TypeSafe AI's System One model is a provider of its own kind. It takes a state and typed questions and returns answers with calibrated probabilities: a choice from options you name, a score on a ladder you set, or a yes/no."
+          },
+          {
+            "text": "It cannot leave the schema, which removes the malformed answer but not the mistaken one, so the probability is there for you to set a threshold on. The Settings tab shows the distribution per question."
+          },
+          {
+            "text": "It also runs through OpenRouter as typesafe/jev-1.13 (the decision model) and typesafe/jev-router (a router that picks a model and an effort level)."
+          }
+        ]
+      },
+      {
+        "title": "The rest of React Bits, written here and used",
+        "items": [
+          {
+            "text": "Every remaining micro component is a reimplementation against the documented behaviour, not a vendored copy. reactbits.dev is not reachable from this environment, and a provenance header that lies is worse than none."
+          },
+          {
+            "text": "Each is wired into a surface: the agent indicator on the top bar (expanding to a named list at two or more agents), the update-notify switch, the agent command timings, the font-scale dial and density control, the image-generating frame, a drag-to-confirm commit, the welcome scre…"
+          },
+          {
+            "text": "The ones with real mechanics keep their accessibility: the dial is a real slider with keyboard, the radio a radiogroup, the slide-commit only fires on a drag that travels, and the swipe row only listens to horizontal motion so the list still scrolls."
+          }
+        ]
+      },
+      {
+        "title": "Thinking phases, and Full Throttle",
+        "items": [
+          {
+            "text": "The chain of thought now shows as the phases it went through: reading, planning, reasoning, doubting, deciding, verifying and answering, split by what the model was actually doing."
+          },
+          {
+            "text": "Full Throttle runs the six design directives — research, premium, design, prototype, sweep, ship — in order, blocking only what a missing input actually blocks."
+          }
+        ]
+      },
+      {
+        "title": "Also in this release",
+        "items": [
+          {
+            "text": "Every system prompt in one sorted, named list, each carrying its model."
+          },
+          {
+            "text": "Strix in the coding workspace, with the Apache-2.0 skills it runs on."
+          },
+          {
+            "text": "Learn: Read and Quiz renamed, with seven named techniques and three levels."
+          },
+          {
+            "text": "Claude and ChatGPT themes, and a Replicate gradient."
+          },
+          {
+            "text": "Snaffy: a router over the providers you already have, with five personas."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 14,
+      "sections": 5
+    }
+  },
   {
     "version": "0.44.0",
     "tag": "v0.44.0-beta.1",
