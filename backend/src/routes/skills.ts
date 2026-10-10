@@ -27,6 +27,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { db } from '../db'
+import { scanForTrojan, type TrojanReport } from '../../../frontend/src/lib/security/trojan'
 
 export const skillsRoutes = new Hono()
 
@@ -167,6 +168,65 @@ export function staticScan(files: SkillFile[]): { score: number; severity: strin
 /* ----------------------------------------------------------------- routes - */
 
 skillsRoutes.get('/scanner', async (c) => c.json(await scannerInfo()))
+
+/**
+ * POST /api/skills/trojan
+ *
+ * body: { files: [{ path, text }], kind?: 'auto' | 'document' | 'stylesheet' }
+ *
+ * The Trojan Horse pass: text a person cannot see, and sentences that order a
+ * model what to do. It runs before anything is handed to a model, because the
+ * one thing a scan cannot undo is a model having already read the file.
+ *
+ * Deliberately separate from `/scan`. That route answers "should this skill be
+ * installed" and is a security review of code; this one answers "is this text
+ * safe to put in a context window", which is a different question with a
+ * different verdict vocabulary. Kept apart so neither can be mistaken for the
+ * other, and so a `DO_NOT_TRUST` here is never softened by a `SAFE` there.
+ *
+ * No network, no model, no file ever leaves the machine.
+ */
+skillsRoutes.post('/trojan', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const files: SkillFile[] = Array.isArray(body?.files)
+    ? body.files.slice(0, MAX_FILES)
+      .map((f: any) => ({ path: String(f?.path ?? 'file.md').slice(0, 200), text: String(f?.text ?? '').slice(0, MAX_FILE_BYTES) }))
+      .filter((f: SkillFile) => f.text)
+    : []
+  if (!files.length) return c.json({ error: 'Nothing to scan — give at least one file.' }, 400)
+  const total = files.reduce((n, f) => n + f.text.length, 0)
+  if (total > MAX_TOTAL_BYTES) return c.json({ error: 'That is larger than this scanner accepts (4 MB of text).' }, 400)
+
+  const kind = body?.kind === 'stylesheet' || body?.kind === 'document' ? body.kind : 'auto'
+  const reports = files.map((f) => ({ path: f.path, report: scanForTrojan(f.text, kind) }))
+
+  // The worst verdict across the set wins: one hidden order in ten files makes
+  // the whole batch untrusted, because the batch is what a model would read.
+  const level: TrojanReport['level'] = reports.some((r) => r.report.level === 'do-not-trust')
+    ? 'do-not-trust'
+    : reports.some((r) => r.report.level === 'review')
+      ? 'review'
+      : 'clean'
+
+  const hiddenOrders = reports.reduce((n, r) => n + r.report.counts.hiddenOrders, 0)
+  const orders = reports.reduce((n, r) => n + r.report.counts.orders, 0)
+  const invisible = reports.reduce((n, r) => n + r.report.counts.invisible, 0)
+
+  const verdict = level === 'do-not-trust'
+    ? `${hiddenOrders} hidden instruction${hiddenOrders === 1 ? '' : 's'} aimed at a model across ${reports.length} file${reports.length === 1 ? '' : 's'}. Do not let a model read ${reports.length === 1 ? 'it' : 'them'} until a person has read the same lines.`
+    : level === 'review'
+      ? `${orders} instruction${orders === 1 ? '' : 's'} aimed at a model and ${invisible} line${invisible === 1 ? '' : 's'} of hidden text, all in plain sight. Read them before a model does.`
+      : 'No hidden text and no instructions aimed at a model. Nothing to act on.'
+
+  return c.json({
+    scanner: 'trojan-detector',
+    scannerNote: 'Local scan by this app: invisible text, orders aimed at a model, and the red lines where the two overlap. Nothing was uploaded.',
+    level,
+    verdict,
+    counts: { invisible, orders, hiddenOrders },
+    files: reports,
+  })
+})
 
 /**
  * POST /api/skills/scan

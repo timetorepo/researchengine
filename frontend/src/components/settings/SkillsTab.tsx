@@ -109,8 +109,11 @@ export function SkillsTab() {
         <Package size={13} /> Upstream packs, vendored in full
       </h3>
       <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
-        Apple-style design knowledge (emilkowalski/skills) and the ian-xiaohei illustration pack with a cross-model adapter.
-        Attach up to three to the open chat; their rules ride along in the context.
+        {SKILL_PACKS.length} packs ship inside the app, so they work with no network call and no <code>npx</code> in your path:
+        design craft from emilkowalski and Paul Bakaus's Impeccable, taste-skill and anti-ui-slop against generic output,
+        Vercel's find-skills and Web Interface Guidelines, the ian-xiaohei illustration pack with a cross-model adapter,
+        and the Trojan detector that reads a file for hidden instructions before a model does.
+        Attach up to three to the open chat; their rules ride along in the context. Each pack keeps its own licence, shown below it.
       </p>
       <PacksSection />
     </div>
@@ -141,7 +144,8 @@ function PacksSection() {
             <div className="flex-1 min-w-0">
               <div className="text-[13.5px] font-medium">{p.name}</div>
               <div className="text-[11.5px] truncate" style={{ color: 'var(--text-3)' }}>{p.description}</div>
-              <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{p.origin} · {p.files.length} files</div>
+              <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{p.origin} · {p.files.length} files{p.license ? ` · ${p.license}` : ''}</div>
+              {p.credit && <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{p.credit}</div>}
             </div>
             <button className="p-1.5 rounded hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }} title="Read the SKILL.md"
               onClick={() => { void packText(p.id, 20000).then((t) => setView({ id: p.id, text: t ?? 'missing' })) }}>

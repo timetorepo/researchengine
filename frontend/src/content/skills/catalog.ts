@@ -1,5 +1,5 @@
 /** Upstream skill packs vendored verbatim, plus the cross-model adapter. */
-export type SkillPack = { id: string; name: string; description: string; files: string[]; origin: string }
+export type SkillPack = { id: string; name: string; description: string; files: string[]; origin: string; license?: string; credit?: string }
 export const SKILL_PACKS: SkillPack[] = [
  {
   "id": "animate",
@@ -165,5 +165,78 @@ export const SKILL_PACKS: SkillPack[] = [
    "references/xiaohei-ip.md"
   ],
   "origin": "tojileon/ian-xiaohei-illustrations-en"
+ },
+ {
+  "id": "find-skills",
+  "name": "find-skills",
+  "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "vercel-labs/skills",
+  "license": "MIT",
+  "credit": "Vercel — the open agent skills tool (npx skills)"
+ },
+ {
+  "id": "web-design-guidelines",
+  "name": "web-design-guidelines",
+  "description": "Review UI code for Web Interface Guidelines compliance. Use when asked to \"review my UI\", \"check accessibility\", \"audit design\", \"review UX\", or \"check my site against best practices\".",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "vercel-labs/agent-skills",
+  "license": "MIT",
+  "credit": "Vercel — Web Interface Guidelines"
+ },
+ {
+  "id": "anti-ui-slop",
+  "name": "anti-ui-slop",
+  "description": "Stop coding agents from shipping generic UI. Use UIZZE's 800,000+ real web and iOS screens to build product-specific interfaces, define a design contract, cover required states, and run a hard finish gate. Use for web or iOS UI design, implementation, redesign, critique, and pre-ship review in Codex, Claude Code, Cursor, Copilot, and other coding agents.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "davepoon/buildwithclaude",
+  "license": "MIT",
+  "credit": "Dave Poon — buildwithclaude, anti-ui-slop"
+ },
+ {
+  "id": "impeccable",
+  "name": "impeccable",
+  "description": "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. Covers websites, landing pages, dashboards, product UI, app shells, components, forms, settings, onboarding, and empty states. Handles UX review, visual hierarchy, information architecture, cognitive load, accessibility, performance, responsive behavior, theming, anti-patterns, typography, fonts, spacing, layout, alignment, color, motion, micro-interactions, UX copy, error states, edge cases, i18n, and reusable design systems or tokens. Also use for bland designs that need to become bolder or more delightful, loud designs that should become quieter, live browser iteration on UI elements, or ambitious visual effects that should feel technically extraordinary. Not for backend-only or non-UI tasks.",
+  "files": [
+   "SKILL.md",
+   "origin",
+   "reference/hooks.md"
+  ],
+  "origin": "pbakaus/impeccable",
+  "license": "Apache-2.0",
+  "credit": "Paul Bakaus — Impeccable, the design language for AI harnesses"
+ },
+ {
+  "id": "taste-skill",
+  "name": "design-taste-frontend",
+  "description": "Anti-slop frontend skill for landing pages, portfolios, and redesigns. The agent reads the brief, infers the right design direction, and ships interfaces that do not look templated. Real design systems when applicable, audit-first on redesigns, strict pre-flight check.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "Leonxlnx/taste-skill",
+  "license": "MIT",
+  "credit": "Leonxlnx — taste-skill"
+ },
+ {
+  "id": "trojan-detector",
+  "name": "trojan-detector",
+  "description": "Scan a file for hidden instructions aimed at an AI before any model reads it. Finds text a person cannot see (white on white, zero-width characters, HTML comments, one-pixel fonts) and sentences that order a model to ignore its rules, reveal secrets, or send data off the machine. Use when importing a skill, opening an untrusted document, or before letting a model read a file you did not write.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "chen.media",
+  "license": "MIT",
+  "credit": "Chen Media — the /trojan detector guide (chen.media)"
  }
 ]
