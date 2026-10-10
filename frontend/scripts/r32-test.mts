@@ -564,7 +564,8 @@ console.log('\n— The UI components, used —')
   check('code slots copies the whole block', src('src/components/ui/reactbits/micro/CodeSlots.tsx').includes('writeText(code)'))
   check('the swipe toast needs a deliberate throw', src('src/components/ui/reactbits/micro/SwipeToast.tsx').includes('velocity'))
   check('and it does not leave on a vertical scroll', src('src/components/ui/reactbits/micro/SwipeToast.tsx').includes('touchAction'))
-  check('the credits name the new components', src('src/components/settings/AboutTab.tsx').includes('status marks'))
+  check('the credits name the new components', src('src/components/settings/AboutTab.tsx').includes('status mark'))
+  check('and the rest of the set, by name', src('src/components/settings/AboutTab.tsx').includes('pattern waves') && src('src/components/settings/AboutTab.tsx').includes('crystalized ball'))
   check('the CSS supports the glow mask', src('src/styles/globals.css').includes('.border-glow::before'))
 }
 

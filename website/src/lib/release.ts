@@ -48,7 +48,7 @@ export interface ReleaseInfo {
   requirements: { installers: string; portables: string }
 }
 
-export const VERSION = typeof __SITE_VERSION__ === 'string' ? __SITE_VERSION__ : '0.44.0-beta.1'
+export const VERSION = typeof __SITE_VERSION__ === 'string' ? __SITE_VERSION__ : '0.45.0-beta.1'
 export const TAG = `v${VERSION}`
 export const REPO = 'timetorepo/researchengine'
 export const SOURCE_URL = `https://github.com/${REPO}`
