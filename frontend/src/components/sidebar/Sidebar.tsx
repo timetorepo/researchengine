@@ -27,7 +27,7 @@ const NAV = [
   // remains discoverable even when the compact rail has limited height.
   { to: '/code', label: 'Coding', icon: CodeIcon },
   { to: '/chats', label: 'Chats', icon: MessageSquare },
-  { to: '/quiz', label: 'Read & Quiz', icon: GraduationCap },
+  { to: '/quiz', label: 'Learn', icon: GraduationCap },
   { to: '/articles', label: 'Articles', icon: BookOpen },
   { to: '/library', label: 'Library', icon: Library },
   { to: '/compare', label: 'Compare', icon: Swords },

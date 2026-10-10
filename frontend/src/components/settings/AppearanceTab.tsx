@@ -238,7 +238,7 @@ export function AppearanceTab() {
           <div className="space-y-1">
             <Switch label="Widget cards" description="The grid of recent research, AIFlowEngine savings, articles and spaces under the composer."
               checked={settings.homeWidgets === true} onChange={(v) => update({ homeWidgets: v })} />
-            <Switch label="Offline demo button" description="A “try the offline demo” pill under the composer — Read & Quiz with no key and no network."
+            <Switch label="Offline demo button" description="A “try the offline demo” pill under the composer — Learn with no key and no network."
               checked={settings.homeDemo === true} onChange={(v) => update({ homeDemo: v })} />
             <Switch label="Wallpaper on every page" description="Off: the wallpaper stays on the home screen, where there is no dense text over it."
               checked={settings.wallpaperEverywhere === true} onChange={(v) => update({ wallpaperEverywhere: v })} />

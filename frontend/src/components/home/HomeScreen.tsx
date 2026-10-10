@@ -79,7 +79,7 @@ export function HomeScreen() {
     }, HANDOFF_BLUR_MS)
   }
 
-  // Drag & drop a document anywhere on the home screen -> Read & Quiz.
+  // Drag & drop a document anywhere on the home screen -> Learn.
   const [dragOver, setDragOver] = useState(false)
   const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
   const onDrop = (e: React.DragEvent) => {
@@ -303,7 +303,7 @@ function GettingStarted() {
   const navigate = useNavigate()
   const items = [
     { title: 'Ask with citations', desc: 'Toggle Search to get sourced answers with numbered citations.', icon: MessageSquare, grad: 'grad-research', go: () => navigate(`/chat/${useStore.getState().newChat()}`) },
-    { title: 'Read & Quiz', desc: 'Drop a PDF or notes — get quizzes, flashcards and progress.', icon: GraduationCap, grad: 'grad-quiz', go: () => navigate('/quiz') },
+    { title: 'Learn', desc: 'Drop a PDF or notes — get quizzes, flashcards and progress.', icon: GraduationCap, grad: 'grad-quiz', go: () => navigate('/quiz') },
     { title: 'Write articles', desc: 'Turn any conversation into a structured, exportable article.', icon: BookOpen, grad: 'grad-article', go: () => navigate('/articles') },
     { title: 'Build in Coding', desc: 'Open a guarded local workspace to edit, run and ship code with AI.', icon: Code2, grad: 'grad-article', go: () => navigate('/code') },
     { title: 'Deploy an Agent Flood', desc: 'Point a squad of specialized agents at one objective.', icon: Users, grad: 'grad-research', go: () => navigate('/flood') },

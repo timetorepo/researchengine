@@ -441,7 +441,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             <EffortPill />
 
             <button className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors" style={{ color: 'var(--text-3)' }} aria-label="Attach document"
-              onClick={() => { navigate('/quiz'); ui().toast('Read & Quiz', 'Drop a PDF, DOCX, TXT or Markdown file to study it.') }}>
+              onClick={() => { navigate('/quiz'); ui().toast('Learn', 'Drop a PDF, DOCX, TXT or Markdown file to study it.') }}>
               <Paperclip size={15} strokeWidth={1.5} />
             </button>
 

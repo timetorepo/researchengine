@@ -68,7 +68,7 @@ function LocalFilesPanel() {
   }
 
   const study = async (name: string) => {
-    // Pull the raw bytes from the local folder and hand them to Read & Quiz
+    // Pull the raw bytes from the local folder and hand them to Learn
     // as a regular File — same extraction pipeline as drag & drop.
     try {
       const res = await fetch(`/api/fs/read-bin?path=${encodeURIComponent(name)}`)
@@ -93,7 +93,7 @@ function LocalFilesPanel() {
       }
       useStore.setState((s) => ({ documents: [rec, ...s.documents] }))
       useStore.getState().logConnection('local://files', `import: ${name}`, text.length, 'local')
-      ui.toast('Imported as a document', `${name} · ${fmt(Math.round(text.length / 4))} tokens — open Read & Quiz to study it.`, 'success')
+      ui.toast('Imported as a document', `${name} · ${fmt(Math.round(text.length / 4))} tokens — open Learn to study it.`, 'success')
     } catch (e: any) {
       ui.toast('Import failed', String(e?.message ?? e), 'danger')
     }
@@ -134,7 +134,7 @@ function LocalFilesPanel() {
                 </button>
               )}
               {!f.dir && STUDYABLE.test(f.name) && (
-                <button onClick={() => void study(f.name)} title="Open in Read & Quiz"
+                <button onClick={() => void study(f.name)} title="Open in Learn"
                   className="shrink-0 p-1 rounded transition-colors"
                   style={{ color: 'var(--primary)' }}>
                   <BookOpenText size={12} />

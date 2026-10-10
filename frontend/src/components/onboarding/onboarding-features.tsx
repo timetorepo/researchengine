@@ -160,7 +160,7 @@ export const ONBOARDING_FEATURES: AppleCard[] = [
     ),
   },
   {
-    category: 'Read & Quiz',
+    category: 'Learn',
     title: 'Any paper becomes a quiz',
     art: ART.quiz,
     content: (

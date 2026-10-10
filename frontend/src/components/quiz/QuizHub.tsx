@@ -10,6 +10,11 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { extractText } from '@/lib/documents/extract'
 import { generateQuiz } from '@/lib/quiz/generate'
+import {
+  TECHNIQUES, LEVELS, DEFAULT_TECHNIQUE, DEFAULT_LEVEL,
+  techniqueById, levelById, typesFor,
+  type TechniqueId, type LevelId,
+} from '@/lib/learn/techniques'
 import { timeAgo, fmt } from '@/lib/utils'
 import { DEMO_DOC_ID, DEMO_DOC_TEXT, DEMO_HIGHLIGHTS, DEMO_REWRITE, DEMO_QUIZ } from '@/lib/documents/demoDoc'
 import { ReaderView, type ReaderDoc } from '@/components/reader/ReaderView'
@@ -24,15 +29,6 @@ import { Select } from '@/components/ui/watermelon/Select'
 import { SetupSteps } from '@/components/shadcn-space/animated-list/animated-list-02'
 
 type Stage = { id: string; label: string; icon: any; pct: number; done: boolean }
-
-const TYPES = [
-  { id: 'mc', label: 'Multiple choice' },
-  { id: 'tf', label: 'True / false' },
-  { id: 'short', label: 'Short answer' },
-  { id: 'fill', label: 'Fill in blank' },
-  { id: 'ordering', label: 'Reorder' },
-  { id: 'matching', label: 'Matching' },
-]
 
 export function QuizHub() {
   const documents = useStore((s) => s.documents)
@@ -56,9 +52,13 @@ export function QuizHub() {
 
   // quiz config
   const [selected, setSelected] = useState<string | null>(null)
-  const [count, setCount] = useState(8)
-  const [types, setTypes] = useState<string[]>(['mc', 'tf'])
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
+  const [count, setCount] = useState(12)
+  const [techniques, setTechniques] = useState<TechniqueId[]>([DEFAULT_TECHNIQUE])
+  const [level, setLevel] = useState<LevelId>(DEFAULT_LEVEL)
+  // The level decides which sentences are in scope; the technique decides what
+  // is asked about them. Both are needed before a question exists.
+  const levelSpec = levelById(level)
+  const typeList = typesFor(techniques, count)
   const [timed, setTimed] = useState(false)
   const [activeQuiz, setActiveQuiz] = useState<{ title: string; questions: QuizQuestion[]; docId?: string } | null>(null)
   const [lastResult, setLastResult] = useState<PlayResult | null>(null)
@@ -174,7 +174,10 @@ export function QuizHub() {
 
   /* ---------- quiz launching ---------- */
   const startQuizFromText = (text: string, title: string, docId?: string) => {
-    const questions = generateQuiz(text, { count, types: types as any, difficulty })
+    const questions = generateQuiz(text, {
+      count, types: typeList, difficulty: levelSpec.difficulty,
+      maxSentenceWords: levelSpec.maxSentenceWords,
+    })
     if (!questions.length) { ui.toast('Not enough text', 'Add a longer document to generate questions.', 'warning'); return }
     const rec: QuizRecord = { id: nanoid(8), docId, title, questions, createdAt: Date.now() }
     useStore.setState((s) => ({ quizzes: [rec, ...s.quizzes] }))
@@ -302,8 +305,12 @@ export function QuizHub() {
           const d = documents.find((x) => x.id === activeQuiz.docId)
           const text = quizIsDemo ? DEMO_DOC_TEXT : d?.text ?? ''
           if (!text) { ui.toast('Need the source document', 'Similar quizzes are generated from the original text.', 'warning'); return }
-          const shuffled = [...types].sort(() => Math.random() - 0.5)
-          const qs = generateQuiz(text, { count: Math.min(count, 10), types: (shuffled.length ? shuffled : ['mc']) as any, difficulty })
+          // A similar quiz is the same technique on a fresh draw of sentences,
+          // which is what spaced repetition actually asks for.
+          const qs = generateQuiz(text, {
+            count: Math.min(count, 10), types: typesFor(techniques, Math.min(count, 10)),
+            difficulty: levelSpec.difficulty, maxSentenceWords: levelSpec.maxSentenceWords,
+          })
           setActiveQuiz({ title: `${activeQuiz.title} (similar)`, questions: qs, docId: activeQuiz.docId })
           setLastResult(null)
           setView('quiz')
@@ -331,10 +338,11 @@ export function QuizHub() {
     <div className="h-full overflow-y-auto">
       <div className="max-w-[760px] mx-auto px-5 py-8">
         <h1 className="text-xl font-semibold flex items-center gap-2" style={{ letterSpacing: '-0.02em' }}>
-          <GraduationCap size={19} style={{ color: 'var(--primary)' }} /> Read &amp; Quiz
+          <GraduationCap size={19} style={{ color: 'var(--primary)' }} /> Learn
         </h1>
         <p className="text-[13px] mt-0.5 mb-6" style={{ color: 'var(--text-2)' }}>
-          Upload a document — get a beautiful study reader, an AI reading partner, and premium quizzes. All processed locally.
+          Read a document, then study it with a named technique: active recall, spaced repetition,
+          interleaving, the Feynman method. Everything runs on this machine.
         </p>
 
         {/* Drop zone */}
@@ -396,7 +404,7 @@ export function QuizHub() {
             </div>
 
             <div className="surface p-4 mb-6">
-              <div className="text-[13px] font-semibold mb-3 flex items-center gap-2"><Play size={14} style={{ color: 'var(--primary)' }} /> Generate a quiz{doc ? ` from “${doc.name}”` : ''}</div>
+              <div className="text-[13px] font-semibold mb-3 flex items-center gap-2"><Play size={14} style={{ color: 'var(--primary)' }} /> Study {doc ? `“${doc.name}”` : 'this document'}</div>
               <div className="flex flex-wrap items-center gap-3 text-[12px]">
                 <label className="flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
                   Questions
@@ -409,17 +417,19 @@ export function QuizHub() {
                   />
                 </label>
                 <label className="flex items-center gap-1.5" style={{ color: 'var(--text-2)' }}>
-                  Difficulty
+                  Level
                   <Select
                     size="sm"
-                    value={difficulty}
-                    onChange={(v) => setDifficulty(v as any)}
-                    options={[
-                      { value: 'easy', label: 'Easy', hint: 'recall and definitions' },
-                      { value: 'medium', label: 'Medium', hint: 'apply what you read' },
-                      { value: 'hard', label: 'Hard', hint: 'synthesis, edge cases' },
-                    ]}
-                    className="w-[112px]"
+                    value={level}
+                    onChange={(v) => {
+                      const next = levelById(v)
+                      setLevel(v as LevelId)
+                      // The level carries its own question count, so picking
+                      // one moves you off a count that no longer suits it.
+                      setCount(next.suggestedCount)
+                    }}
+                    options={LEVELS.map((l) => ({ value: l.id, label: l.name, hint: l.why }))}
+                    className="w-[136px]"
                   />
                 </label>
                 <button onClick={() => setTimed((t) => !t)}
@@ -428,19 +438,43 @@ export function QuizHub() {
                   30s timer {timed ? 'on' : 'off'}
                 </button>
               </div>
-              <div className="flex flex-wrap gap-1.5 mt-3 mb-4">
-                {TYPES.map((t) => (
-                  <button key={t.id}
-                    onClick={() => setTypes((prev) => prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id])}
-                    className="px-2.5 py-1 rounded-full text-[11.5px] transition-colors"
-                    style={{
-                      background: types.includes(t.id) ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)',
-                      color: types.includes(t.id) ? 'var(--primary)' : 'var(--text-3)',
-                      border: `1px solid ${types.includes(t.id) ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'transparent'}`,
-                    }}>
-                    {t.label}
-                  </button>
-                ))}
+              {/* Techniques, not question types. What you are choosing between is
+                  how you want to be made to think, and each of these is a named
+                  method with its own evidence. The question shapes follow from
+                  the technique, so they are not a second thing to configure. */}
+              <div className="mt-3 mb-4">
+                <div className="text-[11.5px] font-medium mb-2" style={{ color: 'var(--text-2)' }}>
+                  How do you want to study this?
+                </div>
+                <div className="grid sm:grid-cols-2 gap-1.5">
+                  {TECHNIQUES.map((t) => {
+                    const on = techniques.includes(t.id)
+                    return (
+                      <button key={t.id}
+                        onClick={() => setTechniques((prev) => {
+                          const next = prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]
+                          // Never leave nothing on: an empty set has no shape,
+                          // so falling back to the default is the honest move.
+                          return next.length ? next : [DEFAULT_TECHNIQUE]
+                        })}
+                        className="text-left px-2.5 py-2 rounded-xl transition-colors"
+                        style={{
+                          background: on ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--elevated)',
+                          border: `1px solid ${on ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'transparent'}`,
+                        }}>
+                        <div className="text-[12px] font-medium" style={{ color: on ? 'var(--primary)' : 'var(--text-1)' }}>{t.name}</div>
+                        <div className="text-[11px] leading-snug mt-0.5" style={{ color: 'var(--text-3)' }}>{t.why}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="text-[11px] mt-2" style={{ color: 'var(--text-3)' }}>
+                  {techniques.length === 1
+                    ? techniqueById(techniques[0]).name
+                    : `${techniques.length} techniques combined`}
+                  {' · '}
+                  {typeList.length} questions, mixed as the technique asks.
+                </div>
               </div>
               <button
                 onClick={() => doc ? startQuizFromText(doc.text, doc.name, doc.id) : ui.toast('Pick a document first', 'Select one of your documents above.', 'info')}

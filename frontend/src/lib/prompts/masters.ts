@@ -32,7 +32,7 @@ Answer with the clarity of a well-edited paper: precise claims, structured reaso
     text: `Produce a thorough, well-cited response in the register of a review article. Structure with clear sections. Cover the landscape of the question, not just the immediate answer. Include competing perspectives where they exist. Cite every substantive claim. Length should match depth of the question, not exceed it.`,
   },
   {
-    key: 'reader', label: 'Read & Quiz', version: 1,
+    key: 'reader', label: 'Learn', version: 1,
     text: `Rewrite the source material for focused study. Preserve every factual claim. Improve clarity, remove redundancy, standardize terminology. Mark sentences that state a definition, a causal claim, a numeric fact, or a named entity as high-importance. Preserve the source's original structure where useful, restructure where clarity improves.`,
   },
   {

@@ -8,7 +8,7 @@ import { clsx } from 'clsx'
 const ITEMS = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/chat', icon: MessageSquare, label: 'Chats', chat: true },
-  { to: '/quiz', icon: GraduationCap, label: 'Read & Quiz' },
+  { to: '/quiz', icon: GraduationCap, label: 'Learn' },
   { to: '/articles', icon: BookOpen, label: 'Articles' },
   { to: '/library', icon: Library, label: 'Library' },
   { to: '/compare', icon: Swords, label: 'Compare' },

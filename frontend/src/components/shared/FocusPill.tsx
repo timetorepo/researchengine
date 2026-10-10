@@ -223,7 +223,7 @@ export function FocusPill() {
                 </div>
 
                 <p className="text-[10.5px] mt-2.5 text-center" style={{ color: 'var(--text-3)' }}>
-                  {running ? `Counting down while you are in ${label.toLowerCase()}.` : 'Pairs with Read & Quiz study sessions.'}
+                  {running ? `Counting down while you are in ${label.toLowerCase()}.` : 'Pairs with Learn study sessions.'}
                 </p>
               </div>
             </motion.div>

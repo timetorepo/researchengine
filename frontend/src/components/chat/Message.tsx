@@ -325,7 +325,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           <button key={i} onClick={() => runSectionAction(a)}
             className="mb-2 mr-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium"
             style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
-            {a.kind === 'quiz' ? 'Open Read & Quiz' : a.kind === 'coding' ? 'Open Coding' : a.kind === 'chats' ? 'Open Sessions' : `Read ${a.target ? new URL(a.target, 'http://x').host : ''}`}
+            {a.kind === 'quiz' ? 'Open Learn' : a.kind === 'coding' ? 'Open Coding' : a.kind === 'chats' ? 'Open Sessions' : `Read ${a.target ? new URL(a.target, 'http://x').host : ''}`}
           </button>
         ))}
 

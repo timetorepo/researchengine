@@ -134,7 +134,7 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
           </button>
         </div>
         <button onClick={onBack} className="block mx-auto mt-5 text-[12px] hover:underline" style={{ color: 'var(--text-3)' }}>
-          Back to Read & Quiz
+          Back to Learn
         </button>
       </div>
 

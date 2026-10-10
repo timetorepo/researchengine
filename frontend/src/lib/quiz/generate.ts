@@ -7,6 +7,12 @@ export interface QuizConfig {
   types: ('mc' | 'tf' | 'short' | 'fill' | 'ordering' | 'matching')[]
   difficulty: 'easy' | 'medium' | 'hard'
   focus?: string
+  /**
+   * Sentences longer than this are left out of the first passes. A beginner
+   * reading a 60-word sentence about a caveat learns the caveat badly, not
+   * the thing it qualifies.
+   */
+  maxSentenceWords?: number
 }
 
 /** Deterministic-ish distractor pool. */
@@ -29,7 +35,12 @@ function keyTerm(s: string): string | null {
 }
 
 export function generateQuiz(text: string, cfg: QuizConfig): QuizQuestion[] {
-  const sents = sentences(text)
+  const all = sentences(text)
+  // Level first: which sentences are in scope, then the technique decides
+  // what is asked about them.
+  const sents = cfg.maxSentenceWords && cfg.maxSentenceWords < 999
+    ? all.filter((s) => s.split(/\s+/).length <= cfg.maxSentenceWords!)
+    : all
   if (sents.length === 0) return []
   const questions: QuizQuestion[] = []
   const used = new Set<number>()

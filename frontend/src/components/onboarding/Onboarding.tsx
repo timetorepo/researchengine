@@ -319,7 +319,7 @@ export function Onboarding() {
         className="text-[15.5px] mt-3.5 min-h-[48px] max-w-[460px] mx-auto leading-relaxed"
       />
       <div className="flex flex-wrap justify-center gap-2 mt-5">
-        {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Read & Quiz', 'Agent Flood'].map((t, i) => (
+        {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Learn', 'Agent Flood'].map((t, i) => (
           <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
             className="px-3 py-1 rounded-full text-[11.5px]"
             style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
@@ -415,7 +415,7 @@ export function Onboarding() {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {[
-          { t: 'Read & Quiz', d: 'Drop in a PDF, get a reader and a quiz' },
+          { t: 'Learn', d: 'Drop in a PDF, get a reader and a quiz' },
           { t: 'Search', d: 'SearXNG by itself, citations attached' },
           { t: 'New Tech', d: 'Cheap, fast models answer first' },
           { t: 'Coding', d: 'Parallel agents, inline multi-file edits' },

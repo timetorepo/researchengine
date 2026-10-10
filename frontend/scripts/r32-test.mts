@@ -21,6 +21,11 @@ import {
   allPrompts, modelOf, sortPrompts, filterPrompts, promptCounts, knownModels, formatChars,
 } from '../src/lib/prompts/index'
 import { MASTERS } from '../src/lib/prompts/masters'
+import {
+  TECHNIQUES, LEVELS, techniqueById, levelById, typesFor, shapeFor,
+  type TechniqueId,
+} from '../src/lib/learn/techniques'
+import { generateQuiz } from '../src/lib/quiz/generate'
 
 /* ------------------------------------------------------------ localStorage -- */
 /**
@@ -234,6 +239,82 @@ console.log('\n— System prompt index —')
   check('the personas tab shows the index', src('src/components/settings/PersonasTab.tsx').includes('<ModelIndex />'))
   check('the index sorts and filters', src('src/components/settings/PersonasTab.tsx').includes('sortPrompts(filterPrompts(all, q), sort, dir)'))
   check('an unnamed prompt says so', src('src/components/settings/PersonasTab.tsx').includes('no model in the name'))
+}
+
+/* ---------------------------------------------------------------- learn -- */
+console.log('\n— Learn: named techniques and levels —')
+{
+  check('the techniques are named, not labelled by type', TECHNIQUES.every((t) => t.name.length > 3 && t.why.length > 20))
+  check('every technique explains itself in one line', TECHNIQUES.every((t) => !t.why.includes('\n')))
+  check('every technique produces at least one question shape', TECHNIQUES.every((t) => Object.keys(t.shape).length > 0))
+  check('the ids are unique', new Set(TECHNIQUES.map((t) => t.id)).size === TECHNIQUES.length)
+  check('the known methods are all here', [
+    'retrieval', 'spaced', 'interleaving', 'elaboration', 'feynman', 'dualcoding', 'pretesting',
+  ].every((id) => TECHNIQUES.some((t) => t.id === id)))
+  check('every shape entry is a real question type', TECHNIQUES.every((t) => t.types.every((x) => Object.keys(t.shape).includes(x))))
+  check('an unknown technique falls back rather than throwing', techniqueById('nope').id === 'retrieval')
+
+  // Shaping: a technique must change the questions, not just the label.
+  check('active recall leans on short answer', shapeFor(['retrieval'], 10)[0].type === 'short')
+  check('dual coding leans on ordering and matching', ['ordering', 'matching'].includes(shapeFor(['dualcoding'], 10)[0].type))
+  check('pre-testing leans on true/false', shapeFor(['pretesting'], 10)[0].type === 'tf')
+  check('a technique with no questions still yields one', shapeFor([], 10).length > 0)
+
+  for (const n of [1, 4, 8, 12, 16, 30]) {
+    const list = typesFor(['retrieval', 'spaced', 'interleaving'], n)
+    check(`typesFor produces exactly ${n} questions`, list.length === n)
+  }
+  check('typesFor only produces real types', typesFor(['feynman'], 12).every((t) => ['mc', 'tf', 'short', 'fill', 'ordering', 'matching'].includes(t)))
+  check('a single technique is honoured exactly', (() => {
+    const list = typesFor(['dualcoding'], 14)
+    return list.every((t) => ['ordering', 'matching', 'mc'].includes(t))
+  })())
+  check('the questions are mixed, not blocked by type', (() => {
+    // Interleaving is the point; a grouped list would defeat the technique.
+    const list = typesFor(['interleaving'], 12)
+    let changes = 0
+    for (let i = 1; i < list.length; i++) if (list[i] !== list[i - 1]) changes++
+    return changes > 3
+  })())
+
+  // Levels.
+  check('the levels are ordered', LEVELS[0].difficulty === 'easy' && LEVELS[1].difficulty === 'medium' && LEVELS[2].difficulty === 'hard')
+  check('a later level allows longer sentences', LEVELS[0].maxSentenceWords < LEVELS[1].maxSentenceWords && LEVELS[1].maxSentenceWords < LEVELS[2].maxSentenceWords)
+  check('a later level asks for more questions', LEVELS[0].suggestedCount < LEVELS[1].suggestedCount)
+  check('the fluent level does not filter at all', LEVELS[2].maxSentenceWords === 999)
+  check('every level says what it changes', LEVELS.every((l) => l.why.length > 20))
+  check('an unknown level falls back to the middle one', levelById('nope').id === 'building')
+
+  // The generator honours the level.
+  // The marker sits at the start of the long sentence: the question prompts
+  // slice a sentence to its opening, so a marker at the end is never shown.
+  // Every sentence has to be between 40 and 320 characters to survive the
+  // extractor, which is the real document shape.
+  const doc = [
+    'The protocol begins with a handshake between both peers.',
+    'LONGSENTENCE ' + Array.from({ length: 14 }, (_, i) => `qualification${i}`).join(' ') + ' runs long and belongs to a later level.',
+    'The handshake completes once both peers agree on the version.',
+  ].join(' ')
+  const first = generateQuiz(doc, { count: 3, types: typesFor(['retrieval'], 3), difficulty: 'easy', maxSentenceWords: 22 })
+  check('a first pass keeps the long sentence out', first.length > 0 && !first.some((q) => q.prompt.includes('LONGSENTENCE')))
+  // Enough questions that every sentence in scope is drawn at least once;
+  // the picker avoids repeats, so this is the long sentence's guaranteed turn.
+  const fluent = generateQuiz(doc, { count: 10, types: typesFor(['retrieval'], 10), difficulty: 'hard', maxSentenceWords: 999 })
+  check('the fluent level includes it', fluent.some((q) => q.prompt.includes('LONGSENTENCE')))
+  check('an empty document yields no questions', generateQuiz('', { count: 5, types: ['mc'], difficulty: 'easy' }).length === 0)
+
+  // Wiring.
+  check('the hub picks techniques, not question types', src('src/components/quiz/QuizHub.tsx').includes('setTechniques'))
+  check('the hub has a level picker', src('src/components/quiz/QuizHub.tsx').includes('setLevel'))
+  check('the hub no longer lists raw question types', !src('src/components/quiz/QuizHub.tsx').includes('const TYPES = ['))
+  check('the technique picker explains each one', src('src/components/quiz/QuizHub.tsx').includes('{t.why}'))
+  check('the surface is called Learn', /> Learn\s*\n/.test(src('src/components/quiz/QuizHub.tsx')))
+  check('the sidebar says Learn', src('src/components/sidebar/Sidebar.tsx').includes("label: 'Learn'"))
+  check('the dock says Learn', src('src/components/os/OSDock.tsx').includes("label: 'Learn'"))
+  check('the master prompt is labelled Learn too', src('src/lib/prompts/index.ts').includes("reader: 'Learn'"))
+  check('no surface still says Read & Quiz', !src('src/components/sidebar/Sidebar.tsx').includes('Read & Quiz')
+    && !src('src/components/os/OSDock.tsx').includes('Read & Quiz')
+    && !src('src/components/quiz/QuizResults.tsx').includes('Read & Quiz'))
 }
 
 /* --------------------------------------------------------------- bubbles -- */

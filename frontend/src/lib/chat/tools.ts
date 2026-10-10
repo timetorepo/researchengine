@@ -755,7 +755,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'open_section',
-    description: 'Open a part of Research Engine for the user: "quiz" (Read & Quiz), "coding" (the coding workspace), "chats" (sessions) or "library" (sources). Use it when the user would benefit from that section. It changes nothing else.',
+    description: 'Open a part of Research Engine for the user: "quiz" (Learn), "coding" (the coding workspace), "chats" (sessions) or "library" (sources). Use it when the user would benefit from that section. It changes nothing else.',
     parameters: {
       type: 'object',
       properties: { section: opt('string', 'quiz, coding, chats or library') },

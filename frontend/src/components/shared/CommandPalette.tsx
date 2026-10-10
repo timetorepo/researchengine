@@ -70,7 +70,7 @@ export function CommandPalette() {
       { id: 'cmd-settings', label: 'Open Settings', sub: 'Cmd/Ctrl+,', icon: Settings, kind: 'Command', run: () => { ui.set({ settingsSheet: true }) }, score: 0 },
       { id: 'cmd-flood', label: 'Open Agent Flood', icon: Users, kind: 'Command', run: () => navigate('/flood'), score: 0 },
       { id: 'cmd-workflows', label: 'Open Workflows', icon: WorkflowIcon, kind: 'Command', run: () => navigate('/workflows'), score: 0 },
-      { id: 'cmd-quiz', label: 'Read & Quiz', icon: GraduationCap, kind: 'Command', run: () => navigate('/quiz'), score: 0 },
+      { id: 'cmd-quiz', label: 'Learn', icon: GraduationCap, kind: 'Command', run: () => navigate('/quiz'), score: 0 },
       { id: 'cmd-articles', label: 'Articles', icon: BookOpen, kind: 'Command', run: () => navigate('/articles'), score: 0 },
       { id: 'cmd-replicate', label: 'New Tech — Replication', icon: Hammer, kind: 'Command', run: () => { const id = useStore.getState().newChat(); navigate(`/chat/${id}`) }, score: 0 },
       { id: 'cmd-theme', label: 'Toggle dark / light theme', icon: Moon, kind: 'Command', run: () => useStore.setState((s) => ({ settings: { ...s.settings, theme: ['dark', 'catppuccin-mocha', 'nord', 're-os', 'perplexity'].includes(s.settings.theme) ? 'light' : 'dark' } })), score: 0 },

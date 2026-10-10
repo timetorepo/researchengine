@@ -1,4 +1,4 @@
-// The bundled Read & Quiz demo: a genuine ~1,650-word primer on the structure
+// The bundled Learn demo: a genuine ~1,650-word primer on the structure
 // of DNA, plus pre-computed highlights, a cached study rewrite, and a
 // hand-tuned 5-question quiz. Runs fully offline so new users can experience
 // the product before configuring BYOK.

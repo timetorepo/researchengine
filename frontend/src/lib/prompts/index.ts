@@ -164,13 +164,18 @@ function masterEntries(): PromptEntry[] {
   }))
 }
 
+/**
+ * The mode names as the app spells them. Kept in step with the master prompt
+ * list in lib/chat/masters.ts: the reader master is labelled Learn, because
+ * that is what the surface is called now.
+ */
 const MODE_NAMES: Record<MasterKey, string> = {
   research: 'Research',
   flow: 'AIFlowEngine',
   math: 'Math',
   quality: 'Quality',
-  reader: 'Read & Quiz',
-  replicate: 'Replicate',
+  reader: 'Learn',
+  replicate: 'New Tech (Replication)',
   article: 'Article',
 }
 const modeName = (k: MasterKey) => MODE_NAMES[k] ?? k
