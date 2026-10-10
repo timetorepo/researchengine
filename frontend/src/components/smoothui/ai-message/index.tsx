@@ -88,6 +88,12 @@ export type AIMessageProps = {
   onVote?: (vote: "up" | "down") => void;
   /** Preformatted timestamp, e.g. "14:32". */
   timestamp?: string;
+  /**
+   * Overrides for the bubble's own look. The app computes an iMessage-style
+   * shape (fill, radius, the tail corner) and hands it here, so the frame stays
+   * generic and the taste lives in one place.
+   */
+  bubbleStyle?: React.CSSProperties;
 };
 
 /**
@@ -108,6 +114,7 @@ const AIMessage = ({
   onVote,
   from = "assistant",
   timestamp,
+  bubbleStyle,
 }: AIMessageProps) => {
   const [hasCopied, setHasCopied] = useState(false);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
@@ -208,6 +215,10 @@ const AIMessage = ({
             !bubble && "text-foreground",
             contentClassName
           )}
+          // A caller's shape wins over the defaults above: the app's iMessage
+          // mode computes the fill, radius and tail corner, and a class
+          // fighting an inline style is a fight the class loses anyway.
+          style={bubbleStyle}
         >
           {children}
         </div>

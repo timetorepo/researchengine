@@ -6,6 +6,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { endHandoff, DUR, EASE, HANDOFF_BLUR_MS } from '@/lib/ui/handoff'
 import { runChat, stopStream, isStreamingChat, enqueuePrompt, removeQueued } from '@/lib/chat/runChat'
+import { runPosition } from '@/lib/chat/bubbles'
 import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
@@ -180,8 +181,8 @@ export function ChatView() {
                 </button>
               </div>
             )}
-            {(showAll ? chat.messages : chat.messages.slice(-60)).map((m) => (
-              <Message key={m.id} chatId={chat.id} msg={m} streaming={streaming && m.id === chat.messages[chat.messages.length - 1].id && m.role === 'assistant'} onRegenerate={regenerate} />
+            {(showAll ? chat.messages : chat.messages.slice(-60)).map((m, i, list) => (
+              <Message key={m.id} chatId={chat.id} msg={m} streaming={streaming && m.id === chat.messages[chat.messages.length - 1].id && m.role === 'assistant'} onRegenerate={regenerate} position={runPosition(list, i)} />
             ))}
             <AnimatePresence>
               {(waiting || stalled) && (

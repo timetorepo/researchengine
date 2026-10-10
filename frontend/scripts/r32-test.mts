@@ -13,6 +13,10 @@
 import { readFileSync } from 'node:fs'
 import { SKILL_PACKS } from '../src/content/skills/catalog'
 import { scanForTrojan, formatTrojanReport } from '../src/lib/security/trojan'
+import {
+  DEFAULT_BUBBLES, bubbleShape, runPosition, runGap, resolveFill, fillIsDark, FILL_SWATCHES,
+  type BubblePrefs,
+} from '../src/lib/chat/bubbles'
 
 /* ------------------------------------------------------------ localStorage -- */
 /**
@@ -123,6 +127,81 @@ console.log('\n— Trojan detector —')
 
   check('the report formats for a person', formatTrojanReport(hidden).includes('[red-line]'))
   check('a clean report says so', formatTrojanReport(t('nothing here')).startsWith('CLEAN'))
+}
+
+/* --------------------------------------------------------------- bubbles -- */
+console.log('\n— Chat bubbles —')
+{
+  const imessage: BubblePrefs = { ...DEFAULT_BUBBLES, style: 'imessage' }
+  const shape = (from: 'user' | 'assistant', position: any, prefs = imessage) =>
+    bubbleShape({ prefs, from, position, themeFill: 'var(--text)' })
+
+  check('the default is the app card', DEFAULT_BUBBLES.style === 'classic')
+  check('the default does not move anyone layout', runGap(DEFAULT_BUBBLES, 'solo') === '16px')
+
+  // The tail is the corner nearest the speaker, and only on the last of a run.
+  const last = shape('user', 'last').style as any
+  check('a solo user bubble has a small tail corner', last.borderBottomRightRadius === 5)
+  const first = shape('user', 'first').style as any
+  check('a first-in-run user bubble has a small top corner', first.borderTopRightRadius === 5)
+  const middle = shape('user', 'middle').style as any
+  check('a middle bubble keeps the full radius', middle.borderBottomRightRadius === 18)
+  const assistantLast = shape('assistant', 'last').style as any
+  check('the assistant tail is on the other side', assistantLast.borderBottomLeftRadius === 5)
+  check('the assistant tail is not on the user side', (assistantLast.borderBottomRightRadius ?? 18) === 18)
+
+  // Tails off is a plain rounded rect.
+  const noTail = shape('user', 'last', { ...imessage, tails: false }).style as any
+  check('turning tails off leaves no corner override', noTail.borderBottomRightRadius === undefined)
+  check('turning tails off keeps the base radius', noTail.borderRadius === 18)
+
+  check('the user row pushes right', shape('user', 'solo').rowStyle.justifyContent === 'flex-end')
+  check('the assistant row pushes left', shape('assistant', 'solo').rowStyle.justifyContent === 'flex-start')
+
+  // Fill and the text colour that goes with it.
+  const dark = bubbleShape({ prefs: { ...imessage, senderFill: 'blue' }, from: 'user', position: 'solo', themeFill: 'var(--text)' })
+  check('a blue fill is the iMessage blue', dark.style.background === FILL_SWATCHES.blue)
+  check('a dark fill gets light text', dark.light === true)
+  const light = bubbleShape({ prefs: { ...imessage, aiFill: 'gray' }, from: 'assistant', position: 'solo', themeFill: 'var(--elevated)' })
+  check('the gray fill is the iMessage gray', light.style.background === FILL_SWATCHES.gray)
+  check('a light gray fill gets dark text', light.light === false)
+  check('the dark-mode gray is the other choice', (() => {
+    const dark2 = bubbleShape({ prefs: { ...imessage, aiFill: 'custom', aiColor: '#3A3A3C' }, from: 'assistant', position: 'solo', themeFill: 'var(--elevated)' })
+    return dark2.light === true
+  })())
+  check('theme keeps the theme fill', resolveFill('theme', undefined, 'var(--text)') === 'var(--text)')
+  check('custom falls back to the theme when unset', resolveFill('custom', undefined, 'var(--text)') === 'var(--text)')
+  check('custom uses the chosen colour', resolveFill('custom', '#123456', 'var(--text)') === '#123456')
+
+  // Luminance decides light text, not a hardcoded list.
+  check('white is light', fillIsDark('#ffffff') === false)
+  check('black is dark', fillIsDark('#000000') === true)
+  check('a short hex is read', fillIsDark('#fff') === false)
+  check('an unparseable colour is treated as dark', fillIsDark('not-a-colour') === true)
+
+  // Width.
+  check('narrow is the narrowest', (shape('user', 'solo', { ...imessage, width: 'narrow' }).style as any).maxWidth === '58%')
+  check('wide is the widest', (shape('user', 'solo', { ...imessage, width: 'wide' }).style as any).maxWidth === '92%')
+
+  // Runs.
+  const run = [
+    { role: 'user' }, { role: 'assistant' }, { role: 'assistant' }, { role: 'assistant' }, { role: 'user' },
+  ] as { role: string }[]
+  check('a lone message is solo', runPosition(run, 0) === 'solo')
+  check('the first of a run is first', runPosition(run, 1) === 'first')
+  check('the middle of a run is middle', runPosition(run, 2) === 'middle')
+  check('the last of a run is last', runPosition(run, 3) === 'last')
+  check('a run of one is solo', runPosition([{ role: 'user' }], 0) === 'solo')
+
+  check('iMessage groups a run tighter than a gap', runGap(imessage, 'middle') === '2px 0')
+  check('grouping off is one gap everywhere', runGap({ ...imessage, groupRuns: false }, 'middle') === '16px')
+
+  // Wiring.
+  check('the chat passes each message its position', src('src/components/chat/ChatView.tsx').includes('position={runPosition(list, i)}'))
+  check('the message applies the shape', src('src/components/chat/Message.tsx').includes('style={shape.rowStyle}'))
+  check('the bubble takes the shape', src('src/components/smoothui/ai-message/index.tsx').includes('style={bubbleStyle}'))
+  check('appearance configures it', src('src/components/settings/AppearanceTab.tsx').includes('<BubbleSection />'))
+  check('the setting is persisted', src('src/stores/useStore.ts').includes('bubbles: DEFAULT_BUBBLES'))
 }
 
 /* -------------------------------------------------------------- the lock -- */

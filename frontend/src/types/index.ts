@@ -435,6 +435,12 @@ export interface Settings {
   /** Derive card gradients from the active theme instead of fixed hues. */
   themeGradients: boolean
   /**
+   * How chat bubbles look. The defaults are the app's own card; `imessage` is
+   * the other shape people ask for, with grouped runs and a tail on the last
+   * bubble of a run.
+   */
+  bubbles?: import('@/lib/chat/bubbles').BubblePrefs
+  /**
    * Connected accounts (Google Drive / Gmail / Calendar, GitHub, Notion, Slack).
    * Only the credential lives here, and only encrypted when the vault is in use
    * — the backend receives it per request and never keeps a copy.

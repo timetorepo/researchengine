@@ -33,6 +33,7 @@ import { ForkPanel, CapsuleCard } from '@/components/chat/ForkPanel'
 import AIDiff from '@/components/smoothui/ai-diff'
 import AIReasoning from '@/components/smoothui/ai-reasoning'
 import { timeAgo } from '@/lib/utils'
+import { bubbleShape, runGap, DEFAULT_BUBBLES, type BubblePrefs } from '@/lib/chat/bubbles'
 import { diffLines } from '@/lib/text/diff'
 
 interface Props {
@@ -40,6 +41,8 @@ interface Props {
   msg: ChatMessage
   streaming: boolean
   onRegenerate: (msg: ChatMessage) => void
+  /** Where this message sits in a run from one author. Drives tail and spacing. */
+  position?: 'solo' | 'first' | 'middle' | 'last'
 }
 
 /**
@@ -83,7 +86,7 @@ function ThinkingBlock({ text, live }: { text: string; live?: boolean }) {
   )
 }
 
-export const Message = memo(function Message({ chatId, msg, streaming, onRegenerate }: Props) {
+export const Message = memo(function Message({ chatId, msg, streaming, onRegenerate, position = 'solo' }: Props) {
   const navigate = useNavigate()
   /**
    * Deliberately *not* a subscription. Every use of `ui` here is an imperative
@@ -95,6 +98,29 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
    */
   const ui = useUI.getState
   const [copied, setCopied] = useState(false)
+  // Bubble shape comes from Settings, so a person can make a chat read the way
+  // they want. `solo` is the default when a caller does not say, which keeps the
+  // component usable outside the transcript.
+  const prefs = useStore((s) => s.settings.bubbles ?? DEFAULT_BUBBLES)
+  const themed = prefs.style !== 'classic'
+  const shape = bubbleShape({
+    prefs,
+    from: msg.role === 'user' ? 'user' : 'assistant',
+    position,
+    themeFill: msg.role === 'user' ? 'var(--text)' : 'var(--elevated)',
+  })
+  const gap = runGap(prefs, position)
+  /**
+   * An assistant turn that is only prose. The moment it carries reasoning,
+   * tools, stages, a capsule, sources or an error it owns its own surfaces, and
+   * wrapping those in a chat bubble is a box inside a box. iMessage's shape is
+   * for text, so that is what it gets.
+   */
+  const plainAssistant = themed && msg.role === 'assistant'
+    && !msg.thinking && !(msg.toolTrace?.length) && !(msg.stages?.length)
+    && !msg.capsule && !msg.error && !(msg.sources?.length)
+    && !(msg.agentAttribution?.length) && !(msg.attachments?.length)
+    && !msg.questionnaire
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(msg.content)
   const [showInfo, setShowInfo] = useState(false)
@@ -156,7 +182,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
 
   if (msg.role === 'user') {
     return (
-      <div className="msg-row group py-4" style={{ borderTop: '1px solid var(--surface-border)' }}>
+      <div className="msg-row group" style={{ borderTop: '1px solid var(--surface-border)', marginBlock: gap }}>
         <div className="max-w-[760px] mx-auto px-4">
           {editing ? (reviewing ? (
             // Reviewing your own edit as a diff: what is about to be removed,
@@ -190,14 +216,17 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           )) : (
             <>
               <AttachmentStrip msg={msg} />
-              <div className="flex justify-end">
+              <div className="flex" style={shape.rowStyle}>
                 <AIMessage
-                  bubble
+                  bubble={!themed}
+                  className="items-end"
+                  contentClassName={themed ? 'w-full max-w-none' : undefined}
                   copyText={msg.content}
                   from="user"
                   timestamp={timeAgo(msg.createdAt)}
+                  bubbleStyle={themed ? shape.style : undefined}
                 >
-                  <div className="whitespace-pre-wrap text-[14.5px]">{msg.content}</div>
+                  <div className="whitespace-pre-wrap" style={themed ? { fontSize: 'inherit', lineHeight: 'inherit' } : { fontSize: '14.5px' }}>{msg.content}</div>
                 </AIMessage>
               </div>
             </>
@@ -240,24 +269,25 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         animate: { opacity: 1, y: 0 },
         transition: { layout: { type: 'spring', damping: 26, stiffness: 320 }, opacity: { duration: 0.2 }, y: { duration: 0.2 } },
       } : {})}
-      className={`msg-row group py-4 ${streaming ? 'msg-streaming' : 'msg-settle'}`}>
+      className={`msg-row group ${streaming ? 'msg-streaming' : 'msg-settle'}`} style={{ marginBlock: gap }}>
       {/* The fork panel lives with the message that opened it; HeroUI's Modal
           renders nothing until it is open, so an idle chat carries no extra
           DOM. */}
       <ForkPanel chatId={chatId} exhausted={contextExhausted} open={forkOpen} onClose={() => setForkOpen(false)} />
       <div className="max-w-[760px] mx-auto px-4">
         <AIMessage
-          avatar={(
+          avatar={prefs.avatars ? (
             <span className="grid h-7 w-7 place-items-center rounded-full" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
               <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
                 <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
                 <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
               </svg>
             </span>
-          )}
-          bubble={false}
+          ) : undefined}
+          bubble={plainAssistant}
           className="items-start"
-          contentClassName="w-full max-w-none"
+          contentClassName={plainAssistant ? undefined : 'w-full max-w-none'}
+          bubbleStyle={plainAssistant ? shape.style : undefined}
           copyText={msg.content}
           from="assistant"
           onRetry={() => onRegenerate(msg)}

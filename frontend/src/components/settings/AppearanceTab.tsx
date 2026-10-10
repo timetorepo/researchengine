@@ -1,11 +1,12 @@
 import React, { useRef } from 'react'
-import { Check, Upload, RotateCcw } from 'lucide-react'
+import { Check, Upload, RotateCcw, Pipette } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
+import { DEFAULT_BUBBLES, FILL_SWATCHES, bubbleShape, type BubblePrefs } from '@/lib/chat/bubbles'
 import { fileToBackgroundUrl, SOLID_PRESETS } from '@/lib/backgrounds'
 import { WALLPAPERS, WALLPAPER_SOURCE } from '@/lib/wallpapers'
 import { getPropsForTheme, mixVec3, ANIMATED_BG_META } from '@/lib/backgrounds/themeProps'
@@ -377,7 +378,153 @@ export function AppearanceTab() {
             ))}
           </div>
         </div>
+
+        <BubbleSection />
       </div>
+    </div>
+  )
+}
+
+/**
+ * Chat bubbles. Taste here is genuinely personal, so this is a real section
+ * rather than a theme slot: the same theme should be able to carry an iMessage
+ * thread and the app's own card without one of them being wrong.
+ */
+function BubbleSection() {
+  const settings = useStore((s) => s.settings)
+  const prefs = settings.bubbles ?? DEFAULT_BUBBLES
+  const update = (patch: Partial<BubblePrefs>) =>
+    useStore.setState((s) => ({ settings: { ...s.settings, bubbles: { ...(s.settings.bubbles ?? DEFAULT_BUBBLES), ...patch } } }))
+
+  const styles: { id: BubblePrefs['style']; name: string; desc: string }[] = [
+    { id: 'classic', name: 'Classic', desc: 'The app card. Wide, soft, reversed text for you.' },
+    { id: 'imessage', name: 'iMessage', desc: 'Grouped runs, a tail on the last bubble, your fill on the right.' },
+    { id: 'square', name: 'Square', desc: 'Flat corners, no rounding at all.' },
+    { id: 'pill', name: 'Pill', desc: 'Fully rounded ends.' },
+  ]
+
+  const fills: Exclude<BubblePrefs['senderFill'], 'custom'>[] = ['theme', 'blue', 'green', 'purple', 'orange', 'gray']
+  const swatch = (f: string) => (f === 'theme' ? 'var(--text)' : f === 'custom' ? prefs.senderColor ?? 'var(--text)' : FILL_SWATCHES[f as keyof typeof FILL_SWATCHES])
+
+  return (
+    <div className="surface p-4">
+      <div className="text-[13px] font-medium mb-0.5">Chat bubbles</div>
+      <div className="text-[11.5px] mb-3" style={{ color: 'var(--text-2)' }}>
+        How your messages and the model's read in a chat.
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        {styles.map((st) => (
+          <button key={st.id} onClick={() => update({ style: st.id })}
+            className="text-left p-3 rounded-[12px] transition-colors"
+            style={{
+              background: prefs.style === st.id ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--surface)',
+              border: `1px solid ${prefs.style === st.id ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--surface-border)'}`,
+            }}>
+            <div className="text-[12.5px] font-medium" style={{ color: prefs.style === st.id ? 'var(--primary)' : 'var(--text)' }}>{st.name}</div>
+            <div className="text-[10.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>{st.desc}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* A live pair, so the choice is seen rather than described. */}
+      <div className="rounded-[12px] p-3 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+        <BubblePreview prefs={prefs} />
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <div className="text-[11.5px] font-medium mb-1.5">Your fill</div>
+          <div className="flex flex-wrap gap-1.5">
+            {fills.map((f) => (
+              <button key={f} onClick={() => update({ senderFill: f })}
+                title={f}
+                className="w-7 h-7 rounded-full transition-transform"
+                style={{
+                  background: swatch(f),
+                  border: `2px solid ${prefs.senderFill === f ? 'var(--primary)' : 'var(--surface-border)'}`,
+                  transform: prefs.senderFill === f ? 'scale(1.08)' : 'none',
+                }} />
+            ))}
+            <label className="w-7 h-7 rounded-full grid place-items-center cursor-pointer" title="Custom colour"
+              style={{ background: 'var(--elevated)', border: `2px solid ${prefs.senderFill === 'custom' ? 'var(--primary)' : 'var(--surface-border)'}` }}>
+              <Pipette size={12} style={{ color: 'var(--text-3)' }} />
+              <input type="color" className="sr-only" value={prefs.senderColor ?? '#0B84FF'}
+                onChange={(e) => update({ senderFill: 'custom', senderColor: e.target.value })} />
+            </label>
+          </div>
+        </div>
+        <div>
+          <div className="text-[11.5px] font-medium mb-1.5">Their fill</div>
+          <div className="flex flex-wrap gap-1.5">
+            {fills.map((f) => (
+              <button key={f} onClick={() => update({ aiFill: f })}
+                title={f}
+                className="w-7 h-7 rounded-full transition-transform"
+                style={{
+                  background: f === 'theme' ? 'var(--elevated)' : FILL_SWATCHES[f],
+                  border: `2px solid ${prefs.aiFill === f ? 'var(--primary)' : 'var(--surface-border)'}`,
+                  transform: prefs.aiFill === f ? 'scale(1.08)' : 'none',
+                }} />
+            ))}
+            <label className="w-7 h-7 rounded-full grid place-items-center cursor-pointer" title="Custom colour"
+              style={{ background: 'var(--elevated)', border: `2px solid ${prefs.aiFill === 'custom' ? 'var(--primary)' : 'var(--surface-border)'}` }}>
+              <Pipette size={12} style={{ color: 'var(--text-3)' }} />
+              <input type="color" className="sr-only" value={prefs.aiColor ?? '#E9E9EB'}
+                onChange={(e) => update({ aiFill: 'custom', aiColor: e.target.value })} />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <ToggleRow label="Tails" desc="The pointed corner on the last bubble of a run" value={prefs.tails} onChange={(v) => update({ tails: v })} />
+        <ToggleRow label="Avatars" desc="Show the mark beside each message" value={prefs.avatars} onChange={(v) => update({ avatars: v })} />
+        <ToggleRow label="Group runs" desc="Tighter spacing inside a run from one author" value={prefs.groupRuns} onChange={(v) => update({ groupRuns: v })} />
+      </div>
+
+      <div className="mt-3">
+        <div className="text-[11.5px] font-medium mb-1.5">Width</div>
+        <div className="flex gap-1.5">
+          {(['narrow', 'normal', 'wide'] as const).map((w) => (
+            <button key={w} onClick={() => update({ width: w })}
+              className="px-3 py-1.5 rounded-full text-[11.5px] capitalize"
+              style={{
+                background: prefs.width === w ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)',
+                color: prefs.width === w ? 'var(--primary)' : 'var(--text-3)',
+              }}>
+              {w}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The same shape the chat draws, at preview size, so the choice is visible. */
+function BubblePreview({ prefs }: { prefs: BubblePrefs }) {
+  const rows: { from: 'user' | 'assistant'; text: string; position: 'first' | 'last' }[] = [
+    { from: 'user', text: 'How does prompt caching save tokens?', position: 'first' },
+    { from: 'assistant', text: 'It reuses the prefix you already paid for.', position: 'first' },
+    { from: 'assistant', text: 'So a long system prompt costs once, not every turn.', position: 'last' },
+  ]
+  return (
+    <div className="flex flex-col gap-1">
+      {rows.map((r, i) => {
+        const { style, rowStyle, light } = bubbleShape({
+          prefs,
+          from: r.from,
+          position: r.position,
+          themeFill: r.from === 'user' ? 'var(--text)' : 'var(--elevated)',
+        })
+        return (
+          <div key={i} className="flex" style={rowStyle}>
+            <div style={{ ...style, fontSize: 12, padding: style.padding, maxWidth: '80%' }}>{r.text}</div>
+          </div>
+        )
+      })}
+      <div className="sr-only">preview of {prefs.style} bubbles</div>
     </div>
   )
 }

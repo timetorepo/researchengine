@@ -9,6 +9,7 @@ import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
 import { builtinSquads } from '@/lib/agents/squads'
 import { scopedStorage } from '@/lib/security/lock'
+import { DEFAULT_BUBBLES } from '@/lib/chat/bubbles'
 
 export const AGENT_COLORS = ['#6C8EEF', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#22D3EE', '#F472B6']
 
@@ -102,6 +103,7 @@ const defaultSettings: Settings = {
   providerModels: {},
   dynamicIsland: false,
   themeGradients: false,
+  bubbles: DEFAULT_BUBBLES,
   passphraseSet: false,
   floodBudget: 200000,
   osWidgets: true,
