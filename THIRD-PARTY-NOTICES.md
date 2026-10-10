@@ -59,4 +59,23 @@ redistributors to give recipients a copy of the Licence, which this file and
 the `origin` marker in the pack directory satisfy; any NOTICE file upstream
 ships must be reproduced alongside it.
 
+## Strix
+
+The nine Strix skills under `frontend/src/content/skills/upstream/` are the work
+of the Strix team, licensed under the Apache License, Version 2.0. Source:
+https://github.com/usestrix/strix — https://www.strix.ai/
+
+Strix itself, the penetration testing engine those skills describe, is not
+vendored or modified here. The app invokes the `strix` command line as the
+process it is, through the `/api/strix` routes. It needs Docker running and an
+LLM key, both of which are the user's to supply, and it reaches the network by
+design: it is a tool for attacking a target. The coding workspace shows the
+target, the instruction and the report; it does not score, summarise or
+second-guess Strix's findings.
+
+Apache-2.0 §4(b) requires that any modified files carry prominent notices. None
+of the nine `SKILL.md` files are modified — they are vendored verbatim, and each
+carries an `origin` marker recording the repository, the revision and the
+licence.
+
 Research Engine itself is MIT. See `LICENSE` at the repository root.

@@ -10,7 +10,7 @@
  *
  * Run from frontend/: tsx --tsconfig tsconfig.json scripts/r32-test.mts
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { SKILL_PACKS } from '../src/content/skills/catalog'
 import { scanForTrojan, formatTrojanReport } from '../src/lib/security/trojan'
 import {
@@ -68,7 +68,7 @@ const reset = () => { store.clear(); session.clear() }
 /* ------------------------------------------------------------- the packs -- */
 console.log('\n— Upstream skill packs —')
 {
-  check('21 packs ship in the app', SKILL_PACKS.length === 21)
+  check('30 packs ship in the app', SKILL_PACKS.length === 30)
   for (const id of ['find-skills', 'web-design-guidelines', 'anti-ui-slop', 'impeccable', 'taste-skill', 'trojan-detector']) {
     check(`${id} is registered`, SKILL_PACKS.some((p) => p.id === id))
   }
@@ -133,6 +133,43 @@ console.log('\n— Trojan detector —')
   check('a clean report says so', formatTrojanReport(t('nothing here')).startsWith('CLEAN'))
 }
 
+/* --------------------------------------------------------------- strix -- */
+console.log('\n— Strix in the coding workspace —')
+{
+  const packs = SKILL_PACKS
+  const strix = packs.filter((p) => p.origin === 'usestrix/strix')
+  check('all nine Strix skills are vendored', strix.length === 9)
+  check('every Strix pack is Apache-2.0', strix.every((p) => p.license === 'Apache-2.0'))
+  check('every Strix pack credits the Strix team', strix.every((p) => /Strix/i.test(p.credit)))
+  check('the pentest skills are there', [
+    'penetration-testing-with-strix', 'api-security-testing', 'owasp-top-10-testing',
+    'web-app-penetration-testing', 'find-security-vulnerabilities-in-code',
+    'fix-security-vulnerabilities-with-strix', 'ci-security-scanning-with-strix',
+    'application-security-testing', 'managed-pentesting-with-strix',
+  ].every((id) => strix.some((p) => p.id === id)))
+  check('every vendored pack has an origin marker', packs.every((p) => existsSync(`src/content/skills/upstream/${p.id}/origin`)))
+  check('every pack is licensed', packs.every((p) => !!p.license))
+  check('the catalog holds every pack', packs.length === 30)
+  check('the vendor script knows about Strix', src('../scripts/vendor-skills.mjs').includes('usestrix/strix'))
+  check('the vendor script does not fetch Strix at runtime', src('../scripts/vendor-skills.mjs').includes('--from'))
+
+  // The route.
+  const route = src('../backend/src/routes/strix.ts')
+  check('the strix route exists', route.length > 0)
+  check('the route says what is missing rather than failing', route.includes('docker') && route.includes('llm'))
+  check('the route never runs through a shell', /shell:\s*false/.test(route))
+  check('the target is one argv element', route.includes("['strix', '--target', target]"))
+  check('the route is mounted', src('../backend/src/index.ts').includes("app.route('/api/strix', strixRoutes)"))
+  check('the report path cannot escape the workspace', route.includes("name.includes('..')"))
+
+  // Wiring.
+  check('the coding workspace has a pentest activity', src('src/components/ide/CodingView.tsx').includes("activity === 'pentest'"))
+  check('the pentest panel is mounted', src('src/components/ide/CodingView.tsx').includes('<PentestPanel project={project} />'))
+  check('the panel credits Strix', src('src/components/ide/PentestPanel.tsx').includes('Apache-2.0'))
+  check('the panel does not claim a finding it did not make', src('src/components/ide/PentestPanel.tsx').includes('not reimplemented'))
+  check('the notices file covers Strix', src('../THIRD-PARTY-NOTICES.md').includes('## Strix'))
+}
+
 /* --------------------------------------------------------- prompt index -- */
 console.log('\n— System prompt index —')
 {
@@ -141,7 +178,7 @@ console.log('\n— System prompt index —')
   check('the master prompts are in it', all.filter((p) => p.kind === 'master').length === MASTERS.length)
   check('the persona archive is in it', all.filter((p) => p.kind === 'persona').length > 800)
   check('the built-in skills are in it', all.filter((p) => p.kind === 'skill').length > 0)
-  check('the upstream packs are in it', all.filter((p) => p.kind === 'pack').length === 21)
+  check('the upstream packs are in it', all.filter((p) => p.kind === 'pack').length === 30)
   check('every entry has a name', all.every((p) => p.name.length > 0))
   check('every entry has an id', all.every((p) => p.id.length > 0))
   check('no id is duplicated', new Set(all.map((p) => p.id)).size === all.length)

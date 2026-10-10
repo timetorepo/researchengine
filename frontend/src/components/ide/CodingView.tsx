@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch, TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp, Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2, FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes, Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles, Package, Plug, Camera, GitCompareArrows } from 'lucide-react'
+import { FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch, TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp, Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2, FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes, Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles, Package, Plug, Camera, GitCompareArrows, ShieldAlert } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { DepsPanel } from './DepsPanel'
 import { McpPanel } from './McpPanel'
 import { ScreenshotPanel } from './ScreenshotPanel'
+import { PentestPanel } from './PentestPanel'
 import { DesignStudio } from './DesignStudio'
 import { AgentPanel, chatIdFor } from './AgentPanel'
 import { ChangesPanel } from './ChangesPanel'
@@ -314,7 +315,7 @@ export function CodingView() {
 /* ================================================================== */
 /* Workbench                                                          */
 /* ================================================================== */
-type Activity = 'explorer' | 'search' | 'git' | 'deps' | 'mcp' | 'shot' | 'design'
+type Activity = 'explorer' | 'search' | 'git' | 'deps' | 'mcp' | 'shot' | 'pentest' | 'design'
 type PanelTab = 'terminal' | 'problems' | 'git' | 'preview' | 'safety' | 'frameworks'
 
 function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }: {
@@ -818,6 +819,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
           <ActivityBtn active={activity === 'deps'} onClick={() => { setActivity('deps'); setSidebarOpen(true) }} icon={<Package size={17} />} label="Dependencies" />
           <ActivityBtn active={activity === 'mcp'} onClick={() => { setActivity('mcp'); setSidebarOpen(true) }} icon={<Plug size={17} />} label="MCP servers" />
           <ActivityBtn active={activity === 'shot'} onClick={() => { setActivity('shot'); setSidebarOpen(true) }} icon={<Camera size={17} />} label="Screenshot to code" />
+          <ActivityBtn active={activity === 'pentest'} onClick={() => { setActivity('pentest'); setSidebarOpen(true) }} icon={<ShieldAlert size={17} />} label="Pentest" />
           <ActivityBtn active={false} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalIcon size={17} />} label="Terminal" />
           <ActivityBtn active={false} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={17} />} label="Problems" />
           <div className="flex-1" />
@@ -883,6 +885,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
             {activity === 'git' && <GitSidebar project={project} />}
             {activity === 'deps' && <DepsPanel project={project} />}
             {activity === 'mcp' && <McpPanel />}
+            {activity === 'pentest' && <PentestPanel project={project} />}
             {activity === 'shot' && <ScreenshotPanel project={project} />}
           </div>
         )}

@@ -34,6 +34,7 @@ async function main() {
   const { libraryRoutes } = await import('./routes/library')
   const { proxyRoutes } = await import('./routes/proxy')
   const { skillsRoutes } = await import('./routes/skills')
+  const { strixRoutes } = await import('./routes/strix')
   const { dataRoutes } = await import('./routes/data')
   const { searchRoutes } = await import('./routes/search')
   const { sandboxRoutes } = await import('./routes/sandbox')
@@ -86,6 +87,7 @@ async function main() {
   app.route('/api/library', libraryRoutes)
   app.route('/api/proxy', proxyRoutes)
   app.route('/api/skills', skillsRoutes)
+  app.route('/api/strix', strixRoutes)
   app.route('/api/data', dataRoutes)
 
   app.onError((err, c) => {

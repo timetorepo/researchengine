@@ -113,6 +113,34 @@ const LICENCE_BY_ORIGIN = {
   'tojileon/ian-xiaohei-illustrations-en': { license: 'MIT', credit: 'tojileon — ian-xiaohei illustrations, English' },
 }
 
+/**
+ * Strix, the open-source AI penetration tester (usestrix/strix, Apache-2.0).
+ * Nine skills, vendored so the coding agent can run a pentest, read the
+ * findings and fix them without anything being fetched at runtime.
+ *
+ * Apache-2.0 requires the licence to travel with the work, so `origin` and the
+ * catalog entry carry it, and THIRD-PARTY-NOTICES.md names the source.
+ */
+const STRIX_PACK = {
+  repo: 'usestrix/strix',
+  ref: 'main',
+  path: 'skills',
+  license: 'Apache-2.0',
+  credit: 'Strix (usestrix) — open-source AI penetration testing',
+}
+const STRIX_SKILLS = [
+  'api-security-testing',
+  'application-security-testing',
+  'ci-security-scanning-with-strix',
+  'find-security-vulnerabilities-in-code',
+  'fix-security-vulnerabilities-with-strix',
+  'managed-pentesting-with-strix',
+  'owasp-top-10-testing',
+  'penetration-testing-with-strix',
+  'web-app-penetration-testing',
+]
+const STRIX_MANIFEST = STRIX_SKILLS.map((id) => ({ ...STRIX_PACK, id, files: ['SKILL.md'] }))
+
 const args = process.argv.slice(2)
 const flag = (name) => {
   const i = args.indexOf(name)
@@ -177,7 +205,7 @@ if (existing.length === 0 && existsSync(catalogPath) && readFileSync(catalogPath
 }
 const byId = new Map(existing.map((p) => [p.id, p]))
 
-for (const pack of MANIFEST) {
+for (const pack of [...MANIFEST, ...STRIX_MANIFEST]) {
   const dir = join(outRoot, pack.id)
   mkdirSync(dir, { recursive: true })
   const files = []
