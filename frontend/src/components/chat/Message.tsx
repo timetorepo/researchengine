@@ -16,6 +16,7 @@ export function formatTokens(n: number): string {
 }
 import { Markdown } from './Markdown'
 import { ReplicateTimeline } from './ReplicateTimeline'
+import { ThinkingPhases } from './ThinkingPhases'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
 import { TooltipCardStrip } from '@/components/ui/aceternity/TooltipCard'
 import { AlphaChip, handOffToAlpha } from '@/components/alpha/RemoverAlpha'
@@ -67,23 +68,6 @@ function runSectionAction(a: SectionAction) {
   else if (a.kind === 'coding') nav('/code')
   else if (a.kind === 'chats') nav('/chats')
   else if (a.kind === 'read' && a.target) nav(`/library?url=${encodeURIComponent(a.target)}`)
-}
-
-function ThinkingBlock({ text, live }: { text: string; live?: boolean }) {
-  const [open, setOpen] = useState(false)
-  if (!text && !live) return null
-  return (
-    <div className="mb-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
-      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[11px]" style={{ color: 'var(--text-3)' }}>
-        <BrainCircuit size={12} className={live && !text ? 'animate-pulse' : ''} />
-        <span>{live && !text ? 'Thinking' : open ? 'Chain of thought' : 'Chain of thought'}</span>
-        {text ? <span className="ml-auto text-[10px] opacity-70">{open ? 'hide' : `${Math.max(1, Math.round(text.length / 4))} tok`}</span> : null}
-      </button>
-      {(open || (live && !text)) && text && (
-        <div className="px-2.5 pb-2 text-[11px] leading-relaxed whitespace-pre-wrap max-h-56 overflow-auto" style={{ color: 'var(--text-3)' }}>{text}</div>
-      )}
-    </div>
-  )
 }
 
 export const Message = memo(function Message({ chatId, msg, streaming, onRegenerate, position = 'solo' }: Props) {
@@ -318,7 +302,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         </div>
 
         {(msg.thinking || (streaming && !msg.content)) && (
-          <ThinkingBlock text={msg.thinking ?? ''} live={!!streaming} />
+          <ThinkingPhases text={msg.thinking ?? ''} live={!!streaming} />
         )}
 
         {sectionActions(msg.content).map((a, i) => (

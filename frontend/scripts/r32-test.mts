@@ -24,6 +24,9 @@ import { MASTERS } from '../src/lib/prompts/masters'
 import { THEMES, THEME_CAPTIONS, themeKind } from '../src/lib/themes/meta'
 import { PROVIDERS } from '../src/lib/providers/registry'
 import { PERSONAS, DEFAULT_PERSONA, personaById, route } from '../src/lib/snaffy/router'
+import {
+  splitPhases, currentPhase, phaseSequence, PHASE_TONE, type PhaseKind,
+} from '../src/lib/chat/thinking-phases'
 import type { ThemeId } from '@/types'
 import {
   TECHNIQUES, LEVELS, techniqueById, levelById, typesFor, shapeFor,
@@ -402,6 +405,61 @@ console.log('\n— Snaffy, the router —')
   check('the tab lets you pin a model', src('src/components/settings/SnaffyTab.tsx').includes('pinned'))
   check('it reads only what you can actually call', src('src/components/settings/SnaffyTab.tsx').includes("cfg?.enabled && cfg?.apiKey"))
   check('it never claims to be a provider', src('src/components/settings/SnaffyTab.tsx').includes('holds no key'))
+}
+
+/* ----------------------------------------------------- thinking phases -- */
+console.log('\n— Thinking phases —')
+{
+  check('an empty chain has no phases', splitPhases('').length === 0)
+  check('one paragraph is one phase', splitPhases('The user wants a summary of the paper.').length === 1)
+  check('a turn is recognised as a turn', splitPhases('First, let me break this down.\n\nBut wait, that assumes the rate is annual.').length === 2)
+  check('the turn gets its own kind', splitPhases('First, let me break this down.\n\nBut wait, that assumes the rate is annual.')[1].kind === 'doubting')
+  check('a verification is its own kind', splitPhases('Let me verify that against the source.').every((p) => p.kind === 'verifying'))
+  check('a decision is its own kind', splitPhases('So the answer is 42.').every((p) => p.kind === 'deciding'))
+  check('adjacent same-kind paragraphs merge', (() => {
+    const t = 'First, let me plan.\n\nStep 1: read.\n\nStep 2: compute.'
+    return splitPhases(t).length === 1
+  })())
+  check('a kind change always starts a new phase', (() => {
+    const t = 'First, let me plan.\n\nBut wait.\n\nSo the answer is 4.'
+    return splitPhases(t).map((p) => p.kind).join(',') === 'planning,doubting,deciding'
+  })())
+  check('an unrecognised paragraph stays reasoning', splitPhases('The rate compounds quarterly.').every((p) => p.kind === 'reasoning'))
+  check('a wall with no blank lines still splits on lines', (() => {
+    const t = 'First, let me plan.\nBut wait.\nSo the answer is 4.'
+    return splitPhases(t).length === 3
+  })())
+  check('every phase has text', splitPhases('First, let me plan.\n\nBut wait.').every((p) => p.text.length > 0))
+  check('every phase has a label', splitPhases('First, let me plan.\n\nBut wait.').every((p) => p.label.length > 0))
+  check('phase ids are unique', (() => {
+    const t = 'First, let me plan.\n\nBut wait.\n\nSo the answer is 4.\n\nLet me verify it.'
+    const ids = splitPhases(t).map((p) => p.id)
+    return new Set(ids).size === ids.length
+  })())
+  check('the offsets bracket the text', (() => {
+    const t = 'First, let me plan.\n\nBut wait, that is wrong.'
+    return splitPhases(t).every((p) => t.slice(p.from, p.to).length > 0 && p.from >= 0 && p.to <= t.length + 1)
+  })())
+  check('the last phase is the current one', currentPhase('First, let me plan.\n\nBut wait.')?.kind === 'doubting')
+  check('no chain means no current phase', currentPhase('') === null)
+  check('the sequence is distinct and in order', (() => {
+    const t = 'First, let me plan.\n\nBut wait.\n\nSo the answer is 4.\n\nBut wait again.'
+    return phaseSequence(t).map((s) => s.kind).join(',') === 'planning,doubting,deciding'
+  })())
+  check('every kind has a tone', (() => {
+    const kinds: PhaseKind[] = ['reading', 'planning', 'reasoning', 'doubting', 'deciding', 'verifying', 'answering']
+    return kinds.every((k) => !!PHASE_TONE[k])
+  })())
+
+  // Wiring.
+  check('the phases component exists', src('src/components/chat/ThinkingPhases.tsx').length > 0)
+  check('the message renders phases, not a raw dump', src('src/components/chat/Message.tsx').includes('<ThinkingPhases'))
+  check('the old raw dump is gone', !src('src/components/chat/Message.tsx').includes('function ThinkingBlock'))
+  check('the live phase is marked while streaming', src('src/components/chat/ThinkingPhases.tsx').includes('isActive'))
+  check('it says the phases are inferred', src('src/components/chat/ThinkingPhases.tsx').includes('inferred'))
+  check('the chain is still available in full', src('src/components/chat/ThinkingPhases.tsx').includes('{shown ? shown.text : text}'))
+  check('it only auto-scrolls when already open', src('src/components/chat/ThinkingPhases.tsx').includes('if (!live || !open) return'))
+  check('the reasoning streams in from the provider', src('src/lib/chat/runChat.ts').includes('pushThinking'))
 }
 
 /* --------------------------------------------------------------- bubbles -- */

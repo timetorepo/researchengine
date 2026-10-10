@@ -101,7 +101,12 @@ console.log('\n— Effort and chain of thought —')
   check('effort menu speaks each provider (claude, chatgpt)', ip.includes('anthropic: [') && ip.includes('openai: ['))
   check('instant stays a ChatGPT step; claude has five levels', ip.includes("id: 'instant', label: 'Instant'") && (ip.match(/anthropic: \[[\s\S]*?\n  \],/)?.[0].match(/id: '/g) ?? []).length === 5)
   check('instant skips asking for thought', src('src/lib/chat/runChat.ts').includes("thinking: effortLevel !== 'instant'"))
-  check('the thinking block collapses and keeps its text', src('src/components/chat/Message.tsx').includes('function ThinkingBlock'))
+  // Asserted as behaviour, not as a function name: the thinking UI was a
+  // collapsible raw dump, then became phases, and the thing worth checking is
+  // that the chain still collapses and still keeps its text either way.
+  const tp = src('src/components/chat/ThinkingPhases.tsx')
+  check('the thinking block collapses and keeps its text',
+    tp.includes('setOpen') && tp.includes('{shown ? shown.text : text}'))
 }
 
 console.log('\n— Sessions, isolation, and the AI tools —')
