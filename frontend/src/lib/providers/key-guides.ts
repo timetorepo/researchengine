@@ -128,6 +128,20 @@ export const KEY_GUIDES: Record<ProviderId, KeyGuide> = {
     free: 'Some models are marked free and work without credit, with limits.',
     tip: 'Model names are namespaced, like anthropic/claude-sonnet-4. The model list in this app comes from OpenRouter directly.',
   },
+  typesafe: {
+    provider: 'typesafe',
+    console: { label: 'typesafe.ai', url: 'https://typesafe.ai' },
+    steps: [
+      'Jev is in early access, so request access at typesafe.ai first.',
+      'Sign in and open the API keys section of the dashboard.',
+      'Create a key and copy it.',
+      'Paste it here.',
+    ],
+    shape: 'A bearer token issued by TypeSafe AI.',
+    cost: '$0.042 per million input tokens. Output tokens are free — answers are typed values, not text.',
+    free: 'No free tier. It is priced per decision rather than per reply, so a classification call costs a fraction of a cent.',
+    tip: 'Jev answers typed questions, it does not chat. For prose use another provider; for a decision with a probability on it, this is the one.',
+  },
   kilocode: {
     provider: 'kilocode',
     console: { label: 'kilocode.ai', url: 'https://kilocode.ai/dashboard' },

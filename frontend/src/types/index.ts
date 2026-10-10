@@ -9,6 +9,10 @@ export type ProviderId =
   // Kilo Code's gateway — one OpenAI-compatible endpoint in front of many
   // models, keyed by a single Kilo key.
   | 'kilocode'
+  // TypeSafe AI's Jev — a System One decision model. It answers typed questions
+  // with calibrated probabilities rather than generating text, so it is a
+  // different shape of provider from the rest and is routed as one.
+  | 'typesafe'
 
 export interface ProviderConfig {
   id: ProviderId

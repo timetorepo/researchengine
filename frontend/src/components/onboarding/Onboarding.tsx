@@ -20,7 +20,15 @@ import StaggerFromEdges from '@/components/smoothui/stagger-from-edges'
 import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-terminal'
 import FolderReveal from '@/components/smoothui/folder-reveal'
 import GitHubStarsAnimation from '@/components/smoothui/github-stars-animation'
-import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
+// React Bits reimplementations, each on the step it was asked for. Provenance is
+// honest: reactbits.dev is not reachable from here, so these are written against
+// the documented behaviour, not vendored copies (the barrel says so).
+import { TearTicket } from '@/components/ui/reactbits/micro/TearTicket'
+import { StarBorder } from '@/components/ui/reactbits/micro/StarBorder'
+import { CrystalizedBall } from '@/components/ui/reactbits/micro/CrystalizedBall'
+import { InfiniteSpiral } from '@/components/ui/reactbits/micro/InfiniteSpiral'
+import { MaskedHeading } from '@/components/ui/reactbits/micro/MaskedHeading'
+import { FlowingMenu } from '@/components/ui/reactbits/micro/FlowingMenu'
 // R16 — the rest of the Aceternity set, each on the step it was picked for.
 // Provenance and digests: frontend/scripts/aceternity-sources.json.
 import { ColourfulText } from '@/components/ui/aceternity/ColourfulText'
@@ -293,14 +301,21 @@ export function Onboarding() {
   const body = [
     /* 0 — Welcome */
     <div key="s0" className="text-center max-w-[520px] mx-auto">
-      <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 20, stiffness: 260 }}
-        className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] mb-6"
-        style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-        <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-          <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-          <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-        </svg>
-      </motion.div>
+      <div className="relative inline-flex items-center justify-center mb-6">
+        {/* A faceted crystal behind the mark — decorative, and it holds still
+            under reduced motion. */}
+        <div className="absolute -inset-6 opacity-60">
+          <CrystalizedBall size={104} />
+        </div>
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 20, stiffness: 260 }}
+          className="relative inline-flex items-center justify-center w-16 h-16 rounded-[20px]"
+          style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+          <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+            <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
+            <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
+          </svg>
+        </motion.div>
+      </div>
       <h1 className="text-[30px] font-bold leading-tight" style={{ letterSpacing: '-0.03em' }}>Research Engine</h1>
       {/* Aceternity's Colourful Text, on the one line that should be colourful:
           the letters of "AI Research" step through the ramp on a beat, and
@@ -335,13 +350,32 @@ export function Onboarding() {
       <div className="mt-2 h-[16px] text-[11.5px] font-mono" style={{ color: 'var(--text-3)' }}>
         <TypewriterText speed={34}>local-first · bring your own key · works offline</TypewriterText>
       </div>
+      {/* The first-run heading wipes on with a travelling mask. */}
+      <div className="mt-5 text-[13px]" style={{ color: 'var(--text-2)' }}>
+        <MaskedHeading text="Pick where to start" speed={4} />
+      </div>
+      <div className="mt-2 flex justify-center">
+        <FlowingMenu items={[
+          { id: 'research', label: 'Research', onClick: next },
+          { id: 'learn', label: 'Learn', onClick: next },
+          { id: 'code', label: 'Build', onClick: next },
+        ]} />
+      </div>
       <div className="mt-6 flex justify-center">
-        <MovingBorder onClick={next} radius={999} className="w-52 h-12">
-          <span className="flex items-center justify-center gap-2 font-medium text-[14px] text-white"
-            style={{ background: 'var(--primary)', borderRadius: 999, height: '100%' }}>
-            Get started <ArrowRight size={15} />
-          </span>
-        </MovingBorder>
+        {/* StarBorder is the requested frame for the get-started button: a border
+            traced by travelling stars rather than a static outline. */}
+        <StarBorder onClick={next} className="w-52 h-12">
+          Get started <ArrowRight size={15} />
+        </StarBorder>
+      </div>
+      {/* A tear-off ticket as a second, more playful way into the app: drag the
+          stub down to open Research Engine. The same action as the button, but
+          it earns a moment of attention on a first run. */}
+      <div className="mt-5 max-w-[300px] mx-auto">
+        <TearTicket title="Research Engine" body="Your local-first AI workspace." cta="Tear to open" onTear={next} />
+      </div>
+      <div className="mt-4 flex justify-center opacity-70">
+        <InfiniteSpiral size={56} />
       </div>
     </div>,
 

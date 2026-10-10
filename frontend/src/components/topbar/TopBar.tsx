@@ -12,6 +12,8 @@ import { BUILD_ID } from '@/components/settings/AboutTab'
 import { useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
 import { ResourceMeter } from '@/components/topbar/ResourceMeter'
+import { useAgents } from '@/lib/ide/agents'
+import { StatusMark } from '@/components/ui/reactbits/micro/StatusMark'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
 import AIContextMeter from '@/components/smoothui/ai-context-meter'
 import { contextWindowFor } from '@/lib/providers/context-window'
@@ -39,6 +41,53 @@ function FullscreenButton() {
     >
       {on ? <Minimize2 size={16} strokeWidth={1.6} /> : <Maximize2 size={16} strokeWidth={1.6} />}
     </button>
+  )
+}
+
+/**
+ * Agent activity for the topbar.
+ *
+ * While any agent is forking or running, a StatusMark with the count sits on the
+ * bar. The component is named for the React Bits Status Mark it uses; the mark is
+ * the bit that reads at a glance from across the window. With two or more agents
+ * the single dot is not enough — a count with no names tells you nothing — so the
+ * expanded tooltip lists what each one is doing. One agent keeps the dot alone.
+ */
+function AgentPulse() {
+  const tasks = useAgents((s) => s.tasks)
+  const running = tasks.filter((t) => t.status === 'running' || t.status === 'forking')
+  const [open, setOpen] = useState(false)
+  if (running.length === 0) return null
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-label={`${running.length} agent${running.length === 1 ? '' : 's'} working`}
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+        style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}
+      >
+        <StatusMark state="running" pulse size={9} />
+        {running.length > 1 ? `${running.length} agents` : 'Agent'}
+      </button>
+      {open && running.length > 1 && (
+        <div
+          role="tooltip"
+          className="absolute left-0 top-full mt-1.5 z-50 min-w-[200px] surface p-2 rounded-xl flex flex-col gap-1"
+        >
+          {running.map((t) => (
+            <div key={t.id} className="flex items-center gap-2 text-[11.5px]" style={{ color: 'var(--text-2)' }}>
+              <StatusMark state="running" pulse size={8} />
+              <span className="truncate">{t.title}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -114,6 +163,11 @@ export function TopBar() {
         style={{ background: 'color-mix(in srgb, var(--success) 14%, transparent)', color: 'var(--success)' }}>
         <span className="w-1 h-1 rounded-full" style={{ background: 'var(--success)' }} /> Local
       </span>
+
+      {/* Agent activity. StatusMark sits on the topbar while anything is running;
+          with two or more it expands into a list of what each one is doing,
+          because a single dot with no names is the same as no indicator. */}
+      <AgentPulse />
 
       <div className="flex-1" />
 

@@ -5,6 +5,8 @@ import { useUI } from '@/stores/useUI'
 import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { WakeSlider } from '@/components/ui/reactbits/micro/WakeSlider'
+import { CometDial } from '@/components/ui/reactbits/micro/CometDial'
+import { JellyRadio } from '@/components/ui/reactbits/micro/JellyRadio'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { DEFAULT_BUBBLES, FILL_SWATCHES, bubbleShape, type BubblePrefs } from '@/lib/chat/bubbles'
@@ -222,7 +224,7 @@ export function AppearanceTab() {
 
       <div className="space-y-1 mt-6">
         <div className="text-[12.5px] font-medium mb-1">Font size</div>
-        <div className="flex gap-1.5 mb-4">
+        <div className="flex gap-1.5 mb-3">
           {[0.9, 1, 1.1].map((f) => (
             <button key={f} onClick={() => update({ fontScale: f })}
               className="px-4 py-1.5 rounded-full text-[12px]"
@@ -230,6 +232,33 @@ export function AppearanceTab() {
               {f === 0.9 ? 'Compact' : f === 1 ? 'Default' : 'Large'}
             </button>
           ))}
+        </div>
+        <div className="flex items-center gap-4 mb-2">
+          <CometDial
+            size={78}
+            value={Math.round(settings.fontScale * 100)}
+            onChange={(v) => update({ fontScale: Math.max(0.8, Math.min(1.4, v / 100)) })}
+            label="Text size"
+            format={(v) => `${v}%`}
+          />
+          <div className="flex-1">
+            <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Fine text size</div>
+            <div className="text-[11px] leading-snug" style={{ color: 'var(--text-3)' }}>
+              The presets above snap to three sizes; the dial between them, 80 to 140 percent.
+            </div>
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Density</div>
+          <JellyRadio
+            value={settings.compact ? 'compact' : 'cozy'}
+            onChange={(v) => update({ compact: v === 'compact' })}
+            options={[
+              { value: 'cozy', label: 'Cozy' },
+              { value: 'compact', label: 'Compact' },
+            ]}
+            label="Layout density"
+          />
         </div>
 
         {/* ---- Home screen ---- */}

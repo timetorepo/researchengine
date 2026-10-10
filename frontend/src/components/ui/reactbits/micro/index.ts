@@ -1,6 +1,11 @@
-// React Bits — Micro set (https://reactbits.dev/c/micro).
-// Each file here is the published component, unmodified apart from a provenance
-// header. Import from this barrel so an upgrade is one diff per component.
+// React Bits — Micro set (https://reactbits.dev/c/micro) and friends.
+//
+// Six of these are vendored copies of the published components, their headers say
+// so, and they are unmodified apart from that provenance line. The rest were
+// written here against the documented behaviour of each component, because
+// reactbits.dev is not reachable from this environment and claiming the
+// published source would be a false provenance claim. Each header says which it
+// is. Import from this barrel so an upgrade is one diff per component.
 export { default as HoldButton } from './HoldButton'
 export type { HoldButtonProps, HoldButtonSize, HoldButtonDirection } from './HoldButton'
 export { default as RubberSegment } from './RubberSegment'
@@ -29,3 +34,31 @@ export { default as WakeSlider } from './WakeSlider'
 export type { WakeSliderProps } from './WakeSlider'
 export { default as PeekRating } from './PeekRating'
 export type { PeekRatingProps } from './PeekRating'
+export { default as BellToggle } from './BellToggle'
+export type { BellToggleProps } from './BellToggle'
+export { default as CallChip } from './CallChip'
+export type { CallChipProps } from './CallChip'
+export { default as CometDial } from './CometDial'
+export type { CometDialProps } from './CometDial'
+export { default as JellyRadio } from './JellyRadio'
+export type { JellyRadioProps, JellyOption } from './JellyRadio'
+export { default as RefineFrame } from './RefineFrame'
+export type { RefineFrameProps } from './RefineFrame'
+export { default as SlideCommit } from './SlideCommit'
+export type { SlideCommitProps } from './SlideCommit'
+export { default as TearTicket } from './TearTicket'
+export type { TearTicketProps } from './TearTicket'
+export { default as SwipeRow } from './SwipeRow'
+export type { SwipeRowProps, SwipeAction } from './SwipeRow'
+export { default as CrystalizedBall } from './CrystalizedBall'
+export type { CrystalizedBallProps } from './CrystalizedBall'
+export { default as StarBorder } from './StarBorder'
+export type { StarBorderProps } from './StarBorder'
+export { default as PatternWaves } from './PatternWaves'
+export type { PatternWavesProps } from './PatternWaves'
+export { default as MaskedHeading } from './MaskedHeading'
+export type { MaskedHeadingProps } from './MaskedHeading'
+export { default as InfiniteSpiral } from './InfiniteSpiral'
+export type { InfiniteSpiralProps } from './InfiniteSpiral'
+export { default as FlowingMenu } from './FlowingMenu'
+export type { FlowingMenuProps, FlowingMenuItem } from './FlowingMenu'

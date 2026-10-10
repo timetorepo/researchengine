@@ -32,6 +32,8 @@ import {
 } from '../src/lib/design/throttle'
 import {
   StatusMark, SwipeToast, CodeSlots, BorderGlow, SpotlightCard, TechText, WakeSlider, PeekRating,
+  BellToggle, CallChip, CometDial, JellyRadio, RefineFrame, SlideCommit, TearTicket, SwipeRow,
+  CrystalizedBall, StarBorder, PatternWaves, MaskedHeading, InfiniteSpiral, FlowingMenu,
 } from '../src/components/ui/reactbits/micro'
 import type { ThemeId } from '@/types'
 import {
@@ -564,7 +566,55 @@ console.log('\n— The UI components, used —')
   check('and it does not leave on a vertical scroll', src('src/components/ui/reactbits/micro/SwipeToast.tsx').includes('touchAction'))
   check('the credits name the new components', src('src/components/settings/AboutTab.tsx').includes('status marks'))
   check('the CSS supports the glow mask', src('src/styles/globals.css').includes('.border-glow::before'))
-  check('and the spotlight', src('src/styles/globals.css').includes('.spotlight-card__glow'))
+}
+
+/* ----------------------------------------- the rest of the reactbits set --- */
+{
+  const all = [
+    BellToggle, CallChip, CometDial, JellyRadio, RefineFrame, SlideCommit, TearTicket, SwipeRow,
+    CrystalizedBall, StarBorder, PatternWaves, MaskedHeading, InfiniteSpiral, FlowingMenu,
+  ]
+  check('the full reactbits set is exported from the barrel', all.every((c) => typeof c === 'function'))
+
+  // Provenance is honest for every file we wrote: a vendored copy says so, a
+  // reimplementation says so. A provenance header that lies is worse than none.
+  const written = [
+    'BellToggle', 'CallChip', 'CometDial', 'JellyRadio', 'RefineFrame', 'SlideCommit',
+    'TearTicket', 'SwipeRow', 'CrystalizedBall', 'StarBorder', 'PatternWaves',
+    'MaskedHeading', 'InfiniteSpiral', 'FlowingMenu',
+  ]
+  check('every written component says where it came from', written.every((f) =>
+    src(`src/components/ui/reactbits/micro/${f}.tsx`).includes('Written here against the documented behaviour')
+    && src(`src/components/ui/reactbits/micro/${f}.tsx`).includes('reimplementation')))
+
+  // Used, not installed and forgotten.
+  check('BellToggle is the update-notify switch', src('src/components/settings/UpdatesTab.tsx').includes('<BellToggle'))
+  check('CallChip times the agent command', src('src/components/ide/AgentTimeline.tsx').includes('<CallChip'))
+  check('CometDial sets a real font scale', src('src/components/settings/AppearanceTab.tsx').includes('<CometDial'))
+  check('JellyRadio sets the density', src('src/components/settings/AppearanceTab.tsx').includes('<JellyRadio'))
+  check('RefineFrame is the image-generating frame', src('src/components/smoothui/image-generation-panel/index.tsx').includes('<RefineFrame'))
+  check('SlideCommit guards the git commit', src('src/components/ide/ChangesPanel.tsx').includes('<SlideCommit'))
+  check('TearTicket opens the first run', src('src/components/onboarding/Onboarding.tsx').includes('<TearTicket'))
+  check('StarBorder is the get-started button', src('src/components/onboarding/Onboarding.tsx').includes('<StarBorder'))
+  check('CrystalizedBall decorates the welcome', src('src/components/onboarding/Onboarding.tsx').includes('<CrystalizedBall'))
+  check('InfiniteSpiral decorates the welcome', src('src/components/onboarding/Onboarding.tsx').includes('<InfiniteSpiral'))
+  check('MaskedHeading wipes on the welcome', src('src/components/onboarding/Onboarding.tsx').includes('<MaskedHeading'))
+  check('FlowingMenu picks a start', src('src/components/onboarding/Onboarding.tsx').includes('<FlowingMenu'))
+  check('PatternWaves is the home background', src('src/components/home/HomeScreen.tsx').includes('<PatternWaves'))
+  check('PatternWaves is the chat background', src('src/components/chat/ChatView.tsx').includes('<PatternWaves'))
+  check('SwipeRow offers Send to AI', src('src/components/home/HomeScreen.tsx').includes("<SwipeRow"))
+  check('StatusMark reports agents on the topbar', src('src/components/topbar/TopBar.tsx').includes('<StatusMark'))
+
+  // Mechanics worth guarding.
+  check('the comet dial keeps a real role=slider', src('src/components/ui/reactbits/micro/CometDial.tsx').includes('role="slider"'))
+  check('and it is keyboard operable', src('src/components/ui/reactbits/micro/CometDial.tsx').includes('onKeyDown'))
+  check('the jelly radio keeps a radiogroup', src('src/components/ui/reactbits/micro/JellyRadio.tsx').includes('role="radiogroup"'))
+  check('the slide commit only commits on a real drag', src('src/components/ui/reactbits/micro/SlideCommit.tsx').includes('onPointerMove'))
+  check('and a tap that does not travel does nothing', src('src/components/ui/reactbits/micro/SlideCommit.tsx').includes('x >= end'))
+  check('the swipe row only listens to horizontal swipes', src('src/components/ui/reactbits/micro/SwipeRow.tsx').includes('pan-y'))
+  check('the call chip shows milliseconds plainly', src('src/components/ui/reactbits/micro/CallChip.tsx').includes('ms'))
+  check('the CSS carries every new keyframe', src('src/styles/globals.css').includes('@keyframes crystal-spin'))
+  check('and the wave drift', src('src/styles/globals.css').includes('@keyframes pw-drift'))
 }
 
 /* --------------------------------------------------------------- bubbles -- */
@@ -738,6 +788,26 @@ console.log('\n— Wiring —')
   check('the frontend calls the wipe route', src('src/lib/security/lock.ts').includes("fetch('/api/data/wipe'"))
   check('the trojan route is mounted', src('../backend/src/index.ts').includes("app.route('/api/skills', skillsRoutes)"))
   check('the backend runs the trojan scan', src('../backend/src/routes/skills.ts').includes("skillsRoutes.post('/trojan'"))
+}
+
+/* ----------------------------------------------------- Jev, the decision --- */
+console.log('\n— Jev, a decision model, not a chat model —')
+{
+  check('Jev is a provider of its own kind', src('src/types/index.ts').includes("  | 'typesafe'"))
+  check('and that kind is decision', src('src/lib/providers/registry.ts').includes("kind: 'decision'"))
+  check('the registry entry points at typesafe.ai', src('src/lib/providers/registry.ts').includes('https://api.typesafe.ai'))
+  check('and says what it is', src('src/lib/providers/registry.ts').includes('A decision model, not a chat model'))
+  check('key guides tell you Jev is early access and per-decision priced', src('src/lib/providers/key-guides.ts').includes('typesafe'))
+  check('the decisions client is real, not a chat client', src('src/lib/providers/jev.ts').includes('/v1/systemone'))
+  check('it knows the three question types', src('src/lib/providers/jev.ts').includes("'noul'") && src('src/lib/providers/jev.ts').includes("'choice'") && src('src/lib/providers/jev.ts').includes("'score'"))
+  check('it checks the documented limits before sending', src('src/lib/providers/jev.ts').includes('validateRequest'))
+  check('choice is capped at 255 options', src('src/lib/providers/jev.ts').includes('maxChoiceOptions: 255'))
+  check('score is 2 to 10 levels', src('src/lib/providers/jev.ts').includes('minScoreLevels: 2'))
+  check('the route is mounted', src('../backend/src/index.ts').includes("app.route('/api/jev'"))
+  check('the route calls systemone', src('../backend/src/routes/jev.ts').includes('/v1/systemone'))
+  check('and surfaces Jev error codes by name', src('../backend/src/routes/jev.ts').includes('429') && src('../backend/src/routes/jev.ts').includes('overloaded'))
+  check('Jev has a settings tab of its own', src('src/components/settings/settingsTabs.tsx').includes("case 'jev':"))
+  check('and the tab asks typed questions', src('src/components/settings/JevTab.tsx').includes('Ask Jev'))
 }
 
 console.log(`\n${failed === 0 ? 'ALL PASS' : 'FAILURES'}: ${passed} passed, ${failed} failed`)

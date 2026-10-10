@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, GitCommitHorizontal, RefreshCw, Undo2 } from 'lucide-react'
+import { SlideCommit } from '@/components/ui/reactbits/micro/SlideCommit'
 
 /**
  * The changes rail: what is changed and what is staged, a line-numbered diff
@@ -210,6 +211,20 @@ export function ChangesPanel({ project }: { project: string }) {
             style={{ background: 'var(--ide-accent)', color: '#fff' }}>
             <GitCommitHorizontal size={11} /> Commit
           </button>
+        </div>
+      )}
+
+      {((staged.length > 0 || unstaged.length > 0) && msg.trim()) && (
+        <div className="px-3 pb-2.5 pt-1" style={{ borderTop: '1px solid var(--ide-border)' }}>
+          <div className="text-[10px] mb-1.5" style={{ color: 'var(--ide-dim)' }}>
+            Or slide to commit — a deliberate drag, so an accidental tap cannot commit your work.
+          </div>
+          <SlideCommit
+            label="Slide to commit"
+            confirmLabel="Committed"
+            disabled={busy}
+            onCommit={() => void commit()}
+          />
         </div>
       )}
 

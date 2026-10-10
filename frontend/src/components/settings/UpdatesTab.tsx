@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/heroui/Button'
 import { smoothCaretProps } from '@/components/input/SmoothText'
 import HoldButton from '@/components/ui/reactbits/micro/HoldButton'
+import { BellToggle } from '@/components/ui/reactbits/micro/BellToggle'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -400,6 +401,19 @@ export function UpdatesTab() {
       {/* Preferences */}
       <section className="surface p-4" style={{ borderRadius: 'var(--radius-card)' }}>
         <h3 className="text-[14px] font-semibold mb-2">Preferences</h3>
+        <div className="flex items-center justify-between mb-3">
+          <div className="pr-3">
+            <div className="text-[12.5px] font-medium">Notify me of updates</div>
+            <div className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+              The bell rings on launch, and again when something newer than this build is out.
+            </div>
+          </div>
+          <BellToggle
+            on={autoCheck}
+            onChange={(v) => update({ updates: { ...(settings.updates ?? {}), autoCheck: v } })}
+            label="Notify me of updates"
+          />
+        </div>
         <Switch
           checked={autoCheck}
           onChange={(v) => update({ updates: { ...(settings.updates ?? {}), autoCheck: v } })}

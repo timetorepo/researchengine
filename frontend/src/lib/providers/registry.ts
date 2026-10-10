@@ -8,7 +8,13 @@ import type { ProviderId } from '@/types'
 export interface ProviderMeta {
   id: ProviderId
   name: string
-  kind: 'openai' | 'anthropic' | 'ollama' | 'gemini' | 'compatible'
+  /**
+   * `decision` is Jev: a typed decision model, not a chat model. It takes
+   * `state` plus `questions` and returns answers with probabilities, so it
+   * cannot be driven by the chat streaming path and is called through its own
+   * route instead.
+   */
+  kind: 'openai' | 'anthropic' | 'ollama' | 'gemini' | 'compatible' | 'decision'
   baseUrl: string
   needsKey: boolean
   hint?: string
@@ -85,6 +91,11 @@ export const PROVIDERS: ProviderMeta[] = [
   {
     id: 'custom', name: 'Custom (OpenAI-compatible)', kind: 'openai', baseUrl: 'http://localhost:5000/v1',
     needsKey: false, hint: 'text-generation-webui, LocalAI, vLLM…',
+  },
+  {
+    id: 'typesafe', name: 'TypeSafe AI (Jev)', kind: 'decision',
+    baseUrl: 'https://api.typesafe.ai', needsKey: true,
+    hint: 'A decision model, not a chat model: POST /v1/systemone with state and typed questions',
   },
 ]
 

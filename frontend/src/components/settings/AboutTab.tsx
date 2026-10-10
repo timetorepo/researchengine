@@ -119,7 +119,7 @@ function StaleBuildCard() {
 const UI_LIBRARIES: { name: string; href: string; author?: string; used: string }[] = [
   {
     name: 'ReactBits', href: 'https://reactbits.dev',
-    used: 'Animated counters, magnetic buttons, the micro set (prompt bar, hold, rubber segment, glide select, lattice loader, voice pill), status marks, code slots, border glow, spotlight, tech text, wake slider and peek rating',
+    used: 'Animated counters, magnetic buttons, and the micro set — prompt bar, hold, rubber segment, glide select, lattice loader, voice pill, status mark (the topbar agent indicator), code slots, border glow, spotlight, tech text, wake slider, peek rating, plus the rest written here against the documented behaviour: bell toggle (update notifications), call chip (agent command timing), comet dial (font scale), jelly radio (density), refine frame (image generation), slide commit (git commit), tear ticket and star border (onboarding), swipe row (send to AI), crystalized ball, infinite spiral, masked heading, flowing menu and pattern waves (home and chat backgrounds)',
   },
   { name: 'HeroUI', href: 'https://www.heroui.com', used: 'Button, Input and Switch primitives' },
   { name: 'Aceternity UI', href: 'https://ui.aceternity.com', used: 'Aurora background, moving borders, spotlight cards, text-generate effect' },

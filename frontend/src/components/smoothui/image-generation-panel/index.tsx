@@ -19,6 +19,7 @@ import { useId, useState } from "react";
 import type { AIState } from "../ai-core";
 import AILoader from "../ai-loader";
 import AIPromptInput from "../ai-prompt-input";
+import { RefineFrame } from "@/components/ui/reactbits/micro/RefineFrame";
 
 /* -------------------------------------------------------------------------- */
 /* Motion + layout constants                                                  */
@@ -229,35 +230,25 @@ const EmptyTile = ({
   aspectRatio: string;
   isQueued: boolean;
   shouldReduceMotion: boolean;
-}) => (
-  <div
-    className="relative flex items-center justify-center overflow-hidden rounded-lg border border-border border-dashed bg-muted/40"
-    style={{ aspectRatio }}
-  >
-    {isQueued ? (
-      <motion.span
-        animate={
-          shouldReduceMotion ? { opacity: 0.6 } : { opacity: [0.3, 0.7, 0.3] }
-        }
-        aria-hidden="true"
-        className="absolute inset-0 bg-foreground/5"
-        transition={
-          shouldReduceMotion
-            ? { duration: 0 }
-            : {
-                duration: SHIMMER_DURATION_SECONDS,
-                ease: "linear",
-                repeat: Number.POSITIVE_INFINITY,
-              }
-        }
-      />
-    ) : null}
-    <span className="relative flex flex-col items-center gap-1.5 text-muted-foreground/60">
-      <ImageIcon aria-hidden="true" size={PLACEHOLDER_ICON_SIZE} />
-      <span className="text-[11px]">{isQueued ? "Queued" : "Empty"}</span>
-    </span>
-  </div>
-);
+}) => {
+  // While an image is forming, the React Bits RefineFrame is the placeholder: a
+  // frame with a refining sweep, which says "an image is coming" rather than
+  // "the app is busy". The shimmer it replaces said the same thing less clearly.
+  if (isQueued) {
+    return <RefineFrame label="Generating" />;
+  }
+  return (
+    <div
+      className="relative flex items-center justify-center overflow-hidden rounded-lg border border-border border-dashed bg-muted/40"
+      style={{ aspectRatio }}
+    >
+      <span className="relative flex flex-col items-center gap-1.5 text-muted-foreground/60">
+        <ImageIcon aria-hidden="true" size={PLACEHOLDER_ICON_SIZE} />
+        <span className="text-[11px]">Empty</span>
+      </span>
+    </div>
+  );
+};
 
 const ImageGenerationTile = ({
   aspectRatio,

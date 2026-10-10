@@ -10,6 +10,8 @@ import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
 import { BorderBeam } from 'border-beam'
+import { PatternWaves } from '@/components/ui/reactbits/micro/PatternWaves'
+import { SwipeRow } from '@/components/ui/reactbits/micro/SwipeRow'
 import { timeAgo, fmt } from '@/lib/utils'
 import { runChat } from '@/lib/chat/runChat'
 import { themeKind } from '@/lib/themes/meta'
@@ -104,8 +106,10 @@ export function HomeScreen() {
       onDrop={onDrop}
     >
       {/* Aurora is the theme's own light show; a chosen wallpaper takes its
-          place rather than sitting under it. */}
+          place rather than sitting under it. The drifting waves sit above the
+          aurora at low strength — a second layer of motion, not a replacement. */}
       {!wallpaper && <AuroraBackground className="absolute inset-0 pointer-events-none" />}
+      {!wallpaper && <PatternWaves strength={0.35} />}
       <AnimatePresence>
         {dragOver && (
           <motion.div
@@ -184,15 +188,22 @@ export function HomeScreen() {
                   <div className="space-y-2 mt-3">
                     {recentChats.length === 0 && <div className="text-[12px] text-white/60">No chats yet.</div>}
                     {recentChats.map((c) => (
-                      <button key={c.id} onClick={(e) => { e.stopPropagation(); useStore.getState().setActiveChat(c.id); navigate(`/chat/${c.id}`) }}
-                        className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-[12px] transition-colors hover:bg-white/10"
-                        style={{ background: 'color-mix(in srgb, var(--bg) 46%, transparent)' }}>
-                        <span className="flex-1 min-w-0">
-                          <span className="block text-[13px] font-medium text-white truncate">{c.title}</span>
-                          <span className="block text-[10.5px] text-white/60">{c.messages.length} messages · {timeAgo(c.updatedAt)}</span>
-                        </span>
-                        <ArrowRight size={13} className="text-white/50" />
-                      </button>
+                      <SwipeRow
+                        key={c.id}
+                        actions={[
+                          { id: 'ai', label: 'Send to AI', kind: 'ai', onClick: () => sendFromHome(`Continue where I left off: ${c.title}`, { search: true }) },
+                        ]}
+                      >
+                        <button onClick={(e) => { e.stopPropagation(); useStore.getState().setActiveChat(c.id); navigate(`/chat/${c.id}`) }}
+                          className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-[12px] transition-colors hover:bg-white/10"
+                          style={{ background: 'color-mix(in srgb, var(--bg) 46%, transparent)' }}>
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-[13px] font-medium text-white truncate">{c.title}</span>
+                            <span className="block text-[10.5px] text-white/60">{c.messages.length} messages · {timeAgo(c.updatedAt)}</span>
+                          </span>
+                          <ArrowRight size={13} className="text-white/50" />
+                        </button>
+                      </SwipeRow>
                     ))}
                   </div>
                 </BentoCard>

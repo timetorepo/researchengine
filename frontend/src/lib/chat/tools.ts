@@ -45,6 +45,8 @@ export interface IdeActivity {
   /** Optional 1-based line to jump to when the path is opened. */
   line?: number
   command?: string
+  /** How long a `run` took, in milliseconds. Optional — only `run` sets it. */
+  ms?: number
   added?: number
   removed?: number
   created?: boolean
@@ -448,6 +450,7 @@ export const TOOLS: ToolDef[] = [
     run: async (args, ctx) => {
       const toolCallId = (ctx as any).__toolCallId as string
       const command = String(args?.command ?? '')
+      const startedAt = Date.now()
       // First call: server tells us if it needs explicit confirmation (it will,
       // for anything mutating) — then we ask the human.
       let res = await fetch('/api/ide/exec', {
@@ -466,8 +469,9 @@ export const TOOLS: ToolDef[] = [
         })
         out = await res.json()
       }
-      emitActivity({ agent: ctx.agent ?? null, project: ctx.project, kind: 'run', command, note: `exit ${out.exit ?? '?'}` })
-      return JSON.stringify({ exit: out.exit, timedOut: out.timedOut, stdout: (out.stdout ?? '').slice(0, 6000), stderr: (out.stderr ?? '').slice(0, 2000) })
+      const ms = Date.now() - startedAt
+      emitActivity({ agent: ctx.agent ?? null, project: ctx.project, kind: 'run', command, ms, note: `exit ${out.exit ?? '?'}` })
+      return JSON.stringify({ exit: out.exit, ms, timedOut: out.timedOut, stdout: (out.stdout ?? '').slice(0, 6000), stderr: (out.stderr ?? '').slice(0, 2000) })
     },
   },
   {

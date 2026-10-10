@@ -10,6 +10,7 @@ import { runPosition } from '@/lib/chat/bubbles'
 import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
+import { PatternWaves } from '@/components/ui/reactbits/micro/PatternWaves'
 
 export function ChatView() {
   const { id } = useParams<{ id: string }>()
@@ -147,6 +148,10 @@ export function ChatView() {
       animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
       transition={{ duration: DUR.base, ease: EASE }}
     >
+      {/* A faint wave field behind the conversation, only when there is no
+          wallpaper or graph paper competing with it. Subtle, and it sits behind
+          the message column, so dense text still reads. */}
+      {!mathMode && <PatternWaves strength={0.22} />}
       {/* Mode indicator bar */}
       <AnimatePresence>
         {(mathMode) && (

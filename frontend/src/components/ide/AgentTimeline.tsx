@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { FileText, FilePlus2, PencilLine, TerminalSquare, Search, FolderTree, AlertTriangle, Sparkles } from 'lucide-react'
 import type { IdeActivity } from '@/lib/chat/tools'
 import { describeActivity } from '@/lib/ide/agents'
+import { CallChip } from '@/components/ui/reactbits/micro/CallChip'
 
 const ICON: Record<IdeActivity['kind'], React.ElementType> = {
   read: FileText,
@@ -52,6 +53,9 @@ export function ActivityRow({ line, onOpen, compact = false }: {
         {detail && <span className="re-act-detail">{line.kind === 'write' ? detail : `· ${detail}`}</span>}
       </span>
       {!compact && <span className="re-act-clock tabular-nums">{clock}</span>}
+      {!compact && line.kind === 'run' && typeof line.ms === 'number' && (
+        <CallChip ms={line.ms} />
+      )}
     </>
   )
 
