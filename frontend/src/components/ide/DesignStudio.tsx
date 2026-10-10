@@ -25,10 +25,11 @@ import { DesignBrief } from '@/components/design/DesignBrief'
 import { DesignBoard } from '@/components/design/DesignBoard'
 import { InspirationBoard } from '@/components/design/InspirationBoard'
 import { ShipPanel } from '@/components/design/ShipPanel'
+import { ThrottlePanel } from '@/components/design/ThrottlePanel'
 import { PrototypeBoard } from '@/components/design/PrototypeBoard'
 import type { TreeNode } from './types'
 
-type Tab = 'assistant' | 'inspect' | 'tests' | 'console' | 'captures' | 'board' | 'brief' | 'hub' | 'inspo' | 'prototype' | 'ship'
+type Tab = 'assistant' | 'inspect' | 'tests' | 'console' | 'captures' | 'board' | 'brief' | 'hub' | 'inspo' | 'prototype' | 'ship' | 'throttle'
 
 const KIND_TONE: Record<string, string> = {
   a11y: 'var(--warning)', layout: 'var(--primary)', console: 'var(--danger)',
@@ -675,7 +676,8 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
               <RailTab active={tab === 'hub'} onClick={() => setTab('hub')} icon={<Boxes size={12} />} label="Components" />
               <RailTab active={tab === 'inspo'} onClick={() => setTab('inspo')} icon={<Lightbulb size={12} />} label="Inspiration" />
               <RailTab active={tab === 'prototype'} onClick={() => setTab('prototype')} icon={<Tv size={12} />} label="Prototype" />
-              <RailTab active={tab === 'ship'} onClick={() => setTab('ship')} icon={<Rocket size={12} />} label="Ship" />
+              <RailTab active={tab === 'throttle'} onClick={() => setTab('throttle')} icon={<Rocket size={12} />} label="Full Throttle" />
+              <RailTab active={tab === 'ship'} onClick={() => setTab('ship')} icon={<Send size={12} />} label="Ship" />
             </div>
           </div>
 
@@ -724,6 +726,11 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
               </div>
             )}
 
+            {tab === 'throttle' && (
+              <div className="h-full overflow-y-auto">
+                <ThrottlePanel previewUp={!!port} onOpenTab={(t) => setTab(t as Tab)} />
+              </div>
+            )}
             {tab === 'ship' && (
               <div className="h-full overflow-y-auto p-3">
                 <ShipPanel project={project} files={tree.map((t) => t.path)} />

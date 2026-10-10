@@ -34,6 +34,16 @@ const FRAME_IDS = ['phone', 'tablet', 'laptop', 'tv']
 export function PrototypeBoard({ url, onCopyReport }: { url: string; onCopyReport?: (report: string) => void }) {
   const [nonce, setNonce] = useState(0)
   const [checked, setChecked] = useState<Record<string, boolean>>({})
+  // Ticking a box is the signal the prototype stage has been worked through. The
+  // Full Throttle panel needs to know, and it should not have to reach into this
+  // component's state to find out.
+  const tick = (id: string) => {
+    setChecked((c) => {
+      const next = { ...c, [id]: !c[id] }
+      if (next[id]) window.dispatchEvent(new Event('re:prototype-checked'))
+      return next
+    })
+  }
   const [copied, setCopied] = useState(false)
   const frames = useRef<Record<string, HTMLIFrameElement | null>>({})
 
@@ -99,7 +109,7 @@ export function PrototypeBoard({ url, onCopyReport }: { url: string; onCopyRepor
         </span>
         {CHECKS.map(([id, label]) => (
           <label key={id} className="flex items-start gap-2 text-[11.5px] cursor-pointer" style={{ color: 'var(--ide-dim, var(--text-2))' }}>
-            <input type="checkbox" checked={!!checked[id]} onChange={() => setChecked((c) => ({ ...c, [id]: !c[id] }))}
+            <input type="checkbox" checked={!!checked[id]} onChange={() => tick(id)}
               className="mt-[3px]" data-prototype-check={id} />
             <span>{label}</span>
           </label>

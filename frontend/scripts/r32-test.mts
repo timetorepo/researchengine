@@ -27,6 +27,9 @@ import { PERSONAS, DEFAULT_PERSONA, personaById, route } from '../src/lib/snaffy
 import {
   splitPhases, currentPhase, phaseSequence, PHASE_TONE, type PhaseKind,
 } from '../src/lib/chat/thinking-phases'
+import {
+  THROTTLE_STAGES, planRun, runPlan, formatReport, type ThrottleInput,
+} from '../src/lib/design/throttle'
 import type { ThemeId } from '@/types'
 import {
   TECHNIQUES, LEVELS, techniqueById, levelById, typesFor, shapeFor,
@@ -460,6 +463,62 @@ console.log('\n— Thinking phases —')
   check('the chain is still available in full', src('src/components/chat/ThinkingPhases.tsx').includes('{shown ? shown.text : text}'))
   check('it only auto-scrolls when already open', src('src/components/chat/ThinkingPhases.tsx').includes('if (!live || !open) return'))
   check('the reasoning streams in from the provider', src('src/lib/chat/runChat.ts').includes('pushThinking'))
+}
+
+/* -------------------------------------------------------- full throttle -- */
+console.log('\n— Design Mode Full Throttle —')
+{
+  check('the six directives are the six stages', THROTTLE_STAGES.length === 6)
+  check('the stages are in directive order', THROTTLE_STAGES.map((s) => s.id).join(',') === 'research,premium,design,prototype,sweep,ship')
+  check('every stage names what it needs', THROTTLE_STAGES.every((s) => s.needs.length > 10))
+  check('every stage points at a real tab', THROTTLE_STAGES.every((s) => s.tab.length > 0))
+  check('the stage ids are unique', new Set(THROTTLE_STAGES.map((s) => s.id)).size === 6)
+
+  const nothing: ThrottleInput = { previewUp: false, hasBrief: false, hasDirection: false, hasPrototype: false, hasHost: false }
+  const everything: ThrottleInput = { previewUp: true, hasBrief: true, hasDirection: true, hasPrototype: true, hasHost: true }
+
+  const cold = planRun(nothing)
+  check('nothing ready blocks the first stage', cold[0].state === 'blocked')
+  check('an unanswered brief blocks itself', cold[1].state === 'blocked')
+  check('and the reason is the brief, not a guess', cold[1].note.includes('Answer the brief'))
+  check('a blocked brief blocks the direction', cold[2].state === 'blocked')
+  check('and says it is waiting on the brief', cold[2].note.includes('Waiting on the brief'))
+  check('a blocked direction blocks the prototype', cold[3].state === 'blocked')
+  check('the sweep has nothing to sweep', cold[4].state === 'blocked')
+  check('shipping is blocked without a host', cold[5].state === 'blocked')
+
+  const warm = planRun(everything)
+  check('everything ready runs every stage', warm.every((s) => s.state === 'done' || s.state === 'pending'))
+  check('the sweep is ready once the prototype is ticked', warm[4].state === 'done')
+
+  // Blocking is contagious one way only: a missing host does not undo the design.
+  const noHost = planRun({ ...everything, hasHost: false })
+  check('a missing host blocks only the ship', noHost.filter((s) => s.state === 'blocked').length === 1)
+  check('and the earlier stages still ran', noHost.slice(0, 5).every((s) => s.state !== 'blocked'))
+
+  const noBrief = planRun({ previewUp: true, hasBrief: false, hasDirection: true, hasPrototype: true, hasHost: true })
+  // An unanswered brief stops the run at the second directive and everything
+  // after it: the brief, the direction, the prototype and the sweep. Research
+  // already ran and ship waits on its own signal, so four are blocked.
+  check('no brief blocks the brief and everything downstream', noBrief.filter((s) => s.state === 'blocked').length === 4)
+
+  const run = runPlan(everything)
+  check('a complete run says so', run.complete && run.headline.includes('All 6 stages'))
+  const blockedRun = runPlan(nothing)
+  check('a blocked run names the first blocker', !blockedRun.complete && blockedRun.headline.includes('research'))
+  check('the report is readable text', formatReport(run).split('\n').length === 8)
+  check('the report marks each stage', formatReport(blockedRun).includes('blocked'))
+  check('the report carries the note, not just the state', formatReport(blockedRun).includes('Answer the brief'))
+
+  // Wiring.
+  check('the throttle panel exists', src('src/components/design/ThrottlePanel.tsx').length > 0)
+  check('the rail has the Full Throttle tab', src('src/components/ide/DesignStudio.tsx').includes("label=\"Full Throttle\""))
+  check('the panel is mounted', src('src/components/ide/DesignStudio.tsx').includes('<ThrottlePanel'))
+  check('the ship tab kept its own rail entry', src('src/components/ide/DesignStudio.tsx').includes("label=\"Ship\""))
+  check('it reads the brief, not a guess', src('src/components/design/ThrottlePanel.tsx').includes('s.brief'))
+  check('it says it does not write the design', src('src/components/design/ThrottlePanel.tsx').includes('does not write the design'))
+  check('the prototype tick is announced, not reached into', src('src/components/design/PrototypeBoard.tsx').includes('re:prototype-checked'))
+  check('and the panel listens for it', src('src/components/design/ThrottlePanel.tsx').includes('re:prototype-checked'))
 }
 
 /* --------------------------------------------------------------- bubbles -- */
