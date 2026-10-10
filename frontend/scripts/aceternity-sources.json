@@ -1,0 +1,51 @@
+{
+  "GooeyInput.tsx": {
+    "demo": "@aceternity/gooey-input-demo",
+    "repo": "memcode-in/memcode",
+    "path": "src/components/ui/gooey-input.tsx",
+    "sha256": "42ce35edf9ba025b9593877a5abc3deee039e17d6344f564dd9807bad43b07d8",
+    "note": "Local patches are listed in the file header; a digest mismatch means upstream moved."
+  },
+  "DottedGlowBackground.tsx": {
+    "demo": "@aceternity/dotted-glow-background-demo-2",
+    "repo": "unicodeveloper/consultralph",
+    "path": "components/ui/dotted-glow-background.tsx",
+    "sha256": "98c70b0eeb0b064c7462c5e9facb32531161e869b8b7aa8a9829410051b87adc",
+    "note": "Local patches are listed in the file header; a digest mismatch means upstream moved."
+  },
+  "ImagesBadge.tsx": {
+    "demo": "@aceternity/images-badge-demo",
+    "repo": "memcode-in/memcode",
+    "path": "src/components/ui/images-badge.tsx",
+    "sha256": "764bb4d6ca2db87199e130278b12696f457c6f379be3ae8fc23d58b8ab4d8f22",
+    "note": "Local patches are listed in the file header; a digest mismatch means upstream moved."
+  },
+  "AppleCardsCarousel.tsx": {
+    "demo": "@aceternity/apple-cards-carousel-demo",
+    "repo": "toukoum/portfolio",
+    "path": "src/components/projects/apple-cards-carousel.tsx",
+    "sha256": "521d10d2d61e1b9a8eb47f0dd42456681e52dace7360380b4f93dff7c4ae018b",
+    "note": "Local patches are listed in the file header; a digest mismatch means upstream moved."
+  },
+  "ColourfulText.tsx": {
+    "demo": "@aceternity/colourful-text-demo",
+    "repo": "cRED-f/QuestGen-AI-Agent",
+    "path": "components/ui/colourful-text.tsx",
+    "sha256": "cf5f076522c3cb398eb80b838b3c4165628f80fc747354d3228102eddef42d0f",
+    "note": "Local patches are listed in the file header; a digest mismatch means upstream moved."
+  },
+  "ContainerTextFlip.tsx": {
+    "demo": "@aceternity/container-text-flip-demo",
+    "repo": "Najdi-AI/najd-ai-website",
+    "path": "components/ui/container-text-flip.tsx",
+    "sha256": "30a77d649b8aca285765115e5efaebdc7607a85ec382d585f87eb6a19fc1ca8c",
+    "note": "Local patches are listed in the file header; a digest mismatch means upstream moved."
+  },
+  "CanvasRevealEffect.tsx": {
+    "demo": "@aceternity/canvas-reveal-effect-demo",
+    "repo": "strapi/LaunchPad",
+    "path": "tanstack/src/components/ui/canvas-reveal-effect.tsx",
+    "sha256": "e0d17c1ffd5c640700682423fed636af8948b5340775b632eaa3207cee5530ad",
+    "note": "Local patches are listed in the file header; a digest mismatch means upstream moved."
+  }
+}
