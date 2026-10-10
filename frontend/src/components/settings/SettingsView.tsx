@@ -1,21 +1,44 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { ArrowLeft } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
 import { TABS, renderTab } from './settingsTabs'
+import { closeSettings } from '@/lib/ui/settingsExit'
+import { DUR, EASE } from '@/lib/ui/handoff'
 
 export function SettingsView() {
   const ui = useUI()
   const tab = ui.settingsTab
+  const closing = ui.settingsClosing
   const navigate = useNavigate()
 
-  useEffect(() => { ui.set({ settingsOpen: true }) }, [])
+  useEffect(() => { ui.set({ settingsOpen: true, settingsClosing: false }) }, [])
 
-  const close = () => { ui.set({ settingsOpen: false }); navigate('/') }
+  // Back, Escape and the palette all take the same door: the page lets go
+  // first, then the route changes. See lib/ui/settingsExit.ts.
+  const close = () => closeSettings(() => {
+    useUI.setState({ settingsOpen: false })
+    navigate('/')
+  })
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
-    <motion.div className="h-full flex overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+    <motion.div
+      className="h-full flex overflow-hidden"
+      initial={{ opacity: 0, y: 8 }}
+      animate={closing
+        ? { opacity: 0, y: 14, filter: 'blur(10px)', scale: 0.992 }
+        : { opacity: 1, y: 0, filter: 'blur(0px)', scale: 1 }}
+      transition={{ duration: closing ? DUR.slow : DUR.base, ease: EASE }}
+      style={{ transformOrigin: 'top center' }}
+    >
       {/* Tab rail — independent scroll container */}
       <aside className="w-[200px] shrink-0 hidden md:flex flex-col p-3 gap-0.5 overflow-y-auto min-h-0 pane-scroll" style={{ borderRight: '1px solid var(--surface-border)' }}>
         <button onClick={close} className="flex items-center gap-2 px-3 py-2 mb-2 text-[12.5px] rounded-[10px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>

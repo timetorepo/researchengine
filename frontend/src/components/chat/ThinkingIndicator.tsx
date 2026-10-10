@@ -2,14 +2,29 @@
 // violet→blue→teal gradient, beside a pipeline-aware label that cross-fades
 // through the actual stages of the request. No ellipsis animation.
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
+import { ThinkingOrb } from 'thinking-orbs'
 import { STAGE_LABELS, type FlowStage } from '@/lib/flow/engine'
 import { useStore } from '@/stores/useStore'
+import { themeKind } from '@/lib/themes/meta'
 
 const ORDER: FlowStage[] = ['understand', 'search', 'read-sources', 'retrieve', 'think', 'compose']
 
+/** Each stage gets the orb motion that matches what is actually happening. */
+const ORB_STATE: Partial<Record<FlowStage, React.ComponentProps<typeof ThinkingOrb>['state']>> = {
+  understand: 'listening',
+  search: 'searching',
+  'read-sources': 'connecting',
+  retrieve: 'weaving',
+  think: 'solving',
+  compose: 'composing',
+  done: 'breathing',
+}
+
 export function ThinkingIndicator({ stage, inline = false }: { stage: FlowStage; inline?: boolean }) {
   const style = useStore((s) => s.settings.thinkingStyle ?? 'standard')
+  const theme = useStore((s) => s.settings.theme)
+  const reduceMotion = useStore((s) => s.settings.reduceMotion)
   const [shown, setShown] = useState(stage)
   const [visible, setVisible] = useState(true)
 
@@ -34,10 +49,11 @@ export function ThinkingIndicator({ stage, inline = false }: { stage: FlowStage;
   const label = STAGE_LABELS[shown] || 'Thinking'
 
   return (
-    <div className={`flex items-center gap-2.5 ${inline ? '' : 'py-1'}`}>
+    <div data-ui="thinking" className={`flex items-center gap-2.5 ${inline ? '' : 'py-1'}`}>
       <motion.div layoutId="re-flow-orb" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', damping: 26, stiffness: 320 }}>
-        <span className="re-orb" aria-hidden="true" />
+        {/* ThinkingOrb by Jakubantalik — the live state of the engine, drawn. */}
+        <ThinkingOrb state={ORB_STATE[shown] ?? 'working'} size={20} theme={themeKind(theme)} paused={reduceMotion} />
       </motion.div>
       <AnimatePresence mode="wait">
         <motion.span

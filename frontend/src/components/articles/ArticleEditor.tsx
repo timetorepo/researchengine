@@ -1,10 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowLeft, GripVertical, Plus, Trash2, Type, AlignLeft, List, Quote, Code2,
   Eye, Pencil, Download, Wand2, ChevronUp, ChevronDown, Sparkles, Image as ImageIcon,
-  RefreshCw, AlignCenter, AlignRight, Upload, Info,
+  RefreshCw, AlignCenter, AlignRight, Upload, Info, Text as TextIcon,
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { Article, ArticleBlock } from '@/types'
@@ -12,9 +12,14 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { download, readingTime } from '@/lib/utils'
 import { findCommonsImage, fileToDataUrl } from '@/lib/articles/images'
+// shadcn-space @shadcn-space/button-group-10 — the editor toolbar. Its commands
+// drive a real block type here ('rich'), not the demo box: every formatted
+// block in the article owns its own editable surface and its own toolbar state.
+import { EditorToolbar, readEditorState, runEditorCommand, type EditorCommandId, type EditorSelectionState } from '@/components/shadcn-space/button-group/button-group-10'
 
 const BLOCK_TYPES = [
   { type: 'heading', icon: Type, label: 'Heading' },
+  { type: 'rich', icon: TextIcon, label: 'Formatted' },
   { type: 'paragraph', icon: AlignLeft, label: 'Paragraph' },
   { type: 'list', icon: List, label: 'List' },
   { type: 'quote', icon: Quote, label: 'Quote' },
@@ -119,6 +124,7 @@ export function ArticleEditor() {
       if (b.type === 'quote') return `> ${b.content}`
       if (b.type === 'code') return '```\n' + b.content + '\n```'
       if (b.type === 'image' && b.imageUrl) return `![${b.alt ?? b.caption ?? ''}](${b.imageUrl})\n\n*${b.caption ?? ''}${b.attribution ? ` — ${b.attribution}` : ''}*`
+      if (b.type === 'rich') return richToMarkdown(b.content)
       return b.content
     }).join('\n\n')
     download(`${article.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.md`, md, 'text/markdown')
@@ -151,6 +157,11 @@ export function ArticleEditor() {
               <div key={b.id} className="mb-5">
                 {b.type === 'heading' && <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, letterSpacing: '-0.01em' }}>{b.content}</h2>}
                 {b.type === 'paragraph' && <p className="text-[15px] leading-[1.7]" style={{ fontFamily: 'var(--font-body)' }}>{b.content}</p>}
+                {b.type === 'rich' && (
+                  <div className="re-rich-block text-[15px] leading-[1.7]"
+                    style={{ fontFamily: 'var(--font-body)' }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRich(b.content) }} />
+                )}
                 {b.type === 'list' && <ul className="list-disc pl-5 space-y-1 text-[15px] leading-[1.6]">{b.content.split('\n').map((l, i) => <li key={i}>{l}</li>)}</ul>}
                 {b.type === 'quote' && <blockquote className="pl-4 text-[15px] italic" style={{ borderLeft: '2.5px solid var(--secondary)', color: 'var(--text-2)' }}>{b.content}</blockquote>}
                 {b.type === 'code' && <pre className="p-4 rounded-[14px] text-[13px] font-mono overflow-x-auto" style={{ background: 'var(--code-bg)', border: '1px solid var(--surface-border)' }}>{b.content}</pre>}
@@ -203,6 +214,8 @@ export function ArticleEditor() {
                 {b.type === 'image' ? (
                   <ImageBlockEditor block={b} onPatch={(p) => patchBlock(b.id, p)}
                     onReplace={(q) => fetchImageFor(b.id, q || undefined)} onDrop={(f) => onDropImage(b.id, f)} />
+                ) : b.type === 'rich' ? (
+                  <RichBlock block={b} onSet={(html) => setBlock(b.id, html)} />
                 ) : b.type === 'heading' ? (
                   <input value={b.content} onChange={(e) => setBlock(b.id, e.target.value)} placeholder="Section heading"
                     className="w-full bg-transparent outline-none text-[19px] font-semibold py-1" style={{ letterSpacing: '-0.02em' }} />
@@ -237,6 +250,142 @@ export function ArticleEditor() {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The allow-list for a formatted block. `contentEditable` can produce anything,
+ * including pasted markup, and this HTML is stored in the article and rendered
+ * with `dangerouslySetInnerHTML` — so it is filtered on the way in and on the
+ * way out: inline formatting, links with a safe scheme, and lists. Everything
+ * else is dropped, `on*` attributes included.
+ */
+const RICH_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'A', 'UL', 'OL', 'LI', 'P', 'DIV', 'BR', 'SPAN'])
+
+function sanitizeRich(html: string): string {
+  if (!html) return html
+  // No DOM to check with (a string render, a worker): drop every tag rather
+  // than pass markup through unchecked.
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') return html.replace(/<[^>]*>/g, '')
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
+  const root = doc.body.firstElementChild
+  if (!root) return ''
+  const walk = (node: Element) => {
+    for (const child of Array.from(node.children)) {
+      if (!RICH_TAGS.has(child.tagName)) {
+        child.replaceWith(...Array.from(child.childNodes))
+        continue
+      }
+      for (const attr of Array.from(child.attributes)) {
+        const keepHref = child.tagName === 'A' && attr.name === 'href' && /^(https?:|mailto:|#)/i.test(attr.value)
+        if (!keepHref) child.removeAttribute(attr.name)
+      }
+      if (child.tagName === 'A') { child.setAttribute('rel', 'noreferrer noopener'); child.setAttribute('target', '_blank') }
+      walk(child)
+    }
+  }
+  walk(root)
+  return root.innerHTML
+}
+
+/** Formatted HTML → the shape a markdown file can carry. */
+function richToMarkdown(html: string): string {
+  if (!html) return ''
+  const cleaned = sanitizeRich(html)
+  if (typeof window === 'undefined') return cleaned.replace(/<[^>]+>/g, '')
+  const doc = new DOMParser().parseFromString(`<div>${cleaned}</div>`, 'text/html')
+  const root = doc.body.firstElementChild as HTMLElement
+  if (!root) return ''
+  const inline = (el: Node): string => {
+    if (el.nodeType === 3) return el.textContent ?? ''
+    const e = el as HTMLElement
+    const inner = Array.from(e.childNodes).map(inline).join('')
+    switch (e.tagName) {
+      case 'B': case 'STRONG': return `**${inner}**`
+      case 'I': case 'EM': return `*${inner}*`
+      case 'U': return `<u>${inner}</u>`
+      case 'A': return `[${inner}](${e.getAttribute('href') ?? '#'})`
+      case 'BR': return '\n'
+      case 'LI': return `- ${inner}\n`
+      case 'P': case 'DIV': return `${inner}\n\n`
+      default: return inner
+    }
+  }
+  return Array.from(root.childNodes).map(inline).join('').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/**
+ * One formatted block: the vendored toolbar driving a contentEditable that the
+ * article owns. The DOM is written once on mount and never re-synced while the
+ * caret is inside it — re-rendering React's idea of the HTML would fight the
+ * browser's selection.
+ */
+function RichBlock({ block, onSet }: { block: ArticleBlock; onSet: (html: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const seeded = useRef(false)
+  const [active, setActive] = useState<EditorSelectionState | null>(null)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [href, setHref] = useState('')
+
+  // The editable surface is filled exactly once. React must not re-write
+  // innerHTML from the store on every keystroke: the browser would replace the
+  // nodes under the caret and the caret would jump to the end.
+  useEffect(() => {
+    if (seeded.current || !ref.current) return
+    seeded.current = true
+    ref.current.innerHTML = sanitizeRich(block.content)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const check = () => setActive(readEditorState())
+  const commit = () => onSet(sanitizeRich(ref.current?.innerHTML ?? ''))
+
+  const command = (id: EditorCommandId) => {
+    if (id === 'link') { setLinkOpen(true); setActive(readEditorState()); return }
+    runEditorCommand(id)
+    check()
+    commit()
+  }
+
+  return (
+    <div className="w-full">
+      <div className="flex items-stretch gap-1.5">
+        <EditorToolbar active={active ?? undefined} onCommand={command} className="w-auto" />
+        <button onClick={() => setLinkOpen((v) => !v)} className="text-[10.5px] px-2 rounded-lg"
+          style={{ background: 'var(--elevated)', color: 'var(--text-3)' }} title="Paste a link, then apply it to the selected text">
+          link…
+        </button>
+      </div>
+      {linkOpen && (
+        <div className="flex items-center gap-1.5 mt-1.5">
+          <input value={href} onChange={(e) => setHref(e.target.value)} placeholder="https://…"
+            className="flex-1 rounded-[8px] px-2.5 py-1.5 text-[12px] outline-none" style={{ background: 'var(--elevated)' }} />
+          <button onClick={() => {
+            runEditorCommand('link', /^(https?:|mailto:|#)/i.test(href) ? href : `https://${href}`)
+            setLinkOpen(false); setHref('')
+            check(); commit()
+          }} disabled={!href.trim()} className="px-2.5 py-1.5 rounded-[8px] text-[12px] disabled:opacity-40"
+            style={{ background: 'var(--primary)', color: '#fff' }}>Apply</button>
+        </div>
+      )}
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label="Formatted text"
+        onInput={() => { check(); commit() }}
+        onKeyUp={check}
+        onMouseUp={check}
+        onFocus={check}
+        className="re-rich-editor w-full mt-1.5 rounded-[12px] px-3 py-2.5 outline-none text-[14px] leading-relaxed"
+        style={{ background: 'var(--elevated)', color: 'var(--text)', minHeight: 72 }}
+      />
+      <p className="text-[10.5px] mt-1" style={{ color: 'var(--text-3)' }}>
+        Bold, italic, underline, links and lists — the same toolbar the shadcn-space block ships.
+      </p>
     </div>
   )
 }

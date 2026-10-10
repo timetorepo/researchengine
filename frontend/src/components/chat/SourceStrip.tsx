@@ -1,7 +1,9 @@
 import React from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { Trash2 } from 'lucide-react'
 import type { Source } from '@/types'
+// SmoothUI's AISources — the collapsed index for the same list the cards show.
+import AISources from '@/components/smoothui/ai-sources'
 
 export function SourceStrip({ sources, hoverId, onHover, onDelete }: {
   sources: Source[]
@@ -9,8 +11,25 @@ export function SourceStrip({ sources, hoverId, onHover, onDelete }: {
   onHover: (id: string | null) => void
   onDelete?: (id: string) => void
 }) {
+  /** The number badge, reused as the favicon in the index so the two views
+   *  are obviously the same sources. */
+  const mark = (s: Source, i: number) => (
+    <span className="flex h-4 w-4 items-center justify-center rounded-[5px] text-[9px] font-bold text-white"
+      style={{ background: `hsl(${s.faviconHue} 60% 45%)` }}>{i + 1}</span>
+  )
+
   return (
-    <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-3 mb-1" role="list" aria-label="Sources">
+    <div className="mb-1">
+      {/* The list view: titles and addresses, collapsed until asked for — the
+          cards below stay the visual layer and keep the citation hover link. */}
+      <AISources
+        className="mb-2"
+        label={`${sources.length} source${sources.length === 1 ? '' : 's'}`}
+        sources={sources.map((s, i) => ({
+          id: s.id, title: s.title, url: s.url, snippet: s.snippet, favicon: mark(s, i),
+        }))}
+      />
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-3" role="list" aria-label="Sources">
       {sources.map((s, i) => {
         const active = hoverId === s.id
         return (
@@ -47,6 +66,7 @@ export function SourceStrip({ sources, hoverId, onHover, onDelete }: {
           </motion.a>
         )
       })}
+      </div>
     </div>
   )
 }

@@ -3,6 +3,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { Hono } from 'hono'
+import { isWithinDir } from '../preview/paths'
 import type { Runtime } from '../runtime'
 
 export function fsRoutes(rt: Runtime) {
@@ -12,7 +13,7 @@ export function fsRoutes(rt: Runtime) {
   const safePath = (rel: string): string | null => {
     if (!rel || rel.startsWith('/') || rel.includes('..')) return null
     const abs = resolve(join(root, rel))
-    return abs.startsWith(root + '/') || abs === root ? abs : null
+    return isWithinDir(root, abs) ? abs : null
   }
 
   r.get('/fs/read', async (c) => {

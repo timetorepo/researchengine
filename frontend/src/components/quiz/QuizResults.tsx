@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { RotateCcw, Share2, Sparkles, Trophy, Flame, Target, GraduationCap } from 'lucide-react'
+import { ShareStudio } from './ShareStudio'
 import type { QuizQuestion } from '@/types'
 import type { PlayResult } from './QuizPlay'
 import { burstConfetti } from '@/lib/quiz/confetti'
@@ -34,6 +35,9 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
   const pct = Math.round((nCorrect / Math.max(1, total)) * 100)
   const score = useCountUp(pct)
   const cardRef = useRef<HTMLDivElement>(null)
+  // The share card is a studio now: it opens with a live preview of the exact
+  // PNG, four looks, your own picture and the app's accent colours.
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     if (pct >= 80) {
@@ -42,28 +46,13 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
     }
   }, [pct])
 
-  const share = () => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 720; canvas.height = 400
-    const ctx = canvas.getContext('2d')!
-    const grad = ctx.createLinearGradient(0, 0, 720, 400)
-    grad.addColorStop(0, '#0d9488'); grad.addColorStop(1, '#22c55e')
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, 720, 400)
-    ctx.fillStyle = 'rgba(255,255,255,0.92)'
-    ctx.font = '600 20px Inter, sans-serif'
-    ctx.fillText('RESEARCH ENGINE · QUIZ', 48, 64)
-    ctx.font = '700 92px Inter, sans-serif'
-    ctx.fillText(`${pct}%`, 48, 190)
-    ctx.font = '500 26px Inter, sans-serif'
-    ctx.fillText(`${nCorrect} of ${total} correct`, 48, 236)
-    ctx.font = '400 20px Inter, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.75)'
-    ctx.fillText(quiz.title.slice(0, 48), 48, 300)
-    ctx.fillText(`Best streak: ${result.streakBest}`, 48, 332)
-    const a = document.createElement('a')
-    a.download = 'research-engine-quiz-score.png'
-    a.href = canvas.toDataURL('image/png')
-    a.click()
+  const shareData = {
+    title: quiz.title,
+    source: (quiz as any).source,
+    pct,
+    correct: nCorrect,
+    total,
+    streakBest: result.streakBest,
   }
 
   const byType = ['mc', 'tf', 'short', 'fill', 'ordering', 'matching'].map((t) => {
@@ -139,7 +128,7 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
             style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
             <RotateCcw size={14} /> Retake
           </button>
-          <button onClick={share} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13px]"
+          <button onClick={() => setShareOpen(true)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13px]"
             style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
             <Share2 size={14} /> Share results
           </button>
@@ -148,6 +137,10 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
           Back to Read & Quiz
         </button>
       </div>
+
+      <AnimatePresence>
+        {shareOpen && <ShareStudio data={shareData} onClose={() => setShareOpen(false)} />}
+      </AnimatePresence>
     </div>
   )
 }

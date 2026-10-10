@@ -134,6 +134,16 @@ chatRoutes.post('/', async (c) => {
   const maxTokens: number = body.maxTokens ?? 1024
   const temperature: number = body.temperature ?? 0.7
   const tools: any[] | null = Array.isArray(body.tools) && body.tools.length ? body.tools : null
+  const effort: string = typeof body.effort === 'string' ? body.effort : ''
+  const wantThinking: boolean = body.thinking === true
+  // Map the app's six-step effort ladder onto each dialect's vocabulary.
+  // Claude's own five levels, exactly as its effort doc names them.
+  const anthropicEffort = ({ instant: 'low', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' } as Record<string, string>)[effort]
+  const openaiEffort = ({ instant: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'xhigh' } as Record<string, string>)[effort]
+  // Claude models that take the effort parameter, and those that take adaptive
+  // thinking (older ones take a fixed budget instead).
+  const CLAUDE_EFFORT = /claude-(opus-(4-[5-9]|5)|sonnet-(4-6|5)|haiku-5|fable|mythos)/i
+  const CLAUDE_ADAPTIVE = /claude-(opus-(4-[6-9]|5)|sonnet-(4-6|5)|haiku-5|fable|mythos)/i
 
   if (!model) return c.json({ error: 'model is required' }, 400)
   if (!base) return c.json({ error: 'base is required' }, 400)
@@ -161,6 +171,17 @@ chatRoutes.post('/', async (c) => {
     }
     const conv = toAnthropicBody(system, messages)
     payload = { model, stream: true, max_tokens: maxTokens, temperature, system: conv.system ?? '', messages: conv.messages }
+    if (anthropicEffort && CLAUDE_EFFORT.test(model)) payload.output_config = { effort: anthropicEffort }
+    if (wantThinking) {
+      // Newer Claude models hide thinking text unless asked: display 'summarized'
+      // returns the summary (never the raw chain). Thinking tokens count toward
+      // max_tokens, so leave room for them.
+      payload.thinking = CLAUDE_ADAPTIVE.test(model)
+        ? { type: 'adaptive', display: 'summarized' }
+        : { type: 'enabled', budget_tokens: 2048 }
+      payload.max_tokens = Math.max(maxTokens, 8192)
+      payload.temperature = 1 // required while thinking is on
+    }
     if (tools) {
       payload.tools = tools.map((t) => ({ name: t.function.name, description: t.function.description ?? '', input_schema: t.function.parameters ?? { type: 'object', properties: {} } }))
     }
@@ -174,7 +195,10 @@ chatRoutes.post('/', async (c) => {
     }
     payload = {
       contents: toGeminiContents(messages),
-      generationConfig: { temperature, maxOutputTokens: maxTokens },
+      generationConfig: {
+        temperature, maxOutputTokens: maxTokens,
+        ...(wantThinking && /gemini-(2\.5|[3-9])/i.test(model) ? { thinkingConfig: { includeThoughts: true } } : {}),
+      },
     }
     if (system) payload.systemInstruction = { parts: [{ text: system }] }
     if (tools) {
@@ -198,7 +222,11 @@ chatRoutes.post('/', async (c) => {
     payload = {
       model, stream: true, max_tokens: maxTokens, temperature,
       messages: toOpenAIMessages(system, messages),
+      // Ask for the token counts with the stream, so the UI can show what a
+      // response actually cost instead of guessing from character counts.
+      stream_options: { include_usage: true },
     }
+    if (openaiEffort && /(^|\/)(o\d|gpt-[5-9]|codex)/i.test(model)) payload.reasoning_effort = openaiEffort
     if (tools) {
       payload.tools = tools
       payload.tool_choice = 'auto'
@@ -212,12 +240,50 @@ chatRoutes.post('/', async (c) => {
     }
   }
 
-  const upstream = await fetch(url, {
+  const send = (body: any) => fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
     signal: c.req.raw.signal, // client abort kills the upstream call
   })
+  let upstream = await send(payload)
+  // A few OpenAI-compatible servers reject unknown fields outright. Usage is a
+  // nice-to-have, so drop it and ask again rather than failing the request.
+  if (!upstream.ok && payload.stream_options && upstream.status >= 400 && upstream.status < 500) {
+    const peek = await upstream.clone().text().catch(() => '')
+    if (/stream_options|reasoning_effort|output_config|thinking|budget_tokens|unknown|unrecognized|additional propert|unsupported parameter/i.test(peek)) {
+      delete payload.stream_options
+      delete payload.reasoning_effort
+      delete payload.output_config
+      delete payload.thinking
+      if (payload.generationConfig?.thinkingConfig) delete payload.generationConfig.thinkingConfig
+      if (payload.thinking) payload.temperature = undefined
+      upstream = await send(payload)
+    }
+  }
+
+  // Anthropic: a model that refuses one dialect detail (an effort level it does
+  // not offer, or adaptive thinking on an older model) gets the request again
+  // with only that feature stepped down, so the answer itself still arrives.
+  if (kind === 'anthropic') {
+    for (let attempt = 0; attempt < 3 && !upstream.ok && upstream.status === 400; attempt++) {
+      const peek = await upstream.clone().text().catch(() => '')
+      if (/effort/i.test(peek) && payload.output_config) {
+        delete payload.output_config
+      } else if (/thinking|adaptive|budget|display/i.test(peek) && payload.thinking) {
+        if (payload.thinking.type === 'adaptive' && attempt === 0) {
+          payload.thinking = { type: 'enabled', budget_tokens: 2048 } // Opus 4.5 and Sonnet 4.5 family
+        } else {
+          delete payload.thinking
+          payload.temperature = temperature
+          payload.max_tokens = maxTokens
+        }
+      } else {
+        break
+      }
+      upstream = await send(payload)
+    }
+  }
 
   if (!upstream.ok || !upstream.body) {
     const errText = await upstream.text().catch(() => '')

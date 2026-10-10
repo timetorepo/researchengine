@@ -1,0 +1,8 @@
+# One page, and everything on it is meant to be found: no analytics, no
+# paywall, no gated sections.
+User-agent: *
+Allow: /
+
+# There is nothing to disallow, and no sitemap yet: the site has no domain of
+# its own until it is pointed at one, and a sitemap full of guesses would be
+# worse than none.

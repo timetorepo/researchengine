@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
+  Layers, LayoutGrid, Gift, Send,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -9,8 +10,35 @@ import { THEMES, applyTheme } from '@/lib/themes/meta'
 import { Button } from '@/components/ui/heroui/Button'
 import { Input } from '@/components/ui/heroui/Input'
 import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
-import { TextGenerateEffect } from '@/components/ui/aceternity/TextGenerateEffect'
+// SmoothUI (shadcn registry, github.com/educlopez/smoothui) — installed under
+// src/components/smoothui and used for real here: the promises build in the
+// centre, the repo stars count up, the connection test prints into a terminal,
+// the demo contents open out of a folder.
+import KineticCenterBuild from '@/components/smoothui/kinetic-center-build'
+import TypewriterText from '@/components/smoothui/typewriter-text'
+import StaggerFromEdges from '@/components/smoothui/stagger-from-edges'
+import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-terminal'
+import FolderReveal from '@/components/smoothui/folder-reveal'
+import GitHubStarsAnimation from '@/components/smoothui/github-stars-animation'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
+// R16 — the rest of the Aceternity set, each on the step it was picked for.
+// Provenance and digests: frontend/scripts/aceternity-sources.json.
+import { ColourfulText } from '@/components/ui/aceternity/ColourfulText'
+import { ContainerTextFlip } from '@/components/ui/aceternity/ContainerTextFlip'
+// The canvas reveal brings three.js with it (~880 kB, its own chunk). The
+// modes step is the second screen of a first run, so it is loaded when that
+// step is reached rather than when the wizard opens — and if it never arrives
+// (a slow disk, a machine with no WebGL) the step still looks finished, because
+// the fallback below is the same dot field drawn with plain CSS.
+const LazyCanvasReveal = React.lazy(() =>
+  import('@/components/ui/aceternity/CanvasRevealEffect').then((m) => ({ default: m.CanvasRevealEffect })))
+import { DottedGlowBackground } from '@/components/ui/aceternity/DottedGlowBackground'
+import { Carousel as AppleCarousel, Card as AppleCardView } from '@/components/ui/aceternity/AppleCardsCarousel'
+import { ONBOARDING_FEATURES } from '@/components/onboarding/onboarding-features'
+import { PAID_APPS, Favicon } from '@/components/onboarding/paid-apps'
+import { MultiStepLoader } from '@/components/ui/aceternity/MultiStepLoader'
+import { beginHandoff } from '@/lib/ui/handoff'
+import { runChat } from '@/lib/chat/runChat'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { refreshProviderModels } from '@/lib/providers/refresh'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
@@ -20,7 +48,44 @@ import { setVaultPassphrase } from '@/lib/crypto/session'
 import type { ThemeId } from '@/types'
 import { clsx } from 'clsx'
 
-const STEPS = ['Welcome', 'Privacy', 'Provider', 'Try the demo', "You're set"]
+/**
+ * The rounds of first run.
+ *
+ * Five steps used to carry a user to a finished install and stop there. That
+ * is a tour of the settings, not of the app: the user still had to find out
+ * what Research Engine is for. So the middle of the wizard now shows the thing
+ * itself — the modes, the features, and what it costs compared with the apps
+ * it replaces — and the last step asks a real question and runs it. `cta`
+ * marks the steps that advance with the footer button (the welcome, the demo
+ * and the final step carry their own), `skip` adds the second, quieter button
+ * for the one step that is genuinely optional.
+ */
+interface StepMeta {
+  label: string
+  cta: boolean
+  skip?: string
+}
+
+const STEPS: StepMeta[] = [
+  { label: 'Welcome', cta: false },
+  { label: 'Privacy', cta: true },
+  { label: 'Modes', cta: true },
+  { label: 'Features', cta: true },
+  { label: 'Free', cta: true },
+  { label: 'Provider', cta: true, skip: 'Skip for now' },
+  { label: 'Try the demo', cta: false },
+  { label: 'Setting up', cta: false },
+  { label: "You're set", cta: false },
+]
+
+const LAST = STEPS.length - 1
+
+/** Suggestions for the first run, written the way a person asks, not prompts. */
+const FIRST_QUESTIONS = [
+  'Explain CRISPR like I have an exam tomorrow',
+  'Compare Rust and Go for a CLI tool',
+  'What changed in fusion energy this year?',
+]
 
 export function Onboarding() {
   const settings = useStore((s) => s.settings)
@@ -35,6 +100,75 @@ export function Onboarding() {
   const [testMsg, setTestMsg] = useState('')
   const lowRam = typeof navigator !== 'undefined' && (navigator as any).deviceMemory !== undefined && (navigator as any).deviceMemory <= 8
   const [eco, setEco] = useState(lowRam)
+  const [firstPrompt, setFirstPrompt] = useState('')
+  /**
+   * The "setting up" step.
+   *
+   * The animation is the visible half; the work underneath is real. Each state
+   * below is backed by something that actually runs when the step opens: the
+   * theme is applied, the settings are written and read back, the local server
+   * is asked for its health, the key (if one was given) is tested against the
+   * provider, and the model list is fetched. The step finishes when both halves
+   * are done, so the animation can never claim more than happened.
+   */
+  const [setupAnimDone, setSetupAnimDone] = useState(false)
+  const [setupWorkDone, setSetupWorkDone] = useState(false)
+  const [setupNotes, setSetupNotes] = useState<string[]>([])
+  const setupStarted = React.useRef(false)
+  const SETUP_STATES = [
+    { text: 'Applying your theme and motion settings' },
+    { text: 'Writing your settings to this device' },
+    { text: 'Reading them back to be sure' },
+    { text: apiKey.trim() ? `Verifying your key with ${PROVIDERS.find((p) => p.id === provider)?.name ?? provider}` : 'Waking the local demo model' },
+    { text: apiKey.trim() ? 'Fetching the models your key can reach' : 'Preparing the offline demo library' },
+    { text: 'Ready' },
+  ]
+
+  const runSetup = async () => {
+    const note = (t: string) => setSetupNotes((n) => [...n, t])
+    try {
+      applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
+      note('theme applied')
+      const probe = { re: 'setup-probe', at: Date.now() }
+      localStorage.setItem(probe.re, String(probe.at))
+      const readBack = Number(localStorage.getItem(probe.re)) === probe.at
+      localStorage.removeItem(probe.re)
+      note(readBack ? 'settings stored' : 'settings could not be stored — the app may not remember this session')
+      await new Promise((r) => setTimeout(r, 260))
+      try {
+        const res = await fetch('/api/health', { signal: AbortSignal.timeout(3500) })
+        note(res.ok ? 'local server is up' : `local server answered ${res.status}`)
+      } catch { note('local server not reachable right now — the app runs offline anyway') }
+      if (apiKey.trim()) {
+        try {
+          const ms = await testConnection(provider, apiKey)
+          note(`key verified (${ms}ms)`)
+          // The models themselves are fetched at the end of onboarding, when
+          // the key has been written to the store (finish() below) — asking a
+          // provider for its catalogue before we have saved anything would
+          // read a key that is not there yet.
+        } catch (e: any) {
+          note(`key check failed: ${String(e?.message ?? e).slice(0, 60)}`)
+        }
+      } else {
+        note('local demo model ready')
+      }
+      note('done')
+    } finally {
+      setSetupWorkDone(true)
+    }
+  }
+
+  useEffect(() => {
+    if (step !== 7 || setupStarted.current) return
+    setupStarted.current = true
+    void runSetup()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
+  // Both halves must finish before the step offers to move on, and the pointer
+  // does not jump: the button appears where the eye already is.
+  const setupReady = setupAnimDone && setupWorkDone
 
   useEffect(() => { applyTheme(theme, {}) }, [theme])
 
@@ -87,11 +221,74 @@ export function Onboarding() {
     applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
   }
 
+  /**
+   * The last step runs a real question.
+   *
+   * "Just go and run it" is the whole point of the extra steps, so the end of
+   * onboarding is not a summary screen with a button on it — it is the app,
+   * already working. The prompt is handed to the chat pages exactly the way
+   * the home screen hands one over (lib/ui/handoff), so the very first answer
+   * arrives through the same blur-in transition every later answer will use.
+   */
+  const runFirst = (prompt: string) => {
+    const text = prompt.trim()
+    if (!text) return
+    const id = useStore.getState().newChat()
+    beginHandoff(id, text)
+    // Onboarding renders outside the HashRouter (see tryDemo) — set the hash
+    // first, then mark it done; the router mounts once this unmounts.
+    window.location.hash = `#/chat/${id}`
+    void finish()
+    void runChat({ chatId: id, prompt: text, mode: {} })
+  }
+
+  /**
+   * What the connection test is actually doing, printed line by line. The
+   * terminal replays from scratch whenever the provider, the key or the result
+   * changes (`key` below), so the lines on screen are never stale.
+   */
+  const terminalLines: TerminalLine[] = [
+    { id: 'cmd', type: 'command', text: `research-engine connect --provider ${provider}`, delay: 260 },
+    { id: 'url', type: 'comment', text: `# ${PROVIDERS.find((p) => p.id === provider)?.baseUrl ?? ''}` },
+    {
+      id: 'key',
+      type: 'output',
+      text: apiKey
+        ? `key ${apiKey.slice(0, 4)}…${apiKey.slice(-4)} → kept on this device`
+        : 'no key yet — the local demo model answers until you add one',
+    },
+    ...(testState === 'busy'
+      ? [{ id: 'busy', type: 'output' as const, text: 'dialling the endpoint…' }]
+      : []),
+    ...(testState === 'ok'
+      ? [{ id: 'ok', type: 'success' as const, text: testMsg }]
+      : []),
+    ...(testState === 'err'
+      ? [{ id: 'err', type: 'error' as const, text: testMsg || 'connection failed' }]
+      : []),
+  ]
+
   const fade = {
     initial: { opacity: 0, scale: 0.99 },
     animate: { opacity: 1, scale: 1 },
     exit: { opacity: 0, scale: 1.01 },
   }
+
+  /**
+   * A transform-free fade, for the carousel step only.
+   *
+   * An opened Apple Card is `position: fixed`. Any transform on an ancestor —
+   * including the scale in `fade` — makes that ancestor the containing block,
+   * so the card would open inside the scrolling step instead of over the app.
+   * Fading with opacity alone leaves the stack free of transforms.
+   */
+  const still = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  }
+
+  const isCarousel = STEPS[step].label === 'Features'
 
   const body = [
     /* 0 — Welcome */
@@ -105,12 +302,23 @@ export function Onboarding() {
         </svg>
       </motion.div>
       <h1 className="text-[30px] font-bold leading-tight" style={{ letterSpacing: '-0.03em' }}>Research Engine</h1>
-      <TextGenerateEffect
-        text="Perplexity-level answers. Zero data leaves your device except the calls you aim yourself."
-        className="text-[15px] mt-3 leading-relaxed"
-        duration={1.2}
+      {/* Aceternity's Colourful Text, on the one line that should be colourful:
+          the letters of "AI Research" step through the ramp on a beat, and
+          reduce-motion gets the sentence once, in colour, holding still. */}
+      <h2 className="mt-2.5 text-[17px] font-semibold" style={{ letterSpacing: '-0.02em', color: 'var(--text-2)' }}>
+        The swiss knife of <ColourfulText text="AI Research" />.
+      </h2>
+      {/* the three promises build word-by-word in the centre, hold, then hand over */}
+      <KineticCenterBuild
+        phrases={[
+          'Perplexity-level answers.',
+          'Zero data leaves your device.',
+          'Only the calls you aim leave.',
+        ]}
+        interval={2400}
+        className="text-[15.5px] mt-3.5 min-h-[48px] max-w-[460px] mx-auto leading-relaxed"
       />
-      <div className="flex flex-wrap justify-center gap-2 mt-6">
+      <div className="flex flex-wrap justify-center gap-2 mt-5">
         {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Read & Quiz', 'Agent Flood'].map((t, i) => (
           <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
             className="px-3 py-1 rounded-full text-[11.5px]"
@@ -119,7 +327,15 @@ export function Onboarding() {
           </motion.span>
         ))}
       </div>
-      <div className="mt-8 flex justify-center">
+      {/* real star count from the GitHub API; renders nothing at all when the
+          machine is offline, so no invented numbers on an offline-first app */}
+      <div className="mt-6 flex justify-center">
+        <GitHubStarsAnimation owner="timetorepo" repo="researchengine" maxAvatars={5} />
+      </div>
+      <div className="mt-2 h-[16px] text-[11.5px] font-mono" style={{ color: 'var(--text-3)' }}>
+        <TypewriterText speed={34}>local-first · bring your own key · works offline</TypewriterText>
+      </div>
+      <div className="mt-6 flex justify-center">
         <MovingBorder onClick={next} radius={999} className="w-52 h-12">
           <span className="flex items-center justify-center gap-2 font-medium text-[14px] text-white"
             style={{ background: 'var(--primary)', borderRadius: 999, height: '100%' }}>
@@ -150,7 +366,9 @@ export function Onboarding() {
           </motion.div>
         ))}
       </div>
-      <div className="text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-3)' }}>While you're here — pick a theme</div>
+      <StaggerFromEdges className="block text-[11px] uppercase tracking-wider mb-2" triggerOnView={false} stagger={0.012}>
+        {`While you're here — pick a theme`}
+      </StaggerFromEdges>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {THEMES.map((t) => (
           <button key={t.id} onClick={() => setTheme(t.id)}
@@ -165,8 +383,129 @@ export function Onboarding() {
       </div>
     </div>,
 
-    /* 2 — Provider (skippable) */
-    <div key="s2" className="max-w-[520px] mx-auto">
+    /* 2 — Modes: what you ask for, in plain words */
+    <div key="s2" className="max-w-[640px] mx-auto">
+      <StepHeader icon={Layers} title="One app, every mode" sub="Say what you want in a sentence — a mode is a click, not a configuration." />
+      <div className="relative overflow-hidden rounded-[20px] mb-3" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
+        {/* Aceternity's Canvas Reveal Effect: the dot matrix the words flip on.
+            Local patches: it pauses itself the moment the step scrolls away,
+            settles into a still grid when the machine asks for less motion or
+            when the frame budget says this machine is struggling, and it
+            streams in (with the CSS dot field as its fallback) so the step's
+            text never waits for a WebGL context. */}
+        <React.Suspense fallback={<StaticDotField />}>
+          <LazyCanvasReveal
+            animationSpeed={3.4}
+            colors={[[99, 102, 241], [45, 212, 191]]}
+            containerClassName="bg-transparent"
+            dotSize={2.6}
+          />
+        </React.Suspense>
+        <div className="relative px-6 py-12 text-center">
+          <p className="text-[12.5px] mb-3" style={{ color: 'var(--text-2)' }}>Ask it to</p>
+          {/* Aceternity's Container Text Flip — one slot, one mode at a time,
+              sized to the widest word so the line never jumps. */}
+          <ContainerTextFlip
+            interval={2600}
+            className="mx-auto"
+            textClassName="text-[21px] font-semibold"
+            words={['read a 60-page paper', 'build a quiz from it', 'search with citations', 'write and run code', 'flood a topic with agents']}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {[
+          { t: 'Read & Quiz', d: 'Drop in a PDF, get a reader and a quiz' },
+          { t: 'Search', d: 'SearXNG by itself, citations attached' },
+          { t: 'New Tech', d: 'Cheap, fast models answer first' },
+          { t: 'Coding', d: 'Parallel agents, inline multi-file edits' },
+          { t: 'Agent Flood', d: 'A checklist of agents on one question' },
+          { t: 'Master Prompts', d: 'Your own rules, applied everywhere' },
+        ].map((m, i) => (
+          <motion.div key={m.t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 + i * 0.06 }}
+            className="p-3 rounded-[13px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+            <div className="text-[12.5px] font-medium">{m.t}</div>
+            <div className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-3)' }}>{m.d}</div>
+          </motion.div>
+        ))}
+      </div>
+    </div>,
+
+    /* 3 — Features: the drawn-card carousel */
+    <div key="s3" className="max-w-[760px] mx-auto">
+      <StepHeader icon={LayoutGrid} title="What's inside" sub="Six things this app does, that usually take six subscriptions. Tap a card to open it." />
+      {/* Aceternity's Apple Cards Carousel. Local patch: no stock photography —
+          every card face is a small diagram drawn from this app's variables. */}
+      <div className="-mx-6">
+        <AppleCarousel items={ONBOARDING_FEATURES.map((card, i) => (
+          <AppleCardView key={card.title} card={card} index={i} />
+        ))} />
+      </div>
+      <p className="text-[11.5px] mt-3 text-center" style={{ color: 'var(--text-3)' }}>Drag it sideways — every card opens on a tap.</p>
+    </div>,
+
+    /* 4 — Free, unlike these apps */
+    <div key="s4" className="max-w-[660px] mx-auto">
+      <StepHeader icon={Gift} title="The same job, without the bill" sub="Each of these apps does what Research Engine does. Every one of them charges by the month." />
+      <div className="relative overflow-hidden rounded-[20px] p-4 sm:p-5" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
+        {/* Aceternity's Dotted Glow Background, themed by variable rather than
+            by a `.dark` class — this app has thirteen themes, not two. */}
+        <DottedGlowBackground
+          className="absolute inset-0"
+          colorLightVar="--text-3"
+          colorDarkVar="--text-3"
+          glowColorLightVar="--primary"
+          glowColorDarkVar="--primary"
+          opacity={0.45}
+          backgroundOpacity={0}
+          speedScale={0.8}
+        />
+        <div className="relative grid grid-cols-2 gap-2">
+          {PAID_APPS.map((a, i) => (
+            <motion.div key={a.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.05 }}
+              className="flex items-start gap-2.5 p-2.5 rounded-[13px]"
+              style={{ background: 'color-mix(in srgb, var(--surface) 86%, transparent)', border: '1px solid var(--surface-border)' }}>
+              <Favicon app={a} />
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium truncate">{a.name}</div>
+                <div className="text-[10.5px] leading-snug" style={{ color: 'var(--text-3)' }}>{a.does}</div>
+                <div className="text-[10px] font-mono mt-1 px-1.5 py-0.5 rounded-full inline-block"
+                  style={{ background: 'color-mix(in srgb, var(--warning) 16%, transparent)', color: 'var(--text-2)' }}>{a.price}</div>
+              </div>
+            </motion.div>
+          ))}
+          {/* the eighth tile, so the grid has no hole in it: this app */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+            className="flex items-start gap-2.5 p-2.5 rounded-[13px]"
+            style={{ background: 'color-mix(in srgb, var(--success) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--success) 34%, transparent)' }}>
+            <span className="inline-flex items-center justify-center shrink-0 rounded-[11px]" style={{ width: 38, height: 38, background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+              <svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden>
+                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
+                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <div className="text-[12px] font-medium truncate">Research Engine</div>
+              <div className="text-[10.5px] leading-snug" style={{ color: 'var(--text-3)' }}>Everything above, on your own machine</div>
+              <div className="text-[10px] font-mono mt-1 px-1.5 py-0.5 rounded-full inline-block"
+                style={{ background: 'color-mix(in srgb, var(--success) 18%, transparent)', color: 'var(--text)' }}>free</div>
+            </div>
+          </motion.div>
+        </div>
+        <div className="relative mt-4 flex items-center justify-center gap-2.5 rounded-[14px] px-4 py-3.5"
+          style={{ background: 'color-mix(in srgb, var(--success) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--success) 32%, transparent)' }}>
+          <Sparkles size={15} style={{ color: 'var(--success)' }} />
+          <span className="text-[14.5px] font-semibold">ResearchEngine is free, unlike these apps.</span>
+        </div>
+      </div>
+      <p className="text-[11.5px] mt-3 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+        Free means the app is free. If you connect a provider you pay that provider, never us — and a local model costs nothing at all.
+        Their icons are bundled as drawings: nothing on this screen pings those companies.
+      </p>
+    </div>,
+
+    /* 5 — Provider (skippable) */
+    <div key="s5" className="max-w-[520px] mx-auto">
       <StepHeader icon={KeyRound} title="Bring your own key" sub="Optional — everything works on the local demo model until you're ready." />
       <div className="flex flex-wrap gap-1.5 mb-4">
         {PROVIDERS.filter((p) => p.id !== 'custom').map((p) => (
@@ -195,6 +534,16 @@ export function Onboarding() {
             {testState === 'ok' && <span className="text-[12px] flex items-center gap-1" style={{ color: 'var(--success)' }}><Check size={12} /> {testMsg}</span>}
             {testState === 'err' && <span className="text-[12px] truncate" style={{ color: 'var(--danger)' }}>{testMsg}</span>}
           </div>
+          {/* the real request/response, typed out — not a mock */}
+          <MacTerminal
+            key={`${provider}-${testState}-${apiKey.length}`}
+            autoPlay
+            lines={terminalLines}
+            maxHeight={190}
+            theme="auto"
+            title="connection test"
+            typingSpeed={12}
+          />
         </div>
       ) : (
         <div className="p-4 rounded-[14px] text-[13px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
@@ -204,19 +553,36 @@ export function Onboarding() {
       )}
     </div>,
 
-    /* 3 — Try the demo */
-    <div key="s3" className="max-w-[520px] mx-auto text-center">
+    /* 6 — Try the demo */
+    <div key="s6" className="max-w-[520px] mx-auto text-center">
       <StepHeader icon={BookOpen} title="See it working — no key required" sub="A bundled study demo: a genuine DNA primer, AI study rewrite, three-tier highlights, and a hand-tuned quiz. Fully offline." />
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-        className="rounded-[18px] p-5 text-left mb-5"
+        className="rounded-[18px] p-5 text-left mb-5 flex flex-col sm:flex-row items-center gap-5"
         style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-        <div className="text-[13px] font-medium mb-1">“The Structure of DNA” demo</div>
-        <ul className="text-[12px] space-y-1" style={{ color: 'var(--text-2)' }}>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Scripted 3-stage processing pipeline — Parsing, Extracting, Analyzing</li>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> 720px serif reader with progress rail and annotation markers</li>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> AI study rewrite with toggle back to the original</li>
-          <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Premium quiz with explanations and source jumps</li>
-        </ul>
+        {/* the four things in the demo, literally in a folder — hover to open it */}
+        <FolderReveal
+          className="shrink-0"
+          color="brand"
+          items={[
+            { id: 'pipeline', content: <CardText t="3-stage pipeline" />, color: 'color-mix(in srgb, var(--primary) 14%, var(--surface))' },
+            { id: 'reader', content: <CardText t="720px reader" />, color: 'color-mix(in srgb, var(--success) 14%, var(--surface))' },
+            { id: 'rewrite', content: <CardText t="AI study rewrite" />, color: 'color-mix(in srgb, var(--secondary) 14%, var(--surface))' },
+            { id: 'quiz', content: <CardText t="Hand-tuned quiz" />, color: 'color-mix(in srgb, var(--warning) 16%, var(--surface))' },
+          ]}
+          label="DNA demo"
+          rotation={9}
+          size={232}
+          trigger="hover"
+        />
+        <div className="min-w-0">
+          <div className="text-[13px] font-medium mb-1.5">“The Structure of DNA” demo</div>
+          <ul className="text-[12px] space-y-1" style={{ color: 'var(--text-2)' }}>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Scripted Parsing → Extracting → Analyzing run</li>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Serif reader with progress rail and annotations</li>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> AI study rewrite, toggle back to the original</li>
+            <li className="flex gap-2"><Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} /> Premium quiz with explanations and source jumps</li>
+          </ul>
+        </div>
       </motion.div>
       <div className="flex justify-center gap-2">
         <Button size="md" onClick={tryDemo} startContent={<BookOpen size={15} />}>Open the reading demo</Button>
@@ -224,8 +590,31 @@ export function Onboarding() {
       </div>
     </div>,
 
-    /* 4 — You're set */
-    <div key="s4" className="text-center max-w-[480px] mx-auto">
+    /* 7 — Setting up */
+    <div key="s7" className="max-w-[560px] mx-auto text-center">
+      {!setupAnimDone || !setupWorkDone ? (
+        <MultiStepLoader loadingStates={SETUP_STATES} loading duration={640} onDone={() => setSetupAnimDone(true)} />
+      ) : null}
+      <StepHeader icon={Rocket} title="Setting things up" sub="A few real checks before the app hands over. Nothing here leaves the device." />
+      <div className="mt-4 flex flex-col gap-1.5 text-left max-w-[420px] mx-auto">
+        {setupNotes.map((n, i) => (
+          <motion.div key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} className="flex items-start gap-2 text-[12px]">
+            <Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success)' }} />
+            <span style={{ color: 'var(--text-2)' }}>{n}</span>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-6 h-9">
+        {setupReady && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+            <Button size="md" onClick={next}>Continue <ArrowRight size={13} className="inline" /></Button>
+          </motion.div>
+        )}
+      </div>
+    </div>,
+
+    /* 8 — You're set */
+    <div key="s8" className="text-center max-w-[480px] mx-auto">
       <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 16, stiffness: 240 }}
         className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-5"
         style={{ background: 'color-mix(in srgb, var(--success) 16%, transparent)' }}>
@@ -236,6 +625,9 @@ export function Onboarding() {
         Theme: <b>{THEMES.find((t) => t.id === theme)?.name}</b> ·
         Model: <b>{apiKey ? PROVIDERS.find((p) => p.id === provider)?.name : 'Local demo'}</b>
       </p>
+      <StaggerFromEdges className="block text-[12.5px] mt-3.5" stagger={0.016} triggerOnView={false}>
+        {'Everything is ready. Nothing you typed left this device.'}
+      </StaggerFromEdges>
       <div className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
         <Sparkles size={12} /> Try typing <code className="px-1.5 py-0.5 rounded font-mono" style={{ background: 'var(--elevated)' }}>-404</code> sometime.
       </div>
@@ -251,7 +643,39 @@ export function Onboarding() {
           <span className="block text-[10.5px]" style={{ color: 'var(--text-3)' }}>1 stream at a time, lighter background work{lowRam ? ' — this machine reports 8 GB RAM or less' : ''}</span>
         </span>
       </button>
-      <div className="mt-6">
+      {/* "Just go and run it": the wizard ends by running something. Type a
+          question here and it opens as a real chat, on the demo model if no
+          key was given, through the same handover the home screen uses. */}
+      <div className="mt-6 text-left rounded-[16px] p-4" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+        <div className="text-[12.5px] font-medium mb-2">Ask your first question</div>
+        <div className="flex items-center gap-2">
+          <input
+            value={firstPrompt}
+            onChange={(e) => setFirstPrompt(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') runFirst(firstPrompt) }}
+            placeholder="What should I look into first?"
+            aria-label="Your first question"
+            className="flex-1 min-w-0 bg-transparent outline-none text-[13px] px-3 py-2.5 rounded-[11px]"
+            style={{ background: 'var(--elevated)' }}
+          />
+          <Button size="md" onClick={() => runFirst(firstPrompt)} disabled={!firstPrompt.trim()} startContent={<Send size={14} />}>
+            Run it
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
+          {FIRST_QUESTIONS.map((q) => (
+            <button key={q} onClick={() => setFirstPrompt(q)}
+              className="px-2.5 py-1 rounded-full text-[11.5px] text-left transition-colors hover:opacity-80"
+              style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+              {q}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] mt-2" style={{ color: 'var(--text-3)' }}>
+          Runs on {apiKey.trim() ? `your ${PROVIDERS.find((p) => p.id === provider)?.name} key` : 'the local demo model'} — no key needed to try.
+        </p>
+      </div>
+      <div className="mt-4">
         <Button size="lg" fullWidth onClick={finish} startContent={<Rocket size={16} />}>
           Enter Research Engine
         </Button>
@@ -260,12 +684,15 @@ export function Onboarding() {
   ]
 
   return (
+    // First-run only, and it must sit above the shell: a fixed overlay, never
+    // something that can grow the page underneath it.
+    <div className="fixed inset-0 z-[70]">
     <AuroraBackground className="h-full w-full">
       <div className="h-full flex flex-col">
         {/* progress */}
         <div className="flex items-center justify-center gap-1.5 pt-8">
-          {STEPS.map((label, i) => (
-            <button key={label} onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${label}`} title={label}
+          {STEPS.map((s, i) => (
+            <button key={s.label} onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${s.label}`} title={s.label}
               className="h-1.5 rounded-full transition-all"
               style={{ width: i === step ? 28 : 8, background: i <= step ? 'var(--primary)' : 'var(--elevated)' }} />
           ))}
@@ -276,7 +703,7 @@ export function Onboarding() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
-                variants={fade}
+                variants={isCarousel ? still : fade}
                 initial="initial" animate="animate" exit="exit"
                 transition={{ duration: 0.28, ease: 'easeInOut' }}
                 className="w-full py-8"
@@ -289,18 +716,43 @@ export function Onboarding() {
 
         {/* footer nav */}
         <div className="flex items-center justify-between px-8 pb-8 max-w-[720px] mx-auto w-full">
-          {step > 0 && step < STEPS.length - 1 ? (
+          {step > 0 && step < LAST ? (
             <Button variant="ghost" color="default" size="sm" onClick={back} startContent={<ArrowLeft size={13} />}>Back</Button>
           ) : <span />}
-          {step > 0 && step < 3 ? (
+          {STEPS[step].cta ? (
             <div className="flex items-center gap-2">
-              {step === 2 && <Button variant="ghost" color="default" size="sm" onClick={next}>Skip for now</Button>}
+              {STEPS[step].skip && <Button variant="ghost" color="default" size="sm" onClick={next}>{STEPS[step].skip}</Button>}
               <Button size="sm" onClick={next}>Continue <ArrowRight size={13} className="inline" /></Button>
             </div>
           ) : <span />}
         </div>
       </div>
     </AuroraBackground>
+    </div>
+  )
+}
+
+/** The canvas reveal's stand-in: the same dot field, drawn with CSS only. */
+function StaticDotField() {
+  return (
+    <div
+      aria-hidden
+      className="h-full w-full"
+      style={{
+        backgroundImage: 'radial-gradient(var(--primary) 1.4px, transparent 1.4px)',
+        backgroundSize: '14px 14px',
+        opacity: 0.22,
+      }}
+    />
+  )
+}
+
+function CardText({ t }: { t: string }) {
+  return (
+    <span className="flex h-full w-full items-center justify-center p-3 text-center text-[11.5px] font-medium leading-snug"
+      style={{ color: 'var(--text)' }}>
+      {t}
+    </span>
   )
 }
 

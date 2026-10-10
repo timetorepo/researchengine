@@ -11,6 +11,7 @@
 //     cache/         search + generation cache
 //     config.json    remembered port / profile / flags
 //     keys.enc       encrypted key material (browser vault is primary; reserved)
+import { buildInfoReport } from './build-info'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
@@ -59,6 +60,15 @@ interface Flags {
 export function parseFlags(argv: string[]): Flags {
   const f: Flags = { serve: argv[0] !== 'serve' ? true : true }
   const args = argv.filter((a) => a !== 'serve')
+
+  // `research-engine version` answers "which build am I running?" — the first
+  // thing to ask when a fix is in the code but the app still behaves like an
+  // older release. It reads the fingerprint and exits without starting a server.
+  if (args.includes('version') || args.includes('--version') || args.includes('-v')) {
+    console.log(buildInfoReport(f.frontendDist))
+    process.exit(0)
+  }
+
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     const val = () => args[++i]
@@ -73,6 +83,7 @@ export function parseFlags(argv: string[]): Flags {
       console.log(`Research Engine — single-process server
 
 Usage: research-engine serve [options]
+       research-engine version            Show the build fingerprint and exit
   --port <n>          HTTP port (default 3847; auto-picks next free if busy)
   --host <addr>       Bind address (default 127.0.0.1)
   --data-dir <path>   Data directory (default ~/.research-engine)

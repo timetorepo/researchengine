@@ -1,5 +1,14 @@
 export type ProviderId =
   | 'openai' | 'anthropic' | 'groq' | 'gemini' | 'ollama' | 'nim' | 'openrouter' | 'together' | 'mistral' | 'lmstudio' | 'custom'
+  // 0.26.0: the six asked-for providers, plus the FreeRoute gateway that sits
+  // in front of every free tier.
+  | 'mercury' | 'grok' | 'deepseek' | 'kimi' | 'glm' | 'minimax'
+  // 0.37.0: Xiaomi's MiMo open platform — OpenAI-compatible, and the same key
+  // also opens an Anthropic-compatible endpoint at /anthropic.
+  | 'mimo'
+  // Kilo Code's gateway — one OpenAI-compatible endpoint in front of many
+  // models, keyed by a single Kilo key.
+  | 'kilocode'
 
 export interface ProviderConfig {
   id: ProviderId
@@ -53,12 +62,64 @@ export interface ChatMessage {
   stopped?: boolean
   /** Vision: images attached by the user, sent to models that support them. */
   attachments?: { type: 'image'; name: string; dataUrl: string }[]
+  /**
+   * What this answer cost. `reported` means the provider told us the counts;
+   * false means they are an estimate from the text, and the UI marks them.
+   */
+  usage?: { prompt: number; completion: number; total: number; reported: boolean }
+  /** Chain of thought: whatever the model let us see of its reasoning. */
+  thinking?: string
+  /**
+   * This message *is* the compressed context a fork carried over, not something
+   * a model said. It is ordinary content as far as the request is concerned —
+   * which is the point: the continuation sees it — but the chat renders it as a
+   * card with the numbers, collapsed, instead of as a wall of prose.
+   */
+  capsule?: {
+    fromChatId: string
+    fromTitle: string
+    savedPct: number
+    sourceTokens: number
+    capsuleTokens: number
+    turns: number
+    facts: number
+  }
   /** Tool activity for this answer (shown as chips above the text). */
   toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
   /** AI-generated questionnaire awaiting the user's answers. */
   questionnaire?: Questionnaire
+  /**
+   * Cards the model summoned with the `show_tooltip_card` tool.
+   *
+   * Deliberately a tool call and not a hover on a highlighted span: an answer
+   * can only put a card on screen if the conversation can call tools at all, so
+   * a model running without them simply never shows one. Nothing renders these
+   * by matching text.
+   */
+  tooltipCards?: {
+    title: string
+    body?: string
+    image?: string
+    source?: string
+    url?: string
+  }[]
   /** Command awaiting explicit user approval (Coding mode safety). */
   pendingExec?: { toolCallId: string; command: string; reason?: string }
+  /**
+   * This answer switched the conversation into Coding mode (`start_coding_mode`).
+   * Carries the project it opened so the transcript can offer the workspace.
+   */
+  promotedTo?: { project: string; reason?: string }
+  /**
+   * Humanized rewrite of `content` (Chat only — never Coding). `content` is
+   * always kept: it is the "previous response" shown in red on hover.
+   */
+  humanized?: string
+  /** Rewrite is streaming in right now. */
+  humanizing?: boolean
+  /** Who produced the rewrite ("OpenAI · gpt-4o", "on-device pass"). */
+  humanizedBy?: string
+  humanizeError?: string
 }
 
 export interface QuestionnaireItem {
@@ -87,6 +148,25 @@ export interface Chat {
   pinned?: boolean
   parentId?: string        // branch origin chat
   branchMessageId?: string // message branched from
+  /**
+   * Coding chats are a different kind of conversation: they carry a project,
+   * they drive the IDE tools, and they should not be mixed into research
+   * history. `settings.project` is the project they were opened against (the
+   * coding panel keeps one chat per project); chats the AI converts keep their
+   * own name so the work can move between projects later.
+   */
+  kind?: 'research' | 'coding'
+  settings?: { project?: string }
+  /** Session isolation for multitasking: where this chat's work executes. */
+  session?: { isolation: 'local' | 'docker' | 'vm'; container?: string; note?: string }
+  /** Where an imported conversation came from. */
+  importedFrom?: 'chatgpt' | 'claude'
+  /** Persona (vendored system prompt) attached to this chat. */
+  personaId?: string
+  /** MCP server ids enabled for this chat. */
+  mcp?: string[]
+  /** Vendored upstream skill packs attached to this chat. */
+  skillPacks?: string[]
   messages: ChatMessage[]
 }
 
@@ -111,6 +191,39 @@ export interface Skill {
   builtin?: boolean
 }
 
+/**
+ * The report a security scan produced for an imported skill.
+ *
+ * `scanner` is deliberately explicit: `skillspector` means NVIDIA's tool ran and
+ * this is its verdict; `local-static` means only this app's own read-through
+ * happened. A verdict is never shown without saying which of the two produced
+ * it.
+ */
+export interface SkillSecurityFinding {
+  id?: string
+  severity?: string
+  title?: string
+  why?: string
+  file?: string
+  line?: number
+  evidence?: string
+  description?: string
+}
+export interface SkillSecurity {
+  scanner: 'skillspector' | 'local-static'
+  scannerNote?: string
+  install?: string
+  score: number
+  severity: string
+  recommendation: string
+  safeToInstall?: boolean
+  llmUsed?: boolean
+  at: number
+  findings: SkillSecurityFinding[]
+  /** Files that were scanned, so an empty report is not mistaken for silence. */
+  files?: string[]
+}
+
 export type AgentRole = 'Researcher' | 'Builder' | 'Critic' | 'Synthesizer' | 'Verifier' | 'Explainer' | 'Quizzer' | 'Note-taker' | 'Custom'
 export interface AgentSpec {
   id: string
@@ -131,7 +244,10 @@ export interface Squad {
 
 export interface ArticleBlock {
   id: string
-  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code' | 'image'
+  // 'rich' is a formatted block: `content` is a small allow-list of inline
+  // HTML (bold/italic/underline/link, ordered and bulleted lists), edited with
+  // the shadcn-space editor toolbar and sanitised on the way in and out.
+  type: 'heading' | 'paragraph' | 'list' | 'quote' | 'code' | 'image' | 'rich'
   content: string
   // image block metadata
   imageUrl?: string
@@ -253,6 +369,24 @@ export interface ReplicateStage {
   tokens?: number
 }
 
+/**
+ * A task — the "what am I actually doing" list that both Research and Coding
+ * modes share. `pinned` is the user's way of saying *this one first*; the AI
+ * receives pinned rows ahead of the rest, in list order.
+ */
+export interface Task {
+  id: string
+  title: string
+  detail?: string
+  done: boolean
+  pinned: boolean
+  /** Where it came from: 'you', 'chat', 'coding', 'quiz'… */
+  source?: string
+  createdAt: number
+  /** Ordering weight — rewritten by drag-and-drop. */
+  order: number
+}
+
 export interface Settings {
   theme: ThemeId
   fontScale: number
@@ -261,11 +395,38 @@ export interface Settings {
   flowEnabled: boolean
   flowMode: FlowMode
   defaultModel: string // "provider:model"
+  /** Effort level sent to providers that understand it (Claude, OpenAI…). */
+  effort?: string
+  /** Session switcher shortcut, e.g. "alt+shift". */
+  sessionSwitchKey?: string
+  /** Persona attached by default to new chats (empty: none). */
+  defaultPersonaId?: string
   modelDefaults: Record<string, { temperature: number; topP: number; maxTokens: number }>
   customSystemPrompts: Record<string, string>
-  searchBackend: 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg'
+  /**
+   * Which engine Search uses. `auto` is the ladder (your SearXNG → a public
+   * SearXNG → DuckDuckGo), which is why it is the default: search works before
+   * anything is configured.
+   */
+  searchBackend: 'auto' | 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg'
   searxngUrl: string
   searchRegion: string
+  /**
+   * Search finds an engine by itself: your instance, then a local one, then the
+   * public SearXNG instances (rotated until one answers). Nothing to set up.
+   */
+  searchAuto?: boolean
+  /**
+   * Search keys, entered in the UI. They travel with the request, so a backend
+   * started with no environment variables still searches.
+   */
+  searchKeys?: {
+    brave?: string
+    serper?: string
+    tavily?: string
+  }
+  /** Which engine actually answered last — shown next to the results. */
+  searchLastEngine?: string
   providers: Record<string, { apiKey: string; baseUrl: string; enabled: boolean }>
   /** Model ids fetched live from each provider API (never hardcoded). */
   providerModels: Record<string, string[]>
@@ -273,6 +434,128 @@ export interface Settings {
   dynamicIsland: boolean
   /** Derive card gradients from the active theme instead of fixed hues. */
   themeGradients: boolean
+  /**
+   * Connected accounts (Google Drive / Gmail / Calendar, GitHub, Notion, Slack).
+   * Only the credential lives here, and only encrypted when the vault is in use
+   * — the backend receives it per request and never keeps a copy.
+   */
+  integrations?: Record<string, {
+    token?: string
+    refreshToken?: string
+    clientId?: string
+    clientSecret?: string
+    base?: string
+    account?: string
+    connectedAt?: number
+  }>
+  /**
+   * Models the user has taken out of the picker. Refs are "provider:model", so
+   * hiding one provider's model never hides another's.
+   */
+  hiddenModels?: string[]
+  /** Which tier filter the model picker opens with. */
+  modelTierFilter?: 'all' | 'free' | 'paid'
+  /** How the model picker orders rows. */
+  modelSort?: 'provider' | 'name' | 'free-first'
+  /**
+   * Free/paid, where the automatic answer is wrong or unknown. The detector
+   * (lib/providers/tiers.ts) only knows what a provider publishes; this is the
+   * user's correction, and it wins.
+   */
+  modelTiers?: Record<string, 'free' | 'paid'>
+  /**
+   * Providers the user has added. The Providers tab starts empty and fills up
+   * from the catalog — this list is the memory of that choice, and the only
+   * thing that decides which cards appear.
+   */
+  addedProviders?: string[]
+  /** The updater. Nothing installs without the user pressing the button. */
+  updates?: {
+    autoCheck?: boolean
+    /** Version whose "update available" pill was dismissed. */
+    dismissed?: string
+    /** Version whose "a new release is out" popup has already been shown once. */
+    prompted?: string
+    lastChecked?: number
+    /**
+     * Where updates come from. `github` reads the repository's releases;
+     * `manifest` reads a JSON file you host yourself, which is how a build
+     * that is not public on GitHub still gets updates.
+     */
+    source?: 'github' | 'manifest'
+    repo?: string
+    /** Read-only token, for a repository that is still private. */
+    token?: string
+    /** URL of an update manifest (see docs in the Updates tab). */
+    manifestUrl?: string
+    /** Last check result we showed, so a failure is visible without re-checking. */
+    lastError?: string
+  }
+  /**
+   * Dock magnification in the model picker. On by default; off gives a plain,
+   * still list for anyone who finds the moving rows fussy.
+   */
+  dockAnimation?: boolean
+  /**
+   * Free routing — the FreeRoute idea as a feature of chatting rather than a
+   * provider: when on, a chat with no model chosen uses the best free model
+   * among the providers you have configured, and falls back if it fails.
+   */
+  freeRouting?: boolean
+  /**
+   * How long the app waits for a provider before giving up, in seconds, per
+   * provider. This is our own patience, not the provider's server setting.
+   */
+  providerTimeouts?: Record<string, number>
+  /** Speech to text — dictation for the composer. */
+  voice?: {
+    enabled?: boolean
+    /** `browser` uses the Web Speech API; `provider` posts audio to a
+     *  transcription endpoint; `local` posts to a whisper.cpp server you run. */
+    mode?: 'browser' | 'provider' | 'local'
+    /** Provider id + model for `provider` mode. */
+    provider?: string
+    model?: string
+    /** whisper.cpp / faster-whisper base URL for `local` mode. */
+    localUrl?: string
+    language?: string
+    /** Keep the microphone glow (voice-glow by Jakub Antalik) around the composer. */
+    beam?: boolean
+    /** Palette for the microphone glow: Siri-like colourful, or one of the
+     *  single-hue variants. */
+    beamVariant?: 'colorful' | 'mono' | 'ocean' | 'sunset' | 'forest' | 'candy' | 'ice' | 'gold'
+    /** Push-to-talk: hold the mic instead of clicking it. */
+    pushToTalk?: boolean
+  }
+  /**
+   * Forking a chat. The capsule carried into the new chat is compressed on
+   * this device (lib/chat/fork), and this remembers how hard: `compact`
+   * trades detail for tokens, `faithful` errs the other way. Nothing here
+   * costs a model call.
+   */
+  fork?: {
+    level?: 'compact' | 'balanced' | 'faithful'
+    /** Turns at the end carried close to verbatim. */
+    keepLast?: number
+    includeCode?: boolean
+  }
+  /** Per-response token counts, shown in the message footer. */
+  showTokenUsage?: boolean
+  /** Smooth caret in text fields (Skiper UI's SmoothInput). */
+  smoothCaret?: boolean
+  /**
+   * The scroll-progress indicator (Skiper's scroll progress, adapted). Its
+   * position is remembered per surface, because the clear edge differs between
+   * the chat composer, the IDE panel and the workflow canvas.
+   */
+  scrollProgress?: {
+    enabled?: boolean
+    /** Right-click unlocked: the indicator can be dragged anywhere. */
+    unlocked?: boolean
+    /** Its shape: a bar on the edge, a ring (with or without a track), or a top bar. */
+    mode?: 'bar' | 'circle' | 'dot' | 'top'
+    perSurface?: Record<string, { right: number; top: string }>
+  }
   floodBudget: number
   osWidgets: boolean
   osWallpaper: string
@@ -282,9 +565,42 @@ export interface Settings {
   masterPromptOverrides: Record<string, string>
   themeFavorites: ThemeId[]
   profileName: string
+  /**
+   * The home screen, kept minimal by default.
+   *
+   * Research starts with a question, so the landing view is the hero line, the
+   * composer and the suggestions drawn from your own recent work — and nothing
+   * else. The widget grid and the offline-demo button are both off until they
+   * are asked for, and the wallpaper is opt-in per screen.
+   */
+  homeWidgets?: boolean
+  homeDemo?: boolean
+  /** Id from lib/wallpapers — art behind the home screen, with a scrim. */
+  homeWallpaper?: string
+  /** Wallpapers on the other pages too, not only the home screen. */
+  wallpaperEverywhere?: boolean
+  /** Border Beam around the home-screen composer (by Jakubantalik). */
+  composerBeam: boolean
+  composerBeamVariant: 'colorful' | 'ocean' | 'sunset' | 'mono'
+  /** Local profile: display name, handle, bio and the generated avatar.
+   *  Typed from `@/lib/profile` so the two can never drift. */
+  profile: import('@/lib/profile').Profile
   quizAutoAdvance: boolean
   readerImages: boolean
+  /**
+   * Notifications. `notifyUpdates` is on by default — an app that updates
+   * itself should say when there is something to install — and
+   * `notifyRecommendations` is off, because an interest is opted into.
+   */
+  notifyUpdates?: boolean
+  notifyRecommendations?: boolean
   performanceProfile: 'eco' | 'balanced' | 'performance'
+  /**
+   * Adaptive quality: sample the real frame rate and let the animated layers
+   * thin themselves out on a machine that cannot hold frames (lib/system/
+   * frame-budget). On by default; off means every layer always draws fully.
+   */
+  adaptiveQuality?: boolean
   highMemoryMode: boolean
   flowShaping: 'off' | 'subtle' | 'standard' | 'cinematic'
   thinkingStyle: 'minimal' | 'standard' | 'verbose'
@@ -298,6 +614,9 @@ export interface Settings {
   /** AIFlowEngine speed booster applied to API model output. */
   flowBoost: boolean
   mcpServers: McpServerConfig[]
+  /** Developer Mode: build fingerprint in the top bar, the create-project test
+   *  bench in Settings, and request-level detail in error toasts. */
+  developerMode: boolean
 }
 
 export interface McpServerConfig {

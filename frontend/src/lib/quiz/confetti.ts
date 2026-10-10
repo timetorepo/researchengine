@@ -9,7 +9,11 @@ export function burstConfetti(x: number, y: number, colors: string[] = ['#34D399
     pointerEvents: 'none', zIndex: '9999',
   })
   document.body.appendChild(canvas)
-  const ctx = canvas.getContext('2d')!
+  // A canvas that refuses to give us a context (very old browser, a locked-down
+  // webview, a test DOM) must not throw inside a click handler — the answer is
+  // already graded by then.
+  const ctx = canvas.getContext('2d')
+  if (!ctx) { canvas.remove(); return }
   ctx.scale(dpr, dpr)
 
   const n = 6 + Math.floor(Math.random() * 2) // 5-7 particles per spec

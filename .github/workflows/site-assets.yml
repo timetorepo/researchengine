@@ -1,0 +1,66 @@
+name: site assets
+
+# Maintainer-run, one-off: bring the website's images onto the branch, optimised.
+#
+# The site must serve its own pictures rather than hotlink an image host, and it
+# should not ship 3.8 MB PNGs to a visitor. This downloads the originals the
+# round was given (four app screenshots and the repository's own hero image) onto
+# a scratch branch, so they can be optimised where ImageMagick is available
+# (1600 px WebP, committed under website/public/shots); the runner only fetches,
+# which keeps this job dependent on nothing but curl.
+#
+# It is triggered by a tag, not by workflow_dispatch: a workflow can only be
+# dispatched by hand once it exists on the default branch, and this one lives on
+# the working branch until the round is merged. A push event reads the workflow
+# from the ref that was pushed, which is the mechanism the release workflow
+# already relies on.
+#
+#   git tag site-assets-2 && git push origin site-assets-2
+
+on:
+  push:
+    tags:
+      - "site-assets-*"
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the originals
+        run: |
+          set -euo pipefail
+          mkdir -p website/.asset-src website/public/shots
+          fetch() {
+            local url="$1" out="$2" width="$3"
+            curl -fsSL --retry 3 --retry-delay 2 -A "ResearchEngine-Website/1.0" -o "website/.asset-src/$out" "$url"
+            # The PNG signature, checked byte by byte, so a redirect or an error
+            # page saved as .png cannot pass as a screenshot.
+            local magic
+            magic=$(head -c 8 "website/.asset-src/$out" | od -An -tx1 | tr -d ' \n')
+            case "$magic" in
+              89504e470d0a1a0a*) ;;
+              *) echo "not a PNG: $out (magic $magic)"; exit 1 ;;
+            esac
+            echo "$out  $(stat -c%s "website/.asset-src/$out") bytes  from $url"
+          }
+          fetch "https://i.ibb.co/WNvrsrJ5/2-20260927-195621-0000.png" "shot-1.png" 1600
+          fetch "https://i.ibb.co/4wVh8Wvf/3-20260927-195621-0001.png" "shot-2.png" 1600
+          fetch "https://i.ibb.co/yc97WZfv/4-20260927-195621-0002.png" "shot-3.png" 1600
+          fetch "https://i.ibb.co/0pCjsbwX/5-20260927-195621-0003.png" "shot-4.png" 1600
+          fetch "https://i.ibb.co/NnT9vHnL/latestprojectreveal.png" "reveal.png" 1600
+          ls -la website/public/shots
+
+      - name: Commit them to the scratch branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B site-shots
+          git add -f website/.asset-src
+          git commit -m "website: the original images the site is built from"
+          git push --force origin site-shots

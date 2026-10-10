@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/heroui/Switch'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { fileToBackgroundUrl, SOLID_PRESETS } from '@/lib/backgrounds'
+import { WALLPAPERS, WALLPAPER_SOURCE } from '@/lib/wallpapers'
 import { getPropsForTheme, mixVec3, ANIMATED_BG_META } from '@/lib/backgrounds/themeProps'
 import type { AnimatedBgKind, BackgroundConfig } from '@/types'
 
@@ -225,6 +226,60 @@ export function AppearanceTab() {
           ))}
         </div>
 
+        {/* ---- Home screen ---- */}
+        <div className="surface p-4 mt-4 mb-2" data-home-settings>
+          <div className="text-[13px] font-medium mb-0.5">Home screen</div>
+          <div className="text-[11.5px] mb-3" style={{ color: 'var(--text-2)' }}>
+            Research starts with a question, so the landing view is the hero line, the composer and
+            suggestions drawn from your own recent work. Everything else here is optional — and off
+            until you ask for it.
+          </div>
+          <div className="space-y-1">
+            <Switch label="Widget cards" description="The grid of recent research, AIFlowEngine savings, articles and spaces under the composer."
+              checked={settings.homeWidgets === true} onChange={(v) => update({ homeWidgets: v })} />
+            <Switch label="Offline demo button" description="A “try the offline demo” pill under the composer — Read & Quiz with no key and no network."
+              checked={settings.homeDemo === true} onChange={(v) => update({ homeDemo: v })} />
+            <Switch label="Wallpaper on every page" description="Off: the wallpaper stays on the home screen, where there is no dense text over it."
+              checked={settings.wallpaperEverywhere === true} onChange={(v) => update({ wallpaperEverywhere: v })} />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 mt-4 mb-2">
+            <div>
+              <div className="text-[12.5px] font-medium">Wallpaper</div>
+              <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                Raycast's collection, cropped to 1280×720 WebP (10–20 kB each).{' '}
+                <a href={WALLPAPER_SOURCE} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>Full-size originals</a>
+              </div>
+            </div>
+            {(settings.homeWallpaper || undefined) && (
+              <button onClick={() => update({ homeWallpaper: undefined })}
+                className="text-[11.5px] px-2.5 py-1 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+                Remove
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {WALLPAPERS.map((w) => {
+              const active = settings.homeWallpaper === w.id
+              return (
+                <button key={w.id} onClick={() => update({ homeWallpaper: active ? undefined : w.id })}
+                  aria-pressed={active}
+                  className="group text-left rounded-[12px] overflow-hidden transition-transform hover:scale-[1.02] press-tap"
+                  style={{ border: `1.5px solid ${active ? 'var(--primary)' : 'var(--surface-border)'}` }}
+                  title={`${w.name} — ${w.note}`}
+                >
+                  <span className="block h-[68px] bg-cover bg-center" style={{ backgroundImage: `url(${w.file})` }} />
+                  <span className="flex items-center gap-1 px-2 py-1.5 text-[11px]"
+                    style={{ background: 'var(--surface)', color: active ? 'var(--primary)' : 'var(--text-2)' }}>
+                    <span className="truncate">{w.name}</span>
+                    {active && <Check size={11} className="ml-auto shrink-0" />}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <Switch label="Compact mode" description="Tighter spacing and smaller type throughout."
           checked={settings.compact} onChange={(v) => update({ compact: v })} />
         <Switch label="Reduce motion" description="Cross-fades under 150ms instead of spring animations. Also honors your OS setting."
@@ -235,6 +290,68 @@ export function AppearanceTab() {
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
+        <Switch label="Composer border beam" description="Ring the home-screen chatbox with Border Beam by Jakubantalik. Brightens while you type."
+          checked={settings.composerBeam !== false} onChange={(v) => update({ composerBeam: v })} />
+        <Switch label="Dock animation" description="Model rows grow toward the pointer and lift their neighbours, like a dock. Off: the list stays perfectly still."
+          checked={settings.dockAnimation !== false} onChange={(v) => update({ dockAnimation: v })} />
+        <Switch label="Smooth caret" description="Text fields hide the native caret and spring an animated one to the cursor instead (Skiper UI's smooth caret input). On by default."
+          checked={settings.smoothCaret !== false} onChange={(v) => update({ smoothCaret: v })} />
+        <Switch label="Scroll progress" description="A thin indicator on the edge of every scrolling surface (Skiper UI's scroll progress). Right-click it to unlock and drag it anywhere; this switch is how you bring it back if you hide it."
+          checked={settings.scrollProgress?.enabled !== false}
+          onChange={(v) => update({ scrollProgress: { ...(settings.scrollProgress ?? {}), enabled: v } })} />
+
+        {/* Border Beam palette — same component, four built-in variants. */}
+        <div className="surface p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div>
+              <div className="text-[13px] font-medium mb-0.5">Beam colour</div>
+              <div className="text-[11.5px]" style={{ color: 'var(--text-2)' }}>
+                {settings.composerBeam === false ? 'The beam is off — turn it on above to see it.' : 'Shown around the composer on the home screen.'}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {(['ocean', 'colorful', 'sunset', 'mono'] as const).map((v) => (
+              <button key={v} onClick={() => update({ composerBeamVariant: v })}
+                className="py-2 rounded-[10px] text-[12px] capitalize"
+                style={{
+                  background: (settings.composerBeamVariant ?? 'ocean') === v ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'var(--elevated)',
+                  border: `1px solid ${(settings.composerBeamVariant ?? 'ocean') === v ? 'color-mix(in srgb, var(--primary) 45%, transparent)' : 'var(--surface-border)'}`,
+                  color: (settings.composerBeamVariant ?? 'ocean') === v ? 'var(--primary)' : 'var(--text-2)',
+                }}>
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Live swatches. They use the very same .grad-* classes as the cards, so
+            flipping the switch (or the theme) makes the mesh travel into place
+            here too — you see the colour settle before you leave Settings. */}
+        <div className="surface p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div>
+              <div className="text-[13px] font-medium mb-0.5">Gradient preview</div>
+              <div className="text-[11.5px]" style={{ color: 'var(--text-2)' }}>
+                {settings.themeGradients
+                  ? 'Pulled from the active palette — switch theme to watch it re-settle.'
+                  : 'Vibrant house hues — independent of the theme.'}
+              </div>
+            </div>
+            <button onClick={() => update({ themeGradients: !settings.themeGradients })} className="humanize-mini shrink-0">
+              {settings.themeGradients ? 'Use vibrant' : 'Match theme'}
+            </button>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {(['research', 'math', 'quiz', 'article', 'flood'] as const).map((k, i) => (
+              <div key={k} className={`grad-${k} h-14 rounded-[12px] relative overflow-hidden`}
+                style={{ border: '1px solid var(--surface-border)', animationDelay: `${i * 60}ms` }}>
+                <span className="absolute left-2 bottom-1.5 text-[9.5px] capitalize"
+                  style={{ color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 2px rgba(0,0,0,0.45)' }}>{k}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Glass surface theme (chatbox + Dynamic Island) */}
         <div className="surface p-4">

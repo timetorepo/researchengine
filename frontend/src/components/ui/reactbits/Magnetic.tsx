@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 
 /** ReactBits-style magnetic element — leans toward the cursor. */
 export function Magnetic({

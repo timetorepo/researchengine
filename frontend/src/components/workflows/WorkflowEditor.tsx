@@ -1,5 +1,6 @@
 // Workflow editor: canvas + run controls + history + log/data panels.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { scrollToEnd } from '@/lib/dom/scroll'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Play, Square, Pause, StepForward, RotateCcw, LayoutGrid, Magnet,
@@ -54,7 +55,7 @@ export function WorkflowEditor() {
   const [nodeStatus, setNodeStatus] = useState<Record<string, NodeRunStatus>>({})
   const [activeEdges, setActiveEdges] = useState<Set<string>>(new Set())
   const [lastRun, setLastRun] = useState<WorkflowRunRecord | null>(null)
-  const logEndRef = useRef<HTMLDivElement>(null)
+  const logPaneRef = useRef<HTMLDivElement>(null)
 
   // undo/redo
   const past = useRef<Snapshot[]>([])
@@ -247,7 +248,9 @@ export function WorkflowEditor() {
   }
 
   useEffect(() => () => { executorRef.current?.stop() }, [id])
-  useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs.length])
+  // Scroll the log pane, not the page (this is the call that used to park the
+  // whole app at the bottom of the workflow screen).
+  useEffect(() => { scrollToEnd(logPaneRef.current, { smooth: true }) }, [logs.length])
 
   /* ------------------------------ import/export ----------------------------- */
   const doExport = () => {
@@ -436,10 +439,9 @@ export function WorkflowEditor() {
               <button onClick={() => setLogs([])} className="text-[10.5px] mr-2" style={{ color: 'var(--text-3)' }}>Clear</button>
               <button onClick={() => setLogOpen(false)} aria-label="Close log"><X size={13} style={{ color: 'var(--text-3)' }} /></button>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[10.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            <div ref={logPaneRef} className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[10.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
               {logs.length === 0 && <span style={{ color: 'var(--text-3)' }}>Run the workflow to see live output.</span>}
               {logs.map((l, i) => <div key={i} className="whitespace-pre-wrap break-words">{l}</div>)}
-              <div ref={logEndRef} />
             </div>
           </div>
         )}

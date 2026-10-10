@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { ShieldCheck, ShieldOff, ShieldAlert, X, ArrowUpRight, Download, ScanSearch } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { timeAgo } from '@/lib/utils'

@@ -6,21 +6,32 @@ import { dbStats } from '../db'
 import {
   PROFILES, type ProfileId, type Runtime, dirSize, loadConfig, saveConfig,
 } from '../runtime'
+import { gpuReading, sampleProcessCpu, systemMemory } from '../services/system-metrics'
 
 export function resourceRoutes(rt: Runtime) {
   const r = new Hono()
 
-  r.get('/resources', (c) => {
+  r.get('/resources', async (c) => {
     const mem = process.memoryUsage()
     const dbFile = rt.dbPath
+    // The live half: what the app costs right now, next to what the machine has.
+    // `cpu.pct` is null on the very first call — a percentage needs two samples,
+    // so the honest first answer is a dash, not a zero.
+    const cpu = sampleProcessCpu()
+    const gpu = await gpuReading()
     return c.json({
       ok: true,
+      at: Date.now(),
       process: {
         rssMB: Math.round(mem.rss / 1048576),
         heapMB: Math.round(mem.heapUsed / 1048576),
         uptimeSec: Math.round(process.uptime()),
         node: process.version,
+        cpuPct: cpu.pct,
+        cpuSec: cpu.usedSec,
       },
+      system: { ...systemMemory(), load1: cpu.load1, cores: cpu.cores },
+      gpu,
       dataDir: {
         path: rt.dataDir,
         totalMB: +(dirSize(rt.dataDir) / 1048576).toFixed(1),

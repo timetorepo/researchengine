@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Sidebar } from '@/components/sidebar/Sidebar'
+import { SessionSwitcher } from '@/components/sessions/SessionSwitcher'
 import { TopBar } from '@/components/topbar/TopBar'
 import { TitleBar } from '@/components/os/TitleBar'
 import { DynamicIsland } from '@/components/os/DynamicIsland'
@@ -12,6 +13,13 @@ import { PrivacyPanel } from '@/components/sidebar/PrivacyPanel'
 import { BackgroundLayer } from './BackgroundLayer'
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  // AI-driven navigation: message chips dispatch this event, the shell routes.
+  const nav = useNavigate()
+  useEffect(() => {
+    const h = (e: Event) => nav(String((e as CustomEvent).detail))
+    window.addEventListener('re-navigate', h)
+    return () => window.removeEventListener('re-navigate', h)
+  }, [nav])
   const theme = useStore((s) => s.settings.theme)
   const osMinimized = useUI((s) => s.osMinimized)
   const location = useLocation()
@@ -21,9 +29,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const glassMode = useStore((s) => s.settings.glassMode)
 
   // Gradient style lives on <html> so every gradient surface follows.
+  //
+  // Swapping gradient *values* is instant and reads as a jump-cut, so while the
+  // new palette takes over we run `re-grad-settle`: the mesh pans across each
+  // gradient card and eases back to centre, the way the colour "finds" its
+  // place. Runs on the toggle AND on a theme change (theme-matched gradients are
+  // derived from the palette, so a theme switch recolours them too).
+  const gradSettleRan = React.useRef(false)
   useEffect(() => {
-    document.documentElement.dataset.grad = themeGradients ? 'theme' : 'vibrant'
-  }, [themeGradients])
+    const root = document.documentElement
+    root.dataset.grad = themeGradients ? 'theme' : 'vibrant'
+    if (!gradSettleRan.current) { gradSettleRan.current = true; return }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear = 0
+    const timer = window.setTimeout(() => {
+      root.classList.add('re-grad-settle')
+      window.dispatchEvent(new CustomEvent('re:gradient-settle'))
+      // The pan ends at the *new* palette — drop the class so the oversized
+      // background and the will-change hint don't linger.
+      clear = window.setTimeout(() => root.classList.remove('re-grad-settle'), 1250)
+    }, 30)
+    return () => { window.clearTimeout(timer); window.clearTimeout(clear) }
+  }, [themeGradients, theme])
 
   // Glass theme (chatbox + Dynamic Island) also lives on <html>.
   useEffect(() => {
@@ -83,6 +110,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           )}
         </div>
         <PrivacyPanel />
+        <SessionSwitcher />
       </div>
     )
   }
@@ -100,6 +128,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {/* Optional everywhere: the island floats over any theme when enabled. */}
       {dynamicIsland && <DynamicIsland />}
       <PrivacyPanel />
+      <SessionSwitcher />
     </div>
   )
 }

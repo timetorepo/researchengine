@@ -1,6 +1,7 @@
 // Workflows home: your workflows, one-click run, and the template gallery.
 import React, { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'motion/react'
 import { Workflow as WorkflowIcon, Plus, Upload, Play, Trash2, Download, Pencil, CircleCheck, CircleX, Loader2 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -65,12 +66,13 @@ export function WorkflowsList() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-[1080px] mx-auto px-6 py-8">
-        <div className="flex items-center gap-3 mb-1.5">
+        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          className="flex items-center gap-3 mb-1.5">
           <span className="w-9 h-9 rounded-[12px] flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6C8EEF, #A78BFA)' }}>
             <WorkflowIcon size={18} color="#fff" />
           </span>
           <h1 className="text-[22px] font-semibold" style={{ letterSpacing: '-0.02em' }}>Workflows</h1>
-        </div>
+        </motion.div>
         <p className="text-[13px] mb-6" style={{ color: 'var(--text-3)' }}>
           Chain triggers, AI steps, logic and outputs into automations that run against real systems.
         </p>
@@ -87,9 +89,15 @@ export function WorkflowsList() {
         {/* my workflows */}
         {workflows.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
-            {workflows.map((wf) => <WorkflowCard key={wf.id} wf={wf} running={runningId === wf.id}
-              onOpen={() => navigate(`/workflows/${wf.id}`)} onRun={() => runNow(wf)}
-              onExport={() => download(wf)} onDelete={() => { useStore.getState().deleteWorkflow(wf.id) }} />)}
+            {workflows.map((wf, i) => (
+              <motion.div key={wf.id}
+                initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i, 8) * 0.05, type: 'spring', damping: 26, stiffness: 300 }}>
+                <WorkflowCard wf={wf} running={runningId === wf.id}
+                  onOpen={() => navigate(`/workflows/${wf.id}`)} onRun={() => runNow(wf)}
+                  onExport={() => download(wf)} onDelete={() => { useStore.getState().deleteWorkflow(wf.id) }} />
+              </motion.div>
+            ))}
           </div>
         )}
         {workflows.length === 0 && (
@@ -103,13 +111,16 @@ export function WorkflowsList() {
         <h2 className="text-[14px] font-semibold mb-3">Templates</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pb-10">
           {WORKFLOW_TEMPLATES.map((t, i) => (
-            <button key={t.name} onClick={() => createFromTemplate(i)}
-              className="text-left rounded-[16px] p-4 transition-transform hover:-translate-y-0.5"
+            <motion.button key={t.name} onClick={() => createFromTemplate(i)}
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 + Math.min(i, 8) * 0.04, type: 'spring', damping: 26, stiffness: 300 }}
+              whileHover={{ y: -3 }} whileTap={{ scale: 0.99 }}
+              className="re-wf-card text-left rounded-[16px] p-4"
               style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
               <div className="text-[13px] font-semibold mb-1">{t.name}</div>
               <div className="text-[11.5px] leading-relaxed" style={{ color: 'var(--text-3)' }}>{t.description}</div>
               <div className="text-[11px] mt-2.5 font-medium" style={{ color: 'var(--primary)' }}>Use template</div>
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -122,8 +133,14 @@ function WorkflowCard({ wf, running, onOpen, onRun, onExport, onDelete }: {
 }) {
   const last = wf.lastRun
   return (
-    <div className="rounded-[16px] p-4 flex flex-col" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-      <button onClick={onOpen} className="text-left mb-1">
+    <div className="re-wf-card rounded-[16px] p-4 flex flex-col h-full" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+      <button onClick={onOpen} className="text-left mb-1 flex items-center gap-2">
+        <motion.span className="re-wf-icon shrink-0 w-7 h-7 rounded-[9px] grid place-items-center"
+          animate={running ? { rotate: [0, 8, -6, 0] } : { rotate: 0 }}
+          transition={{ duration: 1.4, repeat: running ? Infinity : 0, ease: 'easeInOut' }}
+          style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
+          <WorkflowIcon size={14} />
+        </motion.span>
         <div className="text-[14px] font-semibold truncate">{wf.name}</div>
       </button>
       <div className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
@@ -131,11 +148,18 @@ function WorkflowCard({ wf, running, onOpen, onRun, onExport, onDelete }: {
         {last && <> · last run {last.status === 'ok' ? 'succeeded' : last.status === 'error' ? 'failed' : 'stopped'} {relTime(last.at)}</>}
       </div>
       <div className="flex items-center gap-1.5 mt-auto">
-        <button onClick={onRun} disabled={running}
+        <motion.button onClick={onRun} disabled={running} whileTap={{ scale: 0.96 }}
           className="flex items-center gap-1 px-3 py-1.5 rounded-[9px] text-[12px] font-medium disabled:opacity-60"
           style={{ background: 'var(--primary)', color: '#fff' }}>
-          {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} {running ? 'Running' : 'Run'}
-        </button>
+          {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span key={running ? 'running' : 'idle'}
+              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}>
+              {running ? 'Running' : 'Run'}
+            </motion.span>
+          </AnimatePresence>
+        </motion.button>
         <IconBtn label="Open editor" onClick={onOpen}><Pencil size={13} /></IconBtn>
         <IconBtn label="Export" onClick={onExport}><Download size={13} /></IconBtn>
         <IconBtn label="Delete" danger onClick={onDelete}><Trash2 size={13} /></IconBtn>

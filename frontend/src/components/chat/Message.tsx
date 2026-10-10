@@ -1,18 +1,39 @@
-import React, { memo, useState } from 'react'
+import React, { memo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import {
-  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles,
+  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2, Gauge, Scissors, BrainCircuit,
 } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+
+/** 1234 → 1.2k. Token counts are for orientation, not accounting. */
+export function formatTokens(n: number): string {
+  if (n < 1000) return String(n)
+  if (n < 100000) return `${(n / 1000).toFixed(1)}k`
+  return `${Math.round(n / 1000)}k`
+}
 import { Markdown } from './Markdown'
 import { ReplicateTimeline } from './ReplicateTimeline'
-import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip } from './ToolUI'
+import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
+import { TooltipCardStrip } from '@/components/ui/aceternity/TooltipCard'
+import { AlphaChip, handOffToAlpha } from '@/components/alpha/RemoverAlpha'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
 import { SourceStrip } from './SourceStrip'
+import { HumanizedAnswer, HumanizingIndicator, HumanizeError } from './HumanizedAnswer'
+import { humanizeText } from '@/lib/chat/humanize'
 import { nanoid } from 'nanoid'
+import { ThinkingOrb } from 'thinking-orbs'
+import { themeKind } from '@/lib/themes/meta'
+// SmoothUI — the message frame (avatar, bubble, timestamp, copy / vote / retry
+// actions that fade in from the side the bubble is anchored to).
+import AIMessage from '@/components/smoothui/ai-message'
+import { ForkPanel, CapsuleCard } from '@/components/chat/ForkPanel'
+import AIDiff from '@/components/smoothui/ai-diff'
+import AIReasoning from '@/components/smoothui/ai-reasoning'
+import { timeAgo } from '@/lib/utils'
+import { diffLines } from '@/lib/text/diff'
 
 interface Props {
   chatId: string
@@ -21,34 +42,132 @@ interface Props {
   onRegenerate: (msg: ChatMessage) => void
 }
 
+/**
+ * Chain of thought: the reasoning a provider chose to expose, kept verbatim
+ * and collapsed. While the model is still thinking and no answer text has
+ * landed yet, the block breathes so the wait reads as thinking, not hanging.
+ */
+type SectionAction = { kind: 'quiz' | 'coding' | 'read' | 'chats'; target?: string }
+const SECTION_RE = /\[RE:open:(quiz|coding|read|chats)(?:\|([^\]]+))?\]/g
+const sectionActions = (content: string): SectionAction[] => {
+  const out: SectionAction[] = []
+  for (const m of content.matchAll(SECTION_RE)) {
+    out.push({ kind: m[1] as SectionAction['kind'], target: m[2]?.trim() })
+    if (out.length >= 2) break
+  }
+  return out
+}
+const stripMarkers = (content: string) => content.replace(SECTION_RE, '').replace(/\n{3,}/g, '\n\n').trim()
+function runSectionAction(a: SectionAction) {
+  const nav = (to: string) => window.dispatchEvent(new CustomEvent('re-navigate', { detail: to }))
+  if (a.kind === 'quiz') nav('/quiz')
+  else if (a.kind === 'coding') nav('/code')
+  else if (a.kind === 'chats') nav('/chats')
+  else if (a.kind === 'read' && a.target) nav(`/library?url=${encodeURIComponent(a.target)}`)
+}
+
+function ThinkingBlock({ text, live }: { text: string; live?: boolean }) {
+  const [open, setOpen] = useState(false)
+  if (!text && !live) return null
+  return (
+    <div className="mb-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[11px]" style={{ color: 'var(--text-3)' }}>
+        <BrainCircuit size={12} className={live && !text ? 'animate-pulse' : ''} />
+        <span>{live && !text ? 'Thinking' : open ? 'Chain of thought' : 'Chain of thought'}</span>
+        {text ? <span className="ml-auto text-[10px] opacity-70">{open ? 'hide' : `${Math.max(1, Math.round(text.length / 4))} tok`}</span> : null}
+      </button>
+      {(open || (live && !text)) && text && (
+        <div className="px-2.5 pb-2 text-[11px] leading-relaxed whitespace-pre-wrap max-h-56 overflow-auto" style={{ color: 'var(--text-3)' }}>{text}</div>
+      )}
+    </div>
+  )
+}
+
 export const Message = memo(function Message({ chatId, msg, streaming, onRegenerate }: Props) {
   const navigate = useNavigate()
-  const ui = useUI()
+  /**
+   * Deliberately *not* a subscription. Every use of `ui` here is an imperative
+   * action (a toast, opening a panel), and subscribing to the whole UI store
+   * meant every toast, queue change and overlay flag re-rendered every message
+   * in the transcript — which is most of the cost of a long chat. Each message
+   * now re-renders only for its own props, and the streaming one for its
+   * tokens.
+   */
+  const ui = useUI.getState
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(msg.content)
   const [showInfo, setShowInfo] = useState(false)
+  /** An edit is being reviewed as a diff before it is written back. */
+  const [reviewing, setReviewing] = useState(false)
   const [hoverSource, setHoverSource] = useState<string | null>(null)
+  const humanizeAbort = useRef<AbortController | null>(null)
   const store = useStore
+  const theme = useStore((st) => st.settings.theme)
+  const reduceMotion = useStore((st) => st.settings.reduceMotion)
   const contextExhausted = !!msg.error && /(context|token|maximum|limit|length).{0,24}(window|capacity|exceed|long|limit|token)|too many tokens/i.test(msg.error)
-  const forkWithSummary = () => {
-    const source = store.getState().chats.find((c) => c.id === chatId)
-    if (!source) return
-    const turns = source.messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-10)
-    const compact = turns.map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.replace(/\s+/g, ' ').slice(0, 420)}`).join('\n')
-    const forkId = store.getState().newChat()
-    store.getState().renameChat(forkId, `Fork · ${source.title}`.slice(0, 80))
-    store.getState().addMessage(forkId, { id: nanoid(8), role: 'assistant', content: `## Conversation capsule\n\nThis is a simplified continuation of **${source.title}**. The earlier context was compressed because the model context window was full.\n\n${compact}`, createdAt: Date.now(), model: 'local summary', provider: 'Research Engine' })
-    store.getState().addMessage(forkId, { id: nanoid(8), role: 'user', content: 'Continue from this simplified conversation capsule. Ask me to clarify anything that was lost.', createdAt: Date.now() })
-    navigate(`/chat/${forkId}`)
-    ui.toast('Conversation forked', 'A compact context capsule was carried into a new chat.', 'success')
+  /**
+   * Forking is a panel now, not a 420-character-per-turn truncation: it shows
+   * what the compression keeps and what it saves before anything is created
+   * (components/chat/ForkPanel.tsx).
+   */
+  const [forkOpen, setForkOpen] = useState(false)
+
+  /** Humanize is a Chat affordance — never offered inside Coding mode. */
+  const chatTitle = store((s) => s.chats.find((c) => c.id === chatId)?.title ?? '')
+  const humanizeAllowed = !/^Coding ·/.test(chatTitle)
+
+  const runHumanize = async () => {
+    if (msg.humanizing) { humanizeAbort.current?.abort(); store.getState().updateMessage(chatId, msg.id, { humanizing: false }); return }
+    const ctrl = new AbortController()
+    humanizeAbort.current = ctrl
+    store.getState().updateMessage(chatId, msg.id, { humanizing: true, humanizeError: undefined })
+    try {
+      const res = await humanizeText({
+        text: msg.content,
+        signal: ctrl.signal,
+        // Stream into the message so long answers appear as they are rewritten.
+        onChunk: (soFar) => store.getState().updateMessage(chatId, msg.id, { humanized: soFar }),
+      })
+      store.getState().updateMessage(chatId, msg.id, { humanized: res.text, humanizedBy: res.by, humanizing: false })
+      // A rewrite that is dramatically shorter than the original usually means
+      // the model ran into its output limit — say so instead of quietly losing
+      // half an answer.
+      const clipped = msg.content.length > 800 && res.text.length < msg.content.length * 0.55
+      ui().toast(
+        clipped ? 'Humanized — check the length' : res.local ? 'Humanized on device' : 'Humanized',
+        clipped
+          ? 'The rewrite is much shorter than the original: the model may have been cut off. Press Humanize again for another pass.'
+          : res.local
+            ? 'No provider key is set, so the on-device pass rewrote it.'
+            : `Rewritten by ${res.by}. Hover the green text for the previous response.`,
+        clipped ? 'warning' : 'success',
+      )
+    } catch (e: any) {
+      if (e?.name === 'AbortError') { store.getState().updateMessage(chatId, msg.id, { humanizing: false }); return }
+      store.getState().updateMessage(chatId, msg.id, {
+        humanizing: false,
+        humanizeError: String(e?.message ?? e).slice(0, 200),
+      })
+    } finally {
+      humanizeAbort.current = null
+    }
   }
 
   if (msg.role === 'user') {
     return (
       <div className="msg-row group py-4" style={{ borderTop: '1px solid var(--surface-border)' }}>
         <div className="max-w-[760px] mx-auto px-4">
-          {editing ? (
+          {editing ? (reviewing ? (
+            // Reviewing your own edit as a diff: what is about to be removed,
+            // what is about to replace it, and one place to decide.
+            <AIDiff
+              title="Review your edit"
+              lines={diffLines(msg.content, draft)}
+              onAccept={() => { store.getState().updateMessage(chatId, msg.id, { content: draft }); setEditing(false); setReviewing(false) }}
+              onReject={() => setReviewing(false)}
+            />
+          ) : (
             <div>
               <textarea
                 value={draft}
@@ -60,25 +179,32 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               />
               <div className="flex gap-2 mt-2">
                 <button className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}
-                  onClick={() => { store.getState().updateMessage(chatId, msg.id, { content: draft }); setEditing(false) }}>
-                  Save
+                  title="See what changed before it is saved"
+                  onClick={() => { if (draft === msg.content) { setEditing(false); return } setReviewing(true) }}>
+                  Review
                 </button>
                 <button className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}
-                  onClick={() => setEditing(false)}>Cancel</button>
+                  onClick={() => { setDraft(msg.content); setEditing(false); setReviewing(false) }}>Cancel</button>
               </div>
             </div>
-          ) : (
+          )) : (
             <>
               <AttachmentStrip msg={msg} />
-              <div className="text-[14.5px] whitespace-pre-wrap" style={{ color: 'var(--text)' }}>{msg.content}</div>
+              <div className="flex justify-end">
+                <AIMessage
+                  bubble
+                  copyText={msg.content}
+                  from="user"
+                  timestamp={timeAgo(msg.createdAt)}
+                >
+                  <div className="whitespace-pre-wrap text-[14.5px]">{msg.content}</div>
+                </AIMessage>
+              </div>
             </>
           )}
-          <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <HoverBtn label="Copy" onClick={() => { navigator.clipboard.writeText(msg.content); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>
-              {copied ? <Check size={13} /> : <Copy size={13} />}
-            </HoverBtn>
+          <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
             <HoverBtn label="Edit" onClick={() => { setDraft(msg.content); setEditing(true) }}><Pencil size={13} /></HoverBtn>
-            <HoverBtn label="Build skill" onClick={() => ui.set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
+            <HoverBtn label="Build skill" onClick={() => ui().set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
           </div>
         </div>
       </div>
@@ -86,6 +212,25 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
   }
 
   const f = msg.flow
+  const usage = msg.usage
+  /**
+   * How long the answer actually took: the wall clock between the prompt and
+   * this message. The only duration worth printing — a timer that starts when
+   * a panel opens would be measuring the wrong thing.
+   */
+  const answerSeconds = (() => {
+    const chat = store.getState().chats.find((c) => c.id === chatId)
+    const i = chat?.messages.findIndex((m) => m.id === msg.id) ?? -1
+    if (!chat || i <= 0) return undefined
+    for (let j = i - 1; j >= 0; j--) {
+      if (chat.messages[j].role === 'user') {
+        const s = (msg.createdAt - chat.messages[j].createdAt) / 1000
+        return s > 0 && s < 24 * 3600 ? s : undefined
+      }
+    }
+    return undefined
+  })()
+  const showTokenUsage = useStore((st) => st.settings.showTokenUsage !== false)
   const Row: any = streaming ? motion.div : 'div'
   return (
     <Row
@@ -96,10 +241,36 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         transition: { layout: { type: 'spring', damping: 26, stiffness: 320 }, opacity: { duration: 0.2 }, y: { duration: 0.2 } },
       } : {})}
       className={`msg-row group py-4 ${streaming ? 'msg-streaming' : 'msg-settle'}`}>
+      {/* The fork panel lives with the message that opened it; HeroUI's Modal
+          renders nothing until it is open, so an idle chat carries no extra
+          DOM. */}
+      <ForkPanel chatId={chatId} exhausted={contextExhausted} open={forkOpen} onClose={() => setForkOpen(false)} />
       <div className="max-w-[760px] mx-auto px-4">
+        <AIMessage
+          avatar={(
+            <span className="grid h-7 w-7 place-items-center rounded-full" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
+                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
+              </svg>
+            </span>
+          )}
+          bubble={false}
+          className="items-start"
+          contentClassName="w-full max-w-none"
+          copyText={msg.content}
+          from="assistant"
+          onRetry={() => onRegenerate(msg)}
+          timestamp={timeAgo(msg.createdAt)}
+        >
         {/* Model attribution */}
         <div className="flex items-center gap-1.5 mb-2 text-[11px]" style={{ color: 'var(--text-3)' }}>
-          {streaming && msg.content !== '' && <motion.span layoutId="re-flow-orb" className="inline-flex"><span className="re-orb re-orb-sm" aria-hidden="true" /></motion.span>}
+          {streaming && msg.content !== '' && (
+            <motion.span layoutId="re-flow-orb" className="inline-flex">
+              {/* ThinkingOrb (Jakubantalik) marks the text as still arriving. */}
+              <ThinkingOrb state="composing" size={20} theme={themeKind(theme)} paused={reduceMotion} />
+            </motion.span>
+          )}
           <ProviderLogo id={msg.provider?.toLowerCase() ?? ''} size={12} />
           <span className="font-mono">{msg.model}</span>
           {msg.agentAttribution && msg.agentAttribution.length > 0 && (
@@ -115,6 +286,18 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
             </span>
           )}
         </div>
+
+        {(msg.thinking || (streaming && !msg.content)) && (
+          <ThinkingBlock text={msg.thinking ?? ''} live={!!streaming} />
+        )}
+
+        {sectionActions(msg.content).map((a, i) => (
+          <button key={i} onClick={() => runSectionAction(a)}
+            className="mb-2 mr-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium"
+            style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
+            {a.kind === 'quiz' ? 'Open Read & Quiz' : a.kind === 'coding' ? 'Open Coding' : a.kind === 'chats' ? 'Open Sessions' : `Read ${a.target ? new URL(a.target, 'http://x').host : ''}`}
+          </button>
+        ))}
 
         {/* Sources strip */}
         {msg.sources && msg.sources.length > 0 && (
@@ -134,12 +317,12 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                   className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--primary)', color: '#fff' }}>
                   Retry
                 </button>
-                {contextExhausted && <button onClick={forkWithSummary}
+                {contextExhausted && <button onClick={() => setForkOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
                   <Sparkles size={12} /> Simplify &amp; fork
                 </button>}
                 <button
-                  onClick={() => ui.set({ settingsSheet: true, settingsTab: 'providers' })}
+                  onClick={() => ui().set({ settingsSheet: true, settingsTab: 'providers' })}
                   className="px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--danger)', color: '#fff' }}
                 >Fix in Settings</button>
               </div>
@@ -148,10 +331,25 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         ) : (
           <>
             {msg.stages && msg.stages.length > 0 && <ReplicateTimeline chatId={chatId} msg={msg} />}
-            <ToolTraceChips msg={msg} />
+            <ToolTraceChips msg={msg} streaming={streaming} />
+            <CodingModeCard project={msg.promotedTo?.project} reason={msg.promotedTo?.reason} />
             <ExecApproval chatId={chatId} msg={msg} />
             <QuestionnaireCard chatId={chatId} msg={msg} />
-            <Markdown content={msg.content} streaming={streaming} />
+            {/* Cards the model summoned with the `show_tooltip_card` tool.
+                Deliberately tool-driven: no tool call, no card. */}
+            {msg.tooltipCards?.length ? <TooltipCardStrip cards={msg.tooltipCards} /> : null}
+            {msg.humanizing && !msg.humanized && <HumanizingIndicator onCancel={() => void runHumanize()} />}
+            {msg.capsule ? (
+              <CapsuleCard msg={msg} />
+            ) : msg.humanized ? (
+              <HumanizedAnswer
+                msg={msg}
+                onRestore={() => store.getState().updateMessage(chatId, msg.id, { humanized: undefined, humanizedBy: undefined, humanizeError: undefined })}
+              />
+            ) : (
+              !msg.humanizing && <Markdown content={stripMarkers(msg.content)} streaming={streaming} />
+            )}
+            {msg.humanizeError && <HumanizeError message={msg.humanizeError} onRetry={() => void runHumanize()} />}
           </>
         )}
 
@@ -179,6 +377,28 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           </div>
         )}
 
+        {/* Humanize — always visible, because a hidden button is not a feature.
+            Chat only: the IDE has its own agent surface, and Chat messages that
+            belong to a Coding project (title "Coding · …") are excluded too. */}
+        {!streaming && msg.content && !msg.error && humanizeAllowed && !msg.humanized && (
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+            <button
+              onClick={() => void runHumanize()}
+              disabled={msg.humanizing}
+              title="Rewrite this answer so it reads like a person wrote it — the original stays one hover away"
+              aria-label="Humanize this answer"
+              className="humanize-action"
+            >
+              {msg.humanizing
+                ? <><Loader2 size={12} className="animate-spin" /> Humanizing…</>
+                : <><Feather size={12} /> Humanize</>}
+            </button>
+            <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>
+              {msg.humanizing ? 'rewriting it now' : 'rewrites it in plain, human prose'}
+            </span>
+          </div>
+        )}
+
         {/* Hover actions */}
         {!streaming && msg.content && (
           <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -186,6 +406,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               {copied ? <Check size={13} /> : <Copy size={13} />}
             </HoverBtn>
             <HoverBtn label="Regenerate" onClick={() => onRegenerate(msg)}><RefreshCw size={13} /></HoverBtn>
+            <HoverBtn label="Fork with a compressed prompt" onClick={() => setForkOpen(true)}><Scissors size={13} /></HoverBtn>
             <HoverBtn label="Branch into new chat" onClick={() => {
               const chat = store.getState().chats.find((c) => c.id === chatId)!
               const idx = chat.messages.findIndex((m) => m.id === msg.id)
@@ -198,12 +419,19 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
               }
               useStore.setState((s) => ({ chats: [branch, ...s.chats] }))
               navigate(`/chat/${branch.id}`)
-              ui.toast('Branched', 'This response now lives in its own research thread.')
+              ui().toast('Branched', 'This response now lives in its own research thread.')
             }}><GitBranch size={13} /></HoverBtn>
+            {/* removerAlpha: hand this answer's own text to the local pass. It
+                only appears when the pass actually found something, so it is a
+                result rather than a decoration. */}
+            <AlphaChip
+              text={msg.humanized ?? msg.content}
+              onOpen={() => handOffToAlpha(msg.humanized ?? msg.content)}
+            />
             <HoverBtn label="Bookmark" onClick={() => store.getState().updateMessage(chatId, msg.id, { bookmarked: !msg.bookmarked })}>
               <Bookmark size={13} fill={msg.bookmarked ? 'currentColor' : 'none'} />
             </HoverBtn>
-            <HoverBtn label="Build skill" onClick={() => ui.set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
+            <HoverBtn label="Build skill" onClick={() => ui().set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
             <HoverBtn label="Extract insight" onClick={() => {
               const firstLine = msg.content.split('\n').find((l) => l.trim().length > 12)?.replace(/[#*>`]/g, '').trim() ?? 'Insight'
               useStore.setState((s) => ({
@@ -213,23 +441,36 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                   tags: ['extracted'], confidence: 'medium', createdAt: Date.now(),
                 }, ...s.knowledge],
               }))
-              ui.toast('Knowledge card saved', 'Find it in Library → Knowledge.')
+              ui().toast('Knowledge card saved', 'Find it in Library → Knowledge.')
             }}><Lightbulb size={13} /></HoverBtn>
             {f && <HoverBtn label="Transparency info" onClick={() => setShowInfo((v) => !v)}><Info size={13} /></HoverBtn>}
+            {/* What this answer cost. Providers that report counts are quoted
+                exactly; estimates are marked with ≈ so the two never blur. */}
+            {usage && usage.total > 0 && showTokenUsage && (
+              <span
+                className="ml-1 inline-flex items-center gap-1 px-2 py-[3px] rounded-full text-[10.5px] font-mono cursor-default"
+                style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}
+                title={`${usage.reported ? 'Reported by the provider' : 'Estimated from the text (this provider does not report usage)'}: ${usage.prompt} in · ${usage.completion} out`}
+              >
+                <Gauge size={11} />
+                {usage.reported ? '' : '≈'}{formatTokens(usage.total)} tokens
+              </span>
+            )}
           </div>
         )}
 
-        {/* Flow trust indicator */}
+        {/* How this answer was made — SmoothUI's AIReasoning disclosure, with
+            the real numbers inside it. */}
         {showInfo && f && (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-            className="mt-2.5 p-3.5 rounded-[14px] text-[12px] grid grid-cols-2 sm:grid-cols-5 gap-3"
-            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-            <Stat label="Original context" value={`${f.originalTokens} tok`} />
-            <Stat label="Pruned context" value={`${f.prunedTokens} tok`} />
-            <Stat label="Prompt sent" value={`${f.promptTokens} tok`} />
-            <Stat label="Completion" value={`${f.completionTokens} tok`} />
-            <Stat label="Est. cost saved" value={`$${f.costSaved.toFixed(4)}`} accent />
-          </motion.div>
+          <AIReasoning className="mt-2.5" collapseWhenDone={false} defaultOpen duration={answerSeconds}>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-[12px]">
+              <Stat label="Original context" value={`${f.originalTokens} tok`} />
+              <Stat label="Pruned context" value={`${f.prunedTokens} tok`} />
+              <Stat label="Prompt sent" value={`${f.promptTokens} tok`} />
+              <Stat label="Completion" value={`${f.completionTokens} tok`} />
+              <Stat label="Est. cost saved" value={`$${f.costSaved.toFixed(4)}`} accent />
+            </div>
+          </AIReasoning>
         )}
 
         {/* Continue from here — shown when a stream was stopped early */}
@@ -261,6 +502,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
             ))}
           </div>
         )}
+        </AIMessage>
       </div>
     </Row>
   )

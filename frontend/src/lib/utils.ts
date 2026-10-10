@@ -1,3 +1,19 @@
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+/**
+ * The class-name helper shadcn's registry expects at `@/lib/utils`.
+ *
+ * SmoothUI components are written against shadcn conventions, so they call
+ * `cn(...)` to merge a component's own classes with whatever the caller passes.
+ * `clsx` alone would let two conflicting utilities both land in the class
+ * attribute and leave the winner to stylesheet order; `twMerge` resolves the
+ * conflict the way the component author intended.
+ */
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs))
+}
+
 export function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1) + 'k'
@@ -72,5 +88,27 @@ export function throttle<T extends (...a: any[]) => void>(fn: T, ms: number) {
   return (...args: Parameters<T>) => {
     const now = Date.now()
     if (now - last >= ms) { last = now; fn(...args) }
+  }
+}
+
+/** Clipboard with a select-and-copy fallback for webviews that block it. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      ta.remove()
+      return ok
+    } catch {
+      return false
+    }
   }
 }

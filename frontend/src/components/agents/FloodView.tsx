@@ -1,28 +1,66 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Plus, Rocket, Square, Trash2, Sparkles, MessageSquare } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import type { AgentSpec, Squad } from '@/types'
 import { useStore, AGENT_COLORS } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { AGENT_ROLES, AGENT_INSTRUCTIONS } from '@/lib/agents/squads'
+// SmoothUI's AITaskList — the agents, by state.
+import AITaskList from '@/components/smoothui/ai-task-list'
 import { estimateTokens } from '@/lib/flow/pruner'
 import { generateText } from '@/lib/chat/generate'
 import { MovingBorder } from '@/components/ui/aceternity/MovingBorder'
+// React Bits — Micro. Used as published: the objective bar is a real prompt bar
+// (model, effort, dictation, a send that becomes a stop).
+import PromptBar from '@/components/ui/reactbits/micro/PromptBar'
+import { useDictation } from '@/hooks/useDictation'
 import { fmt } from '@/lib/utils'
 import { perfCaps } from '@/lib/system/performance'
+
+const EFFORT_TOKENS = { quick: 400, standard: 700, deep: 1300 } as const
 
 interface PadMessage { id: string; agent: string; color: string; text: string; t: number }
 interface AgentStatus { spec: AgentSpec; state: 'idle' | 'working' | 'done' | 'halted' | 'error'; tokens: number; startedAt: number; output: string }
 
 export function FloodView() {
   const squads = useStore((s) => s.squads)
-  const budget = useStore((s) => s.settings.floodBudget)
+  const settings = useStore((s) => s.settings)
+  const budget = settings.floodBudget
   const ui = useUI()
   const navigate = useNavigate()
 
+  /**
+   * The models this build can actually run an agent on: every configured
+   * provider's last-known list, minus the ones the user unlisted. The current
+   * default is marked so the bar opens on the model that will really be used.
+   */
+  const modelOptions = useMemo(() => {
+    const hidden = new Set(settings.hiddenModels ?? [])
+    const out: { key: string; name: string; tag?: string }[] = []
+    for (const pid of settings.addedProviders ?? []) {
+      for (const model of settings.providerModels?.[pid] ?? []) {
+        const ref = `${pid}:${model}`
+        if (hidden.has(ref)) continue
+        out.push({ key: ref, name: model, tag: pid })
+      }
+    }
+    return out
+  }, [settings.addedProviders, settings.providerModels, settings.hiddenModels])
+
+  // Dictation, offered the same way it is in the composer.
+  const dictation = useDictation(() => {})
+
+  /** Press the bar's mic: it listens, and hands the words back when you stop. */
+  const dictateIntoBar = () => dictation.listen()
+
   const [objective, setObjective] = useState('')
+  // Effort sets how long each agent is allowed to answer — the same knob as the
+  // composer's, applied to every agent in the flood.
+  const [effort, setEffort] = useState<'quick' | 'standard' | 'deep'>('standard')
+  // The model the bar is set to; agents that inherit follow it.
+  const [runModel, setRunModel] = useState<string | null>(null)
   const [squad, setSquad] = useState<Squad>(squads[0])
   const [agents, setAgents] = useState<AgentSpec[]>(squads[0]?.agents ?? [])
   const [running, setRunning] = useState(false)
@@ -49,8 +87,10 @@ export function FloodView() {
   const addPad = (agent: string, color: string, text: string) =>
     setPad((p) => [...p, { id: nanoid(6), agent, color, text, t: Date.now() }])
 
-  const deploy = async () => {
-    if (!objective.trim() || agents.length === 0 || running) return
+  const deploy = async (objectiveOverride?: string) => {
+    const subject = (objectiveOverride ?? objective).trim()
+    if (!subject || agents.length === 0 || running) return
+    if (objectiveOverride && objectiveOverride !== objective) setObjective(objectiveOverride)
     stopRef.current = false
     setRunning(true)
     setSynthesis('')
@@ -87,10 +127,10 @@ export function FloodView() {
       try {
         const res = await generateText({
           system,
-          prompt: `Objective: ${objective}`,
+          prompt: `Objective: ${subject}`,
           temperature: ag.temperature,
-          maxTokens: 700,
-          modelOverride: ag.modelBinding && ag.modelBinding !== 'inherit' ? ag.modelBinding : undefined,
+          maxTokens: EFFORT_TOKENS[effort],
+          modelOverride: ag.modelBinding && ag.modelBinding !== 'inherit' ? ag.modelBinding : (runModel ?? undefined),
           signal: controller.signal,
           onChunk: (t) => {
             acc += t
@@ -145,14 +185,14 @@ export function FloodView() {
         try {
           const res = await generateText({
             system: 'You are a rigorous synthesis engine. Merge the agent contributions into one coherent, well-structured deliverable. Resolve conflicts explicitly, keep attribution where it matters, and state a clear bottom line. Markdown.',
-            prompt: `Objective: ${objective}\n\nAgent contributions:\n\n${contributions}`,
+            prompt: `Objective: ${subject}\n\nAgent contributions:\n\n${contributions}`,
             maxTokens: 1200,
             signal: controller.signal,
           })
           usedTokens += res.promptTokens + res.completionTokens
           synth = res.text
         } catch {
-          synth = assembleSynthesis(objective, outputs)
+          synth = assembleSynthesis(subject, outputs)
         }
       } else {
         // On-device engine: assemble a real synthesis from the actual outputs.
@@ -165,7 +205,7 @@ export function FloodView() {
       // Save synthesis as a chat
       const chatId = useStore.getState().newChat()
       const store = useStore.getState()
-      store.addMessage(chatId, { id: nanoid(8), role: 'user', content: `[Agent Flood objective] ${objective}`, createdAt: Date.now() })
+      store.addMessage(chatId, { id: nanoid(8), role: 'user', content: `[Agent Flood objective] ${subject}`, createdAt: Date.now() })
       store.addMessage(chatId, {
         id: nanoid(8), role: 'assistant', content: synth, createdAt: Date.now(),
         model: hasKey ? 'flood' : 'flood (on-device)', provider: 'Agent Flood',
@@ -193,13 +233,36 @@ export function FloodView() {
             Deploy specialized agents in parallel on a single objective. AIFlowEngine applies to every agent.
           </p>
 
-          <label className="block mb-4">
+          <div className="mb-4">
             <span className="text-[12.5px] font-medium mb-1.5 block">Objective</span>
-            <textarea value={objective} onChange={(e) => setObjective(e.target.value)} rows={3}
-              placeholder="e.g. Research the current state of solid-state battery tech and produce a sourced briefing."
-              className="w-full px-3.5 py-2.5 rounded-[14px] outline-none text-[13.5px] resize-none"
-              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
-          </label>
+            <PromptBar
+              placeholder="Research the current state of solid-state battery tech and produce a sourced briefing."
+              models={modelOptions}
+              defaultModel={settings.defaultModel}
+              efforts={['quick', 'standard', 'deep']}
+              defaultEffort={effort}
+              onEffortChange={(v) => setEffort((v === 'quick' || v === 'deep') ? v : 'standard')}
+              busy={running}
+              onSend={(text, detail) => {
+                setObjective(text)
+                if (detail?.model?.key) setRunModel(detail.model.key)
+                void deploy(text)
+              }}
+              onStop={stop}
+              onDictate={dictateIntoBar}
+              className="re-promptbar"
+              background="var(--surface)"
+              color="var(--text)"
+              menuBackground="var(--elevated)"
+              sparkColor="var(--primary)"
+            />
+            {dictation.state === 'recording' && (
+              <div className="text-[11px] mt-1.5" style={{ color: 'var(--primary)' }}>Listening… press the mic again to transcribe.</div>
+            )}
+            {dictation.error && (
+              <div className="text-[11px] mt-1.5" style={{ color: 'var(--danger)' }}>{dictation.error}</div>
+            )}
+          </div>
 
           {/* Preset squads */}
           <div className="text-[12.5px] font-medium mb-2">Squad</div>
@@ -339,6 +402,24 @@ export function FloodView() {
           <span className="text-[13px] font-medium flex-1">Scratchpad</span>
           <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>agent-to-agent</span>
         </div>
+        {/* The live checklist: which agent is idle, working, finished or halted.
+            SmoothUI's AITaskList — state, not a status string. */}
+        {statuses.length > 0 && (
+          <div className="px-3 pt-3">
+            <AITaskList
+              label="Agent flood"
+              tasks={statuses.map((st) => ({
+                id: st.spec.id,
+                label: String((st.spec as any).name ?? (st.spec as any).role ?? 'Agent'),
+                note: st.tokens > 0 ? `${fmt(st.tokens)} tok` : undefined,
+                status: st.state === 'done' ? 'done'
+                  : st.state === 'working' ? 'running'
+                  : st.state === 'idle' ? 'pending'
+                  : 'failed',
+              }))}
+            />
+          </div>
+        )}
         <div ref={padRef} className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[180px]">
           {pad.length === 0 && (
             <div className="text-[12px] text-center py-8" style={{ color: 'var(--text-3)' }}>

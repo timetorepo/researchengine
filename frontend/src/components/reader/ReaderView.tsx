@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { ArrowLeft, Send, Sparkles, Image as ImageIcon, X, GraduationCap, MessageSquareText, Minimize2, Maximize2 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -7,6 +8,8 @@ import { generateText } from '@/lib/chat/generate'
 import { getMaster } from '@/lib/prompts/masters'
 import { webSearch } from '@/lib/search/web'
 import type { DemoHighlight } from '@/lib/documents/demoDoc'
+import { normalizeStepText, toStudyBlocks, type StudyBlock } from '@/lib/reader/format'
+import { Markdown } from '@/components/chat/Markdown'
 
 export interface ReaderDoc {
   id: string
@@ -43,6 +46,7 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   initialNeedle?: string
 }) {
   const settings = useStore((s) => s.settings)
+  const reduceMotion = !!settings.reduceMotion
   const ui = useUI()
   const originalParas = useMemo(() => doc.text.split(/\n{2,}/).filter((p) => p.trim()), [doc.text])
   const rewriteParas = useMemo(() => (doc.rewrite ? doc.rewrite.split(/\n{2,}/).filter((p) => p.trim()) : null), [doc.rewrite])
@@ -57,7 +61,12 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   const [images, setImages] = useState<InlineImage[]>([])
   const [progress, setProgress] = useState(0)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string; label: string } | null>(null)
+  // The chip that follows an automatic highlight (undo / explain / quiz).
   const [selBtn, setSelBtn] = useState<{ x: number; y: number; text: string } | null>(null)
+  // Paragraphs currently flashing after a jump, and the mark that was just
+  // painted — both drive one-shot animations.
+  const [flashIdx, setFlashIdx] = useState<number | null>(null)
+  const [justMarked, setJustMarked] = useState<string | null>(null)
   const [coachStep, setCoachStep] = useState(() => (doc.isDemo && !localStorage.getItem('re.reader.coach') ? 0 : -1))
   const scrollRef = useRef<HTMLDivElement>(null)
   const paraRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -72,7 +81,8 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
     const idx = originalParas.findIndex((p) => p.includes(initialNeedle))
     if (idx >= 0) {
       setHighlights((h) => [...h, { match: initialNeedle, tier: 'fact', reason: 'The passage your quiz answer came from.' }])
-      setTimeout(() => paraRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250)
+      // Centre the paragraph inside the reader's own scroller — never the page.
+      setTimeout(() => scrollChildIntoView(scrollRef.current, paraRefs.current[idx], { block: 'center', smooth: true }), 250)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNeedle])
@@ -86,22 +96,102 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   }
   useEffect(() => { onScroll() }, [paras])
 
-  // ---- user highlight via text selection ----
+  // Read mode is an activity too — the focus timer should say "Reading" here.
+  useEffect(() => {
+    useUI.getState().setActivity({ kind: 'reading', label: 'Reading' })
+    return () => { if (useUI.getState().activity.kind === 'reading') useUI.getState().setActivity({ kind: 'idle' }) }
+  }, [])
+
+  // ---- highlighting: selection paints the mark itself ----
+  // Selecting text used to leave a button to press. Now the mark is drawn the
+  // moment the selection is released (and "ink" is animated on), with a small
+  // chip for the things you might want next: undo, explain, make a quiz.
+  const paintSelection = useCallback((text: string, x: number, y: number) => {
+    const clean = text.replace(/\s+/g, ' ').trim().slice(0, 240)
+    if (clean.length < 3) return false
+    const already = [...highlights, ...topicMarks].some((h) => h.match === clean)
+    if (!already) {
+      setHighlights((h) => [...h, { match: clean, tier: 'user', reason: 'Your highlight.' }])
+      setJustMarked(clean)
+      window.setTimeout(() => setJustMarked((m) => (m === clean ? null : m)), 700)
+      ui.toast('Highlighted', clean.length > 60 ? `${clean.slice(0, 60)}…` : clean, 'success')
+    }
+    setSelBtn({ x, y, text: clean })
+    return !already
+  }, [highlights, topicMarks, ui])
+
+  /** Where to float the chip: the selection's box, with sane fallbacks. */
+  const anchorFor = useCallback((sel: Selection | null): { x: number; y: number } | null => {
+    const host = scrollRef.current?.getBoundingClientRect()
+    if (!host) return null
+    let rect: { left: number; top: number; width: number } | null = null
+    try {
+      // Not every engine implements getBoundingClientRect on a Range (jsdom,
+      // some embedded webviews), and it can throw mid-layout — never fatal.
+      const r = sel?.rangeCount ? sel.getRangeAt(0).getBoundingClientRect?.() : null
+      if (r && (r.width || r.height)) rect = r
+    } catch { rect = null }
+    if (!rect) {
+      const node = sel?.anchorNode
+      const el = (node?.nodeType === 1 ? node as Element : node?.parentElement) ?? null
+      try {
+        const r = el?.getBoundingClientRect?.()
+        if (r && (r.width || r.height)) rect = r
+      } catch { rect = null }
+    }
+    if (!rect) return { x: Math.round(host.width / 2), y: 48 }
+    return { x: rect.left + rect.width / 2 - host.left, y: Math.max(8, rect.top - host.top - 38) }
+  }, [])
+
+  /** The selection, when it is inside the reading column and worth marking. */
+  const readingSelection = useCallback((): string | null => {
+    const sel = window.getSelection()
+    const text = sel?.toString() ?? ''
+    if (text.trim().length < 3 || !sel?.anchorNode || !contentRef.current?.contains(sel.anchorNode)) return null
+    return text
+  }, [])
+
   useEffect(() => {
     const onUp = () => {
-      const sel = window.getSelection()
-      const text = sel?.toString().trim() ?? ''
-      if (text.length > 6 && contentRef.current?.contains(sel!.anchorNode)) {
-        const r = sel!.getRangeAt(0).getBoundingClientRect()
-        const host = scrollRef.current!.getBoundingClientRect()
-        setSelBtn({ x: r.left + r.width / 2 - host.left, y: r.top - host.top - 36, text: text.slice(0, 240) })
-      } else setSelBtn(null)
+      const text = readingSelection()
+      if (!text) { setSelBtn(null); return }
+      const at = anchorFor(window.getSelection())
+      if (!at) return
+      paintSelection(text, at.x, at.y)
+      // Drop the browser selection so the mark is what you see, not the
+      // system-blue overlay on top of it.
+      try { window.getSelection()?.removeAllRanges() } catch { /* nothing to clear */ }
     }
     document.addEventListener('mouseup', onUp)
     return () => document.removeEventListener('mouseup', onUp)
-  }, [])
+  }, [paintSelection, readingSelection, anchorFor])
 
-  // ---- chatbox command handlers ----
+  // Keyboard selection (shift+arrows, ctrl+A) gets the same treatment.
+  useEffect(() => {
+    let timer: number | undefined
+    const onSelChange = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        const text = readingSelection()
+        if (!text) return
+        const at = anchorFor(window.getSelection())
+        if (!at) return
+        paintSelection(text, at.x, at.y)
+        try { window.getSelection()?.removeAllRanges() } catch { /* nothing to clear */ }
+      }, 420)
+    }
+    document.addEventListener('selectionchange', onSelChange)
+    return () => { document.removeEventListener('selectionchange', onSelChange); window.clearTimeout(timer) }
+  }, [paintSelection, readingSelection, anchorFor])
+
+  // The chip fades on its own; it is a shortcut, not a modal.
+  useEffect(() => {
+    if (!selBtn) return
+    const t = window.setTimeout(() => setSelBtn(null), 6000)
+    return () => window.clearTimeout(t)
+  }, [selBtn])
+
+  // ---- chatbox command handlers
   const visibleText = useMemo(
     () => paras.filter((p) => !filterTopic || p.toLowerCase().includes(filterTopic.toLowerCase())).join('\n\n'),
     [paras, filterTopic],
@@ -180,7 +270,9 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   }
 
   const jumpTo = (idx: number) => {
-    paraRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    scrollChildIntoView(scrollRef.current, paraRefs.current[idx], { block: 'center', smooth: !reduceMotion })
+    setFlashIdx(idx)
+    window.setTimeout(() => setFlashIdx((i) => (i === idx ? null : i)), 1100)
   }
 
   const dismissCoach = () => {
@@ -192,23 +284,33 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   const renderPara = (p: string, i: number) => {
     const marks = allMarks.filter((h) => p.includes(h.match))
     const isTopicMatch = dimmed && topicMarks.some((h) => p.includes(h.match))
+    // The document is tidied here, in the browser: `:dot:` lines, "Step 2 —"
+    // runs and blank-line-separated steps become real, cleanly marked lists.
+    const blocks = toStudyBlocks(p)
+    const fresh = justMarked !== null && marks.some((m) => m.tier === 'user' && m.match === justMarked)
     return (
-      <div
+      <motion.div
         key={`${version}-${i}`}
-        ref={(el) => { paraRefs.current[i] = el }}
-        className="relative"
-        style={{ marginBottom: '1.35em', opacity: dimmed && !isTopicMatch ? 0.45 : 1, transition: 'opacity 300ms' }}
+        ref={(el: HTMLDivElement | null) => { paraRefs.current[i] = el }}
+        // Reading should feel like pages settling, not popping: a short rise and
+        // fade, staggered a little per paragraph, capped so long documents do
+        // not wait on the animation to be readable.
+        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1], delay: reduceMotion ? 0 : Math.min(i, 8) * 0.035 }}
+        className={`relative re-para${flashIdx === i ? ' re-para-flash' : ''}${fresh ? ' re-para-fresh' : ''}`}
+        style={{ marginBottom: '1.35em', opacity: dimmed && !isTopicMatch ? 0.45 : undefined, transition: 'opacity 300ms' }}
       >
-        {renderWithHighlights(p, marks)}
+        <StudyFlow blocks={blocks} inline={renderWithHighlights(p, marks)} renderText={(t) => renderWithHighlights(t, marks)} />
         {images.filter((im) => im.after === i).map((im, k) => (
-          <figure key={k} className="my-5">
+          <figure key={k} className="my-5 re-figure">
             <img src={im.url} alt={im.caption} loading="lazy" decoding="async" className="w-full rounded-[12px]" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }} />
             <figcaption className="text-[11.5px] mt-1.5" style={{ color: 'var(--text-3)' }}>
               {im.caption} — <span style={{ color: 'var(--text-3)' }}>{im.credit}</span>
             </figcaption>
           </figure>
         ))}
-      </div>
+      </motion.div>
     )
   }
 
@@ -250,7 +352,7 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto relative">
         {/* progress rail */}
         <div className="absolute left-4 top-8 bottom-8 w-[3px] rounded-full hidden lg:block" style={{ background: 'var(--elevated)' }}>
-          <div className="w-full rounded-full" style={{ height: `${progress * 100}%`, background: 'var(--primary)', transition: 'height 120ms linear' }} />
+          <div className="w-full rounded-full re-rail" style={{ height: `${progress * 100}%`, background: 'var(--primary)' }} />
         </div>
         {/* annotation markers */}
         <div className="absolute right-4 top-8 bottom-8 w-2 hidden lg:block">
@@ -259,8 +361,12 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
             if (!m) return null
             const top = ((i + 0.5) / paras.length) * 100
             return (
-              <button key={i} onClick={() => jumpTo(i)} aria-label={`Annotation in paragraph ${i + 1}`}
-                className="absolute -left-0.5 w-2.5 h-2.5 rounded-full hover:scale-125 transition-transform"
+              <motion.button key={i} onClick={() => jumpTo(i)} aria-label={`Annotation in paragraph ${i + 1}`}
+                initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', damping: 18, stiffness: 340, delay: Math.min(i, 10) * 0.03 }}
+                whileHover={{ scale: 1.35 }}
+                className="absolute -left-0.5 w-2.5 h-2.5 rounded-full"
                 style={{ top: `${top}%`, background: TIER_STYLE[m.tier].border }} />
             )
           })}
@@ -271,19 +377,37 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
           {visibleIdx.map((i) => renderPara(paras[i], i))}
         </div>
 
-        {/* floating selection highlight button */}
+        {/* The chip that follows an automatic highlight. The highlight itself
+            is already painted — these are the next steps, not a confirmation. */}
         <AnimatePresence>
           {selBtn && (
-            <motion.button
-              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              onClick={() => {
-                setHighlights((h) => [...h, { match: selBtn.text, tier: 'user', reason: 'Your highlight.' }])
-                setSelBtn(null)
-              }}
-              className="absolute z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px]"
-              style={{ left: selBtn.x, top: selBtn.y, background: 'var(--primary)', color: '#fff', boxShadow: '0 8px 24px -8px rgba(0,0,0,0.5)' }}>
-              <Sparkles size={11} /> Highlight
-            </motion.button>
+            <motion.div
+              initial={{ opacity: 0, y: 6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.98 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+              className="absolute z-30 flex items-center gap-1 px-1.5 py-1 rounded-full glass"
+              style={{ left: selBtn.x, top: selBtn.y, transform: 'translateX(-50%)', border: '1px solid var(--surface-border)', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.55)' }}>
+              <span className="flex items-center gap-1.5 pl-1.5 pr-1 text-[11px]" style={{ color: 'var(--primary)' }}>
+                <Sparkles size={11} /> Highlighted
+              </span>
+              <button
+                onClick={() => { setSelBtn(null); void onQuizSection(selBtn.text) }}
+                className="px-2 py-1 rounded-full text-[11px] hover:bg-[var(--elevated)]"
+                style={{ color: 'var(--text-2)' }}>
+                Quiz this
+              </button>
+              <button
+                onClick={() => { setHighlights((h) => h.filter((x) => !(x.tier === 'user' && x.match === selBtn.text))); setSelBtn(null) }}
+                className="px-2 py-1 rounded-full text-[11px] hover:bg-[var(--elevated)]"
+                style={{ color: 'var(--text-2)' }}>
+                Undo
+              </button>
+              <button onClick={() => setSelBtn(null)} aria-label="Dismiss"
+                className="p-1 rounded-full hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
+                <X size={11} />
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
 
@@ -336,6 +460,97 @@ export function ReaderView({ doc, onBack, onQuizSection, initialNeedle }: {
   )
 }
 
+/* ---------- study blocks: real list markup for tidied text ----------
+ * `inline` is the paragraph as it was written, so a paragraph with no list
+ * markers renders exactly as before (highlights included). */
+function StudyFlow({ blocks, inline, renderText }: {
+  blocks: StudyBlock[]
+  inline: React.ReactNode
+  renderText: (t: string) => React.ReactNode
+}) {
+  const hasList = blocks.some((b) => b.kind === 'bullets' || b.kind === 'steps')
+  // Nothing structured → the untouched paragraph, highlights and all.
+  if (!hasList) return <>{inline}</>
+
+  return (
+    <>
+      {blocks.map((b, bi) => {
+        if (b.kind === 'heading') {
+          const size = b.level === 1 ? 26 : b.level === 2 ? 21 : 17
+          return (
+            <div key={bi} role="heading" aria-level={Math.min(6, b.level ?? 2)}
+              className="font-semibold mt-5 mb-3" style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: size, letterSpacing: '-0.015em' }}>
+              {renderText(b.text ?? '')}
+            </div>
+          )
+        }
+        if (b.kind === 'quote') {
+          return (
+            <blockquote key={bi} className="my-4 pl-4"
+              style={{ borderLeft: '3px solid color-mix(in srgb, var(--primary) 45%, transparent)', color: 'var(--text-2)' }}>
+              {renderText(b.text ?? '')}
+            </blockquote>
+          )
+        }
+        if (b.kind === 'code') {
+          return <pre key={bi} className="my-4 p-3 rounded-[12px] overflow-x-auto text-[13.5px]"
+            style={{ background: 'var(--code-bg)', fontFamily: 'Geist Mono, ui-monospace, monospace' }}>{b.text}</pre>
+        }
+        if (b.kind === 'table') {
+          return <pre key={bi} className="my-4 text-[15px] overflow-x-auto" style={{ fontFamily: 'inherit' }}>{b.text}</pre>
+        }
+        if (b.kind === 'steps') {
+          return (
+            <ol key={bi} start={b.start ?? 1} className="study-steps my-4"
+              style={{ '--study-start': String((b.start ?? 1) - 1) } as React.CSSProperties}>
+              {nestItems(b.items ?? []).map((it, k) => (
+                <li key={k} className="study-li" style={it.depth ? { marginLeft: 18 } : undefined}>
+                  <span className="study-marker" aria-hidden />
+                  <span className="study-text">{renderText(it.text)}</span>
+                  {it.children.length > 0 && (
+                    <ul className="study-list">
+                      {it.children.map((c, ci) => (
+                        <li key={ci} className="study-li"><span className="study-marker" aria-hidden /><span className="study-text">{renderText(c)}</span></li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )
+        }
+        return (
+          <ul key={bi} className="study-list my-4">
+            {nestItems(b.items ?? []).map((it, k) => (
+              <li key={k} className="study-li">
+                <span className="study-marker" aria-hidden />
+                <span className="study-text">{renderText(it.text)}</span>
+                {it.children.length > 0 && (
+                  <ul className="study-list">
+                    {it.children.map((c, ci) => (
+                      <li key={ci} className="study-li"><span className="study-marker" aria-hidden /><span className="study-text">{renderText(c)}</span></li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      })}
+    </>
+  )
+}
+
+/** Flatten depth-tagged items into items-with-children for nested markup. */
+function nestItems(items: { text: string; depth: number }[]): { text: string; depth: number; children: string[] }[] {
+  const out: { text: string; depth: number; children: string[] }[] = []
+  for (const it of items) {
+    if (it.depth > 0 && out.length) out[out.length - 1].children.push(it.text)
+    else out.push({ text: it.text, depth: it.depth, children: [] })
+  }
+  return out
+}
+
 /* ---------- highlight-aware paragraph renderer ---------- */
 function renderWithHighlights(text: string, marks: Highlight[]): React.ReactNode {
   if (!marks.length) return renderBlock(text)
@@ -363,9 +578,12 @@ function renderWithHighlights(text: string, marks: Highlight[]): React.ReactNode
 
 function Mark({ span, mark, style }: { span: string; mark: Highlight; style: { bg: string; border: string; label: string } }) {
   const [tip, setTip] = useState(false)
+  // A marker swipe: the wash grows left→right, then the underline settles in.
+  const fresh = mark.tier === 'user'
   return (
     <span className="relative">
       <mark
+        className={fresh ? 're-mark re-mark-ink' : 're-mark'}
         onMouseEnter={(e) => {
           const r = (e.target as HTMLElement).getBoundingClientRect()
           const host = (e.target as HTMLElement).closest('.relative')?.parentElement?.getBoundingClientRect() ?? r
@@ -374,7 +592,11 @@ function Mark({ span, mark, style }: { span: string; mark: Highlight; style: { b
           void host
         }}
         onMouseLeave={() => setTip(false)}
-        style={{ background: style.bg, boxShadow: `inset 2.5px 0 0 ${style.border}`, color: 'inherit', borderRadius: 3, padding: '0.05em 0' }}
+        style={{
+          background: `linear-gradient(${style.bg}, ${style.bg}) left center / 100% 100% no-repeat`,
+          boxShadow: `inset 2.5px 0 0 ${style.border}`,
+          color: 'inherit', borderRadius: 3, padding: '0.05em 0',
+        }}
         title={`${style.label}: ${mark.reason}`}
       >
         {span}
@@ -390,18 +612,45 @@ function Mark({ span, mark, style }: { span: string; mark: Highlight; style: { b
 }
 
 /** Markdown-ish block rendering for the reader column. */
+/**
+ * Inline markdown, rendered.
+ *
+ * A study rewrite, a pasted abstract or an imported document can all carry
+ * `**bold**`, and a reader that prints the asterisks is showing the source
+ * language instead of the text. Emphasis is drawn; a marker left unpaired
+ * (which happens when a stored rewrite is truncated) is dropped rather than
+ * shown, so no document ever reads like a diff of itself.
+ */
+function renderInline(text: string): React.ReactNode {
+  if (!text.includes('*')) return text
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/g).filter((p) => p !== '')
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+          return <strong key={i} style={{ fontWeight: 650 }}>{part.slice(2, -2)}</strong>
+        }
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+          return <em key={i}>{part.slice(1, -1)}</em>
+        }
+        return <React.Fragment key={i}>{part.replace(/\*\*/g, '').replace(/\*/g, '')}</React.Fragment>
+      })}
+    </>
+  )
+}
+
 function renderBlock(text: string): React.ReactNode {
   const t = text.trim()
-  if (t.startsWith('# ')) return <h2 className="text-[26px] font-semibold mt-2 mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.02em' }}>{t.slice(2)}</h2>
-  if (t.startsWith('## ')) return <h3 className="text-[20px] font-semibold mt-6 mb-3" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.015em' }}>{t.slice(3)}</h3>
-  if (t.startsWith('### ')) return <h4 className="text-[17px] font-semibold mt-5 mb-2" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>{t.slice(4)}</h4>
+  if (t.startsWith('# ')) return <h2 className="text-[26px] font-semibold mt-2 mb-4" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.02em' }}>{renderInline(t.slice(2))}</h2>
+  if (t.startsWith('## ')) return <h3 className="text-[20px] font-semibold mt-6 mb-3" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.015em' }}>{renderInline(t.slice(3))}</h3>
+  if (t.startsWith('### ')) return <h4 className="text-[17px] font-semibold mt-5 mb-2" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>{renderInline(t.slice(4))}</h4>
   if (t.split('\n').every((l) => l.startsWith('|'))) {
     return <pre className="my-4 text-[15px] leading-relaxed overflow-x-auto" style={{ fontFamily: 'Lora, Georgia, serif' }}>{t}</pre>
   }
   if (t.startsWith('- ')) {
-    return <p>{t}</p>
+    return <p>{renderInline(t)}</p>
   }
-  return <p>{t}</p>
+  return <p>{renderInline(t)}</p>
 }
 
 /* ---------- floating reading chatbox ---------- */
@@ -443,9 +692,9 @@ function ReaderChat({ docName, onAsk, onJump, onQuiz }: {
             style={{ background: 'var(--glass)', backdropFilter: 'blur(16px)', border: '1px solid var(--surface-border)', boxShadow: '0 16px 48px -16px rgba(0,0,0,0.55)' }}>
             {panel.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-                <div className="inline-block text-left text-[12.5px] leading-relaxed px-3 py-2 rounded-[12px] max-w-[92%] whitespace-pre-wrap"
+                <div className={`inline-block text-left text-[12.5px] leading-relaxed px-3 py-2 rounded-[12px] max-w-[92%] ${m.role === 'user' ? 'whitespace-pre-wrap' : ''}`}
                   style={{ background: m.role === 'user' ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'var(--surface)', color: 'var(--text)' }}>
-                  {m.text}
+                  {m.role === 'user' ? m.text : <Markdown content={normalizeStepText(m.text)} />}
                 </div>
                 {m.role === 'ai' && m.sourceIdx != null && (
                   <button onClick={() => onJump(m.sourceIdx!)} className="block text-[11px] mt-1 hover:underline" style={{ color: 'var(--primary)' }}>

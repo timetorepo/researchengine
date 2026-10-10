@@ -28,6 +28,11 @@ export const THEME_CAPTIONS: Partial<Record<ThemeId, string>> = {
   perplexity: 'Inspired by a familiar research tool.',
 }
 
+/** Light or dark? Used by widget libraries that need an explicit hint. */
+export function themeKind(id: ThemeId): 'light' | 'dark' {
+  return THEMES.find((t) => t.id === id)?.kind ?? 'dark'
+}
+
 export function applyTheme(id: ThemeId, opts?: { fontScale?: number; compact?: boolean; reduceMotion?: boolean }) {
   document.documentElement.dataset.theme = id
   document.documentElement.style.setProperty('--font-scale', String(opts?.fontScale ?? 1))

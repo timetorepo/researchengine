@@ -1,5 +1,5 @@
 import React from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { Activity, Wifi, Database, Cpu } from 'lucide-react'
 import { useUI } from '@/stores/useUI'
 import { useStore } from '@/stores/useStore'

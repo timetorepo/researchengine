@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { HardDrive, Mail, Calendar, Github, StickyNote, BookMarked, FolderOpen } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'

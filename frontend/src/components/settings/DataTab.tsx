@@ -4,6 +4,13 @@ import { Download, Upload, Trash2, Database, Archive, GitMerge } from 'lucide-re
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { download } from '@/lib/utils'
+// SmoothUI's AIApproval — the card you decide in, with the destructive option
+// marked as destructive.
+import AIApproval from '@/components/smoothui/ai-approval'
+// shadcn-space @shadcn-space/button-28 — the hold-to-charge button. This is the
+// only place it is used, and the only action in the app that erases everything:
+// a click is too cheap for it, so it asks for a press that is held on purpose.
+import { HoldToChargeButton } from '@/components/shadcn-space/button/button-28'
 
 const COLLECTIONS = ['chats', 'articles', 'documents', 'quizzes', 'skills', 'spaces', 'citations', 'knowledge'] as const
 type Col = typeof COLLECTIONS[number]
@@ -13,6 +20,9 @@ export function DataTab() {
   const fileRef = useRef<HTMLInputElement>(null)
   const state = useStore.getState()
   const [selected, setSelected] = useState<Col[]>([...COLLECTIONS])
+  /** Wiping everything is the one irreversible thing in Settings, so it asks
+   *  with a real card instead of the browser's confirm dialog. */
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const sizeKB = Math.round(JSON.stringify({
     chats: state.chats, articles: state.articles, skills: state.skills, citations: state.citations,
@@ -96,8 +106,8 @@ export function DataTab() {
   }
 
   const clearAll = () => {
-    if (!confirm('Delete all chats, articles, citations and knowledge? This cannot be undone.')) return
     useStore.getState().resetAll()
+    setConfirmClear(false)
     ui.toast('Cleared', 'All local research data has been removed.', 'warning')
   }
 
@@ -120,6 +130,9 @@ export function DataTab() {
           </div>
         </div>
       </div>
+
+      {/* Bring conversations from other AI products */}
+      <ImportSection />
 
       {/* Selective export */}
       <div className="surface p-4 mb-4">
@@ -155,22 +168,111 @@ export function DataTab() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button onClick={clearAll} className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
-          style={{ background: 'color-mix(in srgb, var(--danger) 14%, transparent)', color: 'var(--danger)' }}>
-          <Trash2 size={15} /> Clear all data
-        </button>
-        <button onClick={() => ui.toast('Tip', 'Importing merges — it never overwrites your existing chats.', 'info')}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
-          style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
-          <Upload size={15} /> How merge works
-        </button>
-      </div>
+      {confirmClear ? (
+        <AIApproval
+          className="max-w-[460px]"
+          question="Delete every chat, article, citation and knowledge card on this device?"
+          options={[
+            { id: 'export', label: 'Export a backup first', detail: 'Download a JSON copy, then decide' },
+            { id: 'delete', label: 'Delete everything', detail: 'Immediate, local, and cannot be undone', destructive: true },
+            { id: 'cancel', label: 'Keep my data' },
+          ]}
+          onDecide={(o) => {
+            if (o.id === 'delete') clearAll()
+            else if (o.id === 'export') { exportJson(); setConfirmClear(false); ui.toast('Backup downloaded', 'Keep it somewhere safe, then clear when you are ready.', 'success') }
+            else setConfirmClear(false)
+          }}
+        >
+          <p className="text-[12px]" style={{ color: 'var(--text-2)' }}>
+            Nothing here is ever uploaded, so there is no copy on a server to restore from.
+          </p>
+        </AIApproval>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Hold to erase. A click is too cheap for the one irreversible
+              action in the app, so this one charges up while held (1.5 s) and
+              lets go the moment the pointer leaves. */}
+          <HoldToChargeButton
+            label="Hold to erase everything"
+            holdingLabel="Keep holding…"
+            completedLabel="Everything erased"
+            holdDuration={1500}
+            autoResetDelay={2500}
+            variant="destructive"
+            onComplete={clearAll}
+          />
+          <button onClick={() => { exportJson(); ui.toast('Backup downloaded', 'Keep it somewhere safe.', 'success') }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
+            style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+            <Download size={15} /> Export a backup first
+          </button>
+          <button onClick={() => ui.toast('Tip', 'Importing merges — it never overwrites your existing chats.', 'info')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] text-[13px]"
+            style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
+            <Upload size={15} /> How merge works
+          </button>
+        </div>
+      )}
 
       <p className="text-[11.5px] mt-5 leading-relaxed" style={{ color: 'var(--text-3)' }}>
         Nothing here is ever uploaded. There is no Research Engine cloud, account, or sync service — by design.
         Imported chats are tagged <span style={{ color: 'var(--warning)' }}>[Imported]</span> so you always know their source.
       </p>
+    </div>
+  )
+}
+
+/**
+ * Transfer in: a ChatGPT or Claude export becomes ordinary Sessions in this
+ * history. The file is read in the browser; nothing is uploaded.
+ */
+function ImportSection() {
+  const ui = useUI()
+  const ref = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [last, setLast] = useState('')
+
+  const pick = async (file: File) => {
+    setBusy(true)
+    try {
+      const { readExportFile } = await import('@/lib/transfer/import')
+      const makeId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`)
+      const res = await readExportFile(file, makeId)
+      if (!res || res.chats.length === 0) {
+        ui.toast('Nothing to import', 'That is not a ChatGPT or Claude export. Choose conversations.json, or the zip ChatGPT sends.', 'warning')
+        return
+      }
+      useStore.setState((st) => ({ chats: [...res.chats, ...st.chats] }))
+      const from = res.source === 'chatgpt' ? 'ChatGPT' : 'Claude'
+      const skipped = res.skipped ? `, ${res.skipped} empty one${res.skipped === 1 ? '' : 's'} skipped` : ''
+      const msg = `${res.chats.length} conversation${res.chats.length === 1 ? '' : 's'} from ${from}${skipped}.`
+      setLast(msg)
+      ui.toast('Imported', msg, 'success')
+    } catch {
+      ui.toast('Import failed', 'That file could not be read. Check that it is the JSON or zip the provider exported.', 'danger')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="surface p-4 mb-4">
+      <div className="text-[12.5px] font-medium mb-1">Bring your conversations from ChatGPT or Claude</div>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
+        Export your data from the provider, then choose the zip or conversations.json here. Each conversation becomes a Session in your history, read entirely in this browser.
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => ref.current?.click()} disabled={busy}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-medium disabled:opacity-50"
+          style={{ background: 'var(--primary)', color: '#fff' }}>
+          <Upload size={13} /> {busy ? 'Reading…' : 'Choose export file'}
+        </button>
+        {last && <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{last}</span>}
+        <input ref={ref} type="file" accept=".json,.zip,application/json,application/zip" hidden
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = '' }} />
+      </div>
     </div>
   )
 }

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'motion/react'
 import { ArrowDown, Sigma, Sparkles, Globe, Wind, ListOrdered, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import { endHandoff, DUR, EASE, HANDOFF_BLUR_MS } from '@/lib/ui/handoff'
 import { runChat, stopStream, isStreamingChat, enqueuePrompt, removeQueued } from '@/lib/chat/runChat'
 import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
@@ -13,6 +14,8 @@ export function ChatView() {
   const { id } = useParams<{ id: string }>()
   const chat = useStore((s) => s.chats.find((c) => c.id === id))
   const flowEnabled = useStore((s) => s.settings.flowEnabled)
+  const [showAll, setShowAll] = useState(false)
+  useEffect(() => { setShowAll(false) }, [chat?.id])
   const [mathMode, setMathMode] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
@@ -26,6 +29,21 @@ export function ChatView() {
   }, [id])
 
   useEffect(() => { useStore.getState().setActiveChat(id ?? null) }, [id])
+
+  /**
+   * If this page opened from a question asked on the home screen, the home
+   * view is still blurring out behind us. This is the other half of that
+   * handover: the chat focuses in from a light blur over the same interval the
+   * home screen uses, so the two surfaces cross over instead of the page
+   * simply appearing. The flag is cleared as soon as the motion is done —
+   * coming back to the home screen later must not find it still blurred.
+   */
+  const arriving = useUI((s) => !!s.handoff && s.handoff.chatId === id)
+  useEffect(() => {
+    if (!arriving) return
+    const t = window.setTimeout(endHandoff, HANDOFF_BLUR_MS + DUR.base * 1000)
+    return () => window.clearTimeout(t)
+  }, [arriving])
 
   // Cmd/Ctrl+M toggles math mode
   useEffect(() => {
@@ -77,16 +95,29 @@ export function ChatView() {
     return () => window.removeEventListener('re:send-prompt', h)
   }, [id, mathMode])
 
-  const regenerate = (msg: { id: string; content: string }) => {
-    if (!chat || !id) return
-    const idx = chat.messages.findIndex((m) => m.id === msg.id)
-    const prevUser = [...chat.messages.slice(0, idx)].reverse().find((m) => m.role === 'user')
+  /**
+   * Stable on purpose.
+   *
+   * `<Message>` is memoised, but this callback used to close over `chat` — a
+   * new array on every token — so every streaming tick re-rendered the entire
+   * transcript and re-parsed every answer's markdown. Reading the chat from the
+   * store at click time instead of from the render closure costs nothing and
+   * keeps the memo intact, so a long chat only re-renders the message being
+   * written.
+   */
+  const regenerate = React.useCallback((msg: { id: string; content: string }) => {
+    if (!id) return
+    const live = useStore.getState().chats.find((c) => c.id === id)
+    if (!live) return
+    const idx = live.messages.findIndex((m) => m.id === msg.id)
+    if (idx < 0) return
+    const prevUser = [...live.messages.slice(0, idx)].reverse().find((m) => m.role === 'user')
     if (!prevUser) return
     useStore.setState((s) => ({
       chats: s.chats.map((c) => c.id === id ? { ...c, messages: c.messages.slice(0, idx) } : c),
     }))
-    runChat({ chatId: id, prompt: prevUser.content, mode: prevUser.mode, overrideHistory: chat.messages.slice(0, idx - 1) })
-  }
+    runChat({ chatId: id, prompt: prevUser.content, mode: prevUser.mode, overrideHistory: live.messages.slice(0, idx - 1) })
+  }, [id])
 
   if (!chat) {
     return (
@@ -105,7 +136,16 @@ export function ChatView() {
   const stalled = !!flowActive && flowActive.phase === 'stalled' && (lastMsg?.content ?? '') !== ''
 
   return (
-    <div className={`h-full flex flex-col relative ${mathMode ? 'graph-paper' : ''}`}>
+    <motion.div
+      className={`h-full flex flex-col relative ${mathMode ? 'graph-paper' : ''}`}
+      // The other half of the home-screen handover: this page focuses in from
+      // the blur the landing view was already wearing, then settles to a clean
+      // surface. Nothing here waits for anything — the answer streams in
+      // underneath while the focus finishes.
+      initial={arriving ? { opacity: 0.55, filter: 'blur(10px)', scale: 0.996 } : false}
+      animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+      transition={{ duration: DUR.base, ease: EASE }}
+    >
       {/* Mode indicator bar */}
       <AnimatePresence>
         {(mathMode) && (
@@ -129,7 +169,18 @@ export function ChatView() {
             transition={{ duration: 0.15 }}
           >
             {chat.messages.length === 0 && <EmptyHint math={mathMode} />}
-            {chat.messages.map((m) => (
+            {/* Long sessions stay at 60fps by rendering a window: everything
+                before it is one button away, never in the DOM. */}
+            {chat.messages.length > 60 && !showAll && (
+              <div className="max-w-[760px] mx-auto px-4 py-2">
+                <button onClick={() => setShowAll(true)}
+                  className="w-full py-2 rounded-xl text-[11.5px]"
+                  style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+                  Show {chat.messages.length - 60} earlier messages
+                </button>
+              </div>
+            )}
+            {(showAll ? chat.messages : chat.messages.slice(-60)).map((m) => (
               <Message key={m.id} chatId={chat.id} msg={m} streaming={streaming && m.id === chat.messages[chat.messages.length - 1].id && m.role === 'assistant'} onRegenerate={regenerate} />
             ))}
             <AnimatePresence>
@@ -190,7 +241,7 @@ export function ChatView() {
         emptyHistory={chat.messages.length === 0}
         chatId={chat.id}
       />
-    </div>
+    </motion.div>
   )
 }
 
