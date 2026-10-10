@@ -52,6 +52,11 @@
     radial-gradient(110% 130% at -12% 108%, #1f7fae 0%, rgba(31, 127, 174, 0) 58%),
     radial-gradient(95% 105% at 42% 62%, rgba(158, 196, 60, 0.5) 0%, rgba(158, 196, 60, 0) 64%),
     linear-gradient(160deg, #143528 0%, #0e2b26 55%, #123043 100%);
+  --grad-replicate:
+    radial-gradient(120% 150% at 88% -12%, #8a5cf6 0%, rgba(47, 167, 99, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #6d3fd4 0%, rgba(31, 127, 174, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(158, 196, 60, 0.5) 0%, rgba(158, 196, 60, 0) 64%),
+    linear-gradient(160deg, #143528 0%, #0e2b26 55%, #123043 100%);
   --grad-math:
     radial-gradient(120% 150% at 90% -10%, #d99a2b 0%, rgba(217, 154, 43, 0) 55%),
     radial-gradient(110% 130% at -10% 110%, #8a5a2b 0%, rgba(138, 90, 43, 0) 60%),
@@ -339,6 +344,11 @@
     radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 66%, var(--grad-base)) 0%, transparent 58%),
     radial-gradient(95% 105% at 42% 62%, color-mix(in srgb, var(--primary) 32%, var(--secondary)) 0%, transparent 64%),
     linear-gradient(160deg, color-mix(in srgb, var(--primary) 26%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--secondary) 22%, var(--grad-base)) 100%);
+  --grad-replicate:
+    radial-gradient(120% 150% at 88% -12%, color-mix(in srgb, var(--primary) 74%, var(--grad-base)) 0%, transparent 55%),
+    radial-gradient(110% 130% at -12% 108%, color-mix(in srgb, var(--secondary) 66%, var(--grad-base)) 0%, transparent 58%),
+    radial-gradient(95% 105% at 42% 62%, color-mix(in srgb, var(--primary) 32%, var(--secondary)) 0%, transparent 64%),
+    linear-gradient(160deg, color-mix(in srgb, var(--primary) 26%, var(--grad-base)) 0%, var(--grad-base) 58%, color-mix(in srgb, var(--secondary) 22%, var(--grad-base)) 100%);
   --grad-math:
     radial-gradient(120% 150% at 90% -10%, color-mix(in srgb, var(--warning) 70%, var(--grad-base)) 0%, transparent 55%),
     radial-gradient(110% 130% at -10% 110%, color-mix(in srgb, var(--primary) 55%, var(--grad-base)) 0%, transparent 60%),
@@ -411,6 +421,11 @@
   --aurora-a: rgba(79, 111, 224, 0.06);
   --aurora-b: rgba(139, 92, 246, 0.05);
   --grad-research:
+    radial-gradient(120% 150% at 88% -12%, #7fb069 0%, rgba(127, 176, 105, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #5b93b8 0%, rgba(91, 147, 184, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(196, 214, 110, 0.55) 0%, rgba(196, 214, 110, 0) 64%),
+    linear-gradient(160deg, #4c7a58 0%, #3f6b56 55%, #46688a 100%);
+  --grad-replicate:
     radial-gradient(120% 150% at 88% -12%, #7fb069 0%, rgba(127, 176, 105, 0) 55%),
     radial-gradient(110% 130% at -12% 108%, #5b93b8 0%, rgba(91, 147, 184, 0) 58%),
     radial-gradient(95% 105% at 42% 62%, rgba(196, 214, 110, 0.55) 0%, rgba(196, 214, 110, 0) 64%),
@@ -565,6 +580,11 @@
     radial-gradient(110% 130% at -12% 108%, #1f8fae 0%, rgba(31, 143, 174, 0) 58%),
     radial-gradient(95% 105% at 42% 62%, rgba(123, 216, 230, 0.4) 0%, rgba(123, 216, 230, 0) 64%),
     linear-gradient(160deg, #0d4652 0%, #0b3a46 55%, #0e4257 100%);
+  --grad-replicate:
+    radial-gradient(120% 150% at 88% -12%, #20b8cd 0%, rgba(32, 184, 205, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #1f8fae 0%, rgba(31, 143, 174, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(123, 216, 230, 0.4) 0%, rgba(123, 216, 230, 0) 64%),
+    linear-gradient(160deg, #0d4652 0%, #0b3a46 55%, #0e4257 100%);
   --aurora-a: rgba(32, 184, 205, 0.08);
   --aurora-b: rgba(123, 216, 230, 0.05);
 }
@@ -573,6 +593,90 @@
   --radius-chip: 6px;
   --radius-card: 10px;
   --radius-modal: 16px;
+}
+
+/* Claude: warm paper, a terracotta accent, and the wide generous radii the
+   product is known for. The surfaces go slightly warm rather than neutral
+   grey, which is the whole difference between paper and plastic. */
+:root[data-theme="claude"] {
+  color-scheme: light;
+  --bg: #F5F1EA;
+  --surface: #FFFFFF;
+  --surface-border: rgba(38, 32, 26, 0.09);
+  --elevated: #FBF9F5;
+  --primary: #C15F3C;
+  --primary-hover: #A94F2F;
+  --secondary: #8A6E56;
+  --success: #3E8E6E;
+  --warning: #C08A2E;
+  --danger: #C0533F;
+  --text: #26201A;
+  --text-2: #6B5F53;
+  --text-3: #9A8E80;
+  --code-bg: #F0EBE2;
+  --scrim: rgba(38, 32, 26, 0.4);
+  --glass: rgba(251, 249, 245, 0.8);
+  --radius-chip: 10px;
+  --radius-card: 18px;
+  --radius-modal: 24px;
+  --grad-research:
+    radial-gradient(120% 150% at 88% -12%, #e8a88a 0%, rgba(232, 168, 138, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #d9b48c 0%, rgba(217, 180, 140, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(232, 168, 138, 0.35) 0%, rgba(232, 168, 138, 0) 64%),
+    linear-gradient(160deg, #f7ede2 0%, #f2e4d4 55%, #f5e9dc 100%);
+  --grad-replicate:
+    radial-gradient(120% 150% at 88% -12%, #e8a88a 0%, rgba(232, 168, 138, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #d9b48c 0%, rgba(217, 180, 140, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(232, 168, 138, 0.35) 0%, rgba(232, 168, 138, 0) 64%),
+    linear-gradient(160deg, #f7ede2 0%, #f2e4d4 55%, #f5e9dc 100%);
+  --grad-replicate:
+    radial-gradient(115% 140% at 82% -10%, #d9b48c 0%, rgba(217, 180, 140, 0) 56%),
+    radial-gradient(105% 125% at -10% 106%, #c99a72 0%, rgba(201, 154, 114, 0) 58%),
+    linear-gradient(155deg, #efe0cd 0%, #e9d5bd 60%, #f0e2d0 100%);
+  --aurora-a: rgba(193, 95, 60, 0.07);
+  --aurora-b: rgba(138, 110, 86, 0.05);
+}
+
+/* ChatGPT: near-black with a mint accent and tight radii. The mode surfaces
+   get their own washes so Research and Replicate are distinguishable without
+   a colour wheel — the mint leans cool for one and warm-green for the other. */
+:root[data-theme="chatgpt"] {
+  color-scheme: dark;
+  --bg: #131313;
+  --surface: #1E1E1E;
+  --surface-border: rgba(255, 255, 255, 0.09);
+  --elevated: #2A2A2A;
+  --primary: #10A37F;
+  --primary-hover: #19BE96;
+  --secondary: #6ED4B4;
+  --success: #10A37F;
+  --warning: #D9A441;
+  --danger: #E0685F;
+  --text: #F7F7F7;
+  --text-2: #B4B4B4;
+  --text-3: #6E6E6E;
+  --code-bg: #0F0F0F;
+  --scrim: rgba(0, 0, 0, 0.65);
+  --glass: rgba(30, 30, 30, 0.8);
+  --radius-chip: 8px;
+  --radius-card: 12px;
+  --radius-modal: 18px;
+  --grad-research:
+    radial-gradient(120% 150% at 88% -12%, #10a37f 0%, rgba(16, 163, 127, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #0d7a5f 0%, rgba(13, 122, 95, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(110, 212, 180, 0.28) 0%, rgba(110, 212, 180, 0) 64%),
+    linear-gradient(160deg, #08221b 0%, #071a15 55%, #0a201a 100%);
+  --grad-replicate:
+    radial-gradient(120% 150% at 88% -12%, #10a37f 0%, rgba(16, 163, 127, 0) 55%),
+    radial-gradient(110% 130% at -12% 108%, #0d7a5f 0%, rgba(13, 122, 95, 0) 58%),
+    radial-gradient(95% 105% at 42% 62%, rgba(110, 212, 180, 0.28) 0%, rgba(110, 212, 180, 0) 64%),
+    linear-gradient(160deg, #08221b 0%, #071a15 55%, #0a201a 100%);
+  --grad-replicate:
+    radial-gradient(115% 140% at 82% -10%, #4bbf9a 0%, rgba(75, 191, 154, 0) 56%),
+    radial-gradient(105% 125% at -10% 106%, #2f8f74 0%, rgba(47, 143, 116, 0) 58%),
+    linear-gradient(155deg, #0c2a22 0%, #0a211a 60%, #0d2b22 100%);
+  --aurora-a: rgba(16, 163, 127, 0.09);
+  --aurora-b: rgba(110, 212, 180, 0.05);
 }
 
 /* ============================================================ BASE */
@@ -628,6 +732,7 @@ body {
 
 /* Whisper-quiet category gradients */
 .grad-research { background: var(--grad-research); }
+.grad-replicate { background: var(--grad-replicate); }
 .grad-math { background: var(--grad-math); }
 .grad-quiz { background: var(--grad-quiz); }
 
@@ -1355,7 +1460,7 @@ body {
 @property --grad-drift-y { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
 @property --grad-tilt { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
 
-.grad-research, .grad-math, .grad-quiz, .grad-article, .grad-flood {
+.grad-research, .grad-replicate, .grad-math, .grad-quiz, .grad-article, .grad-flood {
   background-size: 100% 100%;
   background-position: var(--grad-drift-x) var(--grad-drift-y);
   transition: background-position 900ms var(--ease-ios), filter 900ms var(--ease-ios);

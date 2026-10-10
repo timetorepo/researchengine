@@ -24,6 +24,10 @@ export function ReplicateTimeline({ chatId, msg }: { chatId: string; msg: ChatMe
 
   const synthesis = stages.find((s) => s.title === 'Final synthesis')
 
+  // Replicate gets its own wash, the way Research does. It is a different job —
+  // rebuild something that exists — and it looked like Research until it had one.
+  const grad = 'grad-replicate'
+
   const copySynthesis = () => {
     if (!synthesis?.content) return
     navigator.clipboard?.writeText(synthesis.content).catch(() => {})
@@ -60,7 +64,7 @@ export function ReplicateTimeline({ chatId, msg }: { chatId: string; msg: ChatMe
   }
 
   return (
-    <div className="relative pl-5 my-3">
+    <div className={`relative pl-5 my-3 rounded-xl ${grad}`}>
       {/* timeline spine */}
       <div className="absolute left-[9px] top-2 bottom-2 w-[2px] rounded-full" style={{ background: 'var(--surface-border)' }} />
 

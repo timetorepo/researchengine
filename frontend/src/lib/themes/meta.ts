@@ -21,11 +21,15 @@ export const THEMES: ThemeMeta[] = [
   { id: 'high-contrast', name: 'High Contrast', kind: 'dark', swatches: ['#000000', '#0d0d0d', '#82aaff', '#c4a7ff'], codeTheme: 'hc-dark' },
   { id: 're-os', name: 'ResearchEngineOS', kind: 'dark', swatches: ['#08080c', '#16161c', '#6C8EEF', '#A78BFA'], codeTheme: 'dark-plus' },
   { id: 'perplexity', name: 'Perplexity', kind: 'dark', swatches: ['#1F1F1F', '#2A2A2A', '#20B8CD', '#7BD8E6'], codeTheme: 'dark-plus' },
+  { id: 'claude', name: 'Claude', kind: 'light', swatches: ['#F5F1EA', '#FFFFFF', '#C15F3C', '#8A6E56'], codeTheme: 'github-light' },
+  { id: 'chatgpt', name: 'ChatGPT', kind: 'dark', swatches: ['#131313', '#1E1E1E', '#10A37F', '#6ED4B4'], codeTheme: 'dark-plus' },
 ]
 
 /** Small caption shown under a theme in the picker. */
 export const THEME_CAPTIONS: Partial<Record<ThemeId, string>> = {
   perplexity: 'Inspired by a familiar research tool.',
+  claude: 'Warm paper and a terracotta accent, with the wide radii.',
+  chatgpt: 'Near-black with a mint accent and tight radii.',
 }
 
 /** Light or dark? Used by widget libraries that need an explicit hint. */

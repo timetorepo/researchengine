@@ -357,7 +357,8 @@ export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', '
 export type AnimatedBgKind = typeof ANIMATED_BG_KINDS[number]
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'
-  | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os' | 'perplexity'
+  | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os'
+  | 'perplexity' | 'claude' | 'chatgpt'
 
 export interface ReplicateStage {
   id: string

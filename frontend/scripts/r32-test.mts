@@ -21,6 +21,8 @@ import {
   allPrompts, modelOf, sortPrompts, filterPrompts, promptCounts, knownModels, formatChars,
 } from '../src/lib/prompts/index'
 import { MASTERS } from '../src/lib/prompts/masters'
+import { THEMES, THEME_CAPTIONS, themeKind } from '../src/lib/themes/meta'
+import type { ThemeId } from '@/types'
 import {
   TECHNIQUES, LEVELS, techniqueById, levelById, typesFor, shapeFor,
   type TechniqueId,
@@ -315,6 +317,38 @@ console.log('\n— Learn: named techniques and levels —')
   check('no surface still says Read & Quiz', !src('src/components/sidebar/Sidebar.tsx').includes('Read & Quiz')
     && !src('src/components/os/OSDock.tsx').includes('Read & Quiz')
     && !src('src/components/quiz/QuizResults.tsx').includes('Read & Quiz'))
+}
+
+/* -------------------------------------------------------------- themes -- */
+console.log('\n— Research and Replicate themes —')
+{
+  check('the Claude theme is registered', THEMES.some((t) => t.id === 'claude'))
+  check('the ChatGPT theme is registered', THEMES.some((t) => t.id === 'chatgpt'))
+  check('Perplexity was already there', THEMES.some((t) => t.id === 'perplexity'))
+  check('Claude is a light theme, like the product', themeKind('claude') === 'light')
+  check('ChatGPT is a dark theme, like the product', themeKind('chatgpt') === 'dark')
+  check('every theme carries four swatches', THEMES.every((t) => t.swatches.length === 4))
+  check('every swatch is a real colour', THEMES.every((t) => t.swatches.every((c) => /^#[0-9A-Fa-f]{6}$/.test(c))))
+  check('every theme has a code theme', THEMES.every((t) => t.codeTheme.length > 0))
+  check('the three asked-for themes all have captions', ['claude', 'chatgpt', 'perplexity'].every((id) => !!THEME_CAPTIONS[id as ThemeId]))
+
+  // Both surfaces, in every theme.
+  const css = src('src/styles/globals.css')
+  check('the replicate gradient exists', css.includes('--grad-replicate:'))
+  check('the research gradient exists', css.includes('--grad-research:'))
+  check('every theme block that paints research also paints replicate', (() => {
+    // Count them per theme block: a theme with a research wash and no replicate
+    // wash would leave Replicate looking like Research again.
+    const blocks = css.split(/\n(?=:root\[data-theme=|:root \{)/)
+    const themed = blocks.filter((b) => b.includes('--grad-research:'))
+    return themed.length > 0 && themed.every((b) => b.includes('--grad-replicate:'))
+  })())
+  check('the replicate gradient is its own colours, not a copy', css.includes('#8a5cf6'))
+  check('there is a class to use it', css.includes('.grad-replicate {'))
+  check('and the drift animation covers it', css.includes('.grad-research, .grad-replicate,'))
+  check('the replicate timeline uses it', src('src/components/chat/ReplicateTimeline.tsx').includes('grad-replicate'))
+  check('Claude keeps the wide radii', /data-theme="claude"\][\s\S]{0,900}--radius-card: 18px/.test(css))
+  check('ChatGPT keeps the tight radii', /data-theme="chatgpt"\][\s\S]{0,900}--radius-card: 12px/.test(css))
 }
 
 /* --------------------------------------------------------------- bubbles -- */
