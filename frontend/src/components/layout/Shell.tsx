@@ -11,6 +11,33 @@ import { DynamicIsland } from '@/components/os/DynamicIsland'
 import { OSDock } from '@/components/os/OSDock'
 import { PrivacyPanel } from '@/components/sidebar/PrivacyPanel'
 import { BackgroundLayer } from './BackgroundLayer'
+import { readLockSession, clearLockSession } from '@/lib/security/lock'
+
+/**
+ * A guest session has to say so, or it is a trap: the person using it would
+ * reasonably assume their work is going where the owner's goes, and the owner
+ * would reasonably assume a guest's chats are theirs to lose. One strip, always
+ * visible, that names which of the two is happening.
+ */
+function GuestStrip() {
+  const guest = readLockSession()?.role === 'guest'
+  if (!guest) return null
+  return (
+    <div
+      className="relative z-20 flex items-center justify-center gap-2 px-3 py-1 text-[11px]"
+      style={{ background: 'var(--elevated)', color: 'var(--text-2)', borderBottom: '1px solid var(--surface-border)' }}
+      role="status"
+    >
+      <span>Guest session. Nothing here is the owner's data, and nothing you make here is visible to anyone else.</span>
+      <button
+        className="underline underline-offset-2"
+        onClick={() => { clearLockSession(); window.location.reload() }}
+      >
+        Leave
+      </button>
+    </div>
+  )
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   // AI-driven navigation: message chips dispatch this event, the shell routes.
@@ -76,8 +103,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (isOS) {
     return (
       <div className="h-full w-full os-wallpaper relative overflow-hidden flex flex-col">
+        <GuestStrip />
         <BackgroundLayer />
-        <div className="relative z-10 flex flex-col h-full min-h-0">
+        <div className="relative z-10 flex flex-col flex-1 min-h-0">
           <TitleBar />
           <DynamicIsland />
           {osMinimized ? (
@@ -116,9 +144,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="h-full w-full relative overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div className="h-full w-full relative overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
+      <GuestStrip />
       <BackgroundLayer />
-      <div className="relative z-10 h-full flex">
+      <div className="relative z-10 flex-1 min-h-0 flex">
         <Sidebar />
         <div className="flex-1 min-w-0 flex flex-col">
           <TopBar />

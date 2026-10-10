@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { DEFAULT_PROFILE, migrateProfile } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
@@ -8,6 +8,7 @@ import type {
 import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
 import { builtinSquads } from '@/lib/agents/squads'
+import { scopedStorage } from '@/lib/security/lock'
 
 export const AGENT_COLORS = ['#6C8EEF', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#22D3EE', '#F472B6']
 
@@ -319,6 +320,10 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: 'research-engine-v1',
+      // Scoped to whoever unlocked the app: the main user's state and a guest's
+      // state are different data in different namespaces, so a guest session
+      // cannot read the main user's chats and the main user can read a guest's.
+      storage: createJSONStorage(() => scopedStorage),
       partialize: (s) => ({
         chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces,
         citations: s.citations, knowledge: s.knowledge, documents: s.documents,

@@ -134,6 +134,33 @@ export const db = {
       sqlite.prepare('UPDATE library_items SET folder_id = NULL WHERE folder_id = ?').run(id)
     } else mem.libraryFolders.delete(id)
   },
+  /**
+   * Every row, in every table this app owns. Called by the duress code: a lock
+   * that leaves the server-side store intact is not a lock, because the data is
+   * still on the disk.
+   *
+   * The table list is read from `sqlite_master` rather than hardcoded, so a
+   * table added later is covered without anyone remembering to update this, and
+   * a table that never got created is simply not in the list.
+   */
+  wipeAll() {
+    if (!sqlite) {
+      for (const m of Object.values(mem)) (m as Map<string, unknown>).clear()
+      return { tables: 0, engine }
+    }
+    const rows = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all() as { name: string }[]
+    let cleared = 0
+    for (const { name } of rows) {
+      try {
+        sqlite.prepare(`DELETE FROM "${name.replace(/"/g, '""')}"`).run()
+        cleared++
+      } catch { /* a table that cannot be written is left alone rather than aborting the wipe */ }
+    }
+    try { sqlite.pragma('wal_checkpoint(TRUNCATE)') } catch { /* not every driver supports it */ }
+    return { tables: cleared, engine }
+  },
 }
 
 function safeJson<T>(text: string, fallback: T): T {

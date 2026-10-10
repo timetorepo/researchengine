@@ -47,6 +47,8 @@ import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
 import { AppContextMenu } from '@/components/shared/AppContextMenu'
 import { UpdateModal } from '@/components/updates/UpdateModal'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
+import { LockScreen } from '@/components/vault/LockScreen'
+import { isLocked, readLockSession } from '@/lib/security/lock'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 import { installViewTransitions } from '@/hooks/useViewTransitions'
 import { markVisited, routePathOf } from '@/lib/routes/registry'
@@ -98,6 +100,18 @@ export default function App() {
   // Navigation is wrapped in the View Transitions API where the browser has it:
   // the shell stays put, the page cross-fades, the nav marker travels.
   useEffect(() => { installViewTransitions() }, [])
+
+  // The startup lock. Checked before anything renders, because the one thing a
+  // lock cannot undo is a screen that has already drawn your chats.
+  const locked = isLocked() && !readLockSession()
+  if (locked) {
+    return (
+      <>
+        <LockScreen />
+        <AppToaster />
+      </>
+    )
+  }
 
   // Apply theme + font scale + motion prefs whenever they change
   useEffect(() => {

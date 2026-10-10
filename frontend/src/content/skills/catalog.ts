@@ -10,7 +10,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "animate-expo",
@@ -21,7 +23,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "animation-vocabulary",
@@ -31,7 +35,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "apple-design",
@@ -41,7 +47,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "ask-sonner",
@@ -52,7 +60,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "break-ui",
@@ -63,7 +73,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "emil-design-eng",
@@ -73,7 +85,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "find-animation-opportunities",
@@ -83,7 +97,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "improve-animations",
@@ -95,7 +111,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "mobile-native",
@@ -105,7 +123,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "pick-ui-library",
@@ -115,7 +135,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "prototype",
@@ -126,7 +148,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "review-animations",
@@ -137,7 +161,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "STANDARDS.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "write-swift",
@@ -147,7 +173,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "SKILL.md",
    "origin"
   ],
-  "origin": "emilkowalski/skills"
+  "origin": "emilkowalski/skills",
+  "license": "MIT",
+  "credit": "Emil Kowalski — animation and design-engineering skills"
  },
  {
   "id": "ian-xiaohei-illustrations",
@@ -164,7 +192,9 @@ export const SKILL_PACKS: SkillPack[] = [
    "references/style-dna.md",
    "references/xiaohei-ip.md"
   ],
-  "origin": "tojileon/ian-xiaohei-illustrations-en"
+  "origin": "tojileon/ian-xiaohei-illustrations-en",
+  "license": "MIT",
+  "credit": "tojileon — ian-xiaohei illustrations, English"
  },
  {
   "id": "find-skills",

@@ -102,6 +102,17 @@ const LOCAL_PACKS = [
   },
 ]
 
+/**
+ * Licence and credit for the packs `frontend/scripts/build-skills.mjs` vendors
+ * (emilkowalski/skills and the illustration pack). That script predates the
+ * licence field, so the attribution is carried here instead of being rewritten
+ * into it, and this backfills every run.
+ */
+const LICENCE_BY_ORIGIN = {
+  'emilkowalski/skills': { license: 'MIT', credit: 'Emil Kowalski — animation and design-engineering skills' },
+  'tojileon/ian-xiaohei-illustrations-en': { license: 'MIT', credit: 'tojileon — ian-xiaohei illustrations, English' },
+}
+
 const args = process.argv.slice(2)
 const flag = (name) => {
   const i = args.indexOf(name)
@@ -216,10 +227,23 @@ for (const pack of LOCAL_PACKS) {
   console.log(`  ${pack.id}  (local, ${skillText.length} bytes)`)
 }
 
+// Packs vendored by build-skills.mjs: backfill the licence that script does not
+// carry, without touching the entries it already wrote.
+for (const [id, pack] of byId) {
+  const licence = LICENCE_BY_ORIGIN[pack.origin]
+  if (!licence) continue
+  byId.set(id, { ...pack, license: licence.license, credit: licence.credit })
+}
+
 // Keep the historical ordering stable: entries already in the file stay where
-// they are, new ones append.
-const ordered = [...existing.filter((p) => byId.has(p.id))]
-for (const [id, p] of byId) if (!ordered.some((x) => x.id === id)) ordered.push(p)
+// they are, new ones append. Values come from `byId` so anything backfilled or
+// rewritten above survives; `existing` is only the ordering.
+const ordered = []
+for (const p of existing) {
+  const next = byId.get(p.id)
+  if (next) ordered.push(next)
+}
+for (const [, p] of byId) if (!ordered.some((x) => x.id === p.id)) ordered.push(p)
 
 writeFileSync(catalogPath, serialize(ordered))
 console.log(`catalog: ${ordered.length} packs -> ${catalogPath}`)

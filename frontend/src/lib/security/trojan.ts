@@ -117,7 +117,10 @@ const ORDER_PATTERNS: { re: RegExp; detail: string }[] = [
     detail: 'orders data off the machine',
   },
   {
-    re: /\b(reveal|print|output|dump|display|show|repeat|leak|expose)\b[^.\n]{0,60}\b(system\s+prompt|instructions?|api[\s_-]?keys?|tokens?|secrets?|passwords?|credentials?|private[\s_-]?keys?|\.env|environment\s+variables?|ssh\s+keys?)\b/i,
+    // `(?!\s*:)` keeps a CSS property out of it: `display:none` is a
+    // declaration, `display the system prompt` is an order. Without it, any
+    // stylesheet line carrying the word "secret" reads as an instruction.
+    re: /\b(reveal|print|output|dump|display|show|repeat|leak|expose)\b(?!\s*:)[^.\n]{0,60}\b(system\s+prompt|instructions?|api[\s_-]?keys?|tokens?|secrets?|passwords?|credentials?|private[\s_-]?keys?|\.env|environment\s+variables?|ssh\s+keys?)\b/i,
     detail: 'orders the model to disclose secrets it holds',
   },
   {

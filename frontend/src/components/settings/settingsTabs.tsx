@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import React from 'react'
-import { KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked } from 'lucide-react'
+import { KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -20,6 +20,7 @@ import { DeveloperTab } from './DeveloperTab'
 import { UpdatesTab } from './UpdatesTab'
 import { VoiceTab } from './VoiceTab'
 import { NotificationsTab } from './NotificationsTab'
+import { SecurityTab } from './SecurityTab'
 
 export const TABS = [
   { id: 'profile', label: 'Profile', icon: UserRound },
@@ -39,6 +40,7 @@ export const TABS = [
   { id: 'coding', label: 'Coding & MCP', icon: Code },
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'data', label: 'Data', icon: Database },
+  { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
   { id: 'developer', label: 'Developer', icon: Terminal },
   { id: 'about', label: 'About', icon: Info },
@@ -89,6 +91,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'coding': return <CodingTab />
     case 'agents': return <AgentsTab />
     case 'data': return <DataTab />
+    case 'security': return <SecurityTab />
     case 'shortcuts': return <ShortcutsTab />
     case 'developer': return <DeveloperTab />
     case 'about': return <AboutTab />
