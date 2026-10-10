@@ -30,6 +30,9 @@ import {
 import {
   THROTTLE_STAGES, planRun, runPlan, formatReport, type ThrottleInput,
 } from '../src/lib/design/throttle'
+import {
+  StatusMark, SwipeToast, CodeSlots, BorderGlow, SpotlightCard, TechText, WakeSlider, PeekRating,
+} from '../src/components/ui/reactbits/micro'
 import type { ThemeId } from '@/types'
 import {
   TECHNIQUES, LEVELS, techniqueById, levelById, typesFor, shapeFor,
@@ -519,6 +522,49 @@ console.log('\n— Design Mode Full Throttle —')
   check('it says it does not write the design', src('src/components/design/ThrottlePanel.tsx').includes('does not write the design'))
   check('the prototype tick is announced, not reached into', src('src/components/design/PrototypeBoard.tsx').includes('re:prototype-checked'))
   check('and the panel listens for it', src('src/components/design/ThrottlePanel.tsx').includes('re:prototype-checked'))
+}
+
+/* --------------------------------------------------- reactbits additions -- */
+console.log('\n— The UI components, used —')
+{
+  check('every new component is exported from the barrel', [
+    StatusMark, SwipeToast, CodeSlots, BorderGlow, SpotlightCard, TechText, WakeSlider, PeekRating,
+  ].every((c) => typeof c === 'function'))
+  check('every component file declares where it came from', (() => {
+    const files = [
+      'StatusMark', 'SwipeToast', 'CodeSlots', 'BorderGlow', 'SpotlightCard', 'TechText', 'WakeSlider', 'PeekRating',
+    ]
+    return files.every((f) => {
+      const body = src(`src/components/ui/reactbits/micro/${f}.tsx`)
+      // Written here against the documented behaviour, not vendored: the header
+      // says so, and claiming the published source would be a false provenance.
+      return body.includes('Written here against the documented behaviour')
+        && body.includes('reimplementation')
+    })
+  })())
+
+  // Used, not merely installed. Each one has a surface that renders it.
+  check('StatusMark is the test step state', src('src/components/ide/TestPanel.tsx').includes('<StatusMark'))
+  check('CodeSlots renders the persona prompt', src('src/components/settings/SnaffyTab.tsx').includes('<CodeSlots'))
+  check('CodeSlots renders the pentest report', src('src/components/ide/PentestPanel.tsx').includes('<CodeSlots'))
+  check('BorderGlow wraps the persona cards', src('src/components/settings/SnaffyTab.tsx').includes('<BorderGlow'))
+  check('WakeSlider is the background intensity', src('src/components/settings/AppearanceTab.tsx').includes('<WakeSlider'))
+  check('TechText heads the empty Learn state', src('src/components/quiz/QuizHub.tsx').includes('<TechText'))
+  check('PeekRating shows the session score', src('src/components/quiz/QuizResults.tsx').includes('<PeekRating'))
+
+  // The ones that needed real mechanics rather than markup.
+  check('the glow writes variables, never state', src('src/components/ui/reactbits/micro/BorderGlow.tsx').includes('setProperty'))
+  check('the spotlight does the same', src('src/components/ui/reactbits/micro/SpotlightCard.tsx').includes('setProperty'))
+  check('tech text respects reduced motion', src('src/components/ui/reactbits/micro/TechText.tsx').includes('prefers-reduced-motion'))
+  check('wake slider keeps a real range input under it', src('src/components/ui/reactbits/micro/WakeSlider.tsx').includes('type="range"'))
+  check('and it is labelled', src('src/components/ui/reactbits/micro/WakeSlider.tsx').includes('aria-valuetext'))
+  check('peek rating clears on a second click', src('src/components/ui/reactbits/micro/PeekRating.tsx').includes('n === value ? 0 : n'))
+  check('code slots copies the whole block', src('src/components/ui/reactbits/micro/CodeSlots.tsx').includes('writeText(code)'))
+  check('the swipe toast needs a deliberate throw', src('src/components/ui/reactbits/micro/SwipeToast.tsx').includes('velocity'))
+  check('and it does not leave on a vertical scroll', src('src/components/ui/reactbits/micro/SwipeToast.tsx').includes('touchAction'))
+  check('the credits name the new components', src('src/components/settings/AboutTab.tsx').includes('status marks'))
+  check('the CSS supports the glow mask', src('src/styles/globals.css').includes('.border-glow::before'))
+  check('and the spotlight', src('src/styles/globals.css').includes('.spotlight-card__glow'))
 }
 
 /* --------------------------------------------------------------- bubbles -- */

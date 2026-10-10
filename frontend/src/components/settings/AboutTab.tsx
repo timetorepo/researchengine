@@ -117,7 +117,10 @@ function StaleBuildCard() {
 
 /** The UI component libraries the interface is assembled from. */
 const UI_LIBRARIES: { name: string; href: string; author?: string; used: string }[] = [
-  { name: 'ReactBits', href: 'https://reactbits.dev', used: 'Animated counters and the magnetic buttons' },
+  {
+    name: 'ReactBits', href: 'https://reactbits.dev',
+    used: 'Animated counters, magnetic buttons, the micro set (prompt bar, hold, rubber segment, glide select, lattice loader, voice pill), status marks, code slots, border glow, spotlight, tech text, wake slider and peek rating',
+  },
   { name: 'HeroUI', href: 'https://www.heroui.com', used: 'Button, Input and Switch primitives' },
   { name: 'Aceternity UI', href: 'https://ui.aceternity.com', used: 'Aurora background, moving borders, spotlight cards, text-generate effect' },
   { name: 'Border Beam', href: 'https://beam.jakubantalik.com', author: 'Jakub Antalik', used: 'The travelling light around the home-screen chatbox' },

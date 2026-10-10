@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { RotateCcw, Share2, Sparkles, Trophy, Flame, Target, GraduationCap } from 'lucide-react'
 import { ShareStudio } from './ShareStudio'
+import { PeekRating } from '@/components/ui/reactbits/micro/PeekRating'
 import type { QuizQuestion } from '@/types'
 import type { PlayResult } from './QuizPlay'
 import { burstConfetti } from '@/lib/quiz/confetti'
@@ -80,6 +81,11 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
           </div>
           <div className="text-[13.5px] mt-2" style={{ color: 'var(--text-2)' }}>
             {nCorrect} of {total} correct · best streak {result.streakBest}
+          </div>
+          {/* How well it went, as five stars. Read-only: this is a score you are
+              shown, not one you set. */}
+          <div className="mt-2 flex justify-center">
+            <PeekRating readOnly value={Math.round((pct / 100) * 5)} label="Session score out of five" />
           </div>
         </motion.div>
 

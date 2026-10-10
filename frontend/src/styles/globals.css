@@ -733,6 +733,42 @@ body {
 /* Whisper-quiet category gradients */
 .grad-research { background: var(--grad-research); }
 .grad-replicate { background: var(--grad-replicate); }
+
+/* Border glow: a mask that keeps only the border, and a radial light the pointer
+   moves by writing --glow-x/--glow-y. Both variables are set in JS as custom
+   properties, so the browser recomposites without React re-rendering. */
+.border-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(var(--glow-size) var(--glow-size) at var(--glow-x) var(--glow-y),
+    var(--glow-color), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+.border-glow:hover::before { opacity: 1; }
+
+/* Spotlight card: the same trick, filling the card instead of edging it. */
+.spotlight-card__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(var(--spot-size) var(--spot-size) at var(--spot-x) var(--spot-y),
+    var(--spot-color), transparent 70%);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.spotlight-card:hover .spotlight-card__glow { opacity: var(--spot-alpha); }
+
+/* Tech text caret. */
+@keyframes tech-text-blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
 .grad-math { background: var(--grad-math); }
 .grad-quiz { background: var(--grad-quiz); }
 

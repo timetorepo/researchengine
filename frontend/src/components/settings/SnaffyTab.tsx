@@ -3,6 +3,8 @@ import { Route, Pin, PinOff, Check } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import type { Settings } from '@/types'
 import { PERSONAS, DEFAULT_PERSONA, personaById, route } from '@/lib/snaffy/router'
+import { CodeSlots } from '@/components/ui/reactbits/micro/CodeSlots'
+import { BorderGlow } from '@/components/ui/reactbits/micro/BorderGlow'
 
 /**
  * Snaffy: a router, not a model.
@@ -84,29 +86,25 @@ export function SnaffyTab() {
         {PERSONAS.map((p) => {
           const on = snaffy.persona === p.id
           return (
-            <button key={p.id}
-              onClick={() => set({ persona: p.id })}
-              className="text-left p-3 rounded-xl transition-colors"
+            <BorderGlow key={p.id} as="button" onClick={() => set({ persona: p.id })} radius={12}
+              className="text-left p-3 transition-colors w-full"
               style={{
                 background: on ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--elevated)',
-                border: `1px solid ${on ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'transparent'}`,
+                borderColor: on ? 'color-mix(in srgb, var(--primary) 40%, transparent)' : 'transparent',
               }}>
               <div className="flex items-center gap-1.5">
                 <span className="text-[12.5px] font-medium" style={{ color: on ? 'var(--primary)' : 'var(--text-1)' }}>{p.name}</span>
                 {on && <Check size={12} style={{ color: 'var(--primary)' }} />}
               </div>
               <div className="text-[11.5px] leading-snug mt-0.5" style={{ color: 'var(--text-3)' }}>{p.about}</div>
-            </button>
+            </BorderGlow>
           )
         })}
       </div>
 
       <div className="surface p-4 mb-5">
         <div className="text-[13px] font-semibold mb-2">What {persona.name} sends</div>
-        <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-words max-h-64 overflow-auto p-3 rounded-lg"
-          style={{ background: 'var(--code-bg)', color: 'var(--text-2)' }}>
-          {persona.prompt}
-        </pre>
+        <CodeSlots code={persona.prompt} language="system prompt" maxHeight={260} />
         <div className="text-[11px] mt-2" style={{ color: 'var(--text-3)' }}>
           Needs, in order: {persona.wants.join(', ')}. Expects about {Math.round(persona.context / 1000)}k of context.
         </div>

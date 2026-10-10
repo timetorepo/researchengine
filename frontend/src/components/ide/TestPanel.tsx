@@ -6,12 +6,20 @@ import {
 } from 'lucide-react'
 import type { ControlInfo } from '@/lib/ide/bridge'
 import { testStore, testControl, replayRun, runSteps, type TestRun, type TestStep } from '@/lib/ide/tests'
+import { StatusMark } from '@/components/ui/reactbits/micro/StatusMark'
 
+/**
+ * A step's state, as the reactbits StatusMark.
+ *
+ * The four states map onto it one for one, and the mark carries the pulse a
+ * running step wants. `MinusCircle` for a queued step is gone: an idle step is
+ * idle, not a minus.
+ */
 function StatusIcon({ status }: { status: string }) {
-  if (status === 'pass') return <CheckCircle2 size={12} style={{ color: 'var(--success)' }} />
-  if (status === 'fail') return <XCircle size={12} style={{ color: 'var(--danger)' }} />
-  if (status === 'running') return <Loader2 size={12} className="animate-spin" style={{ color: 'var(--primary)' }} />
-  return <MinusCircle size={12} style={{ color: 'var(--text-3)' }} />
+  if (status === 'pass') return <StatusMark state="done" size={9} />
+  if (status === 'fail') return <StatusMark state="error" size={9} />
+  if (status === 'running') return <StatusMark state="running" size={9} />
+  return <StatusMark state="idle" size={9} />
 }
 
 function useRuns(): TestRun[] {

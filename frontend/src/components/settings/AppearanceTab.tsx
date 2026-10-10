@@ -4,6 +4,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
+import { WakeSlider } from '@/components/ui/reactbits/micro/WakeSlider'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { DEFAULT_BUBBLES, FILL_SWATCHES, bubbleShape, type BubblePrefs } from '@/lib/chat/bubbles'
@@ -205,9 +206,13 @@ export function AppearanceTab() {
               {Math.round((bg.intensity ?? ANIMATED_BG_META[bg.kind].defaultIntensity) * 100)}%
             </span>
           </div>
-          <input type="range" min={0.2} max={1} step={0.05} value={bg.intensity ?? ANIMATED_BG_META[bg.kind].defaultIntensity}
-            onChange={(e) => setBg({ ...bg, intensity: Number(e.target.value) } as BackgroundConfig)}
-            className="w-full accent-[var(--primary)]" aria-label="Background intensity" />
+          <WakeSlider
+            label="Intensity"
+            min={0.2} max={1} step={0.05}
+            value={bg.intensity ?? ANIMATED_BG_META[bg.kind].defaultIntensity}
+            onChange={(v) => setBg({ ...bg, intensity: v } as BackgroundConfig)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
           <button onClick={() => setBg({ kind: 'default' })}
             className="mt-2 text-[11.5px] inline-flex items-center gap-1 hover:underline" style={{ color: 'var(--text-3)' }}>
             <RotateCcw size={11} /> Reset to default background
