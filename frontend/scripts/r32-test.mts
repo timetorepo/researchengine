@@ -17,6 +17,10 @@ import {
   DEFAULT_BUBBLES, bubbleShape, runPosition, runGap, resolveFill, fillIsDark, FILL_SWATCHES,
   type BubblePrefs,
 } from '../src/lib/chat/bubbles'
+import {
+  allPrompts, modelOf, sortPrompts, filterPrompts, promptCounts, knownModels, formatChars,
+} from '../src/lib/prompts/index'
+import { MASTERS } from '../src/lib/prompts/masters'
 
 /* ------------------------------------------------------------ localStorage -- */
 /**
@@ -127,6 +131,72 @@ console.log('\n— Trojan detector —')
 
   check('the report formats for a person', formatTrojanReport(hidden).includes('[red-line]'))
   check('a clean report says so', formatTrojanReport(t('nothing here')).startsWith('CLEAN'))
+}
+
+/* --------------------------------------------------------- prompt index -- */
+console.log('\n— System prompt index —')
+{
+  const all = allPrompts()
+  check('every prompt in the app is indexed', all.length > 800)
+  check('the master prompts are in it', all.filter((p) => p.kind === 'master').length === MASTERS.length)
+  check('the persona archive is in it', all.filter((p) => p.kind === 'persona').length > 800)
+  check('the built-in skills are in it', all.filter((p) => p.kind === 'skill').length > 0)
+  check('the upstream packs are in it', all.filter((p) => p.kind === 'pack').length === 21)
+  check('every entry has a name', all.every((p) => p.name.length > 0))
+  check('every entry has an id', all.every((p) => p.id.length > 0))
+  check('no id is duplicated', new Set(all.map((p) => p.id)).size === all.length)
+  check('the list is sorted by name', (() => {
+    for (let i = 1; i < all.length; i++) if (all[i].sortName < all[i - 1].sortName) return false
+    return true
+  })())
+  check('the index is cached, not rebuilt per keystroke', allPrompts() === all)
+
+  // Naming: the thing the user actually asked for.
+  check('Fable 5.1 is named', modelOf('anthropic-claude-code-claude-code-fable-5-1', 'claude-code', 'claude-code-fable-5.1.md') === 'Claude Code Fable 5.1')
+  check('Opus 4.8 is named', modelOf('x', '', 'claude-opus-4.8.md') === 'Claude Opus 4.8')
+  check('GPT 6 Astra is named', modelOf('x', 'Codex', 'gpt-6-astra.md') === 'GPT 6 Astra')
+  check('Codex Spark keeps its tier', modelOf('x', 'Codex', 'gpt-5.3-codex-spark.md') === 'GPT 5.3 Codex Spark')
+  check('Gemini 3.1 Pro is named', modelOf('x', '', 'gemini-3.1-pro.md') === 'Gemini 3.1 Pro')
+  check('Grok 4 is named', modelOf('x', '', 'grok-4-with-new-safety-instructions.md') === 'Grok 4')
+  check('Kimi 3 is named', modelOf('x', '', 'kimi-3.md') === 'Kimi 3')
+  check('Qwen 3.6 Plus is named', modelOf('x', '', 'qwen3.6-plus.md') === 'Qwen 3.6 Plus')
+  check('a date prefix is stripped', modelOf('x', '', '2024-07-12-claude-sonnet-3.5-text-and-images.md') === 'Claude Sonnet 3.5')
+  check('the reasoning models are named by shape', modelOf('x', '', 'o4-mini-high.md') === 'o4 mini high')
+  check('an underscore-joined name is found', modelOf('x', '', 'personality_friendly_gpt-5.5.md') === 'GPT 5.5')
+  check('a chain keeps its product', modelOf('x', '', 'claude-code-opus-4.8.md') === 'Claude Code Opus 4.8')
+  check('Nano Banana is named whole', modelOf('x', '', 'nano-banana-2-api.md') === 'Nano Banana 2')
+
+  // Honest nulls beat confident wrong answers.
+  check('a tool with no version is not a model', modelOf('x', 'claude-code/agents', 'Explore.md') === null)
+  check('a README is not a model', modelOf('x', '', 'README.md') === null)
+  check('an interval is not a model', modelOf('x', '', 'heartbeat__interval@30m.md') === null)
+  check('a model name is never a bare descriptor', modelOf('x', '', 'text-only.md') === null)
+
+  // Sorting and filtering.
+  const bySize = sortPrompts(all, 'size', 'desc')
+  check('size sort is descending', bySize[0].chars >= bySize[1].chars)
+  const byVendor = sortPrompts(all, 'vendor')
+  check('vendor sort is alphabetical', byVendor[0].vendor <= byVendor[1].vendor)
+  const byModel = sortPrompts(all, 'model', 'desc')
+  check('unnamed models sort last ascending', (() => {
+    const asc = sortPrompts(all, 'model', 'asc')
+    return asc[asc.length - 1].model === null
+  })())
+  check('an empty query returns everything', filterPrompts(all, '').length === all.length)
+  check('a query narrows the list', filterPrompts(all, 'fable').length < all.length)
+  check('a query matches the model name', filterPrompts(all, 'opus 4.8').every((p) => `${p.name} ${p.model}`.toLowerCase().includes('opus 4.8')))
+  check('two terms both have to match', filterPrompts(all, 'fable claude').every((p) => `${p.name} ${p.model} ${p.vendor}`.toLowerCase().includes('fable') && `${p.name} ${p.model} ${p.vendor}`.toLowerCase().includes('claude')))
+  check('a nonsense query returns nothing', filterPrompts(all, 'zzzznotathing').length === 0)
+
+  const counts = promptCounts(all)
+  check('the counts add up', counts.master + counts.persona + counts.skill + counts.pack === all.length)
+  check('models are named across the list', knownModels(all).length > 50)
+  check('chars are formatted for a person', formatChars(0) === 'unknown' && formatChars(500) === '500 chars' && formatChars(2500) === '2.5k chars')
+
+  // Wiring: the index has to be reachable, or it is a library nobody calls.
+  check('the personas tab shows the index', src('src/components/settings/PersonasTab.tsx').includes('<ModelIndex />'))
+  check('the index sorts and filters', src('src/components/settings/PersonasTab.tsx').includes('sortPrompts(filterPrompts(all, q), sort, dir)'))
+  check('an unnamed prompt says so', src('src/components/settings/PersonasTab.tsx').includes('no model in the name'))
 }
 
 /* --------------------------------------------------------------- bubbles -- */
