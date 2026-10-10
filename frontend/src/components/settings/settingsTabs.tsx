@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import React from 'react'
-import { KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck } from 'lucide-react'
+import { KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -21,6 +21,7 @@ import { UpdatesTab } from './UpdatesTab'
 import { VoiceTab } from './VoiceTab'
 import { NotificationsTab } from './NotificationsTab'
 import { SecurityTab } from './SecurityTab'
+import { SnaffyTab } from './SnaffyTab'
 
 export const TABS = [
   { id: 'profile', label: 'Profile', icon: UserRound },
@@ -32,6 +33,7 @@ export const TABS = [
   { id: 'search', label: 'Search', icon: Search },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'models', label: 'Models', icon: Cpu },
+  { id: 'snaffy', label: 'Snaffy', icon: Route },
   { id: 'flow', label: 'AIFlowEngine', icon: Wind },
   { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'skills', label: 'Skills', icon: Wand2 },
@@ -83,6 +85,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'search': return <SearchTab />
     case 'appearance': return <AppearanceTab />
     case 'models': return <ModelsTab />
+    case 'snaffy': return <SnaffyTab />
     case 'flow': return <FlowTab />
     case 'performance': return <PerformanceTab />
     case 'skills': return <SkillsTab />

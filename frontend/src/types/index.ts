@@ -391,6 +391,18 @@ export interface Task {
 export interface Settings {
   theme: ThemeId
   fontScale: number
+  /**
+   * Snaffy: a router over the providers you already have. Off by default,
+   * because a router you did not turn on is a surprise, and a surprise in the
+   * middle of a chat is worse than no feature.
+   */
+  snaffy?: {
+    enabled: boolean
+    /** Which agent persona Snaffy routes with. */
+    persona: string
+    /** Pin one model and skip the routing, when you know better than it does. */
+    pinned?: string
+  }
   compact: boolean
   reduceMotion: boolean
   flowEnabled: boolean

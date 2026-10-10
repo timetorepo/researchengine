@@ -22,6 +22,8 @@ import {
 } from '../src/lib/prompts/index'
 import { MASTERS } from '../src/lib/prompts/masters'
 import { THEMES, THEME_CAPTIONS, themeKind } from '../src/lib/themes/meta'
+import { PROVIDERS } from '../src/lib/providers/registry'
+import { PERSONAS, DEFAULT_PERSONA, personaById, route } from '../src/lib/snaffy/router'
 import type { ThemeId } from '@/types'
 import {
   TECHNIQUES, LEVELS, techniqueById, levelById, typesFor, shapeFor,
@@ -349,6 +351,57 @@ console.log('\n— Research and Replicate themes —')
   check('the replicate timeline uses it', src('src/components/chat/ReplicateTimeline.tsx').includes('grad-replicate'))
   check('Claude keeps the wide radii', /data-theme="claude"\][\s\S]{0,900}--radius-card: 18px/.test(css))
   check('ChatGPT keeps the tight radii', /data-theme="chatgpt"\][\s\S]{0,900}--radius-card: 12px/.test(css))
+}
+
+/* -------------------------------------------------------------- snaffy -- */
+console.log('\n— Snaffy, the router —')
+{
+  check('Snaffy is not registered as a provider', !PROVIDERS.some((p) => p.id === 'snaffy'))
+  check('the personas are named agents', PERSONAS.length >= 5 && PERSONAS.every((p) => p.name.length > 2 && p.about.length > 10))
+  check('the ids are unique', new Set(PERSONAS.map((p) => p.id)).size === PERSONAS.length)
+  check('Manus is there', PERSONAS.some((p) => p.id === 'manus'))
+  check('every persona has a real system prompt', PERSONAS.every((p) => p.prompt.length > 120))
+  check('the prompts stay short enough to be read', PERSONAS.every((p) => p.prompt.length < 2000))
+  check('every persona says what it needs', PERSONAS.every((p) => p.wants.length > 0 && p.context > 0))
+  check('an unknown persona falls back', personaById('nope').id === PERSONAS[0].id)
+  check('the default is a real persona', PERSONAS.some((p) => p.id === DEFAULT_PERSONA))
+
+  // Routing over what the user actually has.
+  const enabled = [
+    { provider: 'anthropic', models: ['claude-sonnet-4-5', 'claude-haiku-4-5'] },
+    { provider: 'openai', models: ['gpt-5', 'o4-mini'] },
+  ]
+  const manus = route('manus', enabled)
+  check('Manus routes to a model it can use', !!manus.ref)
+  check('the route is a provider:model ref', /^[a-z0-9-]+:.+/.test(manus.ref ?? ''))
+  check('the route explains itself', manus.because.length > 5)
+  check('a fast persona prefers the fast model', (() => {
+    const d = route('triage', enabled)
+    return !!d.ref && /mini|haiku|flash/.test(d.ref)
+  })())
+  check('the coding persona prefers a coding model', (() => {
+    const d = route('coder', enabled)
+    return !!d.ref && /code|claude/.test(d.ref)
+  })())
+  check('nothing enabled means no route', route('manus', []).ref === null)
+  check('and it says why', route('manus', []).because.includes('none of your enabled models'))
+  check('a provider with no models contributes nothing', route('manus', [{ provider: 'anthropic', models: [] }]).ref === null)
+  check('the considered list is capped', route('manus', enabled).considered.length <= 5)
+  check('the considered list is best first', (() => {
+    const c = route('manus', enabled).considered
+    return c.every((x, i) => i === 0 || c[i - 1].score >= x.score)
+  })())
+  check('a model that cannot fit the context is not a candidate', route('researcher', [{ provider: 'mistral', models: ['mistral-small'] }]).ref === null)
+
+  // Wiring.
+  check('Snaffy has a settings tab', src('src/components/settings/settingsTabs.tsx').includes("case 'snaffy': return <SnaffyTab />"))
+  check('and it is in the rail', src('src/components/settings/settingsTabs.tsx').includes("id: 'snaffy'"))
+  check('off by default, not a surprise', src('src/stores/useStore.ts').includes("snaffy: { enabled: false, persona: 'manus' }"))
+  check('the tab shows the route and the reason', src('src/components/settings/SnaffyTab.tsx').includes('decision.because'))
+  check('the tab shows what it rejected', src('src/components/settings/SnaffyTab.tsx').includes('not a fit'))
+  check('the tab lets you pin a model', src('src/components/settings/SnaffyTab.tsx').includes('pinned'))
+  check('it reads only what you can actually call', src('src/components/settings/SnaffyTab.tsx').includes("cfg?.enabled && cfg?.apiKey"))
+  check('it never claims to be a provider', src('src/components/settings/SnaffyTab.tsx').includes('holds no key'))
 }
 
 /* --------------------------------------------------------------- bubbles -- */

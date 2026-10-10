@@ -103,6 +103,7 @@ const defaultSettings: Settings = {
   providerModels: {},
   dynamicIsland: false,
   themeGradients: false,
+  snaffy: { enabled: false, persona: 'manus' },
   bubbles: DEFAULT_BUBBLES,
   passphraseSet: false,
   floodBudget: 200000,
