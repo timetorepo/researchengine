@@ -12,6 +12,8 @@ import { isStreamingChat } from '@/lib/chat/runChat'
  * Sessions stream independently, so the card you left keeps thinking.
  */
 
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+
 type Spec = { alt: boolean; shift: boolean; ctrl: boolean; meta: boolean; letter: string | null }
 const parseSpec = (spec: string): Spec => {
   const parts = spec.split('+').map((p) => p.trim().toLowerCase()).filter(Boolean)
@@ -21,6 +23,8 @@ const parseSpec = (spec: string): Spec => {
     else if (p === 'shift') out.shift = true
     else if (p === 'ctrl') out.ctrl = true
     else if (p === 'meta' || p === 'cmd') out.meta = true
+    // The shortcut recorder writes ⌘/Ctrl as `mod`: ⌘ on a Mac, Ctrl everywhere else.
+    else if (p === 'mod') { if (IS_MAC) out.meta = true; else out.ctrl = true }
     else out.letter = p
   }
   return out

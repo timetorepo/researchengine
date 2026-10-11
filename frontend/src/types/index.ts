@@ -268,6 +268,10 @@ export interface Article {
   updatedAt: number
   spaceId?: string
   sourceChatId?: string
+  /** Short summary shown on the article's preview card. */
+  description?: string
+  /** A picture for the preview card (a data URL). Falls back to the gradient. */
+  coverImage?: string
 }
 
 export interface Citation {

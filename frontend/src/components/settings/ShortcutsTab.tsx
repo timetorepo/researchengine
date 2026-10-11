@@ -1,3 +1,4 @@
+import { ShortcutRecorder } from '@/components/ui/uiarc/shortcut-recorder/shortcut-recorder'
 import React, { useEffect, useState } from 'react'
 import { useUI } from '@/stores/useUI'
 import { useStore } from '@/stores/useStore'
@@ -56,23 +57,14 @@ export function ShortcutsTab() {
           <div className="text-[13px]" style={{ color: 'var(--text-2)' }}>Session switcher (iOS-style card switcher)</div>
           <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-3)' }}>Press it to open, again to step between sessions, Enter to land.</div>
         </div>
-        <input
-          readOnly
-          value={recording ? 'press keys…' : switchKey.toUpperCase().replace(/\+/g, ' + ')}
-          onFocus={() => setRecording(true)}
-          onBlur={() => setRecording(false)}
-          onKeyDown={(e) => {
-            if (!recording) return
-            e.preventDefault()
-            const spec = specOf(e)
-            const mods = spec.split('+').filter((x) => ['ctrl', 'alt', 'meta', 'shift'].includes(x)).length
-            if (spec && (mods >= 2 || !['shift', 'alt', 'ctrl', 'meta'].includes(spec))) {
-              useStore.setState((s) => ({ settings: { ...s.settings, sessionSwitchKey: spec } }))
-              setRecording(false)
-            }
-          }}
-          className="w-40 text-center text-[11px] font-mono px-2 py-1.5 rounded-[8px] outline-none"
-          style={{ background: 'var(--elevated)', border: `1px solid ${recording ? 'var(--primary)' : 'var(--surface-border)'}`, color: 'var(--text-2)' }}
+        <ShortcutRecorder
+          label="Session switcher shortcut"
+          hideLabel
+          value={switchKey}
+          defaultValue="alt+shift"
+          bindings={[]}
+          onValueChange={(v) => useStore.setState((st) => ({ settings: { ...st.settings, sessionSwitchKey: v ?? 'alt+shift' } }))}
+          description="Record the key combination that opens the session switcher."
         />
       </div>
       <p className="text-[11px] mt-3 italic" style={{ color: 'var(--text-3)' }}>
