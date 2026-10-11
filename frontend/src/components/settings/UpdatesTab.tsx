@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/heroui/Button'
 import { smoothCaretProps } from '@/components/input/SmoothText'
 import HoldButton from '@/components/ui/reactbits/micro/HoldButton'
-import { BellToggle } from '@/components/ui/reactbits/micro/BellToggle'
+import BellToggle from '@/components/ui/reactbits/micro/BellToggle'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -409,7 +409,7 @@ export function UpdatesTab() {
             </div>
           </div>
           <BellToggle
-            on={autoCheck}
+            pressed={autoCheck}
             onChange={(v) => update({ updates: { ...(settings.updates ?? {}), autoCheck: v } })}
             label="Notify me of updates"
           />

@@ -13,7 +13,7 @@ import { useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
 import { ResourceMeter } from '@/components/topbar/ResourceMeter'
 import { useAgents } from '@/lib/ide/agents'
-import { StatusMark } from '@/components/ui/reactbits/micro/StatusMark'
+import StatusMark from '@/components/ui/reactbits/micro/StatusMark'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
 import AIContextMeter from '@/components/smoothui/ai-context-meter'
 import { contextWindowFor } from '@/lib/providers/context-window'
@@ -71,7 +71,7 @@ function AgentPulse() {
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
         style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}
       >
-        <StatusMark state="running" pulse size={9} />
+        <StatusMark status="running" size={9} />
         {running.length > 1 ? `${running.length} agents` : 'Agent'}
       </button>
       {open && running.length > 1 && (
@@ -81,7 +81,7 @@ function AgentPulse() {
         >
           {running.map((t) => (
             <div key={t.id} className="flex items-center gap-2 text-[11.5px]" style={{ color: 'var(--text-2)' }}>
-              <StatusMark state="running" pulse size={8} />
+              <StatusMark status="running" size={8} />
               <span className="truncate">{t.title}</span>
             </div>
           ))}

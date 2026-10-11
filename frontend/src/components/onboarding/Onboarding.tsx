@@ -20,15 +20,14 @@ import StaggerFromEdges from '@/components/smoothui/stagger-from-edges'
 import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-terminal'
 import FolderReveal from '@/components/smoothui/folder-reveal'
 import GitHubStarsAnimation from '@/components/smoothui/github-stars-animation'
-// React Bits reimplementations, each on the step it was asked for. Provenance is
-// honest: reactbits.dev is not reachable from here, so these are written against
-// the documented behaviour, not vendored copies (the barrel says so).
-import { TearTicket } from '@/components/ui/reactbits/micro/TearTicket'
-import { StarBorder } from '@/components/ui/reactbits/micro/StarBorder'
-import { CrystalizedBall } from '@/components/ui/reactbits/micro/CrystalizedBall'
-import { InfiniteSpiral } from '@/components/ui/reactbits/micro/InfiniteSpiral'
-import { MaskedHeading } from '@/components/ui/reactbits/micro/MaskedHeading'
-import { FlowingMenu } from '@/components/ui/reactbits/micro/FlowingMenu'
+// React Bits, vendored from the published source (see the provenance line in
+// each file under components/ui/reactbits/micro), each on the step it was asked for.
+import TearTicket from '@/components/ui/reactbits/micro/TearTicket'
+import StarBorder from '@/components/ui/reactbits/micro/StarBorder'
+import CrystalizedBall from '@/components/ui/reactbits/micro/CrystalizedBall'
+import InfiniteSpiral from '@/components/ui/reactbits/micro/InfiniteSpiral'
+import MaskedHeading from '@/components/ui/reactbits/micro/MaskedHeading'
+import FlowingMenu from '@/components/ui/reactbits/micro/FlowingMenu'
 // R16 — the rest of the Aceternity set, each on the step it was picked for.
 // Provenance and digests: frontend/scripts/aceternity-sources.json.
 import { ColourfulText } from '@/components/ui/aceternity/ColourfulText'
@@ -55,6 +54,14 @@ import { encryptWithPassphrase } from '@/lib/crypto/vault'
 import { setVaultPassphrase } from '@/lib/crypto/session'
 import type { ThemeId } from '@/types'
 import { clsx } from 'clsx'
+
+/** The wallpapers the first-run spiral travels through (served from /public). */
+const SPIRAL_ITEMS = [
+  '/wallpapers/glaze-1.webp', '/wallpapers/chromatic-dark-1.webp', '/wallpapers/glass-rainbow.webp',
+  '/wallpapers/mono-dark-1.webp', '/wallpapers/red-distortion-1.webp', '/wallpapers/loupe-mono-dark.webp',
+  '/wallpapers/chromatic-dark-2.webp', '/wallpapers/mono-dark-2.webp', '/wallpapers/red-distortion-4.webp',
+  '/wallpapers/chromatic-light-2.webp',
+]
 
 /**
  * The rounds of first run.
@@ -352,13 +359,16 @@ export function Onboarding() {
       </div>
       {/* The first-run heading wipes on with a travelling mask. */}
       <div className="mt-5 text-[13px]" style={{ color: 'var(--text-2)' }}>
-        <MaskedHeading text="Pick where to start" speed={4} />
+        <MaskedHeading text="Pick where to start" mediaType="image" src="/wallpapers/glaze-1.webp" />
       </div>
-      <div className="mt-2 flex justify-center">
+      {/* Flowing Menu: each row is a way in. Its items are links, so one click
+          handler on the wrapper turns any of them into "continue". */}
+      <div className="mt-2 flex justify-center h-[200px] w-full max-w-[560px] mx-auto"
+        onClickCapture={(e) => { if ((e.target as HTMLElement).closest('a')) { e.preventDefault(); next() } }}>
         <FlowingMenu items={[
-          { id: 'research', label: 'Research', onClick: next },
-          { id: 'learn', label: 'Learn', onClick: next },
-          { id: 'code', label: 'Build', onClick: next },
+          { link: '#research', text: 'Research', image: '/wallpapers/glaze-1.webp' },
+          { link: '#learn', text: 'Learn', image: '/wallpapers/chromatic-dark-1.webp' },
+          { link: '#build', text: 'Build', image: '/wallpapers/mono-dark-1.webp' },
         ]} />
       </div>
       <div className="mt-6 flex justify-center">
@@ -371,11 +381,38 @@ export function Onboarding() {
       {/* A tear-off ticket as a second, more playful way into the app: drag the
           stub down to open Research Engine. The same action as the button, but
           it earns a moment of attention on a first run. */}
-      <div className="mt-5 max-w-[300px] mx-auto">
-        <TearTicket title="Research Engine" body="Your local-first AI workspace." cta="Tear to open" onTear={next} />
+      <div className="mt-5 flex justify-center">
+        <TearTicket
+          width={320}
+          height={120}
+          stub={<span className="text-[12px] font-semibold">Tear to open</span>}
+          onTear={next}
+          background="var(--surface)"
+          color="var(--text-1)"
+          stubBackground="var(--elevated)"
+          borderColor="var(--surface-border)"
+          ariaLabel="Tear to open Research Engine"
+        >
+          <div className="p-4 text-left">
+            <div className="text-[13px] font-semibold">Research Engine</div>
+            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-3)' }}>Your local-first AI workspace.</div>
+          </div>
+        </TearTicket>
       </div>
-      <div className="mt-4 flex justify-center opacity-70">
-        <InfiniteSpiral size={56} />
+      {/* Infinite Spiral: the app's own wallpapers travel round a helix. It is
+          the visual for the first run, and it holds still under reduce-motion. */}
+      <div className="mt-6 h-[300px] w-full max-w-[560px] mx-auto">
+        <InfiniteSpiral
+          items={SPIRAL_ITEMS}
+          radius={150}
+          cardWidth={96}
+          cardHeight={96}
+          verticalSpacing={54}
+          cardsPerTurn={7}
+          cardRadius={14}
+          edgeFade={0.35}
+          grayscale={0.2}
+        />
       </div>
     </div>,
 

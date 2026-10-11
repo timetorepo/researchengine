@@ -10,7 +10,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { extractText } from '@/lib/documents/extract'
 import { generateQuiz } from '@/lib/quiz/generate'
-import { TechText } from '@/components/ui/reactbits/micro/TechText'
+import TechText from '@/components/ui/reactbits/micro/TechText'
 import {
   TECHNIQUES, LEVELS, DEFAULT_TECHNIQUE, DEFAULT_LEVEL,
   techniqueById, levelById, typesFor,
@@ -350,7 +350,7 @@ export function QuizHub() {
             welcome rather than a delay: nothing else is moving yet. */}
         {documents.length === 0 && (
           <div className="mb-6">
-            <TechText as="p" text="Nothing here yet. Drop a document to begin."
+            <TechText text="Nothing here yet. Drop a document to begin."
               className="text-[13px] font-medium m-0" speed={26} />
           </div>
         )}

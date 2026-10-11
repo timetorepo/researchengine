@@ -4,9 +4,9 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
-import { WakeSlider } from '@/components/ui/reactbits/micro/WakeSlider'
-import { CometDial } from '@/components/ui/reactbits/micro/CometDial'
-import { JellyRadio } from '@/components/ui/reactbits/micro/JellyRadio'
+import WakeSlider from '@/components/ui/reactbits/micro/WakeSlider'
+import CometDial from '@/components/ui/reactbits/micro/CometDial'
+import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { DEFAULT_BUBBLES, FILL_SWATCHES, bubbleShape, type BubblePrefs } from '@/lib/chat/bubbles'
@@ -209,11 +209,11 @@ export function AppearanceTab() {
             </span>
           </div>
           <WakeSlider
-            label="Intensity"
+            ariaLabel="Background intensity"
             min={0.2} max={1} step={0.05}
             value={bg.intensity ?? ANIMATED_BG_META[bg.kind].defaultIntensity}
-            onChange={(v) => setBg({ ...bg, intensity: v } as BackgroundConfig)}
-            format={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v: number) => setBg({ ...bg, intensity: v } as BackgroundConfig)}
+            formatValue={(v: number) => `${Math.round(v * 100)}%`}
           />
           <button onClick={() => setBg({ kind: 'default' })}
             className="mt-2 text-[11.5px] inline-flex items-center gap-1 hover:underline" style={{ color: 'var(--text-3)' }}>
@@ -236,10 +236,11 @@ export function AppearanceTab() {
         <div className="flex items-center gap-4 mb-2">
           <CometDial
             size={78}
+            min={80} max={140} step={1}
             value={Math.round(settings.fontScale * 100)}
-            onChange={(v) => update({ fontScale: Math.max(0.8, Math.min(1.4, v / 100)) })}
+            onChange={(v: number) => update({ fontScale: Math.max(0.8, Math.min(1.4, v / 100)) })}
             label="Text size"
-            format={(v) => `${v}%`}
+            unit="%"
           />
           <div className="flex-1">
             <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Fine text size</div>
@@ -252,12 +253,12 @@ export function AppearanceTab() {
           <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Density</div>
           <JellyRadio
             value={settings.compact ? 'compact' : 'cozy'}
-            onChange={(v) => update({ compact: v === 'compact' })}
-            options={[
+            onChange={(v: string) => update({ compact: v === 'compact' })}
+            items={[
               { value: 'cozy', label: 'Cozy' },
               { value: 'compact', label: 'Compact' },
             ]}
-            label="Layout density"
+            ariaLabel="Layout density"
           />
         </div>
 

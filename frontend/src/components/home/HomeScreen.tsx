@@ -10,8 +10,8 @@ import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
 import { BorderBeam } from 'border-beam'
-import { PatternWaves } from '@/components/ui/reactbits/micro/PatternWaves'
-import { SwipeRow } from '@/components/ui/reactbits/micro/SwipeRow'
+import PatternWaves from '@/components/ui/reactbits/micro/PatternWaves'
+import SwipeRow from '@/components/ui/reactbits/micro/SwipeRow'
 import { timeAgo, fmt } from '@/lib/utils'
 import { runChat } from '@/lib/chat/runChat'
 import { themeKind } from '@/lib/themes/meta'
@@ -109,7 +109,7 @@ export function HomeScreen() {
           place rather than sitting under it. The drifting waves sit above the
           aurora at low strength — a second layer of motion, not a replacement. */}
       {!wallpaper && <AuroraBackground className="absolute inset-0 pointer-events-none" />}
-      {!wallpaper && <PatternWaves strength={0.35} />}
+      {!wallpaper && <div className="absolute inset-0 pointer-events-none"><PatternWaves opacity={0.35} interactive={false} /></div>}
       <AnimatePresence>
         {dragOver && (
           <motion.div
@@ -190,8 +190,9 @@ export function HomeScreen() {
                     {recentChats.map((c) => (
                       <SwipeRow
                         key={c.id}
+                        actionWidth={112}
                         actions={[
-                          { id: 'ai', label: 'Send to AI', kind: 'ai', onClick: () => sendFromHome(`Continue where I left off: ${c.title}`, { search: true }) },
+                          { id: 'ai', label: 'Send to AI', icon: <Sparkles size={13} />, color: 'var(--primary)', onSelect: () => sendFromHome(`Continue where I left off: ${c.title}`, { search: true }) },
                         ]}
                       >
                         <button onClick={(e) => { e.stopPropagation(); useStore.getState().setActiveChat(c.id); navigate(`/chat/${c.id}`) }}

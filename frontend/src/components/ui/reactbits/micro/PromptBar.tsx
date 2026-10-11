@@ -1,10 +1,5 @@
-// React Bits — Prompt Bar (Micro)
-// Added verbatim from the published source, TypeScript + Tailwind variant:
-//   https://reactbits.dev/c/micro/prompt-bar
-//   https://github.com/DavidHDev/react-bits → src/ts-tailwind/Micro/PromptBar/PromptBar.tsx
-// License: MIT + Commons Clause (see the repository LICENSE.md). Not rewritten,
-// not reimplemented — the component as published, so upstream fixes can be
-// diffed in. Only this header was added.
+// Vendored from React Bits (https://reactbits.dev, source: github.com/DavidHDev/react-bits @ 90b2750, src/ts-tailwind/Micro/PromptBar).
+// Unmodified apart from this provenance line. Props are documented on the published page.
 import React, {
   isValidElement,
   useCallback,
