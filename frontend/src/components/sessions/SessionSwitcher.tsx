@@ -100,25 +100,41 @@ export function SessionSwitcher() {
           style={{ background: 'color-mix(in srgb, var(--bg) 55%, transparent)', backdropFilter: 'blur(18px) saturate(1.3)' }}
           onMouseDown={() => setOpen(false)}
         >
-          <div className="flex items-center gap-4 max-w-[92vw] overflow-x-auto px-8 py-6" onMouseDown={(e) => e.stopPropagation()}>
+          {/* A deck, not a row: the selected session sits on top and the rest fan out
+              behind it, each one further back, so you see how many there are without
+              scrolling. Stepping rotates the deck. */}
+          <div className="relative h-[330px] w-[300px] max-w-[92vw]" onMouseDown={(e) => e.stopPropagation()}>
             {list.map((c, i) => {
+              const n = list.length
+              const depth = (i - idx + n) % n
+              const hidden = depth > 4
               const last = c.messages[c.messages.length - 1]
               const live = isStreamingChat(c.id)
               const iso = c.session?.isolation
               return (
                 <motion.button
                   key={c.id}
-                  layout
-                  animate={{ scale: i === idx ? 1.07 : 0.94, y: i === idx ? -6 : 0 }}
-                  transition={{ type: 'spring', damping: 24, stiffness: 300 }}
-                  className="shrink-0 w-60 rounded-2xl p-3 text-left"
+                  initial={false}
+                  animate={{
+                    x: depth * 26,
+                    y: depth * -14,
+                    scale: 1 - depth * 0.05,
+                    opacity: hidden ? 0 : 1 - depth * 0.14,
+                    rotate: depth === 0 ? 0 : depth * 1.2,
+                    zIndex: n - depth,
+                  }}
+                  transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+                  className="absolute left-0 top-0 w-[300px] rounded-2xl p-3 text-left"
                   style={{
                     background: 'var(--surface)',
-                    border: `1px solid ${i === idx ? 'var(--primary)' : 'var(--surface-border)'}`,
-                    boxShadow: i === idx ? '0 18px 48px rgb(0 0 0 / .35)' : '0 8px 24px rgb(0 0 0 / .2)',
+                    border: `1px solid ${depth === 0 ? 'var(--primary)' : 'var(--surface-border)'}`,
+                    boxShadow: depth === 0 ? '0 18px 48px rgb(0 0 0 / .35)' : '0 8px 24px rgb(0 0 0 / .2)',
+                    pointerEvents: hidden ? 'none' : 'auto',
+                    transformOrigin: 'center bottom',
                   }}
                   onClick={() => confirm(i)}
                   onMouseEnter={() => setIdx(i)}
+                  aria-label={`${c.title || 'Untitled session'}${depth === 0 ? ', selected' : ''}`}
                 >
                   <div className="flex items-center gap-1.5 text-[12px] font-medium truncate" style={{ color: 'var(--text-1)' }}>
                     {live && <span className="h-1.5 w-1.5 rounded-full shrink-0 animate-pulse" style={{ background: 'var(--success, #34c759)' }} />}
@@ -127,9 +143,9 @@ export function SessionSwitcher() {
                       {iso === 'docker' ? <Box size={12} /> : iso === 'vm' ? <ServerCog size={12} /> : <Monitor size={12} />}
                     </span>
                   </div>
-                  <div className="mt-2 h-16 overflow-hidden rounded-lg px-2 py-1.5 text-[10.5px] leading-relaxed"
+                  <div className="mt-2 h-24 overflow-hidden rounded-lg px-2 py-1.5 text-[10.5px] leading-relaxed"
                     style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
-                    {last ? plain(last.content).slice(0, 160) : 'No messages yet'}
+                    {last ? plain(last.content).slice(0, 220) : 'No messages yet'}
                   </div>
                   <div className="mt-1.5 flex items-center justify-between text-[9.5px]" style={{ color: 'var(--text-3)' }}>
                     <span>{c.messages.length} messages{c.kind === 'coding' ? ' · coding' : ''}</span>

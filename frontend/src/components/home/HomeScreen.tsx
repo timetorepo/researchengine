@@ -19,6 +19,7 @@ import { wallpaperOf } from '@/lib/wallpapers'
 import { beginHandoff, HANDOFF_BLUR_MS, EASE_OUT, EASE, DUR } from '@/lib/ui/handoff'
 import { ImageLab } from '@/components/home/ImageLab'
 import { RevolvingText } from './RevolvingText'
+import { AIThemeWelcome } from './AIThemeWelcome'
 import { SuggestedForYou } from './SuggestedForYou'
 
 const SUGGESTIONS = [
@@ -127,6 +128,9 @@ export function HomeScreen() {
         )}
       </AnimatePresence>
       <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
+        {/* A welcome for the AI-product themes; off in Settings → Appearance. */}
+        <AIThemeWelcome onFocusInput={() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus()} />
+
         {/* Research / build / challenge hero — the rotating word morphs its
             slot width instead of being clipped, and the line scales down rather
             than wrapping (which used to shove the composer south). */}

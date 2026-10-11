@@ -326,6 +326,8 @@ export function AppearanceTab() {
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
+        <Switch label="Welcome for AI themes" description="Show a welcome on the home screen when Claude, ChatGPT, Gemini or Perplexity is the theme. Off hides it everywhere."
+          checked={settings.aiThemeWelcome !== false} onChange={(v) => update({ aiThemeWelcome: v })} />
         <Switch label="Composer border beam" description="Ring the home-screen chatbox with Border Beam by Jakubantalik. Brightens while you type."
           checked={settings.composerBeam !== false} onChange={(v) => update({ composerBeam: v })} />
         <Switch label="Dock animation" description="Model rows grow toward the pointer and lift their neighbours, like a dock. Off: the list stays perfectly still."

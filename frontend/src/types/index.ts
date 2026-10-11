@@ -468,6 +468,8 @@ export interface Settings {
   showResourceMeter?: boolean
   /** Show a frames-per-second counter over the app. Off by default. */
   showFps?: boolean
+  /** The welcome card on the home screen for AI-product themes. On by default. */
+  aiThemeWelcome?: boolean
   flowEnabled: boolean
   flowMode: FlowMode
   defaultModel: string // "provider:model"
