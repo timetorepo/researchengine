@@ -22,6 +22,7 @@ import { ReaderView, type ReaderDoc } from '@/components/reader/ReaderView'
 import { QuizPlay, type PlayResult } from './QuizPlay'
 import { QuizResults } from './QuizResults'
 import { Select } from '@/components/ui/watermelon/Select'
+import { FileDropzone } from '@/components/ui/uiarc/file-dropzone/file-dropzone'
 import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
 import { TechniquesPanel } from '@/components/learn/TechniquesPanel'
 import { PathPanel } from '@/components/learn/PathPanel'
@@ -51,7 +52,7 @@ export function QuizHub() {
   const [view, setView] = useState<'hub' | 'processing' | 'reader' | 'quiz' | 'results' | 'review'>('hub')
   const [readerDoc, setReaderDoc] = useState<ReaderDoc | null>(null)
   const [pendingNeedle, setPendingNeedle] = useState<string | null>(null)
-  const [dragOver, setDragOver] = useState(false)
+  const seenFiles = useRef(new Set<string>())
   const fileRef = useRef<HTMLInputElement>(null)
 
   // processing
@@ -380,23 +381,27 @@ export function QuizHub() {
           </div>
         )}
 
-        {/* Drop zone */}
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
-          onClick={() => fileRef.current?.click()}
-          className="rounded-[18px] p-8 text-center cursor-pointer transition-all mb-3"
-          style={{ border: `1.5px dashed ${dragOver ? 'var(--primary)' : 'var(--surface-border)'}`, background: dragOver ? 'color-mix(in srgb, var(--primary) 6%, transparent)' : 'var(--surface)' }}
-        >
-          <UploadCloud size={26} strokeWidth={1.5} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
-          <div className="text-[14px] font-medium">Drop a PDF, DOCX, TXT or Markdown file</div>
-          <div className="text-[11.5px] mt-1" style={{ color: 'var(--text-3)' }}>or click to browse — extraction happens on-device</div>
-          <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,.markdown" className="hidden" onChange={(e) => {
-            const files = Array.from(e.target.files ?? [])
-            e.target.value = '' // allow re-selecting the same file
-            if (files.length) handleFiles(files)
-          }} />
+        {/* Drop zone: reactbits-style file dropzone (uiarc). It lists each file as it
+            is picked; the handler ingests a file once, the first time it appears. */}
+        <div className="mb-3">
+          <FileDropzone
+            accept=".pdf,.docx,.txt,.md,.markdown"
+            multiple
+            maxFiles={5}
+            maxSize={50 * 1024 * 1024}
+            label="Add a document"
+            description="Drop a PDF, DOCX, TXT or Markdown file, or choose one from your device"
+            note="Extraction happens on-device. Nothing is uploaded."
+            onFilesChange={(files) => {
+              const fresh = files.filter((f) => {
+                const key = `${f.name}:${f.size}:${f.lastModified}`
+                if (seenFiles.current.has(key)) return false
+                seenFiles.current.add(key)
+                return true
+              })
+              if (fresh.length) handleFiles(fresh)
+            }}
+          />
         </div>
 
         {/* Demo entries */}

@@ -7,7 +7,7 @@
 
 **Ask a question. Get an answer with real sources. Keep every page, note, quiz and draft on your own computer.**
 
-[![Release](https://img.shields.io/badge/release-v0.40.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v0.46.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#-your-work-stays-yours)
@@ -16,6 +16,22 @@
 [Download](#-download) · [What it does](#-what-it-does) · [Only in Research Engine](#-only-in-research-engine) · [Your data](#-your-work-stays-yours) · [Questions](#-questions-people-ask)
 
 </div>
+
+---
+
+## See it
+
+A few screenshots of Research Engine, taken from the app itself.
+
+<img src="https://i.ibb.co/DDzfyQ05/1.png" alt="Research Engine, screenshot 1 of 5" width="100%" />
+
+<img src="https://i.ibb.co/7dZGxJJh/2.png" alt="Research Engine, screenshot 2 of 5" width="100%" />
+
+<img src="https://i.ibb.co/PGDs16jk/3.png" alt="Research Engine, screenshot 3 of 5" width="100%" />
+
+<img src="https://i.ibb.co/Nk8B5hG/4.png" alt="Research Engine, screenshot 4 of 5" width="100%" />
+
+<img src="https://i.ibb.co/v4dDdkm8/5.png" alt="Research Engine, screenshot 5 of 5" width="100%" />
 
 ---
 
@@ -159,8 +175,7 @@ Pick **one** of these. Every path runs exactly the same product.
 | Your situation | What to get | How |
 |---|---|---|
 | **Windows 10/11** | `Research.Engine_…_x64-setup.exe` | Download from the [latest release](https://github.com/timetorepo/researchengine/releases), run it, open Research Engine from the Start menu. No admin password needed. |
-| **Linux** | `Research.Engine_…_amd64.deb` | `sudo apt install ./Research.Engine_…_amd64.deb` then launch it from your applications menu |
-| **Linux (no install)** | `Research.Engine_…_amd64.AppImage` | Download, right-click → *Allow executing*, then double-click it |
+| **Linux** | `Research.Engine_…_amd64.deb` | `sudo apt install ./Research.Engine_…_amd64.deb` then launch it from your applications menu. (The AppImage is not part of v0.46.0-beta.1.) |
 | **Windows, no installer** | `research-engine-…-win-x64.zip` | Unzip it anywhere and run `research-engine.cmd` (needs Node.js 20+ — see [docs/install.md](docs/install.md)) |
 | **Linux, no installer** | `research-engine-…-linux-x64.tar.gz` | Unpack, `chmod +x research-engine-linux-x64/research-engine`, run it (needs Node.js 20+) |
 | **Just want to look** | Nothing to install | Any Chromium browser (Chrome, Edge, Brave, Arc) can install the running app as a normal program — see [docs/install.md](docs/install.md) |

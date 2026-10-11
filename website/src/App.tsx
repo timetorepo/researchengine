@@ -13,7 +13,9 @@ import { HowItWorks } from '@/components/site/HowItWorks'
 import { LibrarySection } from '@/components/site/LibrarySection'
 import { Nav } from '@/components/site/Nav'
 import { Showcase } from '@/components/site/Showcase'
+import { SiteHealth } from '@/components/site/SiteHealth'
 import { StarsStrip } from '@/components/site/StarsStrip'
+import { Tour } from '@/components/site/Tour'
 import { Testimonials } from '@/components/site/Testimonials'
 import { destroySmoothScroll, initSmoothScroll } from '@/lib/smooth-scroll'
 
@@ -38,6 +40,7 @@ export default function App() {
           <AskSection />
           <StarsStrip />
           <Features />
+          <Tour />
           <Showcase />
           <Backend />
           <LibrarySection />
@@ -45,6 +48,7 @@ export default function App() {
           <Testimonials />
           <Compare />
           <Faq />
+          <SiteHealth />
           <DownloadSection />
         </main>
         <Footer />
