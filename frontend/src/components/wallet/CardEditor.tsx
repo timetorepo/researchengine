@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { generatePalette } from '@usespaceui/gradients'
 import { saveCard } from '@/lib/wallet/cards'
 import type { CardBackground, CardFont, WalletCard, WalletField } from '@/lib/wallet/types'
 import { WalletCardView } from './WalletCardView'
@@ -86,6 +87,13 @@ export function CardEditor({ card, onClose }: { card: WalletCard; onClose: () =>
                 <label className="flex items-center gap-2">Text
                   <input type="color" value={style.text} onChange={(e) => setStyle({ text: e.target.value })} className="h-8 w-10 cursor-pointer rounded" />
                 </label>
+                <button type="button" onClick={() => {
+                  const p = generatePalette(Math.floor(Math.random() * 1e9), { mode: 'nice' })
+                  const [a, b] = [p.colors[0], p.colors[1] ?? p.colors[0]]
+                  setStyle({ from: a, to: b, text: readableText(a) })
+                }} className="rounded-full px-3 py-1.5" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+                  Shuffle colours
+                </button>
                 <label className="cursor-pointer rounded-full px-3 py-1.5" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
                   {style.image ? 'Change picture' : 'Upload picture'}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => { onImage(e.target.files?.[0]); e.target.value = '' }} />
@@ -117,4 +125,12 @@ export function CardEditor({ card, onClose }: { card: WalletCard; onClose: () =>
       </div>
     </div>
   )
+}
+
+/** Dark text on light colours, white on dark, so the card stays readable after a shuffle. */
+function readableText(hex: string): string {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return lum > 0.6 ? '#1d1d1f' : '#ffffff'
 }

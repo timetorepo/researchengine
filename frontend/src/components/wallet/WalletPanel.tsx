@@ -24,6 +24,13 @@ export function WalletPanel() {
         <div className="surface p-6 text-[13px]" style={{ color: 'var(--text-2)' }}>
           Your wallet is empty. Cards arrive as you use the app: finish your first quiz, or keep Research Engine open for three
           hours. You can also add your own.
+          <div className="mt-4">
+            <button type="button" onClick={() => setEditing(newCustomCard())}
+              className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-medium active:scale-[0.97]"
+              style={{ background: 'var(--primary)', color: '#fff' }}>
+              <Plus size={12} /> Add a card
+            </button>
+          </div>
         </div>
       ) : (
         <div className="relative mx-auto max-w-[360px] pb-4" style={{ height: 150 + (cards.length - 1) * 56 + 220 }}>
