@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 37 versions, 0.45.0 back to 0.10.0.
+ * 38 versions, 0.46.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,106 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.46.0",
+    "tag": "v0.46.0-beta.1",
+    "name": "beta: work modes, effort slider, a leaner Design Studio, and Learn tabs.",
+    "date": "2026-10-11",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.46.0-beta.1",
+    "summary": "Work modes with their own system prompts, a ChatGPT-style effort slider, a leaner Design Studio, the Learn tabs, and the desktop shell built by CI.",
+    "sections": [
+      {
+        "title": "Work modes, with their own system prompts",
+        "items": [
+          {
+            "text": "Research, Coding, Design and Math each carry a short, specific system brief on top of the master prompt. Research adds nothing, so its prompt is unchanged."
+          },
+          {
+            "text": "The mode is inferred from where the request comes from: Design Studio is Design, the Math toggle is Math, a request inside a project is Coding, and everything else is Research. A caller can name a mode explicitly."
+          },
+          {
+            "text": "Briefs stay short on purpose, because some models have much smaller context windows than others."
+          }
+        ]
+      },
+      {
+        "title": "Thinking-effort slider in the prompt bar",
+        "items": [
+          {
+            "text": "The effort control is now a ChatGPT-style slider: a hairline track with a dot per step, a white thumb, and the step labels under it. The steps are each provider's own, so Medium, High and Max are the ones that provider offers."
+          },
+          {
+            "text": "Drag anywhere on the track, or use the arrow keys, Home and End."
+          }
+        ]
+      },
+      {
+        "title": "Design Studio, simplified",
+        "items": [
+          {
+            "text": "Removed the Board, Brief, Components, Inspiration and Prototype panels. Their jobs now belong to the mode prompts and the assistant."
+          },
+          {
+            "text": "Removed the Full Throttle pipeline. Its four stages (Research, Premium, Design, Prototype) pointed at those panels, so it could not run without them. It is in the git history if you want it back."
+          },
+          {
+            "text": "Ship stays. The panel files are still in the repository for the scripts that import them."
+          }
+        ]
+      },
+      {
+        "title": "Learn",
+        "items": [
+          {
+            "text": "Learn is now four tabs: Study, Techniques, Path and Videos."
+          },
+          {
+            "text": "Techniques: Active Recall with spaced repetition, Feynman explanations graded by your model, and dual coding with a picture description."
+          },
+          {
+            "text": "Path: a step-by-step course built from a document, only when you press Generate. It falls back to on-device questions and says so."
+          },
+          {
+            "text": "Videos: YouTube results for what you are studying now, playable inline."
+          }
+        ]
+      },
+      {
+        "title": "Themes and marks",
+        "items": [
+          {
+            "text": "A Gemini theme joins Claude and ChatGPT. Claude's and Gemini's composers now take those products' shape, not just their colours."
+          },
+          {
+            "text": "Anthropic, Gemini, NVIDIA, Ollama, Mistral, Perplexity and LM Studio use their official marks. OpenAI, Groq and Together keep their earlier marks."
+          }
+        ]
+      },
+      {
+        "title": "Onboarding and About",
+        "items": [
+          {
+            "text": "The welcome step has a circuit-board explainer of how a question moves through the app."
+          },
+          {
+            "text": "The developer card on About sits in a Spotlight Card."
+          }
+        ]
+      },
+      {
+        "title": "Desktop",
+        "items": [
+          {
+            "text": "The Tauri shell is built by CI on this tag, for Windows (NSIS) and Linux. The build environment for this release could not compile Rust, so the installers come from the tag build and are checked there."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 17,
+      "sections": 7
+    }
+  },
   {
     "version": "0.45.0",
     "tag": "v0.45.0-beta.1",

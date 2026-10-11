@@ -1,5 +1,6 @@
 // The send pipeline: classify → prune → shape prompt → call provider (or
 // local demo) → stream → record Flow transparency stats.
+import { inferWorkMode, type WorkMode } from '@/lib/prompts/workModes'
 import { nanoid } from 'nanoid'
 import type { IntegrationId } from '@/lib/integrations/registry'
 import { useStore } from '@/stores/useStore'
@@ -28,6 +29,8 @@ import type { ChatMessage, Source } from '@/types'
 
 export interface RunOptions {
   chatId: string
+  /** Which work mode's system prompt applies. Inferred when omitted. */
+  workMode?: WorkMode
   prompt: string
   mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
   modelOverride?: string
@@ -201,7 +204,8 @@ export async function runChat(opts: RunOptions): Promise<void> {
   const pruned = pruneContext(history, settings.flowMode, flowEnabled)
 
   const cls = classifyQuery(prompt)
-  const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality, flow: settings.flowEnabled }, settings.masterPromptOverrides)
+  const workMode = inferWorkMode({ design: opts.design, math: mode.math, project: opts.project, explicit: opts.workMode })
+  const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality, flow: settings.flowEnabled, workMode }, settings.masterPromptOverrides)
   const customSys = settings.customSystemPrompts[mode.math ? 'math' : 'default']
   let system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
   // Persona overlay: a vendored system prompt picked per chat (or as the

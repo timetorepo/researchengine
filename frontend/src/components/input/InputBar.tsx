@@ -1,3 +1,4 @@
+import { EffortSlider } from './EffortSlider'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
@@ -119,17 +120,10 @@ function EffortPill() {
         <span>{current.label}</span>
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl p-1 z-40"
+        <div className="absolute bottom-full left-0 mb-2 rounded-2xl p-4 z-40"
           style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 12px 32px rgb(0 0 0 / .25)' }}>
-          {steps.map((e) => (
-            <button key={e.id}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-[11px] hover:bg-[var(--elevated)]"
-              style={{ color: e.id === current.id ? 'var(--primary)' : 'var(--text-2)' }}
-              onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, effort: e.id } })); setOpen(false) }}>
-              <span className="font-medium w-14">{e.label}</span>
-              <span className="opacity-70 text-[10px]">{e.hint}</span>
-            </button>
-          ))}
+          <EffortSlider steps={steps} value={current.id}
+            onChange={(id) => useStore.setState((s) => ({ settings: { ...s.settings, effort: id } }))} />
         </div>
       )}
     </div>

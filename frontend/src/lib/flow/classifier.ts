@@ -2,6 +2,7 @@
 // fully on-device. No API call for the common path.
 
 import { getMaster, STYLE_RULES, type MasterKey } from '@/lib/prompts/masters'
+import { workModePrompt, type WorkMode } from '@/lib/prompts/workModes'
 
 export type QueryClass = 'factual' | 'reasoning' | 'math' | 'code' | 'creative' | 'longform'
 
@@ -26,7 +27,7 @@ export function classifyQuery(q: string): QueryClass {
  */
 export function shapeSystemPrompt(
   cls: QueryClass,
-  extra: { math?: boolean; quality?: boolean; flow?: boolean; replicate?: boolean } = {},
+  extra: { math?: boolean; quality?: boolean; flow?: boolean; replicate?: boolean; workMode?: WorkMode } = {},
   overrides: Record<string, string> = {},
 ): string {
   // Mode wins over classification.
@@ -43,7 +44,7 @@ export function shapeSystemPrompt(
     creative: 'For this creative request: be vivid and original; match tone to the request; avoid clichés.',
     factual: 'Lead with the direct answer.',
   }
-  const bits = [master, STYLE_RULES]
+  const bits = [master, workModePrompt(extra.workMode), STYLE_RULES].filter(Boolean)
   if (inject[cls]) bits.push(inject[cls]!)
   return bits.join('\n\n')
 }

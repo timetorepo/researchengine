@@ -76,13 +76,11 @@ export function CodingView() {
   // that turned into coding ("start_coding_mode") hands the user a workspace
   // rather than a list to search in. ?hub=<query> is the Library's UI vertical
   // handing a component over to design mode: straight into the hub, searching.
-  const [hubSeed, setHubSeed] = useState('')
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
     const want = params.get('project')
     const hub = params.get('hub')
     if (hub) {
-      setHubSeed(hub)
       setDesign(true)
       setOpen((cur) => cur ?? want ?? '')
     } else if (want) {
@@ -192,7 +190,7 @@ export function CodingView() {
   }
 
   if (open && design) {
-    return <DesignStudio project={open} tree={tree} onExit={() => setDesign(false)} hubSeed={hubSeed} />
+    return <DesignStudio project={open} tree={tree} onExit={() => setDesign(false)} />
   }
   if (open) {
     return (
