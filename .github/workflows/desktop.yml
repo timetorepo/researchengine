@@ -176,6 +176,10 @@ jobs:
 
       - name: Build the bundles
         working-directory: desktop
+        # linuxdeploy is itself an AppImage, and hosted runners have no FUSE, so
+        # it cannot mount itself. Extract-and-run is the documented workaround.
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           set -o pipefail
           npm run tauri:build -- --bundles deb,appimage 2>&1 | tee tauri.log
