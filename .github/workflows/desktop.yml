@@ -160,7 +160,7 @@ jobs:
       - name: System webview dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf file libfuse2
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -176,13 +176,11 @@ jobs:
 
       - name: Build the bundles
         working-directory: desktop
-        # linuxdeploy is itself an AppImage, and hosted runners have no FUSE, so
-        # it cannot mount itself. Extract-and-run is the documented workaround.
-        env:
-          APPIMAGE_EXTRACT_AND_RUN: "1"
+        # The .deb is the Linux bundle. The AppImage needs linuxdeploy, which
+        # fails to run on hosted runners, so it is not built here.
         run: |
           set -o pipefail
-          npm run tauri:build -- --bundles deb,appimage 2>&1 | tee tauri.log
+          npm run tauri:build -- --bundles deb 2>&1 | tee tauri.log
 
       - name: Explain a failed bundle
         if: failure() && hashFiles('desktop/tauri.log') != ''
@@ -199,7 +197,6 @@ jobs:
           prerelease: true
           files: |
             desktop/src-tauri/target/release/bundle/deb/*.deb
-            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
 
       # Best-effort, for the same reason as above.
       - name: Upload the bundles
@@ -209,5 +206,4 @@ jobs:
           name: research-engine-linux-desktop
           path: |
             desktop/src-tauri/target/release/bundle/deb/*.deb
-            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
           if-no-files-found: warn
