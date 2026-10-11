@@ -1,4 +1,4 @@
-Research Engine desktop sidecar — win-x64 (x86_64-pc-windows-msvc)
+Research Engine desktop sidecar — linux-x64 (x86_64-unknown-linux-gnu)
 Mode: single-file executable (no Node required)
 
 Built by scripts/desktop-sidecar.mjs. Tauri copies it next to the app binary;
