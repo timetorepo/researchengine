@@ -18,10 +18,7 @@
 </div>
 
 ---
-
-## See it
-
-A few screenshots of Research Engine, taken from the app itself.
+Research Engine
 
 <img src="https://i.ibb.co/DDzfyQ05/1.png" alt="Research Engine, screenshot 1 of 5" width="100%" />
 
