@@ -464,6 +464,10 @@ export interface Settings {
   }
   compact: boolean
   reduceMotion: boolean
+  /** Show the live CPU/RAM meter in the top bar. Off by default. */
+  showResourceMeter?: boolean
+  /** Show a frames-per-second counter over the app. Off by default. */
+  showFps?: boolean
   flowEnabled: boolean
   flowMode: FlowMode
   defaultModel: string // "provider:model"

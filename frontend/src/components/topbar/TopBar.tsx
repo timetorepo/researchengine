@@ -237,7 +237,7 @@ export function TopBar() {
       {/* Live machine load — memory, processor and GPU, from the server's own
           samples. Sits beside the privacy shield because it answers the other
           "what is this app doing" question. */}
-      <ResourceMeter />
+      {settings.showResourceMeter === true && <ResourceMeter />}
 
       <PrivacyShield compact amber={anyIntegration} />
 
