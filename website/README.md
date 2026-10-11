@@ -2,7 +2,7 @@
 
 The public website: what the app does, why it is free, and the download. It is a
 static single page built with Vite, React and Tailwind 4, and it deploys to
-Netlify with no functions, no server and no secrets.
+Vercel or Netlify with no functions, no server and no secrets.
 
 ```bash
 cd website
@@ -150,6 +150,20 @@ self-contained:
   page, so getting the app does not depend on GitHub;
 - if a release has no installer digests yet, the page says so instead of
   inventing a number.
+
+## Deploying to Vercel
+
+Import the repository in Vercel and accept the detected settings. The root
+`vercel.json` does the work: it installs only the site's own dependencies
+(`cd website && npm ci`, not the whole workspace), builds with
+`npm run build`, serves `website/dist`, rewrites unknown paths to `index.html`,
+and sets the same cache and security headers as the Netlify file. Hashed assets
+are cached for a year; `release.json` is revalidated on every visit. There is
+nothing to configure by hand and no environment variable.
+
+Vercel also needs a new deployment after a release is published, because the
+page reads its version at build time. A push to the branch, or a redeploy from
+the dashboard, does that.
 
 ## Deploying to Netlify
 
