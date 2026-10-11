@@ -1,4 +1,4 @@
-export type CardFont = 'sans' | 'serif' | 'mono' | 'display'
+export type CardFont = 'sans' | 'serif' | 'mono' | 'display' | 'custom'
 export type CardBackground = 'gradient' | 'solid' | 'image'
 
 export interface WalletField { label: string; value: string }
@@ -14,6 +14,10 @@ export interface WalletCardStyle {
   font: CardFont
   /** Text colour. */
   text: string
+  /** An uploaded typeface (data URL), used when `font` is "custom". */
+  fontData?: string
+  /** The uploaded file's name, shown in the editor. */
+  fontName?: string
 }
 
 export interface WalletCard {

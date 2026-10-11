@@ -11,6 +11,8 @@ export const FONT_FAMILY: Record<WalletCardStyle['font'], string> = {
   serif: 'Georgia, "Times New Roman", serif',
   mono: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   display: '"Trebuchet MS", "Avenir Next", system-ui, sans-serif',
+  // An uploaded font is applied by the card view itself; this is its fallback.
+  custom: 'Inter, -apple-system, "Segoe UI", system-ui, sans-serif',
 }
 
 export const DEFAULT_STYLE: WalletCardStyle = {

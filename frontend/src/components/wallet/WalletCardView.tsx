@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { FONT_FAMILY } from '@/lib/wallet/cards'
+import { ensureCustomFont } from '@/lib/wallet/fonts'
 import type { WalletCardStyle, WalletField } from '@/lib/wallet/types'
 
 /**
@@ -14,6 +16,17 @@ export function WalletCardView({ title, subtitle, fields, style, className = '' 
   style: WalletCardStyle
   className?: string
 }) {
+  // An uploaded font is registered first; until it is ready the card uses the sans face.
+  const [customFamily, setCustomFamily] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    if (style.font === 'custom' && style.fontData) {
+      ensureCustomFont(style.fontData).then((f) => live && setCustomFamily(f)).catch(() => live && setCustomFamily(null))
+    }
+    return () => { live = false }
+  }, [style.font, style.fontData])
+  const family =
+    style.font === 'custom' ? (customFamily ? `"${customFamily}", ${FONT_FAMILY.sans}` : FONT_FAMILY.sans) : FONT_FAMILY[style.font]
   const bg =
     style.background === 'image' && style.image
       ? `url(${style.image}) center / cover no-repeat`
@@ -26,7 +39,7 @@ export function WalletCardView({ title, subtitle, fields, style, className = '' 
       style={{
         background: bg,
         color: style.text,
-        fontFamily: FONT_FAMILY[style.font],
+        fontFamily: family,
         boxShadow: '0 18px 40px rgb(0 0 0 / .28), inset 0 1px 0 rgb(255 255 255 / .25)',
       }}
     >

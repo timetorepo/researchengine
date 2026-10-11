@@ -4,6 +4,7 @@ import { generatePalette } from '@usespaceui/gradients'
 import { saveCard } from '@/lib/wallet/cards'
 import type { CardBackground, CardFont, WalletCard, WalletField } from '@/lib/wallet/types'
 import { WalletCardView } from './WalletCardView'
+import { ensureCustomFont, readFontFile, CUSTOM_FONT_TYPES } from '@/lib/wallet/fonts'
 
 const FONTS: { id: CardFont; label: string }[] = [
   { id: 'sans', label: 'Sans' }, { id: 'serif', label: 'Serif' }, { id: 'mono', label: 'Mono' }, { id: 'display', label: 'Display' },
@@ -29,6 +30,26 @@ export function CardEditor({ card, onClose }: { card: WalletCard; onClose: () =>
     const r = new FileReader()
     r.onload = () => setStyle({ image: String(r.result), background: 'image' })
     r.readAsDataURL(file)
+  }
+
+  const [fontError, setFontError] = useState('')
+  const onFont = async (file: File | undefined) => {
+    if (!file) return
+    setFontError('')
+    let data: string
+    try {
+      data = await readFontFile(file)
+    } catch (e) {
+      setFontError(e instanceof Error ? e.message : 'Could not read that file.')
+      return
+    }
+    try {
+      await ensureCustomFont(data) // rejects if the browser cannot read this file as a font
+    } catch {
+      setFontError('That file is not a font the browser can read.')
+      return
+    }
+    setStyle({ font: 'custom', fontData: data, fontName: file.name })
   }
 
   const input = 'w-full rounded-[10px] px-3 py-2 text-[13px] outline-none'
@@ -109,7 +130,22 @@ export function CardEditor({ card, onClose }: { card: WalletCard; onClose: () =>
                   <button key={f.id} type="button" aria-pressed={style.font === f.id} onClick={() => setStyle({ font: f.id })}
                     className="rounded-full px-3 py-1.5 text-[12px]" style={{ background: style.font === f.id ? 'var(--primary)' : 'var(--elevated)', color: style.font === f.id ? '#fff' : 'var(--text-2)' }}>{f.label}</button>
                 ))}
+                {style.font === 'custom' && style.fontData && (
+                  <button type="button" aria-pressed className="rounded-full px-3 py-1.5 text-[12px]"
+                    style={{ background: 'var(--primary)', color: '#fff' }} title={style.fontName}>
+                    {style.fontName ? style.fontName.slice(0, 24) : 'Your font'}
+                  </button>
+                )}
+                <label className="cursor-pointer rounded-full px-3 py-1.5 text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+                  {style.fontData ? 'Change font' : 'Upload font'}
+                  <input type="file" accept={CUSTOM_FONT_TYPES.join(',')} className="hidden" onChange={(e) => { onFont(e.target.files?.[0]); e.target.value = '' }} />
+                </label>
+                {style.fontData && (
+                  <button type="button" onClick={() => setStyle({ font: 'sans', fontData: undefined, fontName: undefined })} className="text-[12px] underline underline-offset-4" style={{ color: 'var(--text-3)' }}>Remove font</button>
+                )}
               </div>
+              {fontError && <p role="alert" className="mt-2 text-[12px]" style={{ color: 'var(--danger, #d9534f)' }}>{fontError}</p>}
+              <p className="mt-2 text-[11.5px]" style={{ color: 'var(--text-3)' }}>TTF, OTF, WOFF or WOFF2, up to 1 MB. Stored only on this device.</p>
             </div>
           </div>
 
