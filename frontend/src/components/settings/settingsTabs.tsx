@@ -1,6 +1,7 @@
+import { WalletTab } from './WalletTab'
 import { lazy, Suspense } from 'react'
 import React from 'react'
-import { KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route, Split } from 'lucide-react'
+import { Wallet, KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route, Split } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -38,6 +39,7 @@ export const TABS = [
   { id: 'jev', label: 'Jev', icon: Split },
   { id: 'flow', label: 'AIFlowEngine', icon: Wind },
   { id: 'performance', label: 'Performance', icon: Gauge },
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'skills', label: 'Skills', icon: Wand2 },
   { id: 'mcp', label: 'MCP Servers', icon: Store },
   { id: 'personas', label: 'Personas', icon: BookMarked },
@@ -100,6 +102,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'security': return <SecurityTab />
     case 'shortcuts': return <ShortcutsTab />
     case 'developer': return <DeveloperTab />
+    case 'wallet': return <WalletTab />
     case 'about': return <AboutTab />
     default: return <ProvidersTab />
   }

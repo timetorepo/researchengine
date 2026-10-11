@@ -7,6 +7,7 @@ import type {
 } from '@/types'
 import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
+import type { WalletState } from '@/lib/wallet/types'
 import { builtinSquads } from '@/lib/agents/squads'
 import { scopedStorage } from '@/lib/security/lock'
 import { DEFAULT_BUBBLES } from '@/lib/chat/bubbles'
@@ -27,6 +28,8 @@ interface StoreState {
    */
   skillSecurity: Record<string, SkillSecurity>
   articles: Article[]
+  /** Cards earned in the app, and the custom ones you made. */
+  wallet: WalletState
   spaces: Space[]
   citations: Citation[]
   knowledge: KnowledgeCard[]
@@ -166,6 +169,7 @@ export const useStore = create<StoreState>()(
       skills: builtinSkills,
       skillSecurity: {},
       articles: [],
+      wallet: { usageMs: 0, earned: [], cards: [] },
       spaces: initialSpaces,
       citations: [],
       knowledge: [],
@@ -334,7 +338,7 @@ export const useStore = create<StoreState>()(
       // cannot read the main user's chats and the main user can read a guest's.
       storage: createJSONStorage(() => scopedStorage),
       partialize: (s) => ({
-        chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces,
+        chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces, wallet: s.wallet,
         citations: s.citations, knowledge: s.knowledge, documents: s.documents,
         quizzes: s.quizzes, learnPaths: s.learnPaths, learnProgress: s.learnProgress, spacedCards: s.spacedCards,
         squads: s.squads, integrations: s.integrations,

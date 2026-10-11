@@ -216,6 +216,13 @@ export function DeveloperTab() {
           themes and widths while you look at it, which is not something the
           quiet interface should offer by accident. */}
       {settings.developerMode && (
+        <div className="surface p-4 mb-4 flex flex-wrap items-center gap-3 text-[12.5px]" style={{ color: 'var(--text-2)' }}>
+          <span className="flex-1 min-w-[12rem]">Loyalty cutscene. Plays the card reveal once; nothing is awarded.</span>
+          <button type="button" className="rounded-full px-3.5 py-2 text-[12.5px] font-medium" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}
+            onClick={() => window.dispatchEvent(new Event('researchengine:loyalty-cutscene-preview'))}>Play cutscene</button>
+        </div>
+      )}
+      {settings.developerMode && (
         <section className="surface-elevated p-4" style={{ borderRadius: 'var(--radius-card)' }}>
           <UILab />
         </section>

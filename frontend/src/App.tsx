@@ -1,3 +1,4 @@
+import { WalletWatcher } from '@/components/wallet/WalletWatcher'
 import React, { Suspense, useEffect } from 'react'
 import { FpsCounter } from '@/components/shared/FpsCounter'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
@@ -144,6 +145,7 @@ export default function App() {
           <RoutedApp />
         </AppContextMenu>
         <FpsCounter />
+        <WalletWatcher />
       </HashRouter>
     </MotionConfig>
   )
