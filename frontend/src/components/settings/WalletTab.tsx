@@ -1,3 +1,4 @@
+import Counter from '@/components/ui/reactbits/Counter'
 import { WalletPanel } from '@/components/wallet/WalletPanel'
 import { useStore } from '@/stores/useStore'
 import { LOYALTY_MS } from '@/lib/wallet/cards'
@@ -6,7 +7,6 @@ import { LOYALTY_MS } from '@/lib/wallet/cards'
 export function WalletTab() {
   const usage = useStore((s) => s.wallet.usageMs)
   const earned = useStore((s) => s.wallet.earned.includes('loyalty'))
-  const hours = (usage / 3_600_000).toFixed(1)
   return (
     <div className="space-y-5">
       <div>
@@ -16,7 +16,13 @@ export function WalletTab() {
         </p>
       </div>
       {!earned && (
-        <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>Active time so far: {hours} h of 3 h for the loyalty card.</p>
+        <div className="surface flex flex-wrap items-center gap-3 p-4 text-[12.5px]" style={{ color: 'var(--text-2)' }}>
+          <span>Active minutes toward the loyalty card</span>
+          <span className="ml-auto flex items-baseline gap-1.5">
+            <Counter value={Math.min(180, Math.floor(usage / 60_000))} fontSize={22} gradientHeight={0} />
+            <span style={{ color: 'var(--text-3)' }}>of 180</span>
+          </span>
+        </div>
       )}
       <WalletPanel />
     </div>
