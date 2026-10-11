@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 38 versions, 0.46.0 back to 0.10.0.
+ * 39 versions, 0.47.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,36 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.47.0-beta.2",
+    "tag": "v0.47.0-beta.2",
+    "name": "beta: wallet with customisable cards, AI welcome, and the desktop build.",
+    "date": "2026-10-11",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.47.0-beta.2",
+    "summary": "A wallet of cards you earn and customise, a welcome for the AI-product themes, a stacked session switcher, and optional resource and FPS displays.",
+    "sections": [
+      {
+        "title": "A wallet, with cards you earn and customise",
+        "items": [
+          { "text": "Cards are earned: the first quiz, and three hours of active use. Each earned card plays a short reveal once." },
+          { "text": "Any card can be customised: its name, details, colours, a picture behind it, and a typeface you upload (TTF, OTF, WOFF or WOFF2, up to 1 MB). Shuffle colours picks a palette and keeps the text readable." }
+        ]
+      },
+      {
+        "title": "Smaller changes",
+        "items": [
+          { "label": "AI welcome.", "text": "Claude, ChatGPT, Gemini and Perplexity greet you on the home screen. Turn it off from the banner or in Appearance." },
+          { "label": "Session switcher.", "text": "Sessions stack as a deck, with the selected one on top." },
+          { "label": "Resources.", "text": "The resource meter and the FPS counter are off by default. Turn them on in Performance." },
+          { "label": "Articles.", "text": "Articles have a description and a cover picture." }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 2
+    }
+  },
   {
     "version": "0.46.0",
     "tag": "v0.46.0-beta.1",
