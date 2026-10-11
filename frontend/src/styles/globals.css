@@ -625,16 +625,67 @@
     radial-gradient(95% 105% at 42% 62%, rgba(232, 168, 138, 0.35) 0%, rgba(232, 168, 138, 0) 64%),
     linear-gradient(160deg, #f7ede2 0%, #f2e4d4 55%, #f5e9dc 100%);
   --grad-replicate:
-    radial-gradient(120% 150% at 88% -12%, #e8a88a 0%, rgba(232, 168, 138, 0) 55%),
-    radial-gradient(110% 130% at -12% 108%, #d9b48c 0%, rgba(217, 180, 140, 0) 58%),
-    radial-gradient(95% 105% at 42% 62%, rgba(232, 168, 138, 0.35) 0%, rgba(232, 168, 138, 0) 64%),
-    linear-gradient(160deg, #f7ede2 0%, #f2e4d4 55%, #f5e9dc 100%);
-  --grad-replicate:
     radial-gradient(115% 140% at 82% -10%, #d9b48c 0%, rgba(217, 180, 140, 0) 56%),
     radial-gradient(105% 125% at -10% 106%, #c99a72 0%, rgba(201, 154, 114, 0) 58%),
     linear-gradient(155deg, #efe0cd 0%, #e9d5bd 60%, #f0e2d0 100%);
   --aurora-a: rgba(193, 95, 60, 0.07);
   --aurora-b: rgba(138, 110, 86, 0.05);
+}
+
+/* Gemini: the dark Material surfaces (#131314 canvas, #1E1F20 raised), a
+   blue-to-violet accent, and a fully rounded "pill" composer with no hard
+   border. Mirrors the Gemini app's prompt bar: + on the left, tools chip,
+   model picker, mic and send on the right. */
+:root[data-theme="gemini"] {
+  color-scheme: dark;
+  --bg: #131314;
+  --surface: #1E1F20;
+  --surface-border: rgba(227, 227, 227, 0.08);
+  --elevated: #282A2C;
+  --primary: #8AB4F8;
+  --primary-hover: #AECBFA;
+  --secondary: #C58AF9;
+  --success: #6DD58C;
+  --warning: #FDD663;
+  --danger: #F28B82;
+  --text: #E3E3E3;
+  --text-2: #C4C7C5;
+  --text-3: #8E918F;
+  --code-bg: #1E1F20;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --glass: rgba(30, 31, 32, 0.8);
+  --radius-chip: 999px;
+  --radius-card: 20px;
+  --radius-modal: 28px;
+  --grad-research: linear-gradient(120deg, #4285F4 0%, #9B72CB 50%, #D96570 100%);
+  --grad-replicate: linear-gradient(120deg, #1E1F20 0%, #282A2C 100%);
+  --aurora-a: rgba(138, 180, 248, 0.08);
+  --aurora-b: rgba(197, 138, 249, 0.06);
+}
+
+/* Product skins: the composer and chips take each product's silhouette, not
+   just its colours. Scoped to the composer wrapper InputBar marks with
+   data-skin-composer. */
+:root[data-theme="claude"] [data-skin-composer] > div > div {
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(38, 32, 26, 0.06), 0 8px 24px -16px rgba(38, 32, 26, 0.25);
+}
+:root[data-theme="chatgpt"] [data-skin-composer] > div > div {
+  border-radius: 26px;
+}
+:root[data-theme="gemini"] [data-skin-composer] > div > div {
+  border-radius: 28px;
+  background: var(--surface);
+  border: none;
+  box-shadow: none;
+}
+:root[data-theme="gemini"] [data-skin-composer] textarea {
+  font-size: 15px;
+}
+:root[data-theme="claude"] h1,
+:root[data-theme="claude"] .skin-greeting {
+  font-family: "Tiempos Text", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-weight: 400;
 }
 
 /* ChatGPT: near-black with a mint accent and tight radii. The mode surfaces

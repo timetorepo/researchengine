@@ -1,4 +1,15 @@
 import React from 'react'
+import { BRAND_MARKS } from './brandMarks'
+
+/** Official brand path from brandMarks.ts, sized and tinted like the others. */
+function BrandMark({ id, size }: { id: string; size: number }) {
+  const m = BRAND_MARKS[id]
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" role="img" aria-label={m.title}>
+      <path d={m.path} />
+    </svg>
+  )
+}
 
 // Bundled as inline SVG — never fetched. Tint-able via currentColor where possible.
 export function ProviderLogo({ id, size = 16 }: { id: string; size?: number }) {
@@ -11,11 +22,7 @@ export function ProviderLogo({ id, size = 16 }: { id: string; size?: number }) {
         </svg>
       )
     case 'anthropic':
-      return (
-        <svg {...s} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M12.6 3.5h2.2l6.7 17h-2.9l-1.5-3.9h-7.3l-1.6 3.9H4.9l6.7-17h1zm1.1 3.4-2.8 7.2h5.7l-2.9-7.2z" />
-        </svg>
-      )
+      return <BrandMark id="anthropic" size={size} />
     case 'groq':
       return (
         <svg {...s} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -23,23 +30,15 @@ export function ProviderLogo({ id, size = 16 }: { id: string; size?: number }) {
         </svg>
       )
     case 'ollama':
-      return (
-        <svg {...s} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M12 3c-1.2 0-2 .9-2.6 2l-.5.9c-2.7.6-4.9 2-4.9 4.6 0 1.1.5 2 1.3 2.8-.5.6-.8 1.4-.8 2.2 0 2.5 2.3 4.5 5.5 4.5h4c3.2 0 5.5-2 5.5-4.5 0-.8-.3-1.6-.8-2.2.8-.8 1.3-1.7 1.3-2.8 0-2.6-2.2-4-4.9-4.6l-.5-.9c-.6-1.1-1.4-2-2.6-2zm-2 6.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
-        </svg>
-      )
+      return <BrandMark id="ollama" size={size} />
     case 'nim':
-      return (
-        <svg {...s} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M9.6 3.2 3.2 9.6v4.8l6.4 6.4 6.4-6.4v-2.1L9.6 5.9V3.2zm2.4 2.7 6.8 6.8v1.7l-6.8-6.8V5.9z" />
-        </svg>
-      )
+      return <BrandMark id="nim" size={size} />
     case 'gemini':
-      return (
-        <svg {...s} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M12 2c.35 4.9 5.1 7.65 8.5 7.65.35 0 .7.35.7.7s-.35.7-.7.7c-3.4 0-8.15 2.75-8.5 7.65-.04.4-.35.7-.7.7s-.66-.3-.7-.7C10.25 13.75 5.5 11 2.1 11c-.35 0-.7-.35-.7-.7s.35-.7.7-.7c3.4 0 8.15-2.75 8.5-7.65.04-.4.35-.7.7-.7s.66.3.7.7z" />
-        </svg>
-      )
+      return <BrandMark id="gemini" size={size} />
+    case 'mistral':
+    case 'perplexity':
+    case 'lmstudio':
+      return <BrandMark id={id} size={size} />
     default:
       return (
         <svg {...s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>

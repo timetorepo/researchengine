@@ -304,7 +304,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     // component in place (see components/settings/UILab.tsx).
     <div data-ui="composer" className={clsx('shrink-0 px-3 pb-3 pt-1', big && 'pb-6')}>
       <div className={clsx('mx-auto', big ? 'max-w-[720px]' : 'max-w-[760px]')}>
-        <div className="relative">
+        <div className="relative" data-skin-composer>
         {beam && (
           <BorderBeam
             size="md"

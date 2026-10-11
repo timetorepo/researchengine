@@ -72,3 +72,21 @@ and `--ease-ios`, and every new animation is disabled under reduce-motion
 `render-check` (dock falloff, top-bar contents, Sonner bridge, timer labels,
 Developer tab), `ui-test`, `smoke`, `sample-test` (including the live
 create-project bench) and `design-test`.
+
+## Product reference skins — Claude, ChatGPT, Gemini
+
+The three AI-product themes copy the products' *layout*, not only their colours. References were collected from search and checked against screenshots:
+
+- **Claude** — serif greeting with a terracotta mark, a rounded composer with a `+` menu bottom-left (files, projects, research, web search, style, connectors) and a model picker plus mic bottom-right. Source: Claude chat screenshots (substack guide, 2025).
+- **Gemini** — dark Material canvas (`#131314`), a fully rounded "pill" composer with `+`, a Tools chip, a Fast/model picker, mic and send, and suggestion pills below. Source: Gemini prompt-bar screenshots (Yahoo Tech, ThoughtsBrewing).
+- **ChatGPT** — centred near-black composer with tight radii and the mint accent.
+
+The composer silhouette is set per theme through `[data-skin-composer]` in `globals.css`.
+
+## Provider marks — simple-icons
+
+Anthropic, Google Gemini, NVIDIA (NIM), Ollama, Mistral, Perplexity and LM Studio use official single-colour paths generated from `simple-icons` into `components/shared/brandMarks.ts`. OpenAI, Groq and Together keep their earlier marks because `simple-icons` no longer ships them.
+
+## Circuit board — componentry
+
+`components/ui/componentry/circuit-board.tsx` is the componentry circuit-board source, taken from the public `Leonxlnx/taste-blocks` registry mirror because `@componentry/circuit-board` is not on npm and the shadcn registry host was unreachable from the build sandbox. Re-check against the upstream registry when it is reachable.

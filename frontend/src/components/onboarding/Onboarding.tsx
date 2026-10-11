@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { CircuitBoard } from '@/components/ui/componentry/circuit-board'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
@@ -348,6 +349,29 @@ export function Onboarding() {
             {t}
           </motion.span>
         ))}
+      </div>
+      {/* The explainer: how a question moves through ResearchEngine. Shadcn's
+          circuit-board (componentry), the nodes are the real stages. */}
+      <div className="mt-6 mx-auto w-full max-w-[520px]" aria-label="How ResearchEngine works">
+        <CircuitBoard
+          width={520}
+          height={200}
+          label="How a question flows through ResearchEngine"
+          nodes={[
+            { id: 'q', x: 60, y: 100, label: 'You ask', status: 'active' },
+            { id: 'src', x: 200, y: 40, label: 'Your sources', status: 'processing' },
+            { id: 'web', x: 200, y: 160, label: 'Web search', status: 'inactive' },
+            { id: 'ai', x: 340, y: 100, label: 'Your model', status: 'processing' },
+            { id: 'out', x: 470, y: 100, label: 'Cited answer', status: 'active' },
+          ]}
+          connections={[
+            { from: 'q', to: 'src', animated: true },
+            { from: 'q', to: 'web', animated: true },
+            { from: 'src', to: 'ai', animated: true },
+            { from: 'web', to: 'ai', animated: true },
+            { from: 'ai', to: 'out', animated: true, bidirectional: false },
+          ]}
+        />
       </div>
       {/* real star count from the GitHub API; renders nothing at all when the
           machine is offline, so no invented numbers on an offline-first app */}

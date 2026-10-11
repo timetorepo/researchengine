@@ -328,6 +328,61 @@ export interface QuizQuestion {
   pairs?: { left: string; right: string }[]
 }
 
+/** One step of a duolingo-style path: a short lesson drawn from one part of a document. */
+export interface PathLesson {
+  id: string
+  title: string
+  /** What the learner should be able to do after this lesson. */
+  goal: string
+  /** The passage the lesson's questions were written from, shown on wrong answers. */
+  excerpt: string
+  questions: QuizQuestion[]
+}
+
+export interface PathUnit {
+  id: string
+  title: string
+  lessons: PathLesson[]
+}
+
+export interface LearnPath {
+  id: string
+  docId: string
+  docName: string
+  title: string
+  units: PathUnit[]
+  /** "provider:model" when a model wrote the path, or "on-device" when the sentence engine did. */
+  builtWith: string
+  createdAt: number
+}
+
+/** Progress across every path and technique session on this device. */
+export interface LearnProgress {
+  xp: number
+  /** Consecutive days with at least one completed step. */
+  streak: number
+  lastActiveDay?: string
+  /** lessonId → best stars (0–3) and when it was last finished. */
+  lessons: Record<string, { stars: number; at: number }>
+}
+
+/** A flashcard on the spaced-repetition schedule (SM-2 style). */
+export interface SpacedCard {
+  id: string
+  docId: string
+  /** The sentence with its key term blanked out. */
+  front: string
+  /** The key term that belongs in the blank. */
+  answer: string
+  /** The full sentence, shown after the attempt. */
+  context: string
+  ease: number
+  intervalDays: number
+  reps: number
+  lapses: number
+  due: number
+}
+
 export interface QuizRecord {
   id: string
   docId?: string
@@ -362,7 +417,7 @@ export type AnimatedBgKind = typeof ANIMATED_BG_KINDS[number]
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'
   | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os'
-  | 'perplexity' | 'claude' | 'chatgpt'
+  | 'perplexity' | 'claude' | 'chatgpt' | 'gemini'
 
 export interface ReplicateStage {
   id: string

@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { DEFAULT_PROFILE, migrateProfile } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
-  Article, Chat, ChatMessage, Citation, ConnectionLogEntry, DocumentRecord, FlowStats, IntegrationState, KnowledgeCard, QuizRecord, Settings, Skill, SkillSecurity, Source, Space, Squad, Task,
+  Article, Chat, ChatMessage, Citation, ConnectionLogEntry, DocumentRecord, FlowStats, IntegrationState, KnowledgeCard, LearnPath, LearnProgress, QuizRecord, Settings, Skill, SkillSecurity, Source, Space, SpacedCard, Squad, Task,
 } from '@/types'
 import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
@@ -32,6 +32,9 @@ interface StoreState {
   knowledge: KnowledgeCard[]
   documents: DocumentRecord[]
   quizzes: QuizRecord[]
+  learnPaths: LearnPath[]
+  learnProgress: LearnProgress
+  spacedCards: SpacedCard[]
   squads: Squad[]
   workflows: Workflow[]
   workflowRuns: WorkflowRunRecord[]
@@ -168,6 +171,9 @@ export const useStore = create<StoreState>()(
       knowledge: [],
       documents: [],
       quizzes: [],
+      learnPaths: [],
+      learnProgress: { xp: 0, streak: 0, lessons: {} },
+      spacedCards: [],
       squads: builtinSquads,
       workflows: [],
       workflowRuns: [],
@@ -316,7 +322,7 @@ export const useStore = create<StoreState>()(
 
       resetAll: () => set({
         chats: [], activeChatId: null, articles: [], citations: [], knowledge: [],
-        documents: [], quizzes: [], connectionLog: [], workflows: [], workflowRuns: [],
+        documents: [], quizzes: [], learnPaths: [], learnProgress: { xp: 0, streak: 0, lessons: {} }, spacedCards: [], connectionLog: [], workflows: [], workflowRuns: [],
         tokensSavedSession: 0, tokensUsedSession: 0, tokensSavedLifetime: 0, totalRequests: 0,
         skills: builtinSkills, squads: builtinSquads, spaces: initialSpaces, integrations: {},
       }),
@@ -330,7 +336,8 @@ export const useStore = create<StoreState>()(
       partialize: (s) => ({
         chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces,
         citations: s.citations, knowledge: s.knowledge, documents: s.documents,
-        quizzes: s.quizzes, squads: s.squads, integrations: s.integrations,
+        quizzes: s.quizzes, learnPaths: s.learnPaths, learnProgress: s.learnProgress, spacedCards: s.spacedCards,
+        squads: s.squads, integrations: s.integrations,
         workflows: s.workflows,
         settings: s.settings, tokensSavedLifetime: s.tokensSavedLifetime,
         totalRequests: s.totalRequests,

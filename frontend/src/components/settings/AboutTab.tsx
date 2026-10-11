@@ -10,6 +10,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Button } from '@/components/ui/heroui/Button'
 import { ProfileCard } from '@/components/ui/watermelon/ProfileCard'
+import SpotlightCard from '@/components/ui/reactbits/micro/SpotlightCard'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { BUNDLE_BUILD, runningVersion, useRunningVersion } from '@/lib/appVersion'
 
@@ -219,9 +220,15 @@ export function AboutTab() {
       </div>
       {/* The maker, as the same expandable card the user's own profile uses —
           expand it for the long version. */}
+      {/* reactbits' Spotlight Card frames the developer block: a light that
+          follows the pointer across the card. */}
+      <SpotlightCard
+        className="mb-4 rounded-[18px]"
+        spotlightColor="rgba(255,255,255,0.12)"
+        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+      >
       <ProfileCard
         tone="maker"
-        className="mb-4"
         name="dnishh"
         handle="timetorepo/researchengine"
         bio="One-person project. No company behind it, no funding, no roadmap dictated by an investor."
@@ -240,6 +247,7 @@ export function AboutTab() {
           </a>
         )}
       />
+      </SpotlightCard>
       <div className="surface p-4 mb-4">
         <div className="flex items-start gap-3">
           <Heart size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
