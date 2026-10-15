@@ -1,7 +1,7 @@
 import { WalletTab } from './WalletTab'
 import { lazy, Suspense } from 'react'
 import React from 'react'
-import { Wallet, KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route, Split } from 'lucide-react'
+import { Wallet, KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route, Split, GraduationCap } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -23,6 +23,7 @@ import { VoiceTab } from './VoiceTab'
 import { NotificationsTab } from './NotificationsTab'
 import { SecurityTab } from './SecurityTab'
 import { SnaffyTab } from './SnaffyTab'
+import { ExamTab } from '@/components/exam/Exam'
 import { JevTab } from './JevTab'
 
 export const TABS = [
@@ -48,6 +49,7 @@ export const TABS = [
   { id: 'data', label: 'Data', icon: Database },
   { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
+  { id: 'exam', label: 'Exam', icon: GraduationCap },
   { id: 'developer', label: 'Developer', icon: Terminal },
   { id: 'about', label: 'About', icon: Info },
 ]
@@ -101,6 +103,7 @@ export function renderTab(tab: string): React.ReactNode {
     case 'data': return <DataTab />
     case 'security': return <SecurityTab />
     case 'shortcuts': return <ShortcutsTab />
+    case 'exam': return <ExamTab />
     case 'developer': return <DeveloperTab />
     case 'wallet': return <WalletTab />
     case 'about': return <AboutTab />

@@ -1,4 +1,6 @@
 import { WalletWatcher } from '@/components/wallet/WalletWatcher'
+import { ExamGate } from '@/components/exam/Exam'
+import { BugFinder } from '@/components/dev/BugFinder'
 import React, { Suspense, useEffect } from 'react'
 import { FpsCounter } from '@/components/shared/FpsCounter'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
@@ -146,6 +148,9 @@ export default function App() {
         </AppContextMenu>
         <FpsCounter />
         <WalletWatcher />
+        <ExamGate />
+        {/* Developer-mode only: the bug finder hotkey and its report. */}
+        {settings.developerMode && <BugFinder />}
       </HashRouter>
     </MotionConfig>
   )
