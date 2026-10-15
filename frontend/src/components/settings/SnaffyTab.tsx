@@ -1,3 +1,4 @@
+import { Switch } from '@/components/ui/heroui/Switch'
 import { useMemo } from 'react'
 import { Route, Pin, PinOff, Check } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
@@ -56,23 +57,16 @@ export function SnaffyTab() {
       </p>
 
       <div className="surface p-4 mb-5">
-        <div className="flex items-center gap-2.5">
-          <Route size={15} style={{ color: snaffy.enabled ? 'var(--primary)' : 'var(--text-3)' }} />
+        <div className="flex items-start gap-2.5">
+          <Route size={15} className="mt-1 shrink-0" style={{ color: snaffy.enabled ? 'var(--primary)' : 'var(--text-3)' }} />
           <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-medium">Route my chats through Snaffy</div>
-            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-2)' }}>
-              Off by default. When on, Snaffy chooses the model per request instead of using your default.
-            </div>
+            <Switch
+              checked={snaffy.enabled}
+              onChange={(v) => set({ enabled: v })}
+              label="Route my chats through Snaffy"
+              description="Off by default. When on, Snaffy chooses the model per request instead of using your default."
+            />
           </div>
-          <button
-            onClick={() => set({ enabled: !snaffy.enabled })}
-            role="switch"
-            aria-checked={snaffy.enabled}
-            className="relative shrink-0 w-10 h-6 rounded-full transition-colors"
-            style={{ background: snaffy.enabled ? 'var(--primary)' : 'var(--elevated)' }}>
-            <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
-              style={{ left: snaffy.enabled ? 18 : 2 }} />
-          </button>
         </div>
       </div>
 

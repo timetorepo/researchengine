@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FONT_FAMILY } from '@/lib/wallet/cards'
 import { ensureCustomFont } from '@/lib/wallet/fonts'
+import { DitherCreditCard } from '@/components/ui/skecher/dither-credit-card'
 import type { WalletCardStyle, WalletField } from '@/lib/wallet/types'
 
 /**
@@ -33,6 +34,20 @@ export function WalletCardView({ title, subtitle, fields, style, className = '' 
       : style.background === 'solid'
         ? style.from
         : `linear-gradient(135deg, ${style.from}, ${style.to})`
+  // The dithered option is the credit-card component: same name, details and
+  // colours as the plate below, drawn with a shader instead of a gradient.
+  if (style.background === 'dither') {
+    return (
+      <div className={`aspect-[1.586/1] w-full ${className}`}>
+        <DitherCreditCard
+          ariaLabel={title || 'Card'}
+          interactive={false}
+          colors={{ background: style.from, accent: style.to, foreground: style.text, details: style.text }}
+          content={{ brandName: title || 'Untitled', cardholder: subtitle, cardNumber: fields[0]?.value }}
+        />
+      </div>
+    )
+  }
   return (
     <div
       className={`relative aspect-[1.586/1] w-full overflow-hidden rounded-[20px] p-5 text-left select-none ${className}`}

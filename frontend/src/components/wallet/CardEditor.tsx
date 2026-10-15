@@ -11,6 +11,7 @@ const FONTS: { id: CardFont; label: string }[] = [
 ]
 const BACKGROUNDS: { id: CardBackground; label: string }[] = [
   { id: 'gradient', label: 'Gradient' }, { id: 'solid', label: 'Solid' }, { id: 'image', label: 'Picture' },
+  { id: 'dither', label: 'Dither' },
 ]
 
 /**

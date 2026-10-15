@@ -1,5 +1,5 @@
 export type CardFont = 'sans' | 'serif' | 'mono' | 'display' | 'custom'
-export type CardBackground = 'gradient' | 'solid' | 'image'
+export type CardBackground = 'gradient' | 'solid' | 'image' | 'dither'
 
 export interface WalletField { label: string; value: string }
 

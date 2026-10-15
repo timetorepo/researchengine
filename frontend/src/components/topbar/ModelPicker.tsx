@@ -1,3 +1,4 @@
+import { Switch } from '@/components/ui/heroui/Switch'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { AlignJustify, Check, ChevronDown, Trophy, EyeOff, Filter, Loader2, Plus, RefreshCw, RotateCcw, Search, Settings2, Waves } from 'lucide-react'
@@ -394,30 +395,15 @@ export function ModelPicker() {
                 <Settings2 size={14} /> Manage providers…
               </button>
               {hasAnyModels && (
-                <button
-                  onClick={() => patchSettings({ dockAnimation: !dockOn })}
-                  role="switch"
-                  aria-checked={dockOn}
+                <div className="flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px]" style={{ color: 'var(--text-2)' }}
                   title={dockOn
                     ? 'Rows grow under the pointer like a dock. Turn it off for a still list.'
-                    : 'The list is still. Turn the dock back on if you miss it.'}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px] hover:bg-[var(--surface)]"
-                  style={{ color: 'var(--text-2)' }}
-                >
+                    : 'The list is still. Turn the dock back on if you miss it.'}>
                   {dockOn ? <Waves size={14} /> : <AlignJustify size={14} />}
-                  Dock animation
-                  <span
-                    className="ml-auto relative w-[30px] h-[17px] rounded-full transition-colors shrink-0"
-                    style={{ background: dockOn ? 'var(--primary)' : 'var(--surface-border)' }}
-                  >
-                    <motion.span
-                      className="absolute top-[2px] w-[13px] h-[13px] rounded-full"
-                      style={{ background: '#fff' }}
-                      animate={{ left: dockOn ? 15 : 2 }}
-                      transition={{ type: 'spring', stiffness: 520, damping: 32 }}
-                    />
-                  </span>
-                </button>
+                  <div className="flex-1 min-w-0">
+                    <Switch size="sm" checked={dockOn} onChange={(v) => patchSettings({ dockAnimation: v })} label="Dock animation" />
+                  </div>
+                </div>
               )}
             </div>
             </>)}

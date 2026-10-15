@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { ScrollRevealText } from '@/components/ui/skecher/scroll-reveal-text'
 import {
   Github, ShieldCheck, ExternalLink, Sparkles, RefreshCw, CheckCircle2, Heart, Scale,
   Layers, Component, AlertTriangle, Eraser, ClipboardList, Copy,
@@ -181,6 +182,8 @@ export function AboutTab() {
           </p>
         </div>
       </div>
+
+      <RevealIntro />
 
       {/* Stale self-hosted build? ------------------------------------ */}
       <StaleBuildCard />
@@ -493,6 +496,37 @@ function DiagnosticsCard() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The about page's opening lines reveal as you scroll. The reveal listens to the
+ * settings pane (its nearest scrolling ancestor), not the window, so it is found
+ * on mount and the reveal is only rendered once it is known.
+ */
+function RevealIntro() {
+  const anchor = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLElement | null>(null)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let el: HTMLElement | null = anchor.current?.parentElement ?? null
+    while (el && !/(auto|scroll)/.test(getComputedStyle(el).overflowY)) el = el.parentElement
+    scroller.current = el
+    setReady(true)
+  }, [])
+  return (
+    <div ref={anchor} className="mb-6">
+      {ready && (
+        <ScrollRevealText
+          scrollContainerRef={scroller}
+          lines={[
+            'Your research stays on this machine.',
+            'Bring your own key, and only the calls you aim leave.',
+            'No account, no server to leak from.',
+          ]}
+        />
+      )}
     </div>
   )
 }

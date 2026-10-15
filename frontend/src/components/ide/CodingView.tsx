@@ -13,6 +13,8 @@ import { ChangesPanel } from './ChangesPanel'
 import { AIFloat, FocusButton } from './AIFloat'
 import { AgentsDock } from './AgentsDock'
 import { AgentTimeline } from './AgentTimeline'
+import { AgentChangeTimeline } from './AgentChangeTimeline'
+import { VelocityTabs } from '@/components/ui/skecher/velocity-tabs'
 import { AgentSafety } from './AgentSafety'
 import { FrameworksPanel } from './FrameworksPanel'
 import { useDownloadNotices } from '@/hooks/useDownloadNotices'
@@ -363,6 +365,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   // The right dock is a workspace of its own now: the chat, the parallel agent
   // pool, and a live "what did the AI just touch" feed.
   const [dockTab, setDockTab] = useState<'ai' | 'agents' | 'activity' | 'changes'>('ai')
+  const [activityView, setActivityView] = useState<'list' | 'timeline'>('list')
   // Branch and change count for the status bar, refreshed while the project is open.
   const [gitSummary, setGitSummary] = useState<{ branch: string; files: number } | null>(null)
   useEffect(() => {
@@ -1099,14 +1102,27 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                       <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--ide-border)' }}>
                         <ActivityIcon size={13} style={{ color: 'var(--ide-accent)' }} />
                         <span className="text-[12px] font-medium flex-1">What the AI did</span>
+                        <VelocityTabs
+                          aria-label="Activity view"
+                          value={activityView}
+                          onValueChange={(v) => setActivityView(v)}
+                          tabs={[{ value: 'list', label: 'List' }, { value: 'timeline', label: 'Timeline' }]}
+                          className="text-[11px]"
+                          tabClassName="px-2 py-0.5"
+                        />
                         {streaming && <span className="ide-badge accent"><span className="re-orb re-orb-sm" aria-hidden /> live</span>}
                         <button onClick={() => setSessionActivity([])} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Clear">
                           <X size={11} />
                         </button>
                       </div>
                       <div className="flex-1 min-h-0 overflow-y-auto">
-                        <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
-                          empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        {activityView === 'timeline' ? (
+                          <AgentChangeTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
+                            empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        ) : (
+                          <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
+                            empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        )}
                       </div>
                     </motion.div>
                   )}

@@ -3,19 +3,21 @@ import { CircuitBoard } from '@/components/ui/componentry/circuit-board'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
-  Layers, LayoutGrid, Gift, Send,
+  Layers, LayoutGrid, Gift, Send, AtSign,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { THEMES, applyTheme } from '@/lib/themes/meta'
 import { Button } from '@/components/ui/heroui/Button'
 import { Input } from '@/components/ui/heroui/Input'
+import { SnapText } from '@/components/ui/skecher/snap-text'
+import { HandleReel } from '@/components/ui/spaceui/handle-reel'
+import { normalizeHandle } from '@/lib/profile'
 import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
 // SmoothUI (shadcn registry, github.com/educlopez/smoothui) — installed under
 // src/components/smoothui and used for real here: the promises build in the
 // centre, the repo stars count up, the connection test prints into a terminal,
 // the demo contents open out of a folder.
-import KineticCenterBuild from '@/components/smoothui/kinetic-center-build'
 import TypewriterText from '@/components/smoothui/typewriter-text'
 import StaggerFromEdges from '@/components/smoothui/stagger-from-edges'
 import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-terminal'
@@ -84,6 +86,7 @@ interface StepMeta {
 
 const STEPS: StepMeta[] = [
   { label: 'Welcome', cta: false },
+  { label: 'Handle', cta: true },
   { label: 'Privacy', cta: true },
   { label: 'Modes', cta: true },
   { label: 'Features', cta: true },
@@ -95,6 +98,8 @@ const STEPS: StepMeta[] = [
 ]
 
 const LAST = STEPS.length - 1
+/** The "Setting up" step is found by label, so inserting a step never breaks it. */
+const SETUP_STEP = STEPS.findIndex((s) => s.label === 'Setting up')
 
 /** Suggestions for the first run, written the way a person asks, not prompts. */
 const FIRST_QUESTIONS = [
@@ -107,6 +112,9 @@ export function Onboarding() {
   const settings = useStore((s) => s.settings)
   const ui = useUI()
   const [step, setStep] = useState(0)
+  const [name, setName] = useState(() => (settings.profile?.name && settings.profile.name !== 'Researcher' ? settings.profile.name : ''))
+  const [handle, setHandle] = useState(() => settings.profile?.handle ?? '')
+  const [handleTouched, setHandleTouched] = useState(false)
 
   const [theme, setTheme] = useState<ThemeId>(settings.theme)
   const [provider, setProvider] = useState<string>('openai')
@@ -176,7 +184,7 @@ export function Onboarding() {
   }
 
   useEffect(() => {
-    if (step !== 7 || setupStarted.current) return
+    if (step !== SETUP_STEP || setupStarted.current) return
     setupStarted.current = true
     void runSetup()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,6 +230,10 @@ export function Onboarding() {
         .catch(() => { /* user can pick a model from the picker later */ })
     }
     patch.onboarded = true
+    const cleanName = name.trim()
+    const cleanHandle = normalizeHandle(handle) || normalizeHandle(cleanName) || settings.profile?.handle || 'researcher'
+    patch.profile = { ...settings.profile, name: cleanName || settings.profile?.name || 'Researcher', handle: cleanHandle }
+    patch.profileName = patch.profile.name
     useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
     applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
     ui.toast('Welcome to Research Engine', apiKey ? 'Your key is encrypted and stored locally.' : 'Running on the local demo model — add a key anytime.', 'success')
@@ -331,16 +343,23 @@ export function Onboarding() {
       <h2 className="mt-2.5 text-[17px] font-semibold" style={{ letterSpacing: '-0.02em', color: 'var(--text-2)' }}>
         The swiss knife of <ColourfulText text="AI Research" />.
       </h2>
-      {/* the three promises build word-by-word in the centre, hold, then hand over */}
-      <KineticCenterBuild
-        phrases={[
-          'Perplexity-level answers.',
-          'Zero data leaves your device.',
-          'Only the calls you aim leave.',
-        ]}
-        interval={2400}
-        className="text-[15.5px] mt-3.5 min-h-[48px] max-w-[460px] mx-auto leading-relaxed"
-      />
+      {/* Snap Text: the three promises, one per row. The wallpapers are the
+          app's own, so nothing is fetched from outside the machine. */}
+      <div className="mt-3.5 mx-auto w-full max-w-[460px] h-[168px]">
+        <SnapText
+          items={['Perplexity-level answers.', 'Zero data leaves your device.', 'Only the calls you aim leave.']}
+          images={['/wallpapers/glaze-1.webp', '/wallpapers/chromatic-dark-1.webp', '/wallpapers/mono-dark-1.webp']}
+          colors={['var(--primary)', 'var(--secondary)', 'var(--text-1)']}
+          inactiveColor="var(--text-3)"
+          initialIndex={0}
+          itemHeight={56}
+          fontSize="clamp(1.05rem, 2.6vw, 1.45rem)"
+          imageFrameWidth={96}
+          imageFrameRadius={12}
+          showCounter={false}
+          className="h-full"
+        />
+      </div>
       <div className="flex flex-wrap justify-center gap-2 mt-5">
         {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Learn', 'Agent Flood'].map((t, i) => (
           <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
@@ -440,7 +459,39 @@ export function Onboarding() {
       </div>
     </div>,
 
-    /* 1 — Privacy */
+    /* 1 — Handle. The handle rolls in with HandleReel and can be edited on the
+          spot; it is saved with the profile when onboarding finishes. */
+    <div key="s-handle" className="max-w-[560px] mx-auto">
+      <StepHeader icon={AtSign} title="Pick your name and handle" sub="The handle is how this app writes you. It stays on this device and you can change it later in Settings." />
+      <div className="mt-6 grid gap-5">
+        <Input
+          label="Your name"
+          value={name}
+          placeholder="Ada Lovelace"
+          autoFocus
+          onChange={(v) => {
+            setName(v)
+            if (!handleTouched) setHandle(normalizeHandle(v))
+          }}
+        />
+        <div className="surface p-5 text-center overflow-hidden">
+          <div className="text-[12px] mb-3" style={{ color: 'var(--text-3)' }}>Your handle</div>
+          <HandleReel
+            finalName={handle || 'researcher'}
+            prefix="@"
+            textClassName="text-[22px] whitespace-nowrap"
+            className="max-w-full overflow-hidden"
+            editable
+            onNameChange={(n) => {
+              setHandleTouched(true)
+              setHandle(normalizeHandle(n))
+            }}
+          />
+        </div>
+      </div>
+    </div>,
+
+    /* 2 — Privacy */
     <div key="s1" className="max-w-[560px] mx-auto">
       <StepHeader icon={ShieldCheck} title="Your privacy, enforced by architecture" sub="Not a promise — a design constraint. There is no server to leak from." />
       <div className="space-y-2 mb-6">
