@@ -179,7 +179,7 @@ function SmoothButton({
   if (asChild) {
     return (
       <Slot className={classes} ref={ref} {...props}>
-        {children}
+        <>{children}</>
       </Slot>
     );
   }

@@ -100,7 +100,7 @@ function measureText(field: HTMLElement, text: string): number {
 
 export interface SmoothCaretProps {
   /** The field the caret belongs to. */
-  fieldRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement>
+  fieldRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>
   /** Current value — changing it re-measures. */
   value: string
   /** Text laid out before the caret on the current line (defaults to the whole value). */

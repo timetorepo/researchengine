@@ -418,7 +418,7 @@ const SwipeRow: React.FC<SwipeRowProps> = ({
           id={railId}
           className="absolute inset-0 [background:var(--sr-drawer)]"
           style={{ transform: railXf }}
-          {...(!open ? { inert: '' } : {})}
+          {...(!open ? { inert: true } : {})}
           aria-hidden={!open}
         >
           {actions.slice(1).map((a, i) => (
