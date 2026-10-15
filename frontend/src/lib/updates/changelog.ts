@@ -48,6 +48,32 @@ export function kindOf(title: string): ChangeKind {
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "0.48.0-beta.1",
+    "tag": "v0.48.0-beta.1",
+    "name": "beta: the Tauri desktop app, exam mode, a bug finder, and safe updates.",
+    "date": "2026-10-15",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.48.0-beta.1",
+    "summary": "The desktop app is a Tauri build again, updates keep a copy of your library first, and there are new tools for practice exams and bug reports.",
+    "sections": [
+      {
+        "title": "Updates that keep your data",
+        "items": [
+          { "label": "Backup first.", "text": "Before any update starts, a copy of the database and settings is saved in your data folder under backups/. The newest five are kept. If the copy cannot be made, the update does not start." },
+          { "label": "Same install.", "text": "Earlier desktop installs update in place. Your library, chats and projects stay in the data folder, outside the program." }
+        ]
+      },
+      {
+        "title": "Added",
+        "items": [
+          { "label": "Exam mode.", "text": "Settings → Exam runs a practice civics test for 12 countries. While it runs, ResearchEngine is locked. This locks the app only, not other programs." },
+          { "label": "Bug finder.", "text": "In developer mode, Alt+Shift+B lets you pick an element and writes a bug report, with an optional screenshot you attach." },
+          { "label": "Composio.", "text": "A Composio Connect preset in the MCP custom-server form." },
+          { "label": "Components.", "text": "A handle step in onboarding, a timeline for the AI's activity, scroll-reveal text in About, and tabs in the Library and the IDE." }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.47.0-beta.2",
     "tag": "v0.47.0-beta.2",
     "name": "beta: wallet with customisable cards, AI welcome, and the desktop build.",
