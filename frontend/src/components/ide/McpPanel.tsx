@@ -177,6 +177,15 @@ export function McpPanel() {
           <input value={custom.command} onChange={(e) => setCustom({ ...custom, command: e.target.value })}
             onKeyDown={(e) => e.key === 'Enter' && addCustom()}
             placeholder="npx -y @modelcontextprotocol/server-filesystem /path" className="ide-input w-full font-mono" />
+          {/* Composio Connect is a remote (HTTP) MCP server. This panel runs local
+              commands, so the preset bridges it with mcp-remote. Replace the key
+              placeholder with your own Composio API key before adding. */}
+          <button type="button" onClick={() => setCustom({
+            name: 'Composio',
+            command: `npx -y mcp-remote https://connect.composio.dev/mcp --header x-consumer-api-key:YOUR_COMPOSIO_API_KEY`,
+          })} className="text-[10.5px] underline underline-offset-2" style={{ color: 'var(--ide-dim)' }}>
+            Use the Composio preset (replace the key first)
+          </button>
           <div className="flex gap-1.5">
             <button onClick={addCustom} className="px-2 py-1 rounded-[6px] text-[10.5px]" style={{ background: 'var(--ide-accent)', color: '#fff' }}>Add</button>
             <button onClick={() => setAdding(false)} className="px-2 py-1 rounded-[6px] text-[10.5px]" style={{ color: 'var(--ide-dim)' }}>Cancel</button>
