@@ -114,3 +114,20 @@ The product *is* the server: the API, the SSE streams, the document store, the
 Coding/Design preview manager. Compiling that whole thing to one file (Bun
 `--compile`) keeps a single implementation for web, portable and desktop builds,
 and the shell stays small enough to read in one sitting.
+
+## Updating, and where your data lives
+
+- **Your data is not in the program folder.** The library, chats, projects and
+  settings live in the data folder (`~/.research-engine` by default). Installing
+  or updating replaces the program only.
+- **Older installs update the same way.** The app keeps the same identifier
+  (`dev.researchengine.desktop`), product name and per-user install mode, so the
+  installer upgrades an existing install in place. Use **Settings → Updates** to
+  download the installer.
+- **A copy is taken before every update.** Before an update starts, Research
+  Engine writes a copy of the database and config to
+  `<data folder>/backups/pre-update-<version>-<time>/` (with a `manifest.json`
+  and a restore note). The newest five are kept. If the copy cannot be made,
+  the update does not start.
+- **Restoring a copy:** close Research Engine, then copy `db.sqlite` and
+  `config.json` from that folder back into the data folder.

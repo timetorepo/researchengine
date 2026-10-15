@@ -27,6 +27,7 @@ import { spawn } from 'node:child_process'
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { extractArchive, rmrf } from './archive'
+import { backupBeforeUpdate } from './backup'
 import {
   archiveNameFor, compareVersions, isNewer, pickLatest, parseSha256Sums,
   type ReleaseInfo, type ReleaseLike,
@@ -853,6 +854,14 @@ export async function installUpdate(deps: UpdateDeps, opts: { version?: string }
     const check = await checkForUpdate(deps)
     const target = opts.version ?? check.latest
     if (!target) return { ok: false, error: 'no release found' }
+    // The safety copy comes before anything is staged or swapped. No copy, no update.
+    setProgress({ phase: 'checking', pct: 0, message: 'Backing up your library before the update…' })
+    const bk = backupBeforeUpdate(deps.dataDir, deps.currentVersion, target)
+    if (!bk.ok) {
+      const error = `the update did not start: ${bk.error}. Nothing was changed.`
+      setProgress({ phase: 'error', error, message: error })
+      return { ok: false, error }
+    }
     if (!check.available && !opts.version) {
       setProgress({ phase: 'ready', pct: 100, message: `${check.current} is already the newest release.` })
       return { ok: false, error: `${check.current} is already the newest release` }
@@ -989,6 +998,9 @@ export async function downloadInstaller(deps: UpdateDeps, downloadDir: string): 
     if (!check.latest) return { ok: false, error: 'no release found' }
     if (!check.available) return { ok: false, error: `${check.current} is already the newest release` }
     const version = check.latest
+    // Copy the library first, so a bad release can always be walked back.
+    const bk = backupBeforeUpdate(deps.dataDir, deps.currentVersion, version)
+    if (!bk.ok) return { ok: false, error: `the update was not downloaded: ${bk.error}. Nothing was changed.` }
     const all = await latestRelease(deps)
     mkdirSync(downloadDir, { recursive: true })
     const onProgress = (name: string) => (received: number, total: number) => {
@@ -1014,7 +1026,7 @@ export async function downloadInstaller(deps: UpdateDeps, downloadDir: string): 
       writeFileSync(file, buffer)
       writeFileSync(`${file}.sha256`, `${sha256}  ${installer.name}\n`)
       setProgress({ phase: 'ready', pct: 100, message: `${installer.name} downloaded — open it to install.` })
-      return { ok: true, file, via: 'installer', message: `${installer.name} downloaded — open it to finish the update. Your library stays where it is.` }
+      return { ok: true, file, via: 'installer', message: `${installer.name} downloaded — open it to finish the update. Your library stays where it is${bk.dir ? `, and a copy is saved in ${bk.dir}` : ''}.` }
     }
 
     /*
