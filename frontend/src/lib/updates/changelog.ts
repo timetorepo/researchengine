@@ -48,6 +48,35 @@ export function kindOf(title: string): ChangeKind {
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "0.49.0-beta.1",
+    "tag": "v0.49.0-beta.1",
+    "name": "beta: an authenticator for your keys, two folder looks, and Exam in Learn.",
+    "date": "2026-10-16",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.49.0-beta.1",
+    "summary": "Unlock your key vault with an authenticator app, pick the glass or the classic folder on the shelf, and find Exam under Learn.",
+    "sections": [
+      {
+        "title": "Keys and access",
+        "items": [
+          { "label": "Authenticator lock.", "text": "Settings → Security turns on a six-digit code for the key vault. Scan the QR code, or type the key by hand. Works with Google Authenticator, Stratum, Aegis and 1Password." },
+          { "label": "Two steps to unlock.", "text": "With the lock on, unlocking the vault needs your passphrase and the current code. Five wrong codes make it wait 30 seconds." }
+        ]
+      },
+      {
+        "title": "Smaller changes",
+        "items": [
+          { "label": "Two folder looks.", "text": "The Library shelf shows the classic blue folder or a frosted-glass folder. Pick one above the shelf; it is remembered." },
+          { "label": "Exam moved.", "text": "Exam is now under Learn, next to Study, Techniques, Path and Videos." },
+          { "label": "README.", "text": "Covers the exam, the bug finder (Alt+Shift+B in developer mode), the backup before each update, and the authenticator's limits." }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 5,
+      "sections": 2
+    }
+  },
+  {
     "version": "0.48.0-beta.1",
     "tag": "v0.48.0-beta.1",
     "name": "beta: the Tauri desktop app, exam mode, a bug finder, and safe updates.",

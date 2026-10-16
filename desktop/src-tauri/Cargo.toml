@@ -1,6 +1,6 @@
 [package]
 name = "research-engine-desktop"
-version = "0.48.0-beta.1"
+version = "0.49.0-beta.1"
 description = "Research Engine — privacy-first research platform (desktop shell)"
 authors = ["Research Engine"]
 edition = "2021"
