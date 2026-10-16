@@ -7,7 +7,7 @@
 
 **Ask a question. Get an answer with real sources. Keep every page, note, quiz and draft on your own computer.**
 
-[![Release](https://img.shields.io/badge/release-v0.46.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v0.49.0--beta.1-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#-your-work-stays-yours)
@@ -68,6 +68,7 @@ You do not need to be technical to use it. You need one thing to get real AI ans
 | **Six question types** | Multiple choice, true/false, fill in the blank, short answer, put it in order, and match the pairs — with a timer, streaks and a score you can act on. |
 | **Marking that feels instant** | Select any sentence to highlight it immediately — the mark sweeps on like a marker — with two buttons for what you probably want next (*quiz this passage*, *undo*). |
 | **Steps that look like steps** | Lines meant as steps, lists and "Step 2 —" runs are turned into properly numbered steps and bullets **as you read them**, at no extra cost and with no extra AI call. |
+| **Practice exams for 12 countries** | **Learn → Exam** runs a practice civics test built from the country you pick (the United States, Indonesia and ten more). While it runs, ResearchEngine is locked until you finish. It is practice material, not an official test. The lock is inside this app, so other programs stay open. |
 | **Revise against the clock** | A study timer lives in the top bar and knows what it is timing — Quiz, Reading, or Coding — with pause, play, skip and reset. |
 
 ### Write it up
@@ -132,13 +133,17 @@ Settings → Data imports a ChatGPT export (the zip, or its conversations.json) 
 - **MCP servers** — Settings → MCP Servers and the coding panel share one list. The catalog holds 7,729 servers from an open index; the 116 with a verified run command install in one click, and the rest open their project page. mcpservers.org lists more, and links out from the panel.
 - **Master prompts** — the instructions behind every answer are readable and versioned. Change them, compare them, roll them back.
 - **Tasks** — a checklist you share with the assistant, pinned to the top so the AI works on what you actually care about.
+- **Two looks for your folders** — the Library shelf shows folders as blue SmoothUI folders, or as frosted-glass folders that lean toward your pointer and fan out their files when opened. Pick the look above the shelf; it is remembered on this device.
+- **Developer bug finder** — with developer mode on in Settings → Developer, press **Alt+Shift+B** to pick any element on screen. It writes a bug report with the page, the element (its selector and text), and a line of your own. You can attach a screenshot you took yourself; the app does not take screenshots.
 - **Make it beautiful** — light, dark, Catppuccin, Solarized, Nord, high-contrast and more; gradients that animate into a new theme instead of snapping; glass, frosted or solid surfaces; your own background image; a dock-style sidebar; and a profile avatar generated from your name.
 - **Privacy Shield** — three postures in one switch: **No Privacy**, **Privated** (the default — secrets are scrubbed from anything that leaves your machine), or **Top Secret** (nothing leaves except your chosen AI provider; search runs offline from what you already have).
 - **Feels like an app, not a website** — a command palette (`Ctrl/Cmd + K`), right-click menus everywhere, animated page changes, live toasts, a scroll indicator, and a desktop app that opens like any other program.
 
 ### Keeps itself up to date
 
-Press update and it fetches the new version, **checks the file against its published fingerprint before unpacking anything**, installs it, and — if the new version cannot start — puts the old one back by itself. Your library is never part of that swap. (You can also hand it a file you downloaded yourself, or point it at a private source if you run a fork.)
+Press update and it fetches the new version, **checks the file against its published fingerprint before unpacking anything**, installs it, and — if the new version cannot start — puts the old one back by itself. Your library is never part of that swap.
+
+**Before any update starts, your data is backed up.** The desktop app copies the database (with a consistent snapshot, even while the app is open) and your settings into a `backups/` folder inside your data folder, and keeps the newest five. If that copy cannot be made, the update does not start. The desktop installer keeps the same app identity, so an update is meant to install over the old version, and your data folder is outside the program. Neither the Windows nor the Linux in-place upgrade has been tried on a machine with an older install yet; CI builds both installers, and the backup logic is tested. (You can also hand it a file you downloaded yourself, or point it at a private source if you run a fork.)
 
 **And it tells you.** When a newer release exists, it says so — once per version, in a popup that shows the release notes, the download and its progress, with a restart when it is done and a "skip this version" that is remembered. Nothing installs without your press.
 
@@ -200,7 +205,12 @@ Everything Research Engine writes lives in **one folder** on the machine running
 |---|---|
 | `~/.research-engine/` (Windows: `%USERPROFILE%\.research-engine`) | Your whole library: chats, notebooks, documents, quizzes, articles, skills, workflows |
 | `keys.enc` | Your provider keys, encrypted with your passphrase |
+| `backups/` | Snapshots taken before each update (newest five kept) |
 | Your own backups | A versioned ZIP from **Settings → Data**, or just copy the folder |
+
+**Locking your keys.** Two layers protect the key vault. The **vault passphrase** encrypts every provider key (AES-GCM, with a key derived by PBKDF2). The optional **authenticator lock** (Settings → Security) adds a six-digit code from an app such as Google Authenticator, Stratum, Aegis or 1Password: unlocking the vault then takes the passphrase *and* the current code. Setup shows a QR code, and the same key typed by hand for apps that cannot scan. The code must be typed once to confirm the setup, so a bad setup cannot lock you out, and five wrong codes make the box wait 30 seconds.
+
+Be clear about the limit: the authenticator secret lives on this device, encrypted with your passphrase. It stops someone who only has the device, or only has the passphrase, from using your keys. It does not stop someone who has both the device and the passphrase. A second device or a hardware key would be the stronger version, and it is not part of this release.
 
 **What leaves your computer:** only the messages needed to get an answer, sent to the AI provider *you* configured, and your search queries to the search service you chose. That is the entire list. No telemetry, no analytics, no crash reports, no "checking for updates" pings that carry your data.
 

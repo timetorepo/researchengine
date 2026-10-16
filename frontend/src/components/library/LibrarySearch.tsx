@@ -30,6 +30,7 @@ import { notifyRecommendations } from '@/lib/notifications/store'
 import { readJsonResponse } from '@/lib/net/json'
 import { SourceViewer, type OpenSource } from '@/components/library/SourceViewer'
 import FolderReveal from '@/components/smoothui/folder-reveal'
+import GlassFolder from '@/components/ui/glass-folder/GlassFolder'
 import { RecommendationsPanel } from '@/components/library/RecommendationsPanel'
 // The registry index the design hub already uses — one catalogue, searched from
 // two places, rather than a second list that drifts from the first.
@@ -199,6 +200,14 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
   const [folderInput, setFolderInput] = useState(false)
   const [newFolderColor, setNewFolderColor] = useState('blue')
   const [paletteFor, setPaletteFor] = useState<string | null>(null)
+  // Two folder looks for the same shelf: the blue SmoothUI folder, and a
+  // frosted-glass folder. The choice is kept on this device.
+  const [folderTheme, setFolderTheme] = useState<'classic' | 'glass'>(() =>
+    typeof localStorage !== 'undefined' && localStorage.getItem('re.library.folderTheme') === 'glass' ? 'glass' : 'classic')
+  const chooseFolderTheme = (t: 'classic' | 'glass') => {
+    setFolderTheme(t)
+    try { localStorage.setItem('re.library.folderTheme', t) } catch { /* private mode */ }
+  }
   const folderFilter = folder
   const setFolderFilter = onFolder
   const fileRef = useRef<HTMLInputElement>(null)
@@ -713,6 +722,15 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
               Saved ({items.length})
               {folderFilter !== 'all' && <span style={{ color: 'var(--text-3)' }}> · inside {folders.find((f) => f.id === folderFilter)?.name ?? 'a folder'}</span>}
             </h3>
+            <div className="flex items-center gap-0.5 rounded-full p-0.5" role="group" aria-label="Folder look" style={{ background: 'var(--elevated)' }}>
+              {(['classic', 'glass'] as const).map((t) => (
+                <button key={t} type="button" aria-pressed={folderTheme === t} onClick={() => chooseFolderTheme(t)}
+                  className="px-2 py-0.5 rounded-full text-[10.5px] capitalize"
+                  style={{ background: folderTheme === t ? 'var(--surface)' : 'transparent', color: folderTheme === t ? 'var(--text)' : 'var(--text-3)' }}>
+                  {t}
+                </button>
+              ))}
+            </div>
             <button onClick={() => setFolderInput((v) => !v)} title="Make a folder" className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
               <FolderPlus size={11} /> New folder
             </button>
@@ -749,9 +767,26 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
           */}
           <div className="flex items-end gap-1 overflow-x-auto pb-6 pt-1"
             style={{ minHeight: 208 }}>
-            {folders.map((f) => {
+            {folders.map((f, fi) => {
               const inside = items.filter((i) => (i.folderId ?? 'none') === f.id)
               const selected = folderFilter === f.id
+              if (folderTheme === 'glass') {
+                return (
+                  <div key={f.id} className="shrink-0 flex flex-col items-center gap-2" style={{ width: 200 }}>
+                    <GlassFolder
+                      label={f.name}
+                      meta={`${inside.length} save${inside.length === 1 ? '' : 's'}`}
+                      tone={f.color === 'slate' ? 'dark' : 'light'}
+                      appearDelay={fi * 90}
+                      open={selected}
+                      onOpenChange={() => setFolderFilter(selected ? 'all' : f.id)}
+                      onFileOpen={() => setFolderFilter(f.id)}
+                      files={inside.slice(-4).map((i) => ({ id: i.id, name: i.title, meta: i.kind }))}
+                      menu={[{ label: 'Delete folder (saves stay)', danger: true, onSelect: () => void removeFolder(f.id) }]}
+                    />
+                  </div>
+                )
+              }
               return (
                 <div key={f.id} className="shrink-0 flex flex-col items-center gap-2"
                   style={{ width: 150 }}>

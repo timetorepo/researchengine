@@ -513,6 +513,12 @@ export interface Settings {
   /** Model ids fetched live from each provider API (never hardcoded). */
   providerModels: Record<string, string[]>
   passphraseSet: boolean
+  /**
+   * Authenticator lock for the key vault. The TOTP secret is stored only
+   * encrypted with the vault passphrase, and unlocking needs a 6-digit code
+   * from an authenticator app as well as the passphrase.
+   */
+  apiKeyAuth?: { enabled: boolean; secretEnc: string; enrolledAt: string }
   dynamicIsland: boolean
   /** Derive card gradients from the active theme instead of fixed hues. */
   themeGradients: boolean

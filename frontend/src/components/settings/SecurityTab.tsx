@@ -7,6 +7,7 @@ import {
   type LockRole,
 } from '@/lib/security/lock'
 import { download } from '@/lib/utils'
+import { AuthenticatorSection } from './AuthenticatorSection'
 
 /**
  * Settings for the startup lock.
@@ -96,6 +97,9 @@ export function SecurityTab() {
           </button>
         </div>
       )}
+
+      {/* ------------------------------------------------- authenticator for keys */}
+      <AuthenticatorSection />
 
       {/* ------------------------------------------------------------ your code */}
       <section className="surface p-4 mb-4">

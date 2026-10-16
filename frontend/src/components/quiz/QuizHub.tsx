@@ -26,6 +26,7 @@ import { FileDropzone } from '@/components/ui/uiarc/file-dropzone/file-dropzone'
 import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
 import { TechniquesPanel } from '@/components/learn/TechniquesPanel'
 import { PathPanel } from '@/components/learn/PathPanel'
+import { ExamTab } from '@/components/exam/Exam'
 import { VideosPanel } from '@/components/learn/VideosPanel'
 // shadcn-space @shadcn-space/animated-list-02 — the setup-steps animation, used
 // for the two loading paths that read like a pipeline: parsing and analysing a
@@ -36,12 +37,13 @@ import { SetupSteps } from '@/components/shadcn-space/animated-list/animated-lis
 
 type Stage = { id: string; label: string; icon: any; pct: number; done: boolean }
 
-type LearnTab = 'study' | 'techniques' | 'path' | 'videos'
+type LearnTab = 'study' | 'techniques' | 'path' | 'videos' | 'exam'
 const LEARN_TABS: { value: LearnTab; label: string }[] = [
   { value: 'study', label: 'Study' },
   { value: 'techniques', label: 'Techniques' },
   { value: 'path', label: 'Path' },
   { value: 'videos', label: 'Videos' },
+  { value: 'exam', label: 'Exam' },
 ]
 
 export function QuizHub() {
@@ -370,6 +372,7 @@ export function QuizHub() {
         {tab === 'techniques' && <TechniquesPanel documents={documents} />}
         {tab === 'path' && <PathPanel documents={documents} />}
         {tab === 'videos' && <VideosPanel documents={documents} />}
+        {tab === 'exam' && <ExamTab />}
 
         {tab === 'study' && (<>
         {/* The empty state is the one place a heading that assembles itself is a

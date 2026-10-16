@@ -1,7 +1,7 @@
 /**
  * Exam mode.
  *
- * ExamTab (Settings → Exam) picks a country and asks the user to accept the
+ * ExamTab (Learn → Exam) picks a country and asks the user to accept the
  * rules. ExamGate is a full-screen overlay that appears while an exam runs. It
  * sits above the whole app, swallows keyboard shortcuts for the rest of the
  * app, and only closes once the exam is finished.
