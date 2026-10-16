@@ -71,7 +71,11 @@ export const CHANGELOG: Release[] = [
           { "label": "Components.", "text": "A handle step in onboarding, a timeline for the AI's activity, scroll-reveal text in About, and tabs in the Library and the IDE." }
         ]
       }
-    ]
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 2
+    }
   },
   {
     "version": "0.47.0-beta.2",

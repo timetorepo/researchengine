@@ -3,7 +3,7 @@ import { CircuitBoard } from '@/components/ui/componentry/circuit-board'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
-  Layers, LayoutGrid, Gift, Send, AtSign,
+  Layers, LayoutGrid, Gift, Send, AtSign, Dices,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -97,6 +97,27 @@ const STEPS: StepMeta[] = [
   { label: "You're set", cta: false },
 ]
 
+// Onboarding type. Bricolage Grotesque for display, Plus Jakarta Sans for the
+// tagline and the handle, Poppins for the chips and the step list, Inter for
+// body copy. All four are bundled with @fontsource, so nothing is fetched.
+const DISPLAY = "'Bricolage Grotesque', 'Inter', var(--font-ui), sans-serif"
+const GEOMETRIC = "'Plus Jakarta Sans', 'Inter', var(--font-ui), sans-serif"
+const POPPINS = "'Poppins', 'Inter', var(--font-ui), sans-serif"
+const INTER = "'Inter', var(--font-ui), sans-serif"
+
+const ROLL_ADJECTIVES = ['quiet', 'velvet', 'cosmic', 'sleepy', 'neon', 'mellow', 'lucky', 'tiny', 'electric', 'misty', 'bold', 'candid', 'amber', 'rapid', 'lunar', 'pixel']
+const ROLL_NOUNS = ['otter', 'falcon', 'atlas', 'comet', 'ember', 'heron', 'lynx', 'maple', 'orbit', 'pebble', 'quill', 'raven', 'sprout', 'tangle', 'wren', 'zephyr']
+/** Random handles for the reel's other rows. None of them is the user's handle. */
+function makeRollPool(count = 28): string[] {
+  const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)]
+  const out = new Set<string>()
+  while (out.size < count) {
+    const digits = Math.random() < 0.5 ? String(10 + Math.floor(Math.random() * 90)) : ''
+    out.add(`${pick(ROLL_ADJECTIVES)}-${pick(ROLL_NOUNS)}${digits}`)
+  }
+  return [...out]
+}
+
 const LAST = STEPS.length - 1
 /** The "Setting up" step is found by label, so inserting a step never breaks it. */
 const SETUP_STEP = STEPS.findIndex((s) => s.label === 'Setting up')
@@ -115,6 +136,13 @@ export function Onboarding() {
   const [name, setName] = useState(() => (settings.profile?.name && settings.profile.name !== 'Researcher' ? settings.profile.name : ''))
   const [handle, setHandle] = useState(() => settings.profile?.handle ?? '')
   const [handleTouched, setHandleTouched] = useState(false)
+  // The reel's other rows. Roll deals a new set and spins the reel again.
+  const [rollPool, setRollPool] = useState<string[]>(() => makeRollPool())
+  const [rollTick, setRollTick] = useState(0)
+  const rollHandles = () => {
+    setRollPool(makeRollPool())
+    setRollTick((t) => t + 1)
+  }
 
   const [theme, setTheme] = useState<ThemeId>(settings.theme)
   const [provider, setProvider] = useState<string>('openai')
@@ -317,150 +345,160 @@ export function Onboarding() {
   }
 
   const isCarousel = STEPS[step].label === 'Features'
+  // The wizard steps that take input get the side rails. Welcome, the carousel and the
+  // closing steps keep their full-width layout.
+  const railed = step > 0 && step < 7 && STEPS[step].cta && !isCarousel
 
   const body = [
-    /* 0 — Welcome */
-    <div key="s0" className="text-center max-w-[520px] mx-auto">
-      <div className="relative inline-flex items-center justify-center mb-6">
-        {/* A faceted crystal behind the mark — decorative, and it holds still
-            under reduced motion. */}
-        <div className="absolute -inset-6 opacity-60">
-          <CrystalizedBall size={104} />
-        </div>
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 20, stiffness: 260 }}
-          className="relative inline-flex items-center justify-center w-16 h-16 rounded-[20px]"
-          style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-          <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-            <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-            <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-          </svg>
-        </motion.div>
-      </div>
-      <h1 className="text-[30px] font-bold leading-tight" style={{ letterSpacing: '-0.03em' }}>Research Engine</h1>
-      {/* Aceternity's Colourful Text, on the one line that should be colourful:
-          the letters of "AI Research" step through the ramp on a beat, and
-          reduce-motion gets the sentence once, in colour, holding still. */}
-      <h2 className="mt-2.5 text-[17px] font-semibold" style={{ letterSpacing: '-0.02em', color: 'var(--text-2)' }}>
-        The swiss knife of <ColourfulText text="AI Research" />.
-      </h2>
-      {/* Snap Text: the three promises, one per row. The wallpapers are the
-          app's own, so nothing is fetched from outside the machine. */}
-      <div className="mt-3.5 mx-auto w-full max-w-[460px] h-[168px]">
-        <SnapText
-          items={['Perplexity-level answers.', 'Zero data leaves your device.', 'Only the calls you aim leave.']}
-          images={['/wallpapers/glaze-1.webp', '/wallpapers/chromatic-dark-1.webp', '/wallpapers/mono-dark-1.webp']}
-          colors={['var(--primary)', 'var(--secondary)', 'var(--text-1)']}
-          inactiveColor="var(--text-3)"
-          initialIndex={0}
-          itemHeight={56}
-          fontSize="clamp(1.05rem, 2.6vw, 1.45rem)"
-          imageFrameWidth={96}
-          imageFrameRadius={12}
-          showCounter={false}
-          className="h-full"
-        />
-      </div>
-      <div className="flex flex-wrap justify-center gap-2 mt-5">
-        {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Learn', 'Agent Flood'].map((t, i) => (
-          <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
-            className="px-3 py-1 rounded-full text-[11.5px]"
-            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
-            {t}
-          </motion.span>
-        ))}
-      </div>
-      {/* The explainer: how a question moves through ResearchEngine. Shadcn's
-          circuit-board (componentry), the nodes are the real stages. */}
-      <div className="mt-6 mx-auto w-full max-w-[520px]" aria-label="How ResearchEngine works">
-        <CircuitBoard
-          width={520}
-          height={200}
-          label="How a question flows through ResearchEngine"
-          nodes={[
-            { id: 'q', x: 60, y: 100, label: 'You ask', status: 'active' },
-            { id: 'src', x: 200, y: 40, label: 'Your sources', status: 'processing' },
-            { id: 'web', x: 200, y: 160, label: 'Web search', status: 'inactive' },
-            { id: 'ai', x: 340, y: 100, label: 'Your model', status: 'processing' },
-            { id: 'out', x: 470, y: 100, label: 'Cited answer', status: 'active' },
-          ]}
-          connections={[
-            { from: 'q', to: 'src', animated: true },
-            { from: 'q', to: 'web', animated: true },
-            { from: 'src', to: 'ai', animated: true },
-            { from: 'web', to: 'ai', animated: true },
-            { from: 'ai', to: 'out', animated: true, bidirectional: false },
-          ]}
-        />
-      </div>
-      {/* real star count from the GitHub API; renders nothing at all when the
-          machine is offline, so no invented numbers on an offline-first app */}
-      <div className="mt-6 flex justify-center">
-        <GitHubStarsAnimation owner="timetorepo" repo="researchengine" maxAvatars={5} />
-      </div>
-      <div className="mt-2 h-[16px] text-[11.5px] font-mono" style={{ color: 'var(--text-3)' }}>
-        <TypewriterText speed={34}>local-first · bring your own key · works offline</TypewriterText>
-      </div>
-      {/* The first-run heading wipes on with a travelling mask. */}
-      <div className="mt-5 text-[13px]" style={{ color: 'var(--text-2)' }}>
-        <MaskedHeading text="Pick where to start" mediaType="image" src="/wallpapers/glaze-1.webp" />
-      </div>
-      {/* Flowing Menu: each row is a way in. Its items are links, so one click
-          handler on the wrapper turns any of them into "continue". */}
-      <div className="mt-2 flex justify-center h-[200px] w-full max-w-[560px] mx-auto"
-        onClickCapture={(e) => { if ((e.target as HTMLElement).closest('a')) { e.preventDefault(); next() } }}>
-        <FlowingMenu items={[
-          { link: '#research', text: 'Research', image: '/wallpapers/glaze-1.webp' },
-          { link: '#learn', text: 'Learn', image: '/wallpapers/chromatic-dark-1.webp' },
-          { link: '#build', text: 'Build', image: '/wallpapers/mono-dark-1.webp' },
-        ]} />
-      </div>
-      <div className="mt-6 flex justify-center">
-        {/* StarBorder is the requested frame for the get-started button: a border
-            traced by travelling stars rather than a static outline. */}
-        <StarBorder onClick={next} className="w-52 h-12">
-          Get started <ArrowRight size={15} />
-        </StarBorder>
-      </div>
-      {/* A tear-off ticket as a second, more playful way into the app: drag the
-          stub down to open Research Engine. The same action as the button, but
-          it earns a moment of attention on a first run. */}
-      <div className="mt-5 flex justify-center">
-        <TearTicket
-          width={320}
-          height={120}
-          stub={<span className="text-[12px] font-semibold">Tear to open</span>}
-          onTear={next}
-          background="var(--surface)"
-          color="var(--text-1)"
-          stubBackground="var(--elevated)"
-          borderColor="var(--surface-border)"
-          ariaLabel="Tear to open Research Engine"
-        >
-          <div className="p-4 text-left">
-            <div className="text-[13px] font-semibold">Research Engine</div>
-            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-3)' }}>Your local-first AI workspace.</div>
+    /* 0 — Welcome. Laid out as a page: the promise and the way in sit side by
+          side, and the explainer, the stars and the spiral run in a row below. */
+    <div key="s0" className="w-full max-w-[1180px] mx-auto">
+      <div className="grid gap-10 lg:grid-cols-2 items-center">
+        <div className="text-center lg:text-left">
+          <div className="relative inline-flex items-center justify-center mb-6">
+            {/* A faceted crystal behind the mark — decorative, and it holds still
+                under reduced motion. */}
+            <div className="absolute -inset-6 opacity-60">
+              <CrystalizedBall size={104} />
+            </div>
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 20, stiffness: 260 }}
+              className="relative inline-flex items-center justify-center w-16 h-16 rounded-[20px]"
+              style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+              <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
+                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
+              </svg>
+            </motion.div>
           </div>
-        </TearTicket>
+          <h1 className="text-[40px] leading-[1.05] font-bold" style={{ letterSpacing: '-0.03em', fontFamily: DISPLAY }}>Research Engine</h1>
+          {/* Aceternity's Colourful Text, on the one line that should be colourful. */}
+          <h2 className="mt-3 text-[18px] font-semibold" style={{ letterSpacing: '-0.02em', color: 'var(--text-2)', fontFamily: GEOMETRIC }}>
+            The swiss knife of <ColourfulText text="AI Research" />.
+          </h2>
+          {/* Snap Text: the three promises, one per row. The wallpapers are the
+              app's own, so nothing is fetched from outside the machine. */}
+          <div className="mt-4 mx-auto lg:mx-0 w-full max-w-[460px] h-[168px]" style={{ fontFamily: GEOMETRIC }}>
+            <SnapText
+              items={['Perplexity-level answers.', 'Zero data leaves your device.', 'Only the calls you aim leave.']}
+              images={['/wallpapers/glaze-1.webp', '/wallpapers/chromatic-dark-1.webp', '/wallpapers/mono-dark-1.webp']}
+              colors={['var(--primary)', 'var(--secondary)', 'var(--text-1)']}
+              inactiveColor="var(--text-3)"
+              initialIndex={0}
+              itemHeight={56}
+              fontSize="clamp(1.05rem, 2.6vw, 1.45rem)"
+              imageFrameWidth={96}
+              imageFrameRadius={12}
+              showCounter={false}
+              className="h-full"
+            />
+          </div>
+          <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-5" style={{ fontFamily: POPPINS }}>
+            {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Learn', 'Agent Flood'].map((t, i) => (
+              <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
+                className="px-3 py-1 rounded-full text-[11.5px] font-medium"
+                style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                {t}
+              </motion.span>
+            ))}
+          </div>
+        </div>
+
+        <div className="text-center lg:text-left">
+          {/* The first-run heading wipes on with a travelling mask. */}
+          <div className="text-[14px] mb-3" style={{ color: 'var(--text-2)', fontFamily: DISPLAY, fontWeight: 600 }}>
+            <MaskedHeading text="Pick where to start" mediaType="image" src="/wallpapers/glaze-1.webp" />
+          </div>
+          {/* Flowing Menu: each row is a way in. Its items are links, so one click
+              handler on the wrapper turns any of them into "continue". */}
+          <div className="flex justify-center h-[200px] w-full"
+            onClickCapture={(e) => { if ((e.target as HTMLElement).closest('a')) { e.preventDefault(); next() } }}>
+            <FlowingMenu items={[
+              { link: '#research', text: 'Research', image: '/wallpapers/glaze-1.webp' },
+              { link: '#learn', text: 'Learn', image: '/wallpapers/chromatic-dark-1.webp' },
+              { link: '#build', text: 'Build', image: '/wallpapers/mono-dark-1.webp' },
+            ]} />
+          </div>
+          <div className="mt-6 flex justify-center lg:justify-start">
+            {/* StarBorder is the requested frame for the get-started button: a border
+                traced by travelling stars rather than a static outline. */}
+            <StarBorder onClick={next} className="w-52 h-12">
+              Get started <ArrowRight size={15} />
+            </StarBorder>
+          </div>
+          {/* A tear-off ticket as a second, more playful way into the app. */}
+          <div className="mt-5 flex justify-center lg:justify-start">
+            <TearTicket
+              width={320}
+              height={120}
+              stub={<span className="text-[12px] font-semibold">Tear to open</span>}
+              onTear={next}
+              background="var(--surface)"
+              color="var(--text-1)"
+              stubBackground="var(--elevated)"
+              borderColor="var(--surface-border)"
+              ariaLabel="Tear to open Research Engine"
+            >
+              <div className="p-4 text-left">
+                <div className="text-[13px] font-semibold" style={{ fontFamily: DISPLAY }}>Research Engine</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-3)' }}>Your local-first AI workspace.</div>
+              </div>
+            </TearTicket>
+          </div>
+        </div>
       </div>
-      {/* Infinite Spiral: the app's own wallpapers travel round a helix. It is
-          the visual for the first run, and it holds still under reduce-motion. */}
-      <div className="mt-6 h-[300px] w-full max-w-[560px] mx-auto">
-        <InfiniteSpiral
-          items={SPIRAL_ITEMS}
-          radius={150}
-          cardWidth={96}
-          cardHeight={96}
-          verticalSpacing={54}
-          cardsPerTurn={7}
-          cardRadius={14}
-          edgeFade={0.35}
-          grayscale={0.2}
-        />
+
+      {/* The explainer row: the circuit-board flow on the left, the stars, the
+          typewriter line and the spiral of the app's wallpapers on the right. */}
+      <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] items-center">
+        <div className="overflow-x-auto" aria-label="How ResearchEngine works">
+          <CircuitBoard
+            width={520}
+            height={200}
+            label="How a question flows through ResearchEngine"
+            nodes={[
+              { id: 'q', x: 60, y: 100, label: 'You ask', status: 'active' },
+              { id: 'src', x: 200, y: 40, label: 'Your sources', status: 'processing' },
+              { id: 'web', x: 200, y: 160, label: 'Web search', status: 'inactive' },
+              { id: 'ai', x: 340, y: 100, label: 'Your model', status: 'processing' },
+              { id: 'out', x: 470, y: 100, label: 'Cited answer', status: 'active' },
+            ]}
+            connections={[
+              { from: 'q', to: 'src', animated: true },
+              { from: 'q', to: 'web', animated: true },
+              { from: 'src', to: 'ai', animated: true },
+              { from: 'web', to: 'ai', animated: true },
+              { from: 'ai', to: 'out', animated: true, bidirectional: false },
+            ]}
+          />
+        </div>
+        <div className="flex flex-col items-center gap-4">
+          {/* real star count from the GitHub API; renders nothing at all when the
+              machine is offline, so no invented numbers on an offline-first app */}
+          <GitHubStarsAnimation owner="timetorepo" repo="researchengine" maxAvatars={5} />
+          <div className="h-[16px] text-[11.5px] font-mono" style={{ color: 'var(--text-3)' }}>
+            <TypewriterText speed={34}>local-first · bring your own key · works offline</TypewriterText>
+          </div>
+          {/* Infinite Spiral: the app's own wallpapers travel round a helix. It holds
+              still under reduce-motion. */}
+          <div className="mt-2 h-[300px] w-full max-w-[400px]">
+            <InfiniteSpiral
+              items={SPIRAL_ITEMS}
+              radius={120}
+              cardWidth={96}
+              cardHeight={96}
+              verticalSpacing={54}
+              cardsPerTurn={7}
+              cardRadius={14}
+              edgeFade={0.35}
+              grayscale={0.2}
+            />
+          </div>
+        </div>
       </div>
     </div>,
 
-    /* 1 — Handle. The handle rolls in with HandleReel and can be edited on the
-          spot; it is saved with the profile when onboarding finishes. */
+    /* 1 — Handle. The handle rolls in with HandleReel. Roll re-deals the other
+          names at random and lands on the one the user picked. */
     <div key="s-handle" className="max-w-[560px] mx-auto">
       <StepHeader icon={AtSign} title="Pick your name and handle" sub="The handle is how this app writes you. It stays on this device and you can change it later in Settings." />
       <div className="mt-6 grid gap-5">
@@ -475,18 +513,25 @@ export function Onboarding() {
           }}
         />
         <div className="surface p-5 text-center overflow-hidden">
-          <div className="text-[12px] mb-3" style={{ color: 'var(--text-3)' }}>Your handle</div>
-          <HandleReel
-            finalName={handle || 'researcher'}
-            prefix="@"
-            textClassName="text-[22px] whitespace-nowrap"
-            className="max-w-full overflow-hidden"
-            editable
-            onNameChange={(n) => {
-              setHandleTouched(true)
-              setHandle(normalizeHandle(n))
-            }}
-          />
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[12px]" style={{ color: 'var(--text-3)', fontFamily: INTER }}>Your handle</span>
+            <Button size="sm" variant="ghost" color="default" onClick={rollHandles} startContent={<Dices size={13} />}>Roll</Button>
+          </div>
+          <div style={{ fontFamily: GEOMETRIC }}>
+            <HandleReel
+              finalName={handle || 'researcher'}
+              names={rollPool}
+              trigger={rollTick}
+              prefix="@"
+              textClassName="text-[22px] font-semibold whitespace-nowrap"
+              className="max-w-full overflow-hidden"
+              editable
+              onNameChange={(n) => {
+                setHandleTouched(true)
+                setHandle(normalizeHandle(n))
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>,
@@ -766,7 +811,7 @@ export function Onboarding() {
         style={{ background: 'color-mix(in srgb, var(--success) 16%, transparent)' }}>
         <Check size={26} style={{ color: 'var(--success)' }} />
       </motion.div>
-      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em' }}>You're set</h2>
+      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em', fontFamily: DISPLAY }}>You're set</h2>
       <p className="text-[13.5px] mt-2 leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Theme: <b>{THEMES.find((t) => t.id === theme)?.name}</b> ·
         Model: <b>{apiKey ? PROVIDERS.find((p) => p.id === provider)?.name : 'Local demo'}</b>
@@ -854,14 +899,60 @@ export function Onboarding() {
                 transition={{ duration: 0.28, ease: 'easeInOut' }}
                 className="w-full py-8"
               >
-                {body[step]}
+                {railed ? (
+                  // The form sits in the middle of a page: the steps are a
+                  // contents list on the left, and a note on the right.
+                  <div className="w-full max-w-[1000px] mx-auto grid gap-8 lg:grid-cols-[190px_minmax(0,1fr)_190px] items-start">
+                    <nav aria-label="Onboarding steps" className="hidden lg:block sticky top-4 pt-2">
+                      <div className="text-[10.5px] uppercase tracking-wider mb-3" style={{ color: 'var(--text-3)', fontFamily: POPPINS }}>On this page</div>
+                      <ol className="space-y-1">
+                        {STEPS.slice(1, 7).map((s, i) => {
+                          const idx = i + 1
+                          const current = idx === step
+                          return (
+                            <li key={s.label}>
+                              <button
+                                onClick={() => setStep(idx)}
+                                aria-current={current ? 'step' : undefined}
+                                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-left text-[13px] transition-colors"
+                                style={{
+                                  fontFamily: POPPINS,
+                                  fontWeight: current ? 600 : 400,
+                                  color: current ? 'var(--text-1)' : 'var(--text-3)',
+                                  background: current ? 'var(--elevated)' : 'transparent',
+                                }}
+                              >
+                                <span className="text-[11px] tabular-nums" style={{ color: current ? 'var(--primary)' : 'var(--text-3)' }}>
+                                  {String(idx).padStart(2, '0')}
+                                </span>
+                                {s.label}
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ol>
+                    </nav>
+                    <div className="min-w-0">{body[step]}</div>
+                    <aside className="hidden lg:block sticky top-4 pt-2">
+                      <div className="rounded-[14px] p-4" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+                        <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-3)', fontFamily: POPPINS }}>
+                          Step {step} of {STEPS.slice(1, 7).length}
+                        </div>
+                        <div className="text-[15px] font-semibold" style={{ fontFamily: DISPLAY }}>{STEPS[step].label}</div>
+                        <p className="text-[12px] mt-2 leading-relaxed" style={{ color: 'var(--text-3)', fontFamily: INTER }}>
+                          Continue moves you on, and Back returns to the step before. Any step on the left can be opened directly.
+                        </p>
+                      </div>
+                    </aside>
+                  </div>
+                ) : body[step]}
               </motion.div>
             </AnimatePresence>
           </div>
         </div>
 
         {/* footer nav */}
-        <div className="flex items-center justify-between px-8 pb-8 max-w-[720px] mx-auto w-full">
+        <div className="flex items-center justify-between px-8 pb-8 max-w-[1000px] mx-auto w-full">
           {step > 0 && step < LAST ? (
             <Button variant="ghost" color="default" size="sm" onClick={back} startContent={<ArrowLeft size={13} />}>Back</Button>
           ) : <span />}
@@ -909,7 +1000,7 @@ function StepHeader({ icon: Icon, title, sub }: { icon: any; title: string; sub:
         <span className="w-8 h-8 rounded-[10px] flex items-center justify-center" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
           <Icon size={15} strokeWidth={1.8} />
         </span>
-        <h2 className="text-[20px] font-semibold" style={{ letterSpacing: '-0.02em' }}>{title}</h2>
+        <h2 className="text-[20px] font-semibold" style={{ letterSpacing: '-0.02em', fontFamily: DISPLAY }}>{title}</h2>
       </div>
       <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>{sub}</p>
     </div>
