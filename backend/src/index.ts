@@ -12,6 +12,7 @@ import { appRoot, installKind, sourceVersion, webBuild } from './build-info'
 import { updateRoutes } from './routes/update'
 import { linkRoutes } from './routes/link'
 import { calendarRoutes } from './routes/calendar'
+import { botWebRoutes } from './routes/botweb'
 import { bootUpdateCheck, handleFatalWithPending, rollbackAndRestart, scheduleHealthy } from './update/boot'
 import { EXIT_RESTART } from './update/service'
 
@@ -89,6 +90,7 @@ async function main() {
   app.route('/api', linkRoutes)
   app.route('/api/feedback', feedbackRoutes)
   app.route('/api/calendar', calendarRoutes)
+  app.route('/api/bots/web', botWebRoutes)
   app.route('/api/library', libraryRoutes)
   app.route('/api/proxy', proxyRoutes)
   app.route('/api/skills', skillsRoutes)
