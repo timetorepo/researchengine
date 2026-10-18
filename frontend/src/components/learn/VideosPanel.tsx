@@ -7,12 +7,15 @@
  * privacy-enhanced embed, and every result also links out to YouTube.
  */
 import React, { useEffect, useState } from 'react'
-import { Search, Loader2, ExternalLink, Play, AlertTriangle } from 'lucide-react'
+import { Search, Loader2, ExternalLink, Play, AlertTriangle, Check, BookmarkPlus } from 'lucide-react'
 import type { DocumentRecord, LearnPath } from '@/types'
 import { useStore } from '@/stores/useStore'
+import { useUI } from '@/stores/useUI'
 import { keyTerms } from '@/lib/learn/cards'
 import { lessonOrder } from '@/lib/learn/path'
 import { Select } from '@/components/ui/watermelon/Select'
+import { VideoPlayerModal } from '@/components/video/VideoPlayerModal'
+import { useLibraryVideos } from '@/components/library/LibraryVideos'
 
 interface Video { id: string; title: string; url: string; snippet: string; channel: string }
 
@@ -35,17 +38,19 @@ export function VideosPanel({ documents }: { documents: DocumentRecord[] }) {
   const [videos, setVideos] = useState<Video[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [note, setNote] = useState<string | null>(null)
-  const [playing, setPlaying] = useState<string | null>(null)
+  const [opened, setOpened] = useState<Video | null>(null)
+  const saved = useLibraryVideos((s) => s.videos)
+  const ui = useUI()
 
   // Follow the study focus when the document or the next lesson changes.
-  useEffect(() => { setTopic(suggested); setVideos(null); setPlaying(null) }, [suggested])
+  useEffect(() => { setTopic(suggested); setVideos(null); setOpened(null) }, [suggested])
 
   const search = async (q: string) => {
     const clean = q.trim()
     if (!clean) return
     setLoading(true)
     setNote(null)
-    setPlaying(null)
+    setOpened(null)
     try {
       const res = await fetch(`/api/learn/videos?q=${encodeURIComponent(clean)}`)
       const json = await res.json().catch(() => ({}))
@@ -99,27 +104,17 @@ export function VideosPanel({ documents }: { documents: DocumentRecord[] }) {
       )}
 
       {videos && videos.length > 0 && (
-        <div className="grid sm:grid-cols-2 gap-3">
+        <ul className="grid sm:grid-cols-2 gap-3" aria-label="Videos for this topic">
           {videos.map((v) => (
-            <div key={v.id} className="surface overflow-hidden flex flex-col">
-              {playing === v.id ? (
-                <iframe
-                  title={v.title}
-                  src={`https://www.youtube-nocookie.com/embed/${v.id}?rel=0`}
-                  className="w-full aspect-video"
-                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <button onClick={() => setPlaying(v.id)} className="relative w-full aspect-video group" aria-label={`Play ${v.title}`}>
-                  <img src={`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/10 transition-colors">
-                    <span className="w-11 h-11 rounded-full flex items-center justify-center bg-white/90 text-black"><Play size={18} fill="currentColor" /></span>
-                  </span>
-                </button>
-              )}
+            <li key={v.id} className="surface overflow-hidden flex flex-col group">
+              <button type="button" onClick={() => setOpened(v)} className="relative w-full aspect-video" aria-label={`Play ${v.title}`}>
+                <img src={`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/10 transition-colors">
+                  <span className="w-11 h-11 rounded-full flex items-center justify-center bg-white/90 text-black transition-transform group-hover:scale-105"><Play size={18} fill="currentColor" /></span>
+                </span>
+              </button>
               <div className="p-3 flex-1 min-w-0">
-                <div className="text-[12.5px] font-medium leading-snug line-clamp-2">{v.title}</div>
+                <button type="button" onClick={() => setOpened(v)} className="block w-full text-left text-[12.5px] font-medium leading-snug line-clamp-2">{v.title}</button>
                 <div className="flex items-center gap-2 mt-1 text-[10.5px]" style={{ color: 'var(--text-3)' }}>
                   <span className="truncate">{v.channel}</span>
                   <a href={v.url} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 hover:underline shrink-0">
@@ -127,10 +122,31 @@ export function VideosPanel({ documents }: { documents: DocumentRecord[] }) {
                   </a>
                 </div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
+
+      <VideoPlayerModal
+        ytId={opened?.id ?? null}
+        title={opened?.title ?? ''}
+        channel={opened?.channel}
+        onClose={() => setOpened(null)}
+        footer={opened ? (() => {
+          const inLibrary = saved.some((x) => x.ytId === opened.id)
+          return (
+            <button type="button" disabled={inLibrary}
+              onClick={() => {
+                useLibraryVideos.getState().add({ id: `vid_${opened.id}`, ytId: opened.id, title: opened.title, addedAt: Date.now(), notes: '', startAt: 0 })
+                ui.toast('Saved to Library', opened.title, 'success')
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium disabled:opacity-60"
+              style={{ background: inLibrary ? 'var(--elevated)' : 'var(--primary)', color: inLibrary ? 'var(--text-2)' : '#fff' }}>
+              {inLibrary ? <><Check size={13} /> In your Library</> : <><BookmarkPlus size={13} /> Save to Library</>}
+            </button>
+          )
+        })() : null}
+      />
     </div>
   )
 }
