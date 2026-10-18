@@ -11,9 +11,6 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { JSDOM } from 'jsdom'
 
-import { createRoot } from 'react-dom/client'
-import { JSDOM } from 'jsdom'
-
 /* ------------------------------ jsdom setup ------------------------------ */
 
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {

@@ -1,11 +1,13 @@
 /**
  * Bots, as plain data and plain rules. A Bot is a named teammate with a job,
- * its own thread, memory it keeps, and routines that run on a schedule. Nothing
- * here touches the network or the browser, so the rules can be tested in Node.
+ * its own thread, memory it keeps, and routines that run on a schedule. Bots can
+ * also meet in a group room, and a project can be handed from one Bot to another.
+ * Nothing here touches the network or the browser, so the rules can be tested in Node.
  *
- * The shape is the one Grok Bot describes publicly (a named Bot, its memory and
- * conversation, routines with a schedule, and a cap on how many of each a Bot
- * can hold). The limits here are this app's own: see README and docs/research.
+ * The shape follows the parts of Grok Bot that are publicly documented (a named
+ * Bot, its memory and conversation, routines with a schedule, and a cap on how
+ * many of each a Bot can hold). The limits and the rest are this app's own: see
+ * docs/research/grok-bot-notes.md.
  */
 
 export const MAX_ROUTINES = 50
@@ -15,6 +17,29 @@ export const MAX_THREAD = 300
 export const MAX_MEMORY = 100
 /** How much of the thread a Bot reads before answering. Older messages are not sent to the model. */
 export const CONTEXT_MESSAGES = 20
+/** Bot turns in one round of a group room. A round ends at this cap or when nobody is called on. */
+export const MAX_ROOM_TURNS = 6
+export const MAX_ROOM_MEMBERS = 6
+export const MAX_ROOMS = 30
+export const MAX_ROOM_THREAD = 300
+export const MAX_PROJECTS = 100
+/** Web steps (SEARCH or OPEN) one reply may take before the bot must answer. */
+export const MAX_TOOL_STEPS = 3
+/** Longest role template a Bot carries. */
+export const MAX_ROLE_PROMPT = 6000
+
+/** Bot avatars come from the bot-avatars package (libraries.dev, MIT). */
+export const AVATAR_TYPES = [
+  'clover', 'flower', 'triangle', 'square', 'blob', 'ghost', 'circle', 'drop', 'star',
+  'droid', 'mech', 'alien', 'hexagon', 'cat', 'cloud', 'pill', 'pebble', 'puddle',
+] as const
+export type AvatarType = (typeof AVATAR_TYPES)[number]
+
+export function isAvatarType(v: unknown): v is AvatarType {
+  return typeof v === 'string' && (AVATAR_TYPES as readonly string[]).includes(v)
+}
+
+export interface Source { title: string; url: string }
 
 export interface BotMessage {
   id: string
@@ -23,6 +48,10 @@ export interface BotMessage {
   at: number
   /** Set when a routine wrote this message, so it can be told apart from a reply. */
   routineId?: string
+  /** Web steps the bot took for this reply, in order. Shown under the reply. */
+  trace?: string[]
+  /** Pages the bot read for this reply, so its answer can be checked. */
+  sources?: Source[]
 }
 
 export interface RoutineRun {
@@ -42,6 +71,14 @@ export interface Routine {
   runs: RoutineRun[]
 }
 
+/** A role template from ECC (affaan-m/ecc, MIT). The role's prompt is added to the bot's system prompt. */
+export interface BotRole {
+  source: 'ecc'
+  id: string
+  name: string
+  prompt: string
+}
+
 export interface Bot {
   id: string
   name: string
@@ -50,12 +87,81 @@ export interface Bot {
   memory: string[]
   thread: BotMessage[]
   routines: Routine[]
+  avatar?: AvatarType
+  /** When on, the bot may search and open pages through the Web settings. Off by default. */
+  webAccess?: boolean
+  role?: BotRole
 }
+
+export interface RoomMessage {
+  id: string
+  role: 'user' | 'bot' | 'note'
+  /** Who spoke, when the message is from a bot. */
+  botId?: string
+  text: string
+  at: number
+  trace?: string[]
+  sources?: Source[]
+}
+
+export interface Room {
+  id: string
+  name: string
+  memberIds: string[]
+  createdAt: number
+  thread: RoomMessage[]
+}
+
+export interface ProjectEvent {
+  id: string
+  at: number
+  kind: 'created' | 'note' | 'handoff'
+  fromId?: string
+  toId?: string
+  text: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  brief: string
+  /** The Bot that owns the project now. Null when its Bot was deleted. */
+  ownerId: string | null
+  createdAt: number
+  log: ProjectEvent[]
+}
+
+export interface BotSettings {
+  /** Routines stop while this is on. Chats and rooms still work. */
+  paused: boolean
+  /** A SearXNG address (for example http://localhost:8080). Empty uses the server default. */
+  searxng: string
+  /** A headless browser in Docker (for example http://localhost:3000). Empty reads pages directly. */
+  browserUrl: string
+}
+
+export const DEFAULT_SETTINGS: BotSettings = { paused: false, searxng: '', browserUrl: '' }
 
 export function clampEvery(minutes: number): number {
   const n = Math.round(Number(minutes))
   if (!Number.isFinite(n)) return MIN_EVERY_MINUTES
   return Math.max(MIN_EVERY_MINUTES, n)
+}
+
+export function isHttpUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/** A default avatar for a Bot, from its id, so the same Bot always looks the same. */
+export function avatarTypeFor(id: string): AvatarType {
+  let h = 0
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return AVATAR_TYPES[h % AVATAR_TYPES.length]
 }
 
 export function createBot(input: { name: string; job: string }, now: number, id: string): Bot {
@@ -157,15 +263,55 @@ export function memoryCommand(text: string): string | null {
   return m ? m[1].trim() : null
 }
 
-export function buildSystemPrompt(bot: Bot): string {
-  const memory = bot.memory.length ? bot.memory.map((m) => `- ${m}`).join('\n') : '- (nothing saved yet)'
+// ---------------------------------------------------------------- web tools
+
+export type ToolCall = { kind: 'search'; query: string } | { kind: 'open'; url: string }
+
+const TOOL_LINE = /^\s*(SEARCH|OPEN)\s*:\s*(.+?)\s*$/gim
+
+/** The first SEARCH or OPEN line a reply asks for. Anything else is an answer. */
+export function findToolCall(text: string): ToolCall | null {
+  for (const m of text.matchAll(TOOL_LINE)) {
+    const arg = m[2].trim()
+    if (m[1].toUpperCase() === 'SEARCH') return { kind: 'search', query: arg.slice(0, 200) }
+    if (isHttpUrl(arg)) return { kind: 'open', url: arg }
+  }
+  return null
+}
+
+/** The reply without its tool lines, so a step's request is never shown as the answer. */
+export function stripToolLines(text: string): string {
+  return text.replace(TOOL_LINE, '').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+export function webInstructions(): string {
   return [
+    'You can browse the web for this reply. To search, write one line: SEARCH: <query>',
+    'To read a page, write one line: OPEN: <https address from a search result>',
+    `Use at most ${MAX_TOOL_STEPS} such lines in total. You will then receive the results. When you have enough, write the answer with no tool line.`,
+    'Cite what you used with [1], [2] and so on, matching the numbered sources you were given, and list them at the end. Say when a page could not be read.',
+  ].join('\n')
+}
+
+// ---------------------------------------------------------------- prompts
+
+export function buildSystemPrompt(bot: Bot, opts: { web?: boolean } = {}): string {
+  const memory = bot.memory.length ? bot.memory.map((m) => `- ${m}`).join('\n') : '- (nothing saved yet)'
+  const parts = [
     `You are ${bot.name}, a persistent AI teammate. Stay in this role across the conversation.`,
     bot.job ? `Your job: ${bot.job}` : 'Your job has not been written yet. Ask what the person wants from you.',
     `Things you have been asked to remember:\n${memory}`,
-    'You work only from this conversation and these memories. You cannot browse the web, send messages, open files or act in other apps from here, so do not claim that you did. If something needs a source you do not have, say so.',
-    'Keep replies short unless the person asks for detail.',
-  ].join('\n\n')
+  ]
+  if (bot.role) {
+    parts.push(`Your working method, from the ${bot.role.name} role template:\n${bot.role.prompt.slice(0, MAX_ROLE_PROMPT)}`)
+  }
+  if (opts.web) {
+    parts.push(webInstructions())
+  } else {
+    parts.push('You work only from this conversation and these memories. You cannot browse the web, send messages, open files or act in other apps from here, so do not claim that you did. If something needs a source you do not have, say so.')
+  }
+  parts.push('Keep replies short unless the person asks for detail.')
+  return parts.join('\n\n')
 }
 
 export function buildTurnPrompt(bot: Bot, userText: string): string {
@@ -179,15 +325,204 @@ export function buildTurnPrompt(bot: Bot, userText: string): string {
 }
 
 export function buildRoutinePrompt(bot: Bot, routine: Routine, now: number): string {
+  const live = bot.webAccess
+    ? 'You may search and read the web as described in your instructions. Say what you checked.'
+    : 'You have no live access to the internet or to any app. Work from your memories and the recent conversation. If the routine needs live information, say that plainly instead of guessing.'
   return [
     `This is a scheduled routine named "${routine.title}". It is running at ${new Date(now).toLocaleString()}.`,
     `What to do: ${routine.instructions}`,
-    'You have no live access to the internet or to any app. Work from your memories and the recent conversation. If the routine needs live information, say that plainly instead of guessing.',
+    live,
     'Write the result as a short note for the person. Begin with the result, not with a preamble.',
   ].join('\n\n')
 }
 
-/** A deterministic colour and initial for a bot, so it looks the same every time. */
+// ---------------------------------------------------------------- group rooms
+
+/** Whether a message calls this name, as "@Name". Case does not matter. */
+export function mentionsName(text: string, name: string): boolean {
+  const n = name.trim()
+  if (!n) return false
+  return text.toLowerCase().includes(`@${n.toLowerCase()}`)
+}
+
+export function roomMembers(room: Room, bots: Bot[]): Bot[] {
+  return room.memberIds.map((id) => bots.find((b) => b.id === id)).filter((b): b is Bot => !!b)
+}
+
+/**
+ * Who speaks next in a room. A bot named with @Name in the latest message speaks
+ * if it has not spoken yet this round. When nobody is named, the first member
+ * answers a person's message. After that, a round continues only by a bot naming
+ * the next one, so the conversation cannot run away.
+ */
+export function pickSpeaker(room: Room, bots: Bot[], spoken: Set<string>): Bot | null {
+  const members = roomMembers(room, bots)
+  const last = room.thread[room.thread.length - 1]
+  if (last) {
+    const named = members.find((m) => !spoken.has(m.id) && mentionsName(last.text, m.name))
+    if (named) return named
+  }
+  if (spoken.size === 0) return members[0] ?? null
+  return null
+}
+
+export function isPass(text: string): boolean {
+  return /^\s*\[pass\]\s*$/i.test(text)
+}
+
+export function buildRoomPrompt(room: Room, bot: Bot, bots: Bot[]): string {
+  const names = roomMembers(room, bots).map((b) => b.name)
+  const recent = room.thread.slice(-CONTEXT_MESSAGES).map((m) => {
+    if (m.role === 'user') return `Person: ${m.text}`
+    if (m.role === 'note') return `(note) ${m.text}`
+    const who = bots.find((b) => b.id === m.botId)?.name ?? 'Bot'
+    return `${who}: ${m.text}`
+  })
+  return [
+    `You are in a group chat called "${room.name}" with: ${names.join(', ')}.`,
+    `Your job: ${bot.job || '(not written yet)'}`,
+    recent.length ? `Recent messages:\n${recent.join('\n')}` : 'Nobody has written yet.',
+    `Reply as ${bot.name}, briefly, and only for your part of the work. If you have nothing useful to add, reply with exactly [pass]. To bring in a teammate, write @Name in your reply, using the name from the list above. Do not write for the others.`,
+  ].join('\n\n')
+}
+
+export function createRoom(input: { name: string; memberIds: string[] }, now: number, id: string): { room?: Room; error?: string } {
+  const memberIds = [...new Set(input.memberIds)]
+  if (memberIds.length < 2) return { error: 'Pick at least two bots for the group.' }
+  if (memberIds.length > MAX_ROOM_MEMBERS) return { error: `A group holds up to ${MAX_ROOM_MEMBERS} bots.` }
+  return {
+    room: { id, name: input.name.trim().slice(0, 60) || 'Group chat', memberIds, createdAt: now, thread: [] },
+  }
+}
+
+// ---------------------------------------------------------------- projects and handoff
+
+export function createProject(input: { name: string; brief: string; ownerId: string | null }, now: number, id: string): { project?: Project; error?: string } {
+  const name = input.name.trim().slice(0, 80)
+  if (!name) return { error: 'Name the project.' }
+  const brief = input.brief.trim().slice(0, 4000)
+  return {
+    project: {
+      id,
+      name,
+      brief,
+      ownerId: input.ownerId,
+      createdAt: now,
+      log: [{ id: `${id}_0`, at: now, kind: 'created', ...(input.ownerId ? { toId: input.ownerId } : {}), text: brief || 'Project created.' }],
+    },
+  }
+}
+
+/** The project after a handoff: the new owner and a log line that keeps the brief. */
+export function applyHandoff(project: Project, event: Omit<ProjectEvent, 'kind'>, toId: string): Project {
+  return {
+    ...project,
+    ownerId: toId,
+    log: [...project.log, { ...event, kind: 'handoff', toId }],
+  }
+}
+
+export function buildHandoffPrompt(project: Project, from: Bot | undefined, to: Bot, note: string, fromThread: string[]): string {
+  const log = project.log.slice(-12).map((e) => `- [${e.kind}] ${e.text}`).join('\n')
+  return [
+    `You are writing a handoff brief. ${from ? from.name : 'The previous owner'} is passing the project "${project.name}" to ${to.name}.`,
+    `Project brief:\n${project.brief || '(none written)'}`,
+    `Project log:\n${log || '(empty)'}`,
+    fromThread.length ? `Recent work by ${from?.name ?? 'the previous owner'}:\n${fromThread.map((t) => `- ${t}`).join('\n')}` : '',
+    note.trim() ? `Note from the person: ${note.trim()}` : '',
+    `Write the brief for ${to.name} under these headings: Where it stands, What is done, Open questions, Next step. Keep it under 300 words. Use only what is written above; say so if something is missing.`,
+  ].filter(Boolean).join('\n\n')
+}
+
+/** A brief made without the model: the project's own brief and the latest log lines. */
+export function fallbackBrief(project: Project, from: Bot | undefined, note: string): string {
+  const lines = [
+    `Project: ${project.name}`,
+    `From: ${from ? from.name : 'no previous owner'}`,
+    project.brief ? `Brief: ${project.brief}` : 'Brief: (none written)',
+    project.log.length ? `Latest log:\n${project.log.slice(-5).map((e) => `- ${e.text}`).join('\n')}` : '',
+    note.trim() ? `Note from the person: ${note.trim()}` : '',
+    'The model was not available, so this brief lists what was recorded, not a summary.',
+  ]
+  return lines.filter(Boolean).join('\n')
+}
+
+// ---------------------------------------------------------------- export and import
+
+export const BOTS_FORMAT = 'research-engine.bots'
+
+export interface BotsBundle {
+  format: typeof BOTS_FORMAT
+  version: 1
+  exportedAt: number
+  bots: Bot[]
+  rooms: Room[]
+  projects: Project[]
+}
+
+export function makeBundle(state: { bots: Bot[]; rooms: Room[]; projects: Project[] }, now: number): BotsBundle {
+  return { format: BOTS_FORMAT, version: 1, exportedAt: now, bots: state.bots, rooms: state.rooms, projects: state.projects }
+}
+
+type Incoming = { bots: Bot[]; rooms: Room[]; projects: Project[] }
+
+/** Check a file someone chose to import. Nothing is trusted until it has this shape. */
+export function readBundle(raw: unknown): { ok: true; data: Incoming } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'That file is not a bots export.' }
+  const o = raw as Record<string, unknown>
+  if (o.format !== BOTS_FORMAT || o.version !== 1) return { ok: false, error: 'That file is not a bots export from Research Engine.' }
+  const isObj = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v)
+  const bots = Array.isArray(o.bots) ? o.bots : []
+  if (bots.some((b) => !isObj(b) || typeof b.id !== 'string' || typeof b.name !== 'string')) {
+    return { ok: false, error: 'A bot in that file has no id or name.' }
+  }
+  const rooms = Array.isArray(o.rooms) ? o.rooms : []
+  const projects = Array.isArray(o.projects) ? o.projects : []
+  if (rooms.some((r) => !isObj(r) || typeof r.id !== 'string' || !Array.isArray(r.memberIds))) {
+    return { ok: false, error: 'A group in that file is malformed.' }
+  }
+  if (projects.some((p) => !isObj(p) || typeof p.id !== 'string' || typeof p.name !== 'string')) {
+    return { ok: false, error: 'A project in that file is malformed.' }
+  }
+  const botsOut = (bots as Bot[]).map((b) => ({
+    ...b,
+    job: typeof b.job === 'string' ? b.job : '',
+    createdAt: typeof b.createdAt === 'number' ? b.createdAt : Date.now(),
+    memory: Array.isArray(b.memory) ? b.memory.filter((m) => typeof m === 'string') : [],
+    thread: Array.isArray(b.thread) ? b.thread : [],
+    routines: Array.isArray(b.routines) ? b.routines : [],
+  }))
+  return { ok: true, data: { bots: botsOut, rooms: rooms as Room[], projects: projects as Project[] } }
+}
+
+/**
+ * Give every imported item a new id and point the references at the new ids, so
+ * an import never overwrites something already on this device.
+ */
+export function remapIncoming(data: Incoming, newId: (prefix: string) => string): Incoming {
+  const botMap = new Map<string, string>()
+  for (const b of data.bots) botMap.set(b.id, newId('bot'))
+  const bots = data.bots.map((b) => ({ ...b, id: botMap.get(b.id)! }))
+  const rooms = data.rooms.map((r) => ({
+    ...r,
+    id: newId('room'),
+    memberIds: r.memberIds.map((m) => botMap.get(m)).filter((m): m is string => !!m),
+    thread: Array.isArray(r.thread) ? r.thread.map((m) => ({ ...m, botId: m.botId ? botMap.get(m.botId) ?? undefined : undefined })) : [],
+  }))
+  const projects = data.projects.map((p) => ({
+    ...p,
+    id: newId('proj'),
+    ownerId: p.ownerId ? botMap.get(p.ownerId) ?? null : null,
+    log: Array.isArray(p.log) ? p.log.map((e) => ({
+      ...e,
+      fromId: e.fromId ? botMap.get(e.fromId) : undefined,
+      toId: e.toId ? botMap.get(e.toId) : undefined,
+    })) : [],
+  }))
+  return { bots, rooms, projects }
+}
+
+/** A deterministic colour and initial for a bot, used when no avatar is set. */
 export function botAvatar(name: string): { letter: string; hue: number } {
   let h = 0
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0

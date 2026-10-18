@@ -1,33 +1,69 @@
 /**
  * Bots: named teammates that keep their own conversation, memory and routines.
- * You create a bot with a job, talk to it in its thread, save things to its
- * memory, and give it routines that run on a schedule. Its replies come from
- * the model you have configured.
+ * Bots can also meet in a group room, and a project can be handed from one Bot
+ * to another. Replies come from the model you have configured. A bot with web
+ * access shows every step it took under its reply, and the pages it read.
  *
- * What a bot cannot do here: browse, send messages, or act in your other apps.
- * Routines run only while this app is open.
+ * Routines run only while this app is open (Settings can pause them all).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Send, Trash2, Play, Brain, Repeat, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Plus, Send, Trash2, Play, Brain, Repeat, Loader2, ChevronDown, ChevronRight, Globe, Settings2 } from 'lucide-react'
 import { useBots } from '@/lib/bots/store'
 import { chatWithBot, runRoutine } from '@/lib/bots/runner'
-import { botAvatar, MAX_ROUTINES, MIN_EVERY_MINUTES, MAX_RUNS_KEPT, type Bot, type Routine } from '@/lib/bots/logic'
+import { MAX_ROUTINES, MIN_EVERY_MINUTES, MAX_RUNS_KEPT, type Bot, type BotMessage, type Routine } from '@/lib/bots/logic'
 import { useUI } from '@/stores/useUI'
 import { Switch } from '@/components/ui/heroui/Switch'
+import { BotFace } from './BotFace'
+import { BotSetupPanel, NewBotForm } from './BotSetup'
+import { RoomsView } from './RoomsView'
+import { ProjectsView } from './ProjectsView'
+import { BotsSettings } from './BotsSettings'
 
 const when = (ms: number) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-function Avatar({ name, size = 28 }: { name: string; size?: number }) {
-  const { letter, hue } = botAvatar(name)
+type Tab = 'bots' | 'groups' | 'projects'
+const TABS: Array<{ id: Tab; label: string }> = [
+  { id: 'bots', label: 'Bots' },
+  { id: 'groups', label: 'Group chats' },
+  { id: 'projects', label: 'Projects' },
+]
+
+export function BotsView() {
+  const [tab, setTab] = useState<Tab>('bots')
+  const [showSettings, setShowSettings] = useState(false)
+  const paused = useBots((s) => s.settings.paused)
+
   return (
-    <span className="rounded-full flex items-center justify-center shrink-0 font-semibold"
-      style={{ width: size, height: size, fontSize: size * 0.42, background: `hsl(${hue} 70% 88%)`, color: `hsl(${hue} 55% 28%)` }}>
-      {letter}
-    </span>
+    <div className="space-y-4" data-ui="bots">
+      <div className="flex flex-wrap items-center gap-2">
+        <div role="tablist" aria-label="Bots sections" className="flex items-center gap-1 p-1 rounded-full" style={{ background: 'var(--elevated)' }}>
+          {TABS.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+              className="px-3.5 py-1 rounded-full text-[12px]"
+              style={{ background: tab === t.id ? 'var(--primary)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--text-2)' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {paused && <span className="text-[11px] px-2.5 py-1 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--warning, var(--text-2))' }}>Routines paused</span>}
+          <button type="button" onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px]" style={{ background: 'var(--elevated)' }}>
+            <Settings2 size={13} /> Settings
+          </button>
+        </div>
+      </div>
+
+      {showSettings && <BotsSettings />}
+
+      {tab === 'bots' && <BotsTab />}
+      {tab === 'groups' && <RoomsView />}
+      {tab === 'projects' && <ProjectsView />}
+    </div>
   )
 }
 
-export function BotsView() {
+function BotsTab() {
   const bots = useBots((s) => s.bots)
   const [selectedId, setSelectedId] = useState<string | null>(bots[0]?.id ?? null)
   const [creating, setCreating] = useState(false)
@@ -38,7 +74,7 @@ export function BotsView() {
   }, [bots, selected])
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_300px]" data-ui="bots">
+    <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_300px]">
       <aside className="surface p-3 space-y-2 h-fit">
         <div className="flex items-center justify-between px-1">
           <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Your bots</div>
@@ -55,10 +91,12 @@ export function BotsView() {
               <button type="button" onClick={() => { setSelectedId(b.id); setCreating(false) }}
                 className="w-full flex items-center gap-2.5 px-2 py-2 rounded-[10px] text-left"
                 style={{ background: b.id === selectedId && !creating ? 'var(--elevated)' : 'transparent' }}>
-                <Avatar name={b.name} />
+                <BotFace bot={b} />
                 <span className="min-w-0">
                   <span className="block text-[12.5px] font-medium truncate">{b.name}</span>
-                  <span className="block text-[10.5px] truncate" style={{ color: 'var(--text-3)' }}>{b.routines.length} routine{b.routines.length === 1 ? '' : 's'} · {b.memory.length} memories</span>
+                  <span className="block text-[10.5px] truncate" style={{ color: 'var(--text-3)' }}>
+                    {b.routines.length} routine{b.routines.length === 1 ? '' : 's'} · {b.memory.length} memories{b.webAccess ? ' · web' : ''}
+                  </span>
                 </span>
               </button>
             </li>
@@ -82,22 +120,26 @@ export function BotsView() {
   )
 }
 
-function NewBotForm({ onDone }: { onDone: (id: string) => void }) {
-  const ui = useUI()
-  const [name, setName] = useState('')
-  const [job, setJob] = useState('')
-  const create = () => {
-    if (!name.trim()) { ui.toast('Name the bot', undefined, 'warning'); return }
-    const id = useBots.getState().create({ name, job })
-    onDone(id)
-  }
+/** The trace and sources a reply carries. Shown closed, so a long trace does not crowd the thread. */
+function ReplyEvidence({ m }: { m: Pick<BotMessage, 'trace' | 'sources'> }) {
+  if (!m.trace?.length && !m.sources?.length) return null
   return (
-    <div className="pt-2 space-y-2 border-t" style={{ borderColor: 'var(--surface-border)' }}>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. Ana's research bot" aria-label="Bot name"
-        className="w-full px-2.5 py-1.5 rounded-[10px] text-[12.5px] outline-none" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
-      <textarea value={job} onChange={(e) => setJob(e.target.value)} rows={3} placeholder="Its job: what it looks after, and how it should help"
-        aria-label="Bot job" className="w-full px-2.5 py-1.5 rounded-[10px] text-[12px] outline-none resize-y" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
-      <button type="button" onClick={create} className="w-full px-3 py-1.5 rounded-full text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Create bot</button>
+    <div className="mt-1.5 space-y-1">
+      {m.trace && m.trace.length > 0 && (
+        <details className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+          <summary className="cursor-pointer select-none">How it answered ({m.trace.length} web step{m.trace.length === 1 ? '' : 's'})</summary>
+          <ol className="list-decimal pl-5 pt-1 space-y-0.5">
+            {m.trace.map((t, i) => <li key={`${i}-${t}`}>{t}</li>)}
+          </ol>
+        </details>
+      )}
+      {m.sources && m.sources.length > 0 && (
+        <ol className="text-[11px] pl-4 list-decimal space-y-0.5" aria-label="Sources">
+          {m.sources.map((s) => (
+            <li key={s.url}><a href={s.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 break-all" style={{ color: 'var(--text-2)' }}>{s.title || s.url}</a></li>
+          ))}
+        </ol>
+      )}
     </div>
   )
 }
@@ -129,9 +171,13 @@ function BotThread({ bot }: { bot: Bot }) {
   return (
     <div className="surface flex flex-col min-h-[560px]">
       <header className="px-4 py-3 flex items-start gap-3" style={{ borderBottom: '1px solid var(--surface-border)' }}>
-        <Avatar name={bot.name} size={36} />
+        <BotFace bot={bot} size={36} busy={busy} />
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold truncate">{bot.name}</div>
+          <div className="text-[14px] font-semibold truncate flex items-center gap-1.5">
+            {bot.name}
+            {bot.webAccess && <span title="Web access on" className="inline-flex items-center gap-0.5 text-[10px] font-normal" style={{ color: 'var(--text-3)' }}><Globe size={11} /> web</span>}
+            {bot.role && <span className="text-[10px] font-normal px-1.5 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>{bot.role.name}</span>}
+          </div>
           <textarea value={jobDraft} onChange={(e) => setJobDraft(e.target.value)} rows={1}
             onBlur={() => { if (jobDraft !== bot.job) useBots.getState().setJob(bot.id, jobDraft) }}
             aria-label="Bot job" placeholder="Describe its job"
@@ -150,15 +196,18 @@ function BotThread({ bot }: { bot: Bot }) {
         )}
         {bot.thread.map((m) => (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className="max-w-[80%] px-3 py-2 rounded-[14px] text-[12.5px] leading-relaxed whitespace-pre-wrap"
-              style={{
-                background: m.role === 'user' ? 'var(--primary)' : m.role === 'note' ? 'transparent' : 'var(--elevated)',
-                color: m.role === 'user' ? '#fff' : m.role === 'note' ? 'var(--text-3)' : 'var(--text)',
-                border: m.role === 'note' ? '1px dashed var(--surface-border)' : undefined,
-                fontStyle: m.role === 'note' ? 'italic' : undefined,
-              }}>
-              {m.routineId && <span className="block text-[10px] uppercase tracking-wider opacity-70 mb-0.5">Routine</span>}
-              {m.text}
+            <div className="max-w-[80%]">
+              <div className="px-3 py-2 rounded-[12px] text-[12.5px] leading-relaxed whitespace-pre-wrap"
+                style={{
+                  background: m.role === 'user' ? 'var(--primary)' : m.role === 'note' ? 'transparent' : 'var(--elevated)',
+                  color: m.role === 'user' ? '#fff' : 'var(--text)',
+                  border: m.role === 'note' ? '1px dashed var(--surface-border)' : undefined,
+                  fontStyle: m.role === 'note' ? 'italic' : undefined,
+                }}>
+                {m.routineId && <span className="block text-[10px] uppercase tracking-wider opacity-70 mb-0.5">Routine</span>}
+                {m.text}
+              </div>
+              {m.role === 'bot' && <ReplyEvidence m={m} />}
             </div>
           </div>
         ))}
@@ -181,19 +230,26 @@ function BotThread({ bot }: { bot: Bot }) {
 }
 
 function BotSide({ bot }: { bot: Bot }) {
-  const [tab, setTab] = useState<'memory' | 'routines'>('routines')
+  const [tab, setTab] = useState<'routines' | 'memory' | 'setup'>('routines')
+  const tabs: Array<{ id: typeof tab; label: string; icon: ReactElement }> = [
+    { id: 'routines', label: `Routines (${bot.routines.length})`, icon: <Repeat size={12} /> },
+    { id: 'memory', label: `Memory (${bot.memory.length})`, icon: <Brain size={12} /> },
+    { id: 'setup', label: 'Setup', icon: <Settings2 size={12} /> },
+  ]
   return (
     <div className="surface p-3 space-y-3">
       <div className="flex items-center gap-1 p-1 rounded-full" style={{ background: 'var(--elevated)' }}>
-        {(['routines', 'memory'] as const).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)} aria-pressed={tab === t}
-            className="flex-1 px-3 py-1 rounded-full text-[12px] inline-flex items-center justify-center gap-1"
-            style={{ background: tab === t ? 'var(--primary)' : 'transparent', color: tab === t ? '#fff' : 'var(--text-2)' }}>
-            {t === 'routines' ? <Repeat size={12} /> : <Brain size={12} />} {t === 'routines' ? `Routines (${bot.routines.length})` : `Memory (${bot.memory.length})`}
+        {tabs.map((t) => (
+          <button key={t.id} type="button" onClick={() => setTab(t.id)} aria-pressed={tab === t.id}
+            className="flex-1 px-2 py-1 rounded-full text-[11.5px] inline-flex items-center justify-center gap-1"
+            style={{ background: tab === t.id ? 'var(--primary)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--text-2)' }}>
+            {t.icon} {t.label}
           </button>
         ))}
       </div>
-      {tab === 'memory' ? <MemoryPanel bot={bot} /> : <RoutinesPanel bot={bot} />}
+      {tab === 'memory' && <MemoryPanel bot={bot} />}
+      {tab === 'routines' && <RoutinesPanel bot={bot} />}
+      {tab === 'setup' && <BotSetupPanel bot={bot} />}
     </div>
   )
 }
@@ -236,6 +292,7 @@ function RoutinesPanel({ bot }: { bot: Bot }) {
   const [every, setEvery] = useState(60)
   const ui = useUI()
   const atLimit = bot.routines.length >= MAX_ROUTINES
+  const paused = useBots((s) => s.settings.paused)
 
   const add = () => {
     const err = useBots.getState().addRoutine(bot.id, { title, instructions, everyMinutes: every })
@@ -248,6 +305,7 @@ function RoutinesPanel({ bot }: { bot: Bot }) {
     <div className="space-y-3">
       <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>
         A routine is a standing job on a schedule. It runs only while Research Engine is open; when the app opens after a missed time, it runs once.
+        {paused ? ' Routines are paused in Settings right now.' : ''}
       </p>
       <div className="space-y-1.5 p-2 rounded-[10px]" style={{ background: 'var(--elevated)' }}>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title, e.g. Morning brief" aria-label="Routine title" disabled={atLimit}
@@ -322,4 +380,3 @@ function RoutineRow({ botId, routine }: { botId: string; routine: Routine }) {
     </li>
   )
 }
-
