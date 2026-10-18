@@ -79,3 +79,16 @@ carries an `origin` marker recording the repository, the revision and the
 licence.
 
 Research Engine itself is MIT. See `LICENSE` at the repository root.
+
+## Components from Untitled UI React (MIT)
+
+`frontend/src/components/ui/untitledui/carousel-base.tsx` is the carousel from
+the open-source Untitled UI React set, Copyright (c) 2025 Untitled UI, MIT
+licence, taken from `components/application/carousel/carousel-base.tsx` at
+https://github.com/untitleduico/react. Only its import of the class-name helper
+was changed (`frontend/src/lib/cx.ts` carries the same merge behaviour). It
+depends on `embla-carousel-react` (MIT).
+
+The Untitled UI `video-player`, `calendar` and `metrics` blocks are not in that
+open-source repository, and the Untitled UI CLI that would fetch them could not
+be reached from the build environment. None of their code is in this repository.
