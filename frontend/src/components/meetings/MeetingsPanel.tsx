@@ -5,7 +5,7 @@
  *
  * What it does not do: join a call for you, or label who said what. Speakers
  * are not separated. Transcription is Whisper, and the first run downloads the
- * model (about 150 MB) into the browser's cache.
+ * model into the browser's cache.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Mic, Square, Trash2, Copy, Download, Loader2, Sparkles, FileText, ArrowLeft } from 'lucide-react'
