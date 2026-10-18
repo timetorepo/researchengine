@@ -1,6 +1,8 @@
 /** The page side of transcription: decode the recording, resample to 16 kHz, hand it to the worker. */
 
 let worker: Worker | null = null
+/** Jobs run one at a time: the worker holds one model and one job fits its memory. */
+let queue: Promise<unknown> = Promise.resolve()
 let nextId = 1
 const pending = new Map<number, { resolve: (t: string) => void; reject: (e: Error) => void; onProgress?: (p: any) => void }>()
 
@@ -47,4 +49,16 @@ export function transcribeAudio(samples: Float32Array, onProgress?: (p: any) => 
 
 export async function transcribeBlob(blob: Blob, onProgress?: (p: any) => void): Promise<string> {
   return transcribeAudio(await toMono16k(blob), onProgress)
+}
+
+/** Like transcribeAudio, but waits its turn behind any job already running. */
+export function transcribeQueued(samples: Float32Array, onProgress?: (p: any) => void): Promise<string> {
+  const run = queue.then(() => transcribeAudio(samples, onProgress))
+  queue = run.catch(() => undefined)
+  return run
+}
+
+/** Resolves once every queued job has finished, successfully or not. */
+export function whenTranscriptionIdle(): Promise<void> {
+  return queue.then(() => undefined)
 }

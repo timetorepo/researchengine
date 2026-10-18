@@ -29,7 +29,10 @@
     "updates-ui-test": "tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts",
     "workbench-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/workbench-test.mts",
     "r32-test": "tsx --tsconfig tsconfig.json scripts/r32-test.mts",
-    "work-modes-test": "tsx --tsconfig tsconfig.json scripts/work-modes-smoke.mts"
+    "work-modes-test": "tsx --tsconfig tsconfig.json scripts/work-modes-smoke.mts",
+    "meetings-test": "tsx scripts/meetings-test.mts",
+    "video-modal-test": "tsx --tsconfig tsconfig.json scripts/video-modal-test.mts",
+    "meetings-ui-test": "tsx --tsconfig tsconfig.json scripts/meetings-ui-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
