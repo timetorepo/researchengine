@@ -41,9 +41,9 @@ account and six per group chat). We have not verified those, so we do not rely o
 | Routines on a schedule, with a run history | `Routine`, `runRoutine`, `startBotScheduler` (every 30 s) |
 | Published limits on routines and history | 50 routines, 20 runs kept, 5 minutes minimum (`logic.ts`) |
 | Skills as saved ways of working | **Not built.** Routines hold the instructions directly. |
-| Shared computer and browser | **Not built.** Bots here cannot act outside the chat. |
-| Bots messaging each other, handoffs | **Not built.** |
-| Approval for consequential actions | **Not needed yet:** Bots have no external actions to approve. |
+| Shared computer and browser | **Partly built.** A bot with web access can search (SearXNG) and open pages, directly or through a headless browser you run in Docker. There is no shared computer and no file or terminal access. |
+| Bots messaging each other, handoffs | **Built.** Group chats (up to six bots, a round capped at six bot turns, a bot calls the next one with `@Name`). Projects can be handed to another bot with a written brief, and the log keeps who had it. |
+| Approval for consequential actions | **Not needed yet:** Bots have no external actions to approve. Web steps are read-only. |
 
 ## What we did differently, on purpose
 
@@ -51,14 +51,33 @@ account and six per group chat). We have not verified those, so we do not rely o
   the app says so in the Routines tab. A missed run is caught up once when the app
   next opens, not once per missed slot.
 - **No computer.** A Bot answers from its memory, the recent thread, and the model
-  you configured. Its system prompt tells it that it cannot browse or act, and the
-  routine prompt says live information must be flagged rather than guessed.
+  you configured. Only a bot with web access may search or open a page, and its
+  system prompt says so; the routine prompt says live information must be flagged
+  rather than guessed when web access is off.
 - **Memory is explicit.** Anything saved is visible and removable. Typing
   `remember: …` saves a memory without calling the model.
 - **Local data.** Bots, threads, memory and run history live in this browser's
   storage (`re.bots.v1`), not on a server.
 - **Failure is kept, not hidden.** A failed run is recorded and shown in the
   history as a failure, and a note appears in the thread.
+
+## Features this app has that the Grok Bot docs do not describe
+
+These are our choices. We checked the public docs only; we have not used the
+live product, so we do not claim Grok Bot lacks them. Each is in the app now.
+
+1. **Every web step is shown.** A reply lists the searches and page reads it took
+   (*How it answered*), and the pages it used as sources.
+2. **Your own search and browser.** SearXNG at an address you set, and an optional
+   headless browser container, so queries and page loads can stay on your network.
+3. **Pause every routine at once.** One switch stops all scheduled routines; chats
+   and group chats keep working.
+4. **Export and import the bots.** One JSON file holds every bot, group and
+   project, threads and memories included. Import never overwrites existing items.
+5. **A handoff leaves a record.** A project keeps its brief and a log that names
+   each owner and when the handoff happened, and the new owner receives a written brief.
+6. **Roles from a named, licensed source.** Eight agent roles from ECC (MIT), with
+   the licence shown. See `docs/research/ecc-integration.md`.
 
 ## Gaps against Grok Bot, in priority order
 
@@ -67,7 +86,7 @@ account and six per group chat). We have not verified those, so we do not rely o
    a file through the connector layer. See `docs/research/rakazo-integrations.md`.
 3. **Routines that run in the background.** Only possible with a process that
    outlives the window, such as the desktop app's tray, or a server.
-4. **Bot-to-Bot handoff** in a shared thread.
-5. **Event triggers** (a new calendar event, a new file in a folder). Grok says
+4. **Event triggers** (a new calendar event, a new file in a folder). Grok says
    event triggers are preferred to schedules, because a schedule wakes up even when
    there is nothing to do.
+5. **Avatars from the libraries.dev Pro set.** Only the free shapes are used.

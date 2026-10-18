@@ -92,3 +92,17 @@ depends on `embla-carousel-react` (MIT).
 The Untitled UI `video-player`, `calendar` and `metrics` blocks are not in that
 open-source repository, and the Untitled UI CLI that would fetch them could not
 be reached from the build environment. None of their code is in this repository.
+
+## Agent roles and skills from ECC (MIT)
+
+Source: affaan-m/ecc (Everything Claude Code), pinned at commit 76aaa77df6adc5b889e689007bf99b9a4f74af34.
+Copyright (c) 2026 Affaan Mustafa, MIT licence. Vendored: sixteen skills (`frontend/src/content/skills/upstream/`,
+catalogued in `catalog.ts`) and eight agent roles (`frontend/src/content/ecc/agents.ts`). Refreshed by
+`scripts/vendor-skills.mjs --only …` and `scripts/vendor-ecc-agents.mjs`. The text is upstream's, unchanged except
+for a length cap on the agent roles, which is marked in the text.
+
+## bot-avatars (MIT)
+
+Source: Libraries.dev by Jakub Antalik (https://libraries.dev/bots), npm package `bot-avatars` 0.2.2, MIT licence.
+Used for the drawn faces of Bots.
+
