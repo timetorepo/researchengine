@@ -35,6 +35,10 @@ function BgPreview({ kind }: { kind: AnimatedBgKind }) {
         }
       : kind === 'dark-veil'
         ? { background: `radial-gradient(130% 100% at 25% 0%, ${prim} 0%, ${bg} 62%), radial-gradient(120% 100% at 80% 100%, ${sec} 0%, ${bg} 58%)` }
+        : kind === 'animated-gradient'
+          ? { background: `radial-gradient(120% 90% at 50% 110%, ${prim} 0%, ${bg} 65%)` }
+          : kind === 'etched-accretion'
+            ? { background: `radial-gradient(60% 60% at 50% 50%, ${sec} 0%, ${bg} 70%)` }
         : kind === 'floating-lines'
           ? {
               background: bg,
@@ -200,7 +204,7 @@ export function AppearanceTab() {
         })}
       </div>
 
-      {(bg.kind === 'shape-grid' || bg.kind === 'dark-veil' || bg.kind === 'floating-lines' || bg.kind === 'dither') && (
+      {(bg.kind === 'shape-grid' || bg.kind === 'dark-veil' || bg.kind === 'floating-lines' || bg.kind === 'dither' || bg.kind === 'animated-gradient' || bg.kind === 'etched-accretion') && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[12.5px] font-medium">Background intensity</span>

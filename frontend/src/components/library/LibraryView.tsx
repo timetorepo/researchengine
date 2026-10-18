@@ -8,7 +8,9 @@ import { download, timeAgo, fuzzy } from '@/lib/utils'
 import { Select } from '@/components/ui/watermelon/Select'
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/modal'
 import { Button } from '@/components/ui/heroui/Button'
-import { Folder, FlaskConical, BookOpen, Code2, GraduationCap, Briefcase } from 'lucide-react'
+import { Folder, FlaskConical, BookOpen, Code2, GraduationCap, Briefcase, PlayCircle, Mic } from 'lucide-react'
+import { LibraryVideos } from './LibraryVideos'
+import { MeetingsPanel } from '@/components/meetings/MeetingsPanel'
 import { LibrarySearch } from './LibrarySearch'
 import { useScrollKeeper } from '@/hooks/useScrollKeeper'
 import { AppleMailTabs } from '@/components/ui/skecher/apple-mail-tabs'
@@ -26,7 +28,7 @@ const SPACE_ICONS: { id: SpaceIconId; Icon: typeof Layers }[] = [
   { id: 'work', Icon: Briefcase },
 ]
 
-type Tab = 'search' | 'citations' | 'knowledge' | 'spaces'
+type Tab = 'search' | 'citations' | 'knowledge' | 'spaces' | 'videos' | 'meetings'
 
 export function LibraryView() {
   // Search is the front door now: one gooey field at the top of the Library,
@@ -59,6 +61,8 @@ export function LibraryView() {
             { value: 'citations', label: 'Citations', icon: BookMarked },
             { value: 'knowledge', label: 'Knowledge cards', icon: Lightbulb },
             { value: 'spaces', label: 'Spaces', icon: Layers },
+            { value: 'videos', label: 'Videos', icon: PlayCircle },
+            { value: 'meetings', label: 'Meetings', icon: Mic },
           ]}
         />
 
@@ -66,6 +70,8 @@ export function LibraryView() {
         {tab === 'citations' && <Citations q={q} onQuery={setQ} />}
         {tab === 'knowledge' && <Knowledge q={q} onQuery={setQ} />}
         {tab === 'spaces' && <Spaces />}
+        {tab === 'videos' && <LibraryVideos />}
+        {tab === 'meetings' && <MeetingsPanel />}
       </div>
     </div>
   )

@@ -415,8 +415,10 @@ export type BackgroundConfig =
   | { kind: 'dark-veil'; intensity?: number }
   | { kind: 'floating-lines'; intensity?: number }
   | { kind: 'dither'; intensity?: number }
+  | { kind: 'animated-gradient'; intensity?: number }
+  | { kind: 'etched-accretion'; intensity?: number }
 
-export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', 'dither'] as const
+export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', 'dither', 'animated-gradient', 'etched-accretion'] as const
 export type AnimatedBgKind = typeof ANIMATED_BG_KINDS[number]
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'

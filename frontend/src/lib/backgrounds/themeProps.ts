@@ -51,4 +51,6 @@ export const ANIMATED_BG_META: Record<AnimatedBgKind, { label: string; desc: str
   'dark-veil': { label: 'Dark Veil', desc: 'Slow flowing dark smoke, tinted by the active theme.', defaultIntensity: 0.6 },
   'floating-lines': { label: 'Floating Lines', desc: 'Soft horizontal light lines drifting through depth, theme-tinted.', defaultIntensity: 0.55 },
   dither: { label: 'Dither', desc: 'Animated dithered wave pattern in theme tones.', defaultIntensity: 0.5 },
+  'animated-gradient': { label: 'Animated Gradient', desc: 'Slow silk-like mist in a soft magenta, drifting behind the page.', defaultIntensity: 0.8 },
+  'etched-accretion': { label: 'Etched Accretion', desc: 'A black hole in crimson and silver line work. It drifts toward the pointer and flares when you press.', defaultIntensity: 0.9 },
 }

@@ -19,6 +19,7 @@ import { wallpaperOf } from '@/lib/wallpapers'
 import { beginHandoff, HANDOFF_BLUR_MS, EASE_OUT, EASE, DUR } from '@/lib/ui/handoff'
 import { ImageLab } from '@/components/home/ImageLab'
 import { RevolvingText } from './RevolvingText'
+import { StreakCard } from '@/components/activity/StreakCard'
 import { AIThemeWelcome } from './AIThemeWelcome'
 import { SuggestedForYou } from './SuggestedForYou'
 
@@ -153,6 +154,11 @@ export function HomeScreen() {
         {/* Suggestions: drawn from your recent chats when there is history,
             otherwise the generic research prompts. */}
         <SuggestedForYou chats={recentChats} onAsk={(prompt, opts) => sendFromHome(prompt, opts)} fallback={chips} />
+
+        {/* The streak: days with real work in them, not days the app was open. */}
+        <div className="mt-6 max-w-[420px] mx-auto">
+          <StreakCard compact />
+        </div>
 
         {/* The offline demo, reachable without a key and without going back
             through onboarding. It never touches the network. Off by default:

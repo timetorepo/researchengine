@@ -15,17 +15,25 @@ import { Select } from '@/components/ui/watermelon/Select'
 import CometDial from '@/components/ui/reactbits/micro/CometDial'
 import HoldButton from '@/components/ui/reactbits/micro/HoldButton'
 import { buildLearnPath, lessonOrder, recordLesson, awardXp, XP_PER_CORRECT, XP_FOR_FINISHING } from '@/lib/learn/path'
+import { useActivity, streakOf } from '@/lib/activity/tracker'
+import { demoPath } from '@/lib/learn/demo'
 
 export function PathPanel({ documents }: { documents: DocumentRecord[] }) {
   const paths = useStore((s) => s.learnPaths)
   const progress = useStore((s) => s.learnProgress)
+  const activityDays = useActivity((s) => s.days)
   const ui = useUI()
   const [docId, setDocId] = useState<string>(documents[0]?.id ?? '')
   const [building, setBuilding] = useState(false)
   const [openLesson, setOpenLesson] = useState<{ lesson: PathLesson; path: LearnPath } | null>(null)
 
   const doc = documents.find((d) => d.id === docId) ?? documents[0]
-  const path = paths.find((p) => p.docId === doc?.id) ?? null
+  // The demo is built on this device from a sample text. It is not saved to
+  // the library, and it is shown the same way a real path is.
+  const [demo, setDemo] = useState(documents.length === 0)
+  const demoBuilt = useMemo(() => demoPath(), [])
+  const realPath = paths.find((p) => p.docId === doc?.id) ?? null
+  const path = demo ? demoBuilt : realPath
 
   const build = async () => {
     if (!doc) return
@@ -41,8 +49,12 @@ export function PathPanel({ documents }: { documents: DocumentRecord[] }) {
     }
   }
 
-  if (documents.length === 0) {
-    return <div className="surface p-5 text-center text-[12.5px]" style={{ color: 'var(--text-3)' }}>Upload a PDF or document in the Study tab, then build its path here.</div>
+  if (documents.length === 0 && !demo) {
+    return (
+      <div className="surface p-5 text-center text-[12.5px]" style={{ color: 'var(--text-3)' }}>
+        Upload a PDF or document in the Study tab, then build its path here.
+      </div>
+    )
   }
 
   const flat = path ? lessonOrder(path, progress) : []
@@ -53,13 +65,28 @@ export function PathPanel({ documents }: { documents: DocumentRecord[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Select size="sm" value={doc?.id ?? ''} onChange={(v) => setDocId(v)}
-          options={documents.map((d) => ({ value: d.id, label: d.name }))} className="w-[260px]" />
-        <Stat icon={<Flame size={13} />} label={`${progress.streak} day streak`} tone="var(--warning)" />
+        {!demo && documents.length > 0 && (
+          <Select size="sm" value={doc?.id ?? ''} onChange={(v) => setDocId(v)}
+            options={documents.map((d) => ({ value: d.id, label: d.name }))} className="w-[260px]" />
+        )}
+        <button type="button" onClick={() => setDemo((v) => !v)} aria-pressed={demo}
+          className="px-3 py-1.5 rounded-full text-[11.5px] font-medium"
+          style={{ background: demo ? 'var(--primary)' : 'var(--elevated)', color: demo ? '#fff' : 'var(--text-2)' }}>
+          {demo ? (documents.length ? 'Back to my documents' : 'Demo path') : 'See the demo'}
+        </button>
+        <Stat icon={<Flame size={13} />} label={`${streakOf(activityDays)} day streak`} tone="var(--warning)" />
         <Stat icon={<Trophy size={13} />} label={`${progress.xp} XP`} tone="var(--primary)" />
       </div>
 
-      {!path && (
+      {demo && (
+        <div className="surface p-3 text-[12px] flex items-center gap-2" style={{ color: 'var(--text-2)' }}>
+          <Sparkles size={13} style={{ color: 'var(--primary)' }} />
+          Demo: a sample text about photosynthesis, built on this device. It is not saved to your library, and the
+          lessons count toward your XP like any other.
+        </div>
+      )}
+
+      {!path && !demo && (
         <div className="surface p-5 text-center">
           <Sparkles size={20} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
           <div className="text-[14px] font-semibold">Build a step-by-step path from “{doc?.name}”</div>
@@ -95,9 +122,11 @@ export function PathPanel({ documents }: { documents: DocumentRecord[] }) {
                 <div className="mt-2 text-[12px] font-medium" style={{ color: 'var(--success)' }}>Path complete. Build it again for a fresh set of questions.</div>
               )}
             </div>
-            <HoldButton holdTime={1200} size="sm" onHold={() => useStore.setState((s) => ({ learnPaths: s.learnPaths.filter((p) => p.id !== path.id) }))}>
-              Hold to delete
-            </HoldButton>
+            {!demo && (
+              <HoldButton holdTime={1200} size="sm" onHold={() => useStore.setState((s) => ({ learnPaths: s.learnPaths.filter((p) => p.id !== path.id) }))}>
+                Hold to delete
+              </HoldButton>
+            )}
           </div>
 
           <PathMap path={path} progress={progress} onOpen={(lesson) => setOpenLesson({ lesson, path })} />

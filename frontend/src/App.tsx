@@ -1,6 +1,7 @@
 import { WalletWatcher } from '@/components/wallet/WalletWatcher'
 import { ExamGate } from '@/components/exam/Exam'
 import { BugFinder } from '@/components/dev/BugFinder'
+import { ActivityTracker } from '@/components/activity/ActivityTracker'
 import React, { Suspense, useEffect } from 'react'
 import { FpsCounter } from '@/components/shared/FpsCounter'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
@@ -149,6 +150,7 @@ export default function App() {
         <FpsCounter />
         <WalletWatcher />
         <ExamGate />
+        <ActivityTracker />
         {/* Developer-mode only: the bug finder hotkey and its report. */}
         {settings.developerMode && <BugFinder />}
       </HashRouter>

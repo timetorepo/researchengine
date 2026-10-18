@@ -14,6 +14,8 @@ const ShapeGrid = lazy(() => import('./ShapeGrid'))
 const DarkVeil = lazy(() => import('./DarkVeil'))
 const FloatingLines = lazy(() => import('./FloatingLines'))
 const Dither = lazy(() => import('./Dither'))
+const AnimatedGradient = lazy(() => import('./AnimatedGradient'))
+const EtchedAccretion = lazy(() => import('./EtchedAccretion'))
 
 function rgb(v: [number, number, number]) {
   return `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
@@ -48,6 +50,16 @@ function EcoFallback({ kind, theme, intensity }: { kind: AnimatedBgKind; theme: 
           opacity: Math.min(1, intensity + 0.25),
         }
       }
+      case 'animated-gradient':
+        return {
+          background: `radial-gradient(120% 90% at 50% 110%, ${rgb(mixVec3(theme.bg, theme.primary, 0.45))} 0%, ${bg} 65%)`,
+          opacity: Math.min(1, intensity + 0.1),
+        }
+      case 'etched-accretion':
+        return {
+          background: `radial-gradient(60% 60% at 50% 50%, ${rgb(mixVec3(theme.bg, theme.primary, 0.18))} 0%, ${bg} 70%)`,
+          opacity: Math.min(1, intensity + 0.2),
+        }
       case 'dither': {
         const c = rgb(mixVec3(theme.bg, theme.primary, 0.25))
         return {
@@ -88,6 +100,8 @@ export function BackgroundManager({ kind, intensity }: { kind: AnimatedBgKind; i
       {kind === 'dark-veil' && <DarkVeil theme={theme} intensity={level} />}
       {kind === 'floating-lines' && <FloatingLines theme={theme} intensity={level} />}
       {kind === 'dither' && <Dither theme={theme} intensity={level} />}
+      {kind === 'animated-gradient' && <AnimatedGradient opacity={0.35 + level * 0.65} />}
+      {kind === 'etched-accretion' && <EtchedAccretion opacity={0.4 + level * 0.6} />}
     </Suspense>
   )
 }
