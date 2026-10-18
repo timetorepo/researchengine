@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 41 versions, 0.51.0 back to 0.10.0.
+ * 44 versions, 0.51.1 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,61 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.51.1",
+    "tag": "v0.51.1",
+    "name": "answers that keep streaming, correct citations, sliding tabs",
+    "date": "2026-10-18",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.51.1",
+    "summary": "Installers: Research.Engine_0.51.1_x64-setup.exe and Research.Engine_0.51.1_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.51.1 — answers that keep streaming, correct citations, sliding tabs",
+        "items": [
+          {
+            "label": "Answers no longer stop mid-stream.",
+            "text": "With Raw stream (Settings → Flow → Off), only the first words appeared until the answer finished. Every word now shows as it arrives."
+          },
+          {
+            "label": "Background tabs keep streaming.",
+            "text": "The answer used to freeze while the tab was hidden and resume when you came back. It now keeps going."
+          },
+          {
+            "label": "Stalls are reported.",
+            "text": "If a provider goes quiet mid-answer, the chat says so and keeps the text received so far, instead of waiting forever or ending silently. Reasoning output counts as activity, so a model that is still thinking is not cut off."
+          },
+          {
+            "label": "Errors mid-answer are shown.",
+            "text": "A provider error after the answer has started is shown in the chat instead of being dropped."
+          },
+          {
+            "label": "Last words are kept.",
+            "text": "The final part of a reply is no longer lost when the provider ends the stream without a closing newline."
+          },
+          {
+            "label": "Citations are checked properly.",
+            "text": "The citation check missed invented numbers inside groups such as [1, 99, 2], and could drop a real source from [99, 1, 2]. Every number is now checked. A stopped answer is checked too."
+          },
+          {
+            "label": "Inline sources link to their pages.",
+            "text": "[1] in an answer opens source 1. Code is left alone."
+          },
+          {
+            "label": "Bots tabs slide.",
+            "text": "The active tab in Bots has a pill that slides between tabs. Reduced motion turns the slide off."
+          },
+          {
+            "label": "Smoother hover and dialogs.",
+            "text": "Scrollbar, file-tree and welcome rows, humanized text, and the video player fade and slide in and out instead of snapping."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 9,
+      "sections": 1
+    }
+  },
   {
     "version": "0.51.0-beta.1",
     "tag": "v0.51.0-beta.1",
@@ -114,11 +169,11 @@ export const CHANGELOG: Release[] = [
     }
   },
   {
-    "version": "0.51.0-beta.1",
-    "tag": "v0.51.0-beta.1",
+    "version": "0.50.0-beta.1",
+    "tag": "v0.50.0-beta.1",
     "name": "beta: animated backgrounds, study rewards, a video library, and on-device meeting notes.",
     "date": "2026-10-18",
-    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.51.0-beta.1",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.50.0-beta.1",
     "summary": "Two animated backgrounds, XP and badges for real study, a Learn demo that runs offline, YouTube videos in the Library, and meeting notes made on your device.",
     "sections": [
       {
