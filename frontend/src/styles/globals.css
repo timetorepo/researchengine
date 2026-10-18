@@ -764,7 +764,7 @@ body {
 /* Scrollbars */
 * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-3) 55%, transparent) transparent; }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-3) 45%, transparent); border-radius: 99px; }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-3) 45%, transparent); border-radius: 99px; transition: background-color 160ms ease; }
 *::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text-3) 70%, transparent); }
 *::-webkit-scrollbar-track { background: transparent; }
 
@@ -912,7 +912,7 @@ body {
 .pane-scroll:hover { scrollbar-color: color-mix(in srgb, var(--text-3) 45%, transparent) transparent; }
 .pane-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .pane-scroll::-webkit-scrollbar-track { background: transparent; }
-.pane-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; }
+.pane-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; transition: background-color 160ms ease; }
 .pane-scroll:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-3) 42%, transparent); }
 .pane-scroll::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text-3) 68%, transparent); }
 
@@ -1368,7 +1368,7 @@ body {
 }
 
 /* ---------- tree / list rows ---------- */
-.ide-row { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11.5px; color: var(--ide-dim); }
+.ide-row { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11.5px; color: var(--ide-dim); transition: background-color 120ms ease, color 120ms ease; }
 .ide-row:hover { background: var(--ide-hover); color: var(--ide-text); }
 .ide-row[data-active="true"] { background: var(--ide-active); color: var(--ide-text); }
 .ide-row .name-dirty { color: var(--ide-accent); }
@@ -1519,6 +1519,7 @@ body {
 /* One row of the welcome window. */
 .ide-welcomerow { border-top: 1px solid var(--ide-border); }
 .ide-welcomerow:first-child { border-top: 0; }
+.ide-welcomerow { transition: background-color 120ms ease; }
 .ide-welcomerow:hover { background: var(--ide-hover); }
 .ide-welcomerow:active { background: var(--ide-active); }
 .ide-caret { display: inline-block; width: 7px; height: 14px; background: var(--ide-accent); vertical-align: -2px; margin-left: 2px; animation: ide-blink 1.1s step-end infinite; }
@@ -1704,7 +1705,7 @@ body {
   padding-left: 12px; margin-left: -14px;
   border-radius: 2px;
   outline: none;
-  transition: background 160ms var(--ease-ios), border-color 160ms var(--ease-ios);
+  transition: background 160ms var(--ease-ios), border-color 160ms var(--ease-ios), border-left-color 160ms var(--ease-ios);
 }
 .humanized-text:hover, .humanized-text:focus-visible {
   background: color-mix(in srgb, var(--success) 7%, transparent);
@@ -3559,3 +3560,12 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
 .tut-dots span.on { width: 18px; background: var(--primary); border-color: transparent; }
 .tut-dots span.done { background: color-mix(in srgb, var(--success) 60%, var(--elevated)); }
 @media (prefers-reduced-motion: reduce) { .tut-dots span { transition: none; } }
+
+/* Sliding pill under the active tab (BotsView SlidingTabs). Reduced motion
+   turns the slide off entirely; the pill then just sits on the active tab. */
+.tabs-sliding-pill {
+  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1), width 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabs-sliding-pill { transition: none !important; }
+}

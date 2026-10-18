@@ -587,13 +587,15 @@ function finish(
 ) {
   // The citation audit: any [n] the model wrote outside the retrieved set is
   // invented by definition, and it is stripped before the answer is shown.
+  // A stopped answer passes no text here, so audit what was already rendered.
+  const store = useStore.getState()
+  if (!text && ctx.aborted) text = store.chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === msgId)?.content ?? ''
   if (text && ctx.ragSourceCount && ctx.ragSourceCount > 0) {
     const audit = auditCitations(text, ctx.ragSourceCount)
     if (audit.removed > 0) {
       text = audit.text + `\n\n> _${audit.removed} invented citation marker${audit.removed === 1 ? '' : 's'} removed — none of the ${ctx.ragSourceCount} retrieved sources carried ${audit.removed === 1 ? 'it' : 'them'}._`
     }
   }
-  const store = useStore.getState()
   const settings = store.settings
 
   const savedTokens = Math.max(0, ctx.pruned.originalTokens - ctx.pruned.prunedTokens)

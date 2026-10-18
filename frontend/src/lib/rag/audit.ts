@@ -23,8 +23,11 @@ export function auditCitations(text: string, sourceCount: number): CitationAudit
   if (!text || sourceCount <= 0) return { text, removed: 0, used: [] }
   let removed = 0
   const used = new Set<number>()
-  const cleaned = text.replace(/\[(\d{1,3})(?:\s*,\s*(\d{1,3}))*\]/g, (whole, a: string, b?: string) => {
-    const nums = [Number(a), ...(b ? [Number(b)] : [])]
+  // A marker is `[n]` or a group like `[1, 3, 7]`. Every number in the group is
+  // checked — the earlier pattern only captured the first and last of a group,
+  // so `[1, 99, 2]` kept the invented 99 and `[99, 1, 2]` dropped the real 1.
+  const cleaned = text.replace(/\[(\s*\d{1,3}(?:\s*,\s*\d{1,3})*\s*)\]/g, (whole, inner: string) => {
+    const nums = inner.split(',').map((x) => Number(x.trim()))
     const valid = nums.filter((n) => Number.isInteger(n) && n >= 1 && n <= sourceCount)
     if (valid.length === 0) {
       removed++
@@ -33,7 +36,7 @@ export function auditCitations(text: string, sourceCount: number): CitationAudit
     valid.forEach((n) => used.add(n))
     if (valid.length === nums.length) return whole
     removed++
-    return `[${valid.join(',')}]`
+    return `[${valid.join(', ')}]`
   }).replace(/\[\]/g, '')
   return { text: cleaned, removed, used: [...used].sort((x, y) => x - y) }
 }

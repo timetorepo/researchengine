@@ -35,7 +35,26 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
   )
 }
 
-export const Markdown = memo(function Markdown({ content, streaming = false }: { content: string; streaming?: boolean }) {
+/**
+ * Turn `[n]` markers into links to the n-th source, so a citation is a real
+ * chip that opens its page. Code (fenced or inline) is left alone, and a
+ * marker with no matching source keeps its plain text.
+ */
+const CODE_SPAN = /(```[\s\S]*?```|`[^`\n]*`)/
+export function linkCitations(text: string, sources?: { url?: string }[]): string {
+  if (!sources?.length || !text.includes('[')) return text
+  return text.split(CODE_SPAN).map((part, i) => {
+    if (i % 2 === 1) return part // a code span
+    return part.replace(/(^|[^\]\\\w])\[(\d{1,3})\](?!\()/g, (whole, pre: string, n: string) => {
+      const url = sources[Number(n) - 1]?.url
+      if (!url || !/^https?:\/\//i.test(url)) return whole
+      return `${pre}[${n}](${url.replace(/[()\s]/g, (c) => (c === '(' ? '%28' : c === ')' ? '%29' : '%20'))})`
+    })
+  }).join('')
+}
+
+export const Markdown = memo(function Markdown({ content: raw, streaming = false, sources }: { content: string; streaming?: boolean; sources?: { url?: string }[] }) {
+  const content = linkCitations(raw, sources)
   const plainStreaming = streaming && !/[`#*_\[\]]/.test(content)
   return (
     <div className={`md-body ${streaming ? 'md-streaming' : ''}`}>

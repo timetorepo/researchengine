@@ -6,7 +6,7 @@
  *
  * Routines run only while this app is open (Settings can pause them all).
  */
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Plus, Send, Trash2, Play, Brain, Repeat, Loader2, ChevronDown, ChevronRight, Globe, Settings2 } from 'lucide-react'
 import { useBots } from '@/lib/bots/store'
 import { chatWithBot, runRoutine } from '@/lib/bots/runner'
@@ -28,6 +28,55 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'projects', label: 'Projects' },
 ]
 
+/**
+ * A pill that slides under the active tab (transitions.dev "tabs-sliding").
+ * It is measured from the active button, so it follows real widths. The first
+ * placement is not animated, and resizes snap; reduced motion disables the slide.
+ */
+function SlidingTabs<T extends string>({ tabs, value, onChange, label }: {
+  tabs: Array<{ id: T; label: string }>; value: T; onChange: (id: T) => void; label: string
+}) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const pillRef = useRef<HTMLSpanElement>(null)
+  const [ready, setReady] = useState(false)
+
+  const place = (animate: boolean) => {
+    const list = listRef.current
+    const pill = pillRef.current
+    const btn = list?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
+    if (!list || !pill || !btn) return
+    // '' hands the transition back to the .tabs-sliding-pill class; 'none' snaps.
+    pill.style.transition = animate ? '' : 'none'
+    pill.style.width = `${btn.offsetWidth}px`
+    pill.style.transform = `translateX(${btn.offsetLeft}px)`
+  }
+
+  useLayoutEffect(() => { place(ready) }, [value, ready])
+  useLayoutEffect(() => {
+    place(false)
+    setReady(true)
+    const ro = new ResizeObserver(() => place(false))
+    if (listRef.current) ro.observe(listRef.current)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div ref={listRef} role="tablist" aria-label={label}
+      className="relative flex items-center gap-1 p-1 rounded-full" style={{ background: 'var(--elevated)' }}>
+      <span ref={pillRef} aria-hidden="true" className="tabs-sliding-pill absolute left-0 top-1 bottom-1 rounded-full pointer-events-none"
+        style={{ background: 'var(--primary)' }} />
+      {tabs.map((t) => (
+        <button key={t.id} type="button" role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
+          className="relative z-10 px-3.5 py-1 rounded-full text-[12px] transition-colors duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2"
+          style={{ color: value === t.id ? '#fff' : 'var(--text-2)' }}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function BotsView() {
   const [tab, setTab] = useState<Tab>('bots')
   const [showSettings, setShowSettings] = useState(false)
@@ -36,15 +85,7 @@ export function BotsView() {
   return (
     <div className="space-y-4" data-ui="bots">
       <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Bots sections" className="flex items-center gap-1 p-1 rounded-full" style={{ background: 'var(--elevated)' }}>
-          {TABS.map((t) => (
-            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-              className="px-3.5 py-1 rounded-full text-[12px]"
-              style={{ background: tab === t.id ? 'var(--primary)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--text-2)' }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <SlidingTabs label="Bots sections" tabs={TABS} value={tab} onChange={setTab} />
         <div className="ml-auto flex items-center gap-2">
           {paused && <span className="text-[11px] px-2.5 py-1 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--warning, var(--text-2))' }}>Routines paused</span>}
           <button type="button" onClick={() => setShowSettings((v) => !v)} aria-expanded={showSettings}

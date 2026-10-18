@@ -26,6 +26,14 @@ export function VideoPlayerModal({ ytId, title, channel, startAt = 0, onClose, c
       scrollBehavior="inside"
       placement="center"
       isDismissable
+      // Enter and exit both animate: a short fade with a slight rise in, and a
+      // quicker fade out. Reduced motion is honoured by the app's MotionConfig.
+      motionProps={{
+        variants: {
+          enter: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } },
+          exit: { opacity: 0, y: 8, scale: 0.98, transition: { duration: 0.16, ease: 'easeIn' } },
+        },
+      }}
       classNames={{
         wrapper: 'z-[80]',
         backdrop: 'z-[79] bg-[var(--scrim)]',

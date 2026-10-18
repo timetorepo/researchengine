@@ -361,7 +361,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                 onRestore={() => store.getState().updateMessage(chatId, msg.id, { humanized: undefined, humanizedBy: undefined, humanizeError: undefined })}
               />
             ) : (
-              !msg.humanizing && <Markdown content={stripMarkers(msg.content)} streaming={streaming} />
+              !msg.humanizing && <Markdown content={stripMarkers(msg.content)} streaming={streaming} sources={msg.sources} />
             )}
             {msg.humanizeError && <HumanizeError message={msg.humanizeError} onRetry={() => void runHumanize()} />}
           </>
