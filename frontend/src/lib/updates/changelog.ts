@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 40 versions, 0.50.0 back to 0.10.0.
+ * 41 versions, 0.51.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -48,11 +48,77 @@ export function kindOf(title: string): ChangeKind {
 
 export const CHANGELOG: Release[] = [
   {
-    "version": "0.50.0-beta.1",
-    "tag": "v0.50.0-beta.1",
+    "version": "0.51.0-beta.1",
+    "tag": "v0.51.0-beta.1",
+    "name": "beta: group chats for bots, project handoff, web steps with sources, and ECC roles.",
+    "date": "2026-10-18",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.51.0-beta.1",
+    "summary": "Bots can search and read the web, show every step they took, meet in group chats, and hand a project to a teammate with a written brief. Sixteen ECC skills and eight ECC agent roles are built in.",
+    "sections": [
+      {
+        "title": "Bots on the web",
+        "items": [
+          {
+            "label": "Search and read.",
+            "text": "A bot with web access can search and open pages. Search goes to SearXNG: run your own with Docker and paste its address in Bots → Settings. Pages are read directly, or through a headless browser container you run for JavaScript-heavy sites."
+          },
+          {
+            "label": "Every step is shown.",
+            "text": "A reply lists the searches and page reads it made under “How it answered”, and the pages it used are listed as sources."
+          }
+        ]
+      },
+      {
+        "title": "Group chats and handoff",
+        "items": [
+          {
+            "label": "Bots in a group.",
+            "text": "Put two to six bots in a group chat. The first member answers your message, and a bot calls the next teammate with @Name. A round stops after six bot turns, when nobody is called, or when a bot passes."
+          },
+          {
+            "label": "Projects change hands.",
+            "text": "A project has a brief and a log. Its owner hands it to another bot with a written brief, and the log keeps every owner and the handoff."
+          }
+        ]
+      },
+      {
+        "title": "Faces, roles and control",
+        "items": [
+          {
+            "label": "Faces.",
+            "text": "Each bot has one of eighteen drawn faces from bot-avatars (MIT), chosen in its Setup tab."
+          },
+          {
+            "label": "ECC roles.",
+            "text": "Sixteen skills and eight agent roles from affaan-m/ecc (MIT) are built in. A bot can start from a role, and its working method is added to its instructions."
+          },
+          {
+            "label": "Pause and move.",
+            "text": "One switch pauses every routine, and chats keep working. Export every bot, group and project to one file, and import it without overwriting what is already here."
+          }
+        ]
+      },
+      {
+        "title": "Upgrade and internals",
+        "items": [
+          {
+            "label": "Existing bots kept.",
+            "text": "Bots, threads, memories and routines from earlier versions are kept as they are. The store moves to version 2 with empty groups and projects."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 8,
+      "sections": 4
+    }
+  },
+  {
+    "version": "0.51.0-beta.1",
+    "tag": "v0.51.0-beta.1",
     "name": "beta: animated backgrounds, study rewards, a video library, and on-device meeting notes.",
     "date": "2026-10-18",
-    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.50.0-beta.1",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.51.0-beta.1",
     "summary": "Two animated backgrounds, XP and badges for real study, a Learn demo that runs offline, YouTube videos in the Library, and meeting notes made on your device.",
     "sections": [
       {
