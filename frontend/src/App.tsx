@@ -28,6 +28,9 @@ const WorkflowsList = React.lazy(() => import('@/components/workflows/WorkflowsL
 const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor })))
 const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
 const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
+import { startBotScheduler } from '@/lib/bots/runner'
+const CalendarView = React.lazy(() => import('@/components/calendar/CalendarView').then((m) => ({ default: m.CalendarView })))
+const BotsView = React.lazy(() => import('@/components/bots/BotsView').then((m) => ({ default: m.BotsView })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 const RemoverAlpha = React.lazy(() => import('@/components/alpha/RemoverAlpha').then((m) => ({ default: m.RemoverAlpha })))
 const FeedbackView = React.lazy(() => import('@/components/feedback/FeedbackView').then((m) => ({ default: m.FeedbackView })))
@@ -101,6 +104,7 @@ export default function App() {
   const settings = useStore((s) => s.settings)
   const notFound = useUI((s) => s.notFound)
   useRoutePreload()
+  useEffect(() => { startBotScheduler() }, [])
 
   // Navigation is wrapped in the View Transitions API where the browser has it:
   // the shell stays put, the page cross-fades, the nav marker travels.
@@ -274,6 +278,8 @@ function RoutedApp() {
           <Route path="/library" element={<LibraryView />} />
           <Route path="/compare" element={<CompareView />} />
           <Route path="/workflows" element={<WorkflowsList />} />
+          <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/bots" element={<BotsView />} />
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/code" element={<CodingView />} />
           <Route path="/chats" element={<ChatsView />} />

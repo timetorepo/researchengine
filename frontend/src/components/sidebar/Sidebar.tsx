@@ -20,6 +20,7 @@ import { prefetchRoute, routePathOf, navigateNow } from '@/lib/routes/registry'
 import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_DWELL_EXPANDED_MS } from './ChatsFlyout'
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
+import { Bot as BotIcon, CalendarDays } from 'lucide-react'
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -32,6 +33,8 @@ const NAV = [
   { to: '/library', label: 'Library', icon: Library },
   { to: '/compare', label: 'Compare', icon: Swords },
   { to: '/workflows', label: 'Workflows', icon: WorkflowIcon },
+  { to: '/bots', label: 'Bots', icon: BotIcon },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/flood', label: 'Agent Flood', icon: Users },
   { to: '/alpha', label: 'removerAlpha', icon: ScanText },
   { to: '/feedback', label: 'Feedback', icon: MessageSquarePlus },
