@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 39 versions, 0.47.0 back to 0.10.0.
+ * 40 versions, 0.50.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,41 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.50.0-beta.1",
+    "tag": "v0.50.0-beta.1",
+    "name": "beta: animated backgrounds, study rewards, a video library, and on-device meeting notes.",
+    "date": "2026-10-18",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.50.0-beta.1",
+    "summary": "Two animated backgrounds, XP and badges for real study, a Learn demo that runs offline, YouTube videos in the Library, and meeting notes made on your device.",
+    "sections": [
+      {
+        "title": "Look and feel",
+        "items": [
+          { "label": "Two animated backgrounds.", "text": "Settings → Appearance adds an animated gradient and an etched-accretion shader for chats and the home tab. They are local implementations; the gradient follows a published 21st.dev source and the etched shader is written here." }
+        ]
+      },
+      {
+        "title": "Study and rewards",
+        "items": [
+          { "label": "Activity streak.", "text": "The home tab shows a streak. A day counts after five active minutes in quiz, coding, reading, chat, articles, workflows or flood. Idle time does not count, and merely opening the app does not either." },
+          { "label": "XP and badges.", "text": "One XP per active minute. Badges for focus sessions of 25 and 60 minutes, and for streaks of 3, 7, 14, 30 and 100 days." },
+          { "label": "Learn demo.", "text": "Learn has a demo lesson that runs on this computer with no document and no network, so you can see the step-by-step flow first." }
+        ]
+      },
+      {
+        "title": "Library and meetings",
+        "items": [
+          { "label": "Videos.", "text": "Library → Videos saves a YouTube link and plays it inside the app." },
+          { "label": "Meetings.", "text": "Library → Meetings records or imports audio and transcribes it on this device with Whisper. The first use downloads the model. There are no speaker labels and it does not join calls." }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 3
+    }
+  },
   {
     "version": "0.49.0-beta.1",
     "tag": "v0.49.0-beta.1",
