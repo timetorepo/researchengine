@@ -11,6 +11,7 @@ import { useUI } from '@/stores/useUI'
 import { BorderBeam } from 'border-beam'
 import { SkillPicker } from './SkillPicker'
 import { IntegrationPicker } from './IntegrationPicker'
+import { triggerAt, replaceTrigger } from './trigger'
 import { type ModeOption } from './ModeMenu'
 import { ModeStrip } from './ModeStrip'
 import { IntegrationsMenu } from './IntegrationsMenu'
@@ -150,6 +151,8 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [replicate, setReplicate] = useState(false)
   const [picker, setPicker] = useState<'skill' | 'source' | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
+  // Where the open trigger word sits in the text, so a pick replaces only that word.
+  const [pickerAt, setPickerAt] = useState({ start: 0, end: 0 })
   const [sent, setSent] = useState(false)
   const [imgs, setImgs] = useState<{ name: string; dataUrl: string }[]>([])
   const [refs, setRefs] = useState<ContextRef[]>([])
@@ -214,9 +217,12 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
 
   const onChange = (v: string) => {
     setText(v)
-    if (v.startsWith('/') && !v.includes(' ')) { setPicker('skill'); setPickerQuery(v.slice(1)) }
-    else if (v.startsWith('@') && !v.includes(' ')) { setPicker('source'); setPickerQuery(v.slice(1)) }
-    else setPicker(null)
+    const caret = taRef.current?.selectionStart ?? v.length
+    const t = triggerAt(v, caret)
+    if (!t) { setPicker(null); return }
+    setPicker(t.kind)
+    setPickerQuery(t.query)
+    setPickerAt({ start: t.start, end: t.end })
   }
 
   const doSend = (opts: { search?: boolean; quality?: boolean; replicate?: boolean } = {}) => {
@@ -349,14 +355,14 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               {picker === 'skill' && (
                 <SkillPicker
                   query={pickerQuery}
-                  onPick={(skill) => { setText(''); setPicker(null); useUI.setState({ skillRun: { skillId: skill.id } }) }}
+                  onPick={(skill) => { setText((t) => replaceTrigger(t, pickerAt, '')); setPicker(null); useUI.setState({ skillRun: { skillId: skill.id } }) }}
                   onClose={() => setPicker(null)}
                 />
               )}
               {picker === 'source' && (
                 <IntegrationPicker
                   query={pickerQuery}
-                  onPick={(label) => { setText((t) => t.replace(/@\S*$/, `@${label} `)); setPicker(null) }}
+                  onPick={(label) => { setText((t) => replaceTrigger(t, pickerAt, `@${label} `)); setPicker(null) }}
                   onClose={() => setPicker(null)}
                 />
               )}

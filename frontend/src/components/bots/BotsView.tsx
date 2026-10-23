@@ -1,3 +1,4 @@
+import { useBotDrafts } from '@/lib/bots/drafts'
 /**
  * Bots: named teammates that keep their own conversation, memory and routines.
  * Bots can also meet in a group room, and a project can be handed from one Bot
@@ -188,6 +189,8 @@ function ReplyEvidence({ m }: { m: Pick<BotMessage, 'trace' | 'sources'> }) {
 function BotThread({ bot }: { bot: Bot }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  // The reply being written right now, streamed token by token (lib/bots/drafts.ts).
+  const draft = useBotDrafts((s) => s.drafts[`bot:${bot.id}`])
   const [jobDraft, setJobDraft] = useState(bot.job)
   // The message list is the one scroll container. The card has a height, so the
   // list scrolls inside it. Scrolling the list (not the page) keeps the top of the
@@ -204,7 +207,7 @@ function BotThread({ bot }: { bot: Bot }) {
     const last = bot.thread[bot.thread.length - 1]
     const nearEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 160
     if (nearEnd || last?.role === 'user') el.scrollTop = el.scrollHeight
-  }, [bot.thread.length, bot.thread])
+  }, [bot.thread.length, bot.thread, draft?.text])
   useEffect(() => { const el = threadRef.current; if (el) el.scrollTop = el.scrollHeight }, [bot.id])
 
   const send = async () => {
@@ -264,7 +267,18 @@ function BotThread({ bot }: { bot: Bot }) {
             </div>
           </div>
         ))}
-        {busy && <div className="text-[11.5px] inline-flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}><Loader2 size={12} className="animate-spin" /> {bot.name} is thinking</div>}
+        {draft && draft.text && (
+          <div className="flex justify-start" aria-live="off">
+            <div className="max-w-[80%]">
+              <div className="px-3 py-2 rounded-[12px] text-[12.5px] leading-relaxed whitespace-pre-wrap"
+                style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
+                {draft.text}
+                <span className="inline-block w-[2px] h-[1em] align-[-0.15em] ml-0.5 animate-pulse" style={{ background: 'var(--primary)' }} aria-hidden />
+              </div>
+            </div>
+          </div>
+        )}
+        {busy && !(draft && draft.text) && <div className="text-[11.5px] inline-flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}><Loader2 size={12} className="animate-spin" /> {bot.name} is thinking</div>}
       </div>
 
       <form className="p-3 flex items-end gap-2" style={{ borderTop: '1px solid var(--surface-border)' }}

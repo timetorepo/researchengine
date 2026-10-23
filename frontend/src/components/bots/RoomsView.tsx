@@ -1,9 +1,10 @@
+import { useBotDrafts } from '@/lib/bots/drafts'
 /**
  * Group chats. Bots in a group answer in turn: a bot called on with @Name answers
  * next, and a round ends at six bot turns, when nobody is called on, or when a
  * bot passes. A person's message starts each round.
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Send, Trash2 } from 'lucide-react'
 import { useBots } from '@/lib/bots/store'
 import { runRoomTurn } from '@/lib/bots/runner'
@@ -78,6 +79,12 @@ function NewRoomForm({ onDone }: { onDone: (id: string) => void }) {
 }
 
 function RoomThread({ room }: { room: Room }) {
+  const draft = useBotDrafts((s) => s.drafts[`room:${room.id}`])
+  const listRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = listRef.current
+    if (el && draft?.text) el.scrollTop = el.scrollHeight
+  }, [draft?.text])
   const bots = useBots((s) => s.bots)
   const members = roomMembers(room, bots)
   const [text, setText] = useState('')
@@ -111,7 +118,7 @@ function RoomThread({ room }: { room: Room }) {
         </div>
         <button type="button" onClick={remove} aria-label={`Delete ${room.name}`} className="p-1.5 rounded-full" style={{ color: 'var(--text-3)' }}><Trash2 size={13} /></button>
       </header>
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" aria-live="polite">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3" aria-live="polite">
         {room.thread.length === 0 && <p className="text-[12.5px] text-center py-10" style={{ color: 'var(--text-3)' }}>Say something. The first member answers; to call on a teammate, a bot writes @Name.</p>}
         {room.thread.map((m) => (
           <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -140,7 +147,18 @@ function RoomThread({ room }: { room: Room }) {
             </div>
           </div>
         ))}
-        {busy && <div className="text-[11.5px] inline-flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}><Loader2 size={12} className="animate-spin" /> The group is talking</div>}
+        {draft && draft.text && (
+          <div className="flex justify-start">
+            <div className="max-w-[80%]">
+              {draft.botId && <div className="text-[10.5px] mb-0.5" style={{ color: 'var(--text-3)' }}>{nameOf(draft.botId)}</div>}
+              <div className="px-3 py-2 rounded-[12px] text-[12.5px] leading-relaxed whitespace-pre-wrap" style={{ background: 'var(--elevated)', color: 'var(--text)' }}>
+                {draft.text}
+                <span className="inline-block w-[2px] h-[1em] align-[-0.15em] ml-0.5 animate-pulse" style={{ background: 'var(--primary)' }} aria-hidden />
+              </div>
+            </div>
+          </div>
+        )}
+        {busy && !(draft && draft.text) && <div className="text-[11.5px] inline-flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}><Loader2 size={12} className="animate-spin" /> The group is talking</div>}
       </div>
       <form className="p-3 flex items-end gap-2" style={{ borderTop: '1px solid var(--surface-border)' }} onSubmit={(e) => { e.preventDefault(); void send() }}>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} aria-label={`Message ${room.name}`} placeholder={`Message ${room.name}`}

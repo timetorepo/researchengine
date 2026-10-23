@@ -15,6 +15,7 @@ import { LIMITS, clip } from '@/lib/context/budget'
 import { generateText } from '@/lib/chat/generate'
 import { useBots } from './store'
 import { webOpen, webSearch } from './web'
+import { looksLikeToolLine, useBotDrafts } from './drafts'
 import { searchIntegrations } from '@/lib/integrations/client'
 import { composioConfigured, isActiveAccount, listComposioAccounts, listComposioTools, runComposioTool } from '@/lib/composio/client'
 import {
@@ -27,9 +28,9 @@ const MODEL_MISSING = 'No model is set up. Connect a provider in Settings → Pr
 
 type Model = { ok: true; text: string } | { ok: false; error: string }
 
-async function model(system: string, prompt: string, maxTokens = 900): Promise<Model> {
+async function model(system: string, prompt: string, maxTokens = 900, onChunk?: (text: string) => void): Promise<Model> {
   try {
-    const res = await generateText({ system, prompt, temperature: 0.4, maxTokens })
+    const res = await generateText({ system, prompt, temperature: 0.4, maxTokens, onChunk })
     if (res.usedDemo) return { ok: false, error: MODEL_MISSING }
     const text = res.text.trim()
     return text ? { ok: true, text } : { ok: false, error: 'The model returned nothing.' }
@@ -45,19 +46,26 @@ export type Reply = { ok: true; text: string; trace: string[]; sources: Source[]
  * search and page reads when web access is on; connected accounts and apps always).
  * Each result is added to the prompt, and the model writes the answer after them.
  */
-export async function converse(bot: Bot, prompt: string): Promise<Reply> {
+export async function converse(bot: Bot, prompt: string, onDraft?: (text: string) => void): Promise<Reply> {
   const web = bot.webAccess === true
   const system = buildSystemPrompt(bot, { web, roleText: await roleMethodFor(bot, prompt) })
   const trace: string[] = []
   const sources: Source[] = []
   let transcript = prompt
   for (let step = 0; ; step++) {
-    const res = await model(system, transcript)
+    // The reply streams to the draft as it is written. A tool line is held back
+    // (looksLikeToolLine), so only words the person should read are shown.
+    let acc = ''
+    const res = await model(system, transcript, 900, (chunk) => {
+      acc += chunk
+      if (onDraft && !looksLikeToolLine(acc)) onDraft(acc)
+    })
     if (!res.ok) return { ok: false, error: res.error, trace, sources }
     const call = findToolCall(res.text, { web })
     if (!call || step >= MAX_TOOL_STEPS) {
       return { ok: true, text: stripToolLines(res.text) || res.text, trace, sources }
     }
+    onDraft?.('')
     const result = await runToolCall(call, trace, sources)
     transcript += `\n\n${bot.name}: ${res.text}\n\n${clip(result, LIMITS.toolResultChars)}\n\nContinue. Answer, or use one more tool line if you must.`
   }
@@ -149,7 +157,15 @@ export async function chatWithBot(botId: string, text: string): Promise<void> {
   const fresh = useBots.getState().bots.find((b) => b.id === botId) ?? bot
   const prior = fresh.thread.slice(0, -1)
   const turn = buildTurnPrompt({ ...fresh, thread: prior }, text)
-  const res = await converse(fresh, turn)
+  const key = `bot:${botId}`
+  const drafts = useBotDrafts.getState()
+  drafts.set(key, { text: '' })
+  let res: Reply
+  try {
+    res = await converse(fresh, turn, (t) => useBotDrafts.getState().set(key, { text: t }))
+  } finally {
+    useBotDrafts.getState().set(key, null)
+  }
   if (res.ok) {
     store.say(botId, { role: 'bot', text: res.text, ...(res.trace.length ? { trace: res.trace } : {}), ...(res.sources.length ? { sources: res.sources } : {}) })
   } else {
@@ -181,6 +197,7 @@ export async function runRoomTurn(roomId: string, text: string): Promise<void> {
   if (!store.rooms.some((r) => r.id === roomId)) return
   store.postRoom(roomId, { role: 'user', text })
   const spoken = new Set<string>()
+  const key = `room:${roomId}`
   for (let turn = 0; turn < MAX_ROOM_TURNS; turn++) {
     const now = useBots.getState()
     const room = now.rooms.find((r) => r.id === roomId)
@@ -188,7 +205,13 @@ export async function runRoomTurn(roomId: string, text: string): Promise<void> {
     const speaker = pickSpeaker(room, now.bots, spoken)
     if (!speaker) break
     spoken.add(speaker.id)
-    const res = await converse(speaker, buildRoomPrompt(room, speaker, now.bots))
+    useBotDrafts.getState().set(key, { botId: speaker.id, text: '' })
+    let res: Reply
+    try {
+      res = await converse(speaker, buildRoomPrompt(room, speaker, now.bots), (t) => useBotDrafts.getState().set(key, { botId: speaker.id, text: t }))
+    } finally {
+      useBotDrafts.getState().set(key, null)
+    }
     if (!res.ok) {
       now.postRoom(roomId, { role: 'note', text: `${speaker.name} did not answer: ${res.error}` })
       break

@@ -303,7 +303,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         </div>
 
         {(msg.thinking || (streaming && !msg.content)) && (
-          <ThinkingPhases text={msg.thinking ?? ''} live={!!streaming} />
+          <ThinkingPhases text={msg.thinking ?? ''} live={!!streaming} answering={msg.content !== ''} />
         )}
 
         {sectionActions(msg.content).map((a, i) => (

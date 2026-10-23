@@ -4,7 +4,9 @@ import { LinkPreview } from '@/components/ui/aceternity/LinkPreview'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Layers } from 'lucide-react'
+import { useArtifacts } from '@/lib/artifacts/store'
+import { titleFor } from '@/lib/artifacts/preview'
 import { highlight } from '@/lib/highlight'
 import { CssLink } from '@/components/ui/skiper/CssLink'
 // SmoothUI's AIResponse — used for the plain-text streaming path below.
@@ -20,6 +22,16 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
       <div className="flex items-center justify-between px-3.5 py-1.5 rounded-t-[14px] text-[10.5px] font-mono"
         style={{ background: 'var(--elevated)', borderBottom: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <span>{lang}</span>
+        <div className="flex items-center gap-3">
+        {code.split('\n').length >= 3 && (
+          <button
+            aria-label="Open as artifact"
+            onClick={() => useArtifacts.getState().open({ title: titleFor(lang, code), lang, code })}
+            className="flex items-center gap-1 hover:text-[var(--text)] transition-colors"
+          >
+            <Layers size={11} /> Artifact
+          </button>
+        )}
         <button
           aria-label="Copy code"
           onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
@@ -27,6 +39,7 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
         >
           {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? 'Copied' : 'Copy'}
         </button>
+        </div>
       </div>
       <pre className="!mt-0 !rounded-t-none">
         <code dangerouslySetInnerHTML={{ __html: highlight(code) }} />

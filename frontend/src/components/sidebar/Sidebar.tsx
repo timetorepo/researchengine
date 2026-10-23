@@ -92,16 +92,17 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 
       {/* Header */}
       <div className={clsx('flex items-center px-3 pt-3 pb-2 gap-2', collapsed && 'justify-center')}>
-        {!collapsed && <AppLogo size={26} />}
+        {!collapsed && <div className="min-w-0 flex-1 overflow-hidden"><AppLogo size={26} /></div>}
         {collapsed && <AppLogo size={26} withName={false} />}
         {!collapsed && (
           <>
             {/* Notifications live where the app is: in the rail, next to the
                 name, so a released update or a recommendation is visible from
-                every screen without a second window. */}
-            <div className="ml-auto"><NotificationBell /></div>
+                every screen without a second window. The two buttons keep their
+                size; only the logo gives up room. */}
+            <div className="shrink-0"><NotificationBell /></div>
             <button
-              className="p-1.5 rounded-lg hover:bg-[var(--elevated)]"
+              className="shrink-0 p-1.5 rounded-lg hover:bg-[var(--elevated)]"
               style={{ color: 'var(--text-3)' }}
               onClick={() => ui.toggleSidebar()}
               aria-label="Collapse sidebar"
