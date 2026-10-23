@@ -77,6 +77,10 @@ interface UIState {
    * anywhere — the pill, the Updates tab, or the automatic first sighting.
    */
   updatePopup: string | null
+  /** The Connectors marketplace dialog is open. */
+  connectorsOpen: boolean
+  /** How many Composio accounts are connected, for the sidebar row. */
+  connectorsCount: number
   /**
    * Text handed to whichever composer is open — used by the task panel's
    * "Send to AI". The composer clears it once it has been adopted.
@@ -155,6 +159,8 @@ export const useUI = create<UIState>((set, get) => ({
    */
   tasksOpen: false,
   updatePopup: null,
+  connectorsOpen: false,
+  connectorsCount: 0,
   composerSeed: null,
   handoff: null,
   openSettings: (tab) => {

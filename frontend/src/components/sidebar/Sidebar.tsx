@@ -21,7 +21,6 @@ import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_D
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
 import { Bot as BotIcon, CalendarDays, Plug } from 'lucide-react'
-import { ConnectorsSection } from './ConnectorsSection'
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -135,7 +134,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
               </DockItem>
             )
           })}
-          <DockItem index={NAV.length + 2} label="Connectors" onClick={() => { ui.toggleSidebar() }}>
+          <DockItem index={NAV.length + 2} label="Connectors" onClick={() => useUI.getState().set({ connectorsOpen: true })}>
             <Plug size={18} strokeWidth={1.5} />
           </DockItem>
           <DockSpacer />
@@ -177,9 +176,9 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             ))}
           </nav>
 
-          {/* Connectors: every app Composio supports, connected from here. */}
-          <div className="mt-2 min-h-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
-            <ConnectorsSection />
+          {/* Connectors: one row; the marketplace of every Composio app opens from it. */}
+          <div className="px-3 mt-2 pt-2" style={{ borderTop: '1px solid var(--surface-border)' }}>
+            <ConnectorsRow onBefore={closeMobile} />
           </div>
         </>
       )}
@@ -241,6 +240,25 @@ interface RowProps {
   pending: boolean
   warm: () => void
   onBefore: () => void
+}
+
+/** The Connectors entry in the nav column. It opens the marketplace dialog. */
+function ConnectorsRow({ onBefore }: { onBefore: () => void }) {
+  const count = useUI((s) => s.connectorsCount)
+  return (
+    <button
+      type="button"
+      onClick={() => { onBefore(); useUI.getState().set({ connectorsOpen: true }) }}
+      className={rowClass}
+      style={{ color: 'var(--text-2)' }}
+      aria-haspopup="dialog"
+    >
+      <Plug size={17} strokeWidth={1.5} />
+      <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">Connectors</span>
+      {count > 0 && <span className="text-[10.5px] tabular-nums" style={{ color: 'var(--text-3)' }}>{count} connected</span>}
+      <ChevronRight size={14} aria-hidden className="re-nav-arrow ml-auto shrink-0 opacity-30 group-hover:opacity-80 transition-all duration-200" />
+    </button>
+  )
 }
 
 const rowClass = 're-nav-item group relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] overflow-hidden'

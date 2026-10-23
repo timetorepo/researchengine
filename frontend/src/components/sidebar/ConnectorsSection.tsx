@@ -1,38 +1,50 @@
 /**
- * The Connectors section in the sidebar. It lists every app Composio supports
- * and lets a person connect an account from here. Connections are shared by the
- * main chat and the bots (lib/composio/client.ts).
+ * Connectors: a marketplace of every app Composio supports, opened from one row
+ * in the sidebar. Connecting an app happens here, not on Composio's website:
+ * Connect opens Composio's sign-in in a small window, and this list updates by
+ * itself when that window is done.
  *
- * Layout follows Composio's "For You" page: role-style category chips on top,
- * then a grid of app tiles (logo, name, one-line pitch, Connect or Connected).
+ * Connections are shared by the main chat and the bots (lib/composio/client.ts).
  *
- * Identity (who the connections belong to):
+ * Identity (whose connections these are):
  *  - "Automatic": a user id made once on this device. Nothing to type.
  *  - "My Composio account": the person's own Composio user id, so connections
  *    made in their Composio dashboard show up here too.
  *
  * Context7 documentation search is built in and works without a key; the
- * optional key row below raises its limits.
+ * optional key at the bottom raises its limits.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Loader2, Plug, Search, Unplug } from 'lucide-react'
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/modal'
+import { Check, Loader2, Plug, Search, Unplug } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
-  checkComposio, composioConfigured, composioIdentity, composioUserId, disconnectComposio, isActiveAccount,
+  checkComposio, composioIdentity, composioUserId, disconnectComposio, isActiveAccount,
   listComposioAccounts, listComposioApps, saveComposioKey, setComposioIdentity, startComposioConnect,
   type ComposioAccount, type ComposioApp, type ComposioIdentityMode,
 } from '@/lib/composio/client'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
 
-const PAGE = 24
-const CHIPS = 8
+const PAGE = 48
+const CHIPS = 10
+const POLL_MS = 2500
+const WAIT_MS = 5 * 60_000
+/** The name the sign-in window is opened with; the return page uses it to close itself. */
+const POPUP_NAME = 'composio-connect'
 
-export function ConnectorsSection() {
-  const ui = useUI()
-  const [open, setOpen] = useState(true)
-  const [configured, setConfigured] = useState(composioConfigured())
-  const [keyDraft, setKeyDraft] = useState('')
+interface Waiting { slug: string; name: string; popup: Window; since: number }
+
+const muted = { color: 'var(--text-3)' } as const
+const field = { background: 'var(--elevated)', border: '1px solid var(--surface-border)' } as const
+const primary = { background: 'var(--primary)', color: '#fff' } as const
+
+export function ConnectorsMarketplace() {
+  const open = useUI((s) => s.connectorsOpen)
+  const count = useUI((s) => s.connectorsCount)
+  const identity = useStore((s) => s.settings.composio)
+  const configured = !!identity?.token
+
   const [apps, setApps] = useState<ComposioApp[] | null>(null)
   const [accounts, setAccounts] = useState<ComposioAccount[]>([])
   const [q, setQ] = useState('')
@@ -40,63 +52,90 @@ export function ConnectorsSection() {
   const [shown, setShown] = useState(PAGE)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [waiting, setWaiting] = useState<string | null>(null)
-  const identity = useStore((s) => s.settings.composio)
+  const [waiting, setWaiting] = useState<Waiting | null>(null)
+  const [keyDraft, setKeyDraft] = useState('')
   const who = composioIdentity()
   const [idMode, setIdMode] = useState<ComposioIdentityMode>(who.mode)
   const [idDraft, setIdDraft] = useState(who.accountUserId)
   const [idError, setIdError] = useState<string | null>(null)
 
-  const refresh = useCallback(async (refreshApps = false) => {
-    setError(null)
-    try {
-      const [acc, list] = await Promise.all([
-        listComposioAccounts(),
-        apps === null || refreshApps ? listComposioApps({ refresh: refreshApps }) : Promise.resolve(apps),
-      ])
-      setAccounts(acc)
-      setApps(list)
-    } catch (e: any) {
-      setError(String(e?.message ?? e))
-    }
-  }, [apps])
+  const refreshAccounts = useCallback(async (): Promise<ComposioAccount[]> => {
+    const acc = await listComposioAccounts()
+    setAccounts(acc)
+    useUI.setState({ connectorsCount: acc.filter(isActiveAccount).length })
+    return acc
+  }, [])
 
-  // First load, and again when a key is saved or the identity changes.
+  const loadApps = useCallback(async (fresh = false) => {
+    setApps(await listComposioApps({ refresh: fresh }))
+  }, [])
+
+  // When the dialog opens (or the key or identity changes), check the key and load
+  // the catalog. Closed, we only refresh the count the sidebar row shows.
   useEffect(() => {
-    if (!configured) return
+    if (!configured) { useUI.setState({ connectorsCount: 0 }); return }
     let alive = true
     void (async () => {
+      if (!open) { await refreshAccounts().catch(() => {}); return }
+      setError(null)
       const status = await checkComposio()
       if (!alive) return
       if (!status.ok) { setError(status.error ?? 'Composio did not accept the key.'); return }
-      await refresh()
+      try {
+        await Promise.all([refreshAccounts(), apps === null ? loadApps(false) : Promise.resolve()])
+      } catch (e: any) {
+        if (alive) setError(String(e?.message ?? e))
+      }
     })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, identity?.identityMode, identity?.accountUserId])
+  }, [open, configured, identity?.identityMode, identity?.accountUserId])
 
-  // Coming back from sign-in: the window regains focus, or the return address was used.
+  // Waiting for a sign-in window: poll the accounts until the app shows up, the
+  // window is closed, or a few minutes pass.
   useEffect(() => {
-    if (!configured) return
-    const onFocus = () => { if (waiting) { setWaiting(null); void refresh() } }
-    window.addEventListener('focus', onFocus)
-    if (new URLSearchParams(window.location.search).get('composio') === 'connected') {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('composio')
-      window.history.replaceState(null, '', url.toString())
-      void refresh()
+    if (!waiting) return
+    let stopped = false
+    const tick = async () => {
+      if (stopped) return
+      const closed = waiting.popup.closed
+      const timedOut = Date.now() - waiting.since > WAIT_MS
+      let done = false
+      try {
+        const acc = await refreshAccounts()
+        done = acc.some((a) => isActiveAccount(a) && a.toolkit.toLowerCase() === waiting.slug)
+      } catch { /* try again on the next tick */ }
+      if (stopped) return
+      if (done || closed || timedOut) {
+        setWaiting(null)
+        if (done) useUI.getState().toast(`${waiting.name} connected`, undefined, 'success')
+      }
     }
-    return () => window.removeEventListener('focus', onFocus)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, waiting])
+    const id = window.setInterval(() => { void tick() }, POLL_MS)
+    return () => { stopped = true; window.clearInterval(id) }
+  }, [waiting, refreshAccounts])
 
-  const connected = useMemo(() => new Map(accounts.filter(isActiveAccount).map((a) => [a.toolkit.toLowerCase(), a])), [accounts])
+  // The sign-in window lands back here with ?composio=connected. Close it so the
+  // person returns to the dialog they started from.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('composio') !== 'connected') return
+    if (window.name === POPUP_NAME) { window.close(); return }
+    url.searchParams.delete('composio')
+    window.history.replaceState(null, '', url.toString())
+    useUI.setState({ connectorsOpen: true })
+  }, [])
 
-  // The most common categories become the chips (the For You use-case filter).
+  const connected = useMemo(
+    () => new Map(accounts.filter(isActiveAccount).map((a) => [a.toolkit.toLowerCase(), a])),
+    [accounts],
+  )
+  const appName = (slug: string) => apps?.find((a) => a.slug === slug)?.name ?? slug
+
   const chips = useMemo(() => {
-    const count = new Map<string, number>()
-    for (const a of apps ?? []) for (const c of a.categories) count.set(c, (count.get(c) ?? 0) + 1)
-    return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, CHIPS).map(([c]) => c)
+    const n = new Map<string, number>()
+    for (const a of apps ?? []) for (const c of a.categories) n.set(c, (n.get(c) ?? 0) + 1)
+    return [...n.entries()].sort((a, b) => b[1] - a[1]).slice(0, CHIPS).map(([c]) => c)
   }, [apps])
 
   const filtered = useMemo(() => {
@@ -105,29 +144,31 @@ export function ConnectorsSection() {
     let list = apps
     if (category) list = list.filter((a) => a.categories.includes(category))
     if (needle) list = list.filter((a) => `${a.name} ${a.slug} ${a.categories.join(' ')} ${a.description}`.toLowerCase().includes(needle))
-    // Connected apps first, then the rest in their (alphabetical) order.
+    // Connected apps first; the rest keep their alphabetical order.
     return [...list].sort((a, b) => Number(connected.has(b.slug)) - Number(connected.has(a.slug)))
   }, [apps, q, category, connected])
 
+  const close = () => useUI.setState({ connectorsOpen: false })
+
   const saveKey = async () => {
     const raw = keyDraft.trim()
-    if (!raw) { ui.toast('Paste your Composio project key first', undefined, 'warning'); return }
+    if (!raw) { useUI.getState().toast('Paste your Composio project key first', undefined, 'warning'); return }
     setBusy('key')
     try {
       await saveComposioKey(raw)
       setKeyDraft('')
-      setConfigured(true)
-      ui.toast('Composio key saved', 'It stays on this device, encrypted when the vault is on.', 'success')
+      useUI.getState().toast('Composio key saved', 'It stays on this device, encrypted when the vault is on.', 'success')
     } finally { setBusy(null) }
   }
 
   const removeKey = async () => {
     if (!window.confirm('Remove the Composio key from this device? Connected accounts stay connected at Composio, but this app stops using them until you add the key again.')) return
     await saveComposioKey('')
-    setConfigured(false)
     setApps(null)
     setAccounts([])
+    setWaiting(null)
     setError(null)
+    useUI.setState({ connectorsCount: 0 })
   }
 
   const applyIdentity = (mode: ComposioIdentityMode, id?: string) => {
@@ -136,20 +177,25 @@ export function ConnectorsSection() {
     if (err) return
     setIdMode(mode)
     setIdDraft(composioIdentity().accountUserId)
-    // Make sure the automatic id exists even when the person never switches back to it.
     composioUserId()
-    ui.toast(mode === 'account' ? 'Using your Composio account' : 'Using an automatic id on this device', undefined, 'success')
+    useUI.getState().toast(mode === 'account' ? 'Using your Composio account' : 'Using an automatic id on this device', undefined, 'success')
   }
 
   const connect = async (app: ComposioApp) => {
     setBusy(app.slug)
     setError(null)
+    // Open the window now, inside the click, so the browser does not block it.
+    const popup = window.open('about:blank', POPUP_NAME, 'width=520,height=720,left=160,top=80')
     try {
       const { redirectUrl } = await startComposioConnect(app.slug)
-      window.open(redirectUrl, '_blank', 'noopener')
-      setWaiting(app.slug)
-      ui.toast(`Sign in to ${app.name}`, 'Finish in the new tab. This list refreshes when you come back.', 'info')
+      if (!popup) { setError('Your browser blocked the sign-in window. Allow pop-ups for this site, then press Connect again.'); return }
+      // The sign-in page is Composio's: cut its link back to this window before it loads.
+      try { popup.opener = null } catch { /* some browsers forbid this; the page still works */ }
+      popup.location.href = redirectUrl
+      setWaiting({ slug: app.slug, name: app.name, popup, since: Date.now() })
+      useUI.getState().toast(`Sign in to ${app.name}`, 'Finish in the window that opened. This list updates by itself.', 'info')
     } catch (e: any) {
+      popup?.close()
       setError(String(e?.message ?? e))
     } finally { setBusy(null) }
   }
@@ -159,37 +205,60 @@ export function ConnectorsSection() {
     setBusy(acc.id)
     try {
       await disconnectComposio(acc.id)
-      await refresh()
-      ui.toast(`${name} disconnected`, undefined, 'success')
+      await refreshAccounts()
+      useUI.getState().toast(`${name} disconnected`, undefined, 'success')
     } catch (e: any) {
       setError(String(e?.message ?? e))
     } finally { setBusy(null) }
   }
 
-  const connectedCount = connected.size
-  const appName = (slug: string) => apps?.find((a) => a.slug === slug)?.name ?? slug
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshAll = async () => {
+    setRefreshing(true)
+    setError(null)
+    try { await Promise.all([refreshAccounts(), loadApps(true)]) }
+    catch (e: any) { setError(String(e?.message ?? e)) }
+    finally { setRefreshing(false) }
+  }
+
+  const connectedList = accounts.filter(isActiveAccount)
 
   return (
-    <section className="px-2 pt-1 pb-1" aria-label="Connectors">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[10px] text-[12px] font-medium hover:bg-[var(--elevated)] transition-colors"
-        style={{ color: 'var(--text-2)' }}
-      >
-        <Plug size={14} strokeWidth={1.5} />
-        <span className="flex-1 text-left">Connectors</span>
-        {configured && <span className="text-[10.5px] font-normal" style={{ color: 'var(--text-3)' }}>{connectedCount} connected</span>}
-        <ChevronDown size={14} className="transition-transform duration-200" style={{ transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
-      </button>
+    <Modal
+      isOpen={open}
+      onOpenChange={(v) => { if (!v) close() }}
+      size="3xl"
+      backdrop="blur"
+      scrollBehavior="inside"
+      placement="center"
+      isDismissable
+      classNames={{
+        wrapper: 'z-[80]',
+        backdrop: 'z-[79] bg-[var(--scrim)]',
+        base: 'glass overflow-hidden border border-[var(--surface-border)] shadow-[0_40px_120px_-40px_rgba(0,0,0,0.75)]',
+        header: 'px-5 pt-5 pb-3 border-b border-[var(--surface-border)]',
+        body: 'px-5 py-4',
+        footer: 'px-5 py-3 border-t border-[var(--surface-border)]',
+        closeButton: 'top-4 right-4 text-[var(--text-3)] hover:bg-[var(--elevated)]',
+      }}
+      aria-label="Connectors"
+      data-connectors-marketplace
+    >
+      <ModalContent>
+        <ModalHeader className="flex-col items-start gap-1 pr-10">
+          <span className="flex items-center gap-2 text-[15px] font-semibold" style={{ letterSpacing: '-0.01em' }}>
+            <Plug size={16} strokeWidth={1.5} /> Connectors
+          </span>
+          <span className="text-[12px] font-normal" style={muted}>
+            Connect the apps the chat and the bots can use. {configured ? `${count} connected.` : 'Add your Composio key once to start.'}
+          </span>
+        </ModalHeader>
 
-      {open && (
-        <div className="mt-1 space-y-2 px-1 max-h-[46vh] overflow-y-auto pr-1">
+        <ModalBody>
           {!configured ? (
-            <div className="space-y-2">
-              <p className="text-[11px] leading-snug" style={{ color: 'var(--text-3)' }}>
-                One project key connects the chat and the bots to the apps Composio supports. Paste it here; it is stored on this device.
+            <div className="space-y-3 max-w-md">
+              <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                One project key lets the chat and the bots reach every app Composio supports. Paste it here once; it stays on this device, encrypted when the vault is on.
               </p>
               <input
                 type="password"
@@ -199,92 +268,94 @@ export function ConnectorsSection() {
                 aria-label="Composio project key"
                 placeholder="Composio project key"
                 autoComplete="off"
-                className="w-full px-2.5 py-1.5 rounded-[10px] text-[12px] outline-none"
-                style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
+                className="w-full px-3 py-2 rounded-[12px] text-[13px] outline-none"
+                style={field}
               />
               <button type="button" onClick={saveKey} disabled={busy === 'key'}
-                className="w-full px-3 py-1.5 rounded-full text-[12px] font-medium inline-flex items-center justify-center gap-1.5"
-                style={{ background: 'var(--primary)', color: '#fff' }}>
-                {busy === 'key' && <Loader2 size={12} className="animate-spin" />} Save key
+                className="px-4 py-2 rounded-full text-[12.5px] font-medium inline-flex items-center gap-1.5"
+                style={primary}>
+                {busy === 'key' && <Loader2 size={13} className="animate-spin" />} Save key
               </button>
+              <div className="pt-2">
+                <Context7Row />
+              </div>
             </div>
           ) : (
-            <>
-              {error && <p role="alert" className="text-[11px] leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>{error}</p>}
+            <div className="space-y-4">
+              {error && <p role="alert" className="text-[12px] leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>{error}</p>}
 
               {/* Identity: whose connections these are. */}
-              <div className="rounded-[10px] p-2 space-y-1.5" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-                <div role="radiogroup" aria-label="Account identity" className="grid grid-cols-2 gap-1 p-0.5 rounded-[8px]" style={{ background: 'var(--surface)' }}>
-                  {([['automatic', 'Automatic'], ['account', 'My Composio account']] as const).map(([id, label]) => (
-                    <button key={id} type="button" role="radio" aria-checked={idMode === id}
-                      onClick={() => (id === 'automatic' ? applyIdentity('automatic') : setIdMode('account'))}
-                      className="px-2 py-1 rounded-[6px] text-[10.5px] font-medium transition-colors"
-                      style={{
-                        background: idMode === id ? 'color-mix(in srgb, var(--primary) 16%, transparent)' : 'transparent',
-                        color: idMode === id ? 'var(--text-1)' : 'var(--text-3)',
-                      }}>
+              <div className="rounded-[12px] p-3 space-y-2" style={{ ...field }}>
+                <div role="radiogroup" aria-label="Account identity" className="grid grid-cols-2 gap-1 p-0.5 rounded-[9px]" style={{ background: 'var(--surface)' }}>
+                  {([['automatic', 'Automatic'], ['account', 'My Composio account']] as const).map(([mode, label]) => (
+                    <button key={mode} type="button" role="radio" aria-checked={idMode === mode}
+                      onClick={() => (mode === idMode ? undefined : applyIdentity(mode, idDraft))}
+                      className="px-2 py-1 rounded-[7px] text-[11.5px] font-medium transition-colors"
+                      style={{ background: idMode === mode ? 'var(--elevated)' : 'transparent', color: idMode === mode ? 'var(--text-1)' : 'var(--text-3)' }}>
                       {label}
                     </button>
                   ))}
                 </div>
                 {idMode === 'account' ? (
                   <div className="space-y-1">
-                    <label className="block text-[10.5px]" style={{ color: 'var(--text-3)' }} htmlFor="composio-user-id">
-                      Connect your Composio account: your Composio user id
+                    <label className="block text-[11px]" style={muted} htmlFor="composio-user-id">
+                      Your Composio user id. Connections you made in your Composio dashboard show up here too.
                     </label>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1.5">
                       <input id="composio-user-id" value={idDraft} onChange={(e) => { setIdDraft(e.target.value); setIdError(null) }}
                         onKeyDown={(e) => { if (e.key === 'Enter') applyIdentity('account', idDraft) }}
                         placeholder="e.g. you@example.com" autoComplete="off"
-                        className="flex-1 min-w-0 px-2 py-1 rounded-[8px] text-[11.5px] outline-none"
+                        className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[9px] text-[12px] outline-none"
                         style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
                       <button type="button" onClick={() => applyIdentity('account', idDraft)}
-                        className="px-2 py-1 rounded-full text-[10.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
+                        className="px-3 py-1.5 rounded-full text-[11.5px] font-medium" style={primary}>
                         Use
                       </button>
                     </div>
-                    {idError && <p role="alert" className="text-[10.5px]" style={{ color: 'var(--danger, #e5484d)' }}>{idError}</p>}
+                    {idError && <p role="alert" className="text-[11px]" style={{ color: 'var(--danger, #e5484d)' }}>{idError}</p>}
                   </div>
                 ) : (
-                  <p className="text-[10.5px] leading-snug" style={{ color: 'var(--text-3)' }}>
+                  <p className="text-[11px] leading-snug" style={muted}>
                     Automatic: this device gets its own id, made once. Nothing to type.
                   </p>
                 )}
               </div>
 
-              {connectedCount > 0 && (
-                <div className="space-y-1">
-                  <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Connected</div>
-                  {accounts.filter(isActiveAccount).map((a) => (
-                    <div key={a.id} className="flex items-center gap-2 px-2 py-1 rounded-[8px] text-[11.5px]" style={{ background: 'var(--elevated)' }}>
-                      <span className="flex-1 truncate">{appName(a.toolkit)}</span>
-                      <button type="button" onClick={() => disconnect(a, appName(a.toolkit))} disabled={busy === a.id}
-                        aria-label={`Disconnect ${appName(a.toolkit)}`} className="p-1 rounded-full hover:opacity-80" style={{ color: 'var(--text-3)' }}>
-                        {busy === a.id ? <Loader2 size={12} className="animate-spin" /> : <Unplug size={12} />}
-                      </button>
-                    </div>
-                  ))}
+              {connectedList.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[10.5px] uppercase tracking-wider" style={muted}>Connected</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {connectedList.map((a) => (
+                      <span key={a.id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+                        <Check size={11} aria-hidden /> {appName(a.toolkit)}
+                        <button type="button" onClick={() => disconnect(a, appName(a.toolkit))} disabled={busy === a.id}
+                          aria-label={`Disconnect ${appName(a.toolkit)}`} className="p-1 rounded-full hover:opacity-80" style={muted}>
+                          {busy === a.id ? <Loader2 size={11} className="animate-spin" /> : <Unplug size={11} />}
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
               <div className="relative">
-                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }} />
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={muted} />
                 <input
                   value={q}
                   onChange={(e) => { setQ(e.target.value); setShown(PAGE) }}
                   aria-label="Search apps"
                   placeholder={apps ? `Search ${apps.length} apps` : 'Loading apps…'}
-                  className="w-full pl-7 pr-2 py-1.5 rounded-[10px] text-[12px] outline-none"
-                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
+                  className="w-full pl-8 pr-3 py-2 rounded-[12px] text-[12.5px] outline-none"
+                  style={field}
                 />
               </div>
 
               {chips.length > 0 && (
-                <div className="flex flex-wrap gap-1" role="group" aria-label="Categories">
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Categories">
                   {[null, ...chips].map((c) => (
                     <button key={c ?? 'all'} type="button" onClick={() => { setCategory(c); setShown(PAGE) }}
                       aria-pressed={category === c}
-                      className="px-2 py-0.5 rounded-full text-[10.5px] transition-colors"
+                      className="px-2.5 py-1 rounded-full text-[11px] transition-colors"
                       style={{
                         background: category === c ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)',
                         border: `1px solid ${category === c ? 'var(--primary)' : 'var(--surface-border)'}`,
@@ -297,55 +368,64 @@ export function ConnectorsSection() {
               )}
 
               {apps === null && !error && (
-                <div className="text-[11px] inline-flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}><Loader2 size={12} className="animate-spin" /> Loading apps</div>
+                <div className="text-[12px] inline-flex items-center gap-1.5" style={muted}><Loader2 size={13} className="animate-spin" /> Loading apps</div>
               )}
 
-              <ul className="grid grid-cols-2 gap-1" aria-label="Supported apps">
+              <ul className="grid grid-cols-2 md:grid-cols-3 gap-2" aria-label="Supported apps">
                 {filtered.slice(0, shown).map((app) => {
                   const isOn = connected.has(app.slug)
+                  const isWaiting = waiting?.slug === app.slug
                   return (
-                    <li key={app.slug} className="flex flex-col gap-1 p-1.5 rounded-[10px] min-w-0"
-                      style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-                      <div className="flex items-center gap-1.5 min-w-0">
+                    <li key={app.slug} className="flex flex-col gap-1.5 p-2.5 rounded-[12px] min-w-0 transition-colors hover:bg-[var(--surface)]"
+                      style={field}>
+                      <div className="flex items-center gap-2 min-w-0">
                         {app.logo
-                          ? <img src={app.logo} alt="" width={16} height={16} loading="lazy" className="rounded-[4px] shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                          : <span className="w-4 h-4 rounded-[4px] shrink-0" style={{ background: 'var(--surface)' }} />}
-                        <span className="text-[11px] font-medium truncate" title={app.name}>{app.name}</span>
+                          ? <img src={app.logo} alt="" width={18} height={18} loading="lazy" className="rounded-[5px] shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                          : <span className="w-[18px] h-[18px] rounded-[5px] shrink-0" style={{ background: 'var(--surface)' }} />}
+                        <span className="text-[12px] font-medium truncate" title={app.name}>{app.name}</span>
                       </div>
                       {app.description && (
-                        <span className="text-[9.5px] leading-snug line-clamp-2" style={{ color: 'var(--text-3)' }}>{app.description}</span>
+                        <span className="text-[10.5px] leading-snug line-clamp-2" style={muted}>{app.description}</span>
                       )}
-                      {isOn ? (
-                        <span className="text-[10px] mt-auto" style={{ color: 'var(--text-2)' }}>✓ Connected</span>
-                      ) : (
-                        <button type="button" onClick={() => connect(app)} disabled={busy === app.slug}
-                          className="mt-auto px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center justify-center gap-1 transition-transform active:scale-95"
-                          style={{ background: 'var(--primary)', color: '#fff' }}>
-                          {busy === app.slug && <Loader2 size={10} className="animate-spin" />} Connect
-                        </button>
-                      )}
+                      <div className="mt-auto pt-0.5">
+                        {isOn ? (
+                          <span className="text-[11px] inline-flex items-center gap-1" style={{ color: 'var(--text-2)' }}><Check size={11} aria-hidden /> Connected</span>
+                        ) : isWaiting ? (
+                          <span className="text-[11px] inline-flex items-center gap-1" style={muted}><Loader2 size={11} className="animate-spin" /> Waiting for sign-in</span>
+                        ) : (
+                          <button type="button" onClick={() => connect(app)} disabled={busy === app.slug}
+                            className="px-2.5 py-1 rounded-full text-[11px] font-medium inline-flex items-center gap-1 transition-transform active:scale-95"
+                            style={primary}>
+                            {busy === app.slug && <Loader2 size={11} className="animate-spin" />} Connect
+                          </button>
+                        )}
+                      </div>
                     </li>
                   )
                 })}
               </ul>
               {filtered.length > shown && (
-                <button type="button" onClick={() => setShown((n) => n + PAGE)} className="w-full text-[11px] py-1 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}>
+                <button type="button" onClick={() => setShown((n) => n + PAGE)} className="w-full text-[12px] py-2 rounded-[10px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-2)' }}>
                   Show more ({filtered.length - shown} left)
                 </button>
               )}
-              {apps && filtered.length === 0 && <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>No app matches{q ? ` “${q}”` : ' this category'}.</p>}
-              {waiting && <p className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>Waiting for {appName(waiting)} sign-in. Come back to this tab when it is done.</p>}
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <button type="button" onClick={() => refresh(true)} className="text-[10.5px] underline underline-offset-2" style={{ color: 'var(--text-3)' }}>Refresh list</button>
-                <button type="button" onClick={removeKey} className="text-[10.5px] underline underline-offset-2" style={{ color: 'var(--text-3)' }}>Remove key</button>
-              </div>
-            </>
-          )}
+              {apps && filtered.length === 0 && <p className="text-[12px]" style={muted}>No app matches{q ? ` “${q}”` : ' this category'}.</p>}
 
-          <Context7Row />
-        </div>
-      )}
-    </section>
+              <Context7Row />
+            </div>
+          )}
+        </ModalBody>
+
+        {configured && (
+          <ModalFooter className="justify-between">
+            <button type="button" onClick={refreshAll} disabled={refreshing} className="text-[11.5px] underline underline-offset-2 inline-flex items-center gap-1" style={muted}>
+              {refreshing && <Loader2 size={11} className="animate-spin" />} Refresh list
+            </button>
+            <button type="button" onClick={removeKey} className="text-[11.5px] underline underline-offset-2" style={muted}>Remove key</button>
+          </ModalFooter>
+        )}
+      </ModalContent>
+    </Modal>
   )
 }
 
@@ -367,24 +447,24 @@ function Context7Row() {
   }
 
   return (
-    <div className="pt-2 mt-1 space-y-1.5" style={{ borderTop: '1px solid var(--surface-border)' }}>
-      <div className="flex items-center gap-2 text-[11.5px]" style={{ color: 'var(--text-2)' }}>
+    <div className="pt-3 space-y-1.5" style={{ borderTop: '1px solid var(--surface-border)' }}>
+      <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text-2)' }}>
         <span className="flex-1">Documentation (Context7)</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
+        <span className="text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>
           {has ? 'Key saved' : 'Built in'}
         </span>
       </div>
-      <p className="text-[10px] leading-snug" style={{ color: 'var(--text-3)' }}>
+      <p className="text-[11px] leading-snug" style={muted}>
         Current docs and code examples for libraries, for the chat and the bots. Works without a key at lower limits; a key raises them.
       </p>
-      <div className="flex gap-1">
+      <div className="flex gap-1.5">
         <input type="password" value={draft} onChange={(e) => setDraft(e.target.value)} autoComplete="off"
           aria-label="Context7 API key (optional)" placeholder={has ? 'Replace key (optional)' : 'Context7 key (optional)'}
-          className="flex-1 min-w-0 px-2 py-1 rounded-[8px] text-[11px] outline-none"
-          style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
+          className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[9px] text-[11.5px] outline-none"
+          style={field} />
         <button type="button" onClick={save} disabled={saving || (!draft.trim() && !has)}
-          className="px-2 py-1 rounded-full text-[10.5px] font-medium disabled:opacity-50"
-          style={{ background: 'var(--primary)', color: '#fff' }}>
+          className="px-3 py-1.5 rounded-full text-[11px] font-medium disabled:opacity-50"
+          style={primary}>
           {draft.trim() ? 'Save' : 'Clear'}
         </button>
       </div>

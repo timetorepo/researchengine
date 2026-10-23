@@ -54,6 +54,7 @@ const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/Diagnost
 import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
 import { AppContextMenu } from '@/components/shared/AppContextMenu'
 import { UpdateModal } from '@/components/updates/UpdateModal'
+import { ConnectorsMarketplace } from '@/components/sidebar/ConnectorsSection'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { LockScreen } from '@/components/vault/LockScreen'
 import { isLocked, readLockSession } from '@/lib/security/lock'
@@ -298,6 +299,7 @@ function RoutedApp() {
       {/* The new-release popup lives outside the router on purpose — a version
           announcement should be able to reach the user on any page. */}
       <UpdateModal />
+      <ConnectorsMarketplace />
       <ScrollProgress />
       {/* Each overlay mounts only once its own flag is on, so the chunk is
           fetched when it is actually wanted (and the idle preload has usually
