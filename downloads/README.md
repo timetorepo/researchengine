@@ -4,15 +4,15 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.51.1** (a pre-release) also ships the **Tauri desktop app** — Windows
+Prefer an installer? **0.52.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
 automatically) and Linux a `.deb`. There is no macOS build and no AppImage in this
 release. CI builds them from this tag and attaches them to the release:
 
 | Installer | Platform | Size |
 |---|---|---|
-| `Research.Engine_0.51.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | 54.0 MB |
-| `Research.Engine_0.51.1_amd64.deb` | Debian/Ubuntu x64 | 66.5 MB |
+| `Research.Engine_0.52.0_x64-setup.exe` | Windows 10/11 x64 (per-user) | 61.7 MB |
+| `Research.Engine_0.52.0_amd64.deb` | Debian/Ubuntu x64 | 76.6 MB |
 
 Their hashes are recorded in `INSTALLERS.sha256` in this folder, and every one
 of them is **GitHub's own sha256 digest for the uploaded asset**, read back from
