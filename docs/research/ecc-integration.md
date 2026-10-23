@@ -16,7 +16,7 @@ run them.
 | --- | --- | --- |
 | 16 skills (`SKILL.md`): research, writing, SEO, API design, TDD, verification, security review, git, ADRs, prompt tuning | Vendored as skill packs, the same way as the other packs. Chats can attach them and the skill rides along in the system context. | `frontend/src/content/skills/upstream/<id>/`, catalogued in `catalog.ts` |
 | 71 agent roles (`agents/*.md`), grouped under eight plain names: Researcher, Workflow, Builder, Reviewer, Guardian, Writer, Analyst, Maintainer | A person picks a plain role. For each request, the best one or two ECC members of that role are chosen against the request and the custom instructions (a bot's job, or the default chat role), and their method is added to the system prompt. Each member's text is capped, and the total is capped at 9,000 characters. | `frontend/src/content/ecc/agents.ts` (generated), `frontend/src/lib/ecc/roles.ts` (families and selection), `lib/bots/logic.ts`, `lib/chat/runChat.ts` |
-| Slash commands, hooks, MCP configs, the 71 other roles | Not taken. They target a different runtime (a terminal agent with hooks), and vendoring them without that runtime would only add text. | — |
+| Slash commands, hooks, MCP configs | Not taken. They target a different runtime (a terminal agent with hooks), and vendoring them without that runtime would only add text. | — |
 
 We chose files that do not depend on ECC's tools. The skills and roles are plain instructions, so they work in
 a chat with any model you configure.
