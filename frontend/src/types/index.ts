@@ -552,7 +552,7 @@ export interface Settings {
    * Composio (connectors for 1000+ apps). `token` is the project key, encrypted
    * like provider keys; `userId` is this machine's id for its connections.
    */
-  composio?: { token?: string; userId?: string; identityMode?: 'automatic' | 'account'; accountUserId?: string }
+  composio?: { token?: string; accountUserId?: string }
   /** Optional Context7 key. Documentation search works without one, at lower limits. */
   context7?: { token?: string }
   /**

@@ -48,40 +48,35 @@ export function composioConfigured(): boolean {
   return !!useStore.getState().settings.composio?.token
 }
 
-export type ComposioIdentityMode = 'automatic' | 'account'
-
 /** Same rule the server applies to user ids (letters, digits and _ . @ : -, up to 128). */
 export const COMPOSIO_USER_RE = /^[A-Za-z0-9_.@:-]{1,128}$/
 
-export function composioIdentity(): { mode: ComposioIdentityMode; accountUserId: string } {
+/** The person's Composio user id: the one their Composio dashboard uses. */
+export function composioIdentity(): { accountUserId: string } {
   const c = useStore.getState().settings.composio ?? {}
-  return { mode: c.identityMode === 'account' ? 'account' : 'automatic', accountUserId: c.accountUserId ?? '' }
+  return { accountUserId: (c.accountUserId ?? '').trim() }
 }
 
-/**
- * The user id Composio files connections under. Two ways to get one:
- *  - "account": the person's own Composio user id (the one their Composio
- *    dashboard uses). Connections made there show up here.
- *  - "automatic": an id made once on this machine, so nothing needs typing.
- */
+/** True once a valid Composio user id is saved. Connections are filed under it. */
+export function hasComposioUserId(): boolean {
+  return COMPOSIO_USER_RE.test(composioIdentity().accountUserId)
+}
+
+/** The user id Composio files connections under. Throws a plain message until one is saved. */
 export function composioUserId(): string {
-  const who = composioIdentity()
-  if (who.mode === 'account' && COMPOSIO_USER_RE.test(who.accountUserId.trim())) return who.accountUserId.trim()
-  const current = useStore.getState().settings.composio?.userId
-  if (current) return current
-  const id = `re-${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`
-  useStore.setState((s) => ({ settings: { ...s.settings, composio: { ...(s.settings.composio ?? {}), userId: id } } }))
+  const id = composioIdentity().accountUserId
+  if (!COMPOSIO_USER_RE.test(id)) throw new Error('Enter your Composio user id in Connectors first.')
   return id
 }
 
-/** Switch identity mode. Returns an error text when the chosen account id is not usable. */
-export function setComposioIdentity(mode: ComposioIdentityMode, accountUserId?: string): string | null {
-  const id = (accountUserId ?? composioIdentity().accountUserId).trim()
-  if (mode === 'account' && !COMPOSIO_USER_RE.test(id)) {
+/** Save the Composio user id. Returns an error text when it is not usable. */
+export function setComposioIdentity(accountUserId: string): string | null {
+  const id = accountUserId.trim()
+  if (!COMPOSIO_USER_RE.test(id)) {
     return 'Enter your Composio user id: letters, numbers, and _ . @ : - only, up to 128 characters.'
   }
   useStore.setState((s) => ({
-    settings: { ...s.settings, composio: { ...(s.settings.composio ?? {}), identityMode: mode, accountUserId: id } },
+    settings: { ...s.settings, composio: { ...(s.settings.composio ?? {}), accountUserId: id } },
   }))
   return null
 }

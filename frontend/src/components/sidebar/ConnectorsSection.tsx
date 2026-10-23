@@ -20,9 +20,9 @@ import { Check, Loader2, Plug, Search, Unplug } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
-  checkComposio, composioIdentity, composioUserId, disconnectComposio, isActiveAccount,
+  checkComposio, composioIdentity, disconnectComposio, hasComposioUserId, isActiveAccount,
   listComposioAccounts, listComposioApps, saveComposioKey, setComposioIdentity, startComposioConnect,
-  type ComposioAccount, type ComposioApp, type ComposioIdentityMode,
+  type ComposioAccount, type ComposioApp,
 } from '@/lib/composio/client'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
 import { IntegrationsPanel } from '@/components/settings/IntegrationsTab'
@@ -59,12 +59,12 @@ export function ConnectorsMarketplace() {
   /** Which destructive action is waiting for its second press (no window.confirm: it can be blocked in the app). */
   const [armed, setArmed] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
-  const who = composioIdentity()
-  const [idMode, setIdMode] = useState<ComposioIdentityMode>(who.mode)
-  const [idDraft, setIdDraft] = useState(who.accountUserId)
+  const [idDraft, setIdDraft] = useState(composioIdentity().accountUserId)
   const [idError, setIdError] = useState<string | null>(null)
 
   const refreshAccounts = useCallback(async (): Promise<ComposioAccount[]> => {
+    // Without a user id there is nothing to list yet; the card asks for it.
+    if (!hasComposioUserId()) { setAccounts([]); useUI.setState({ connectorsCount: 0 }); return [] }
     const acc = await listComposioAccounts()
     setAccounts(acc)
     useUI.setState({ connectorsCount: acc.filter(isActiveAccount).length })
@@ -94,7 +94,7 @@ export function ConnectorsMarketplace() {
     })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, configured, identity?.token, identity?.identityMode, identity?.accountUserId])
+  }, [open, configured, identity?.token, identity?.accountUserId])
 
   // Waiting for a sign-in window: poll the accounts until the app shows up, the
   // window is closed, or a few minutes pass.
@@ -189,17 +189,17 @@ export function ConnectorsMarketplace() {
     useUI.setState({ connectorsCount: 0 })
   }
 
-  const applyIdentity = (mode: ComposioIdentityMode, id?: string) => {
-    const err = setComposioIdentity(mode, id)
+  // Save the Composio user id. The effect above reloads the accounts for it.
+  const saveUserId = () => {
+    const err = setComposioIdentity(idDraft)
     setIdError(err)
     if (err) return
-    setIdMode(mode)
     setIdDraft(composioIdentity().accountUserId)
-    composioUserId()
-    useUI.getState().toast(mode === 'account' ? 'Using your Composio account' : 'Using an automatic id on this device', undefined, 'success')
+    useUI.getState().toast('Composio user id saved', undefined, 'success')
   }
 
   const connect = async (app: ComposioApp) => {
+    if (!hasComposioUserId()) { setError('Enter your Composio user id first. Connections are filed under it.'); return }
     setBusy(app.slug)
     setError(null)
     // Open the window now, inside the click, so the browser does not block it.
@@ -350,40 +350,25 @@ export function ConnectorsMarketplace() {
                 </div>
               </div>
 
-              {/* Identity: whose connections these are. */}
+              {/* Your Composio user id: connections are filed under it. */}
               <div className="rounded-[12px] p-3 space-y-2" style={{ ...field }}>
-                <div role="radiogroup" aria-label="Account identity" className="grid grid-cols-2 gap-1 p-0.5 rounded-[9px]" style={{ background: 'var(--surface)' }}>
-                  {([['automatic', 'Automatic'], ['account', 'My Composio account']] as const).map(([mode, label]) => (
-                    <button key={mode} type="button" role="radio" aria-checked={idMode === mode}
-                      onClick={() => (mode === idMode ? undefined : applyIdentity(mode, idDraft))}
-                      className="px-2 py-1 rounded-[7px] text-[11.5px] font-medium transition-colors"
-                      style={{ background: idMode === mode ? 'var(--elevated)' : 'transparent', color: idMode === mode ? 'var(--text-1)' : 'var(--text-3)' }}>
-                      {label}
-                    </button>
-                  ))}
+                <label className="block text-[11px]" style={muted} htmlFor="composio-user-id">
+                  Your Composio user id. Connections you make here are filed under it, and the ones in your Composio dashboard show up here too.
+                </label>
+                <div className="flex gap-1.5">
+                  <input id="composio-user-id" value={idDraft} onChange={(e) => { setIdDraft(e.target.value); setIdError(null) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveUserId() }}
+                    placeholder="e.g. you@example.com" autoComplete="off"
+                    className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[9px] text-[12px] outline-none"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
+                  <button type="button" onClick={saveUserId}
+                    className="px-3 py-1.5 rounded-full text-[11.5px] font-medium" style={primary}>
+                    {hasComposioUserId() ? 'Save' : 'Use'}
+                  </button>
                 </div>
-                {idMode === 'account' ? (
-                  <div className="space-y-1">
-                    <label className="block text-[11px]" style={muted} htmlFor="composio-user-id">
-                      Your Composio user id. Connections you made in your Composio dashboard show up here too.
-                    </label>
-                    <div className="flex gap-1.5">
-                      <input id="composio-user-id" value={idDraft} onChange={(e) => { setIdDraft(e.target.value); setIdError(null) }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') applyIdentity('account', idDraft) }}
-                        placeholder="e.g. you@example.com" autoComplete="off"
-                        className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[9px] text-[12px] outline-none"
-                        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
-                      <button type="button" onClick={() => applyIdentity('account', idDraft)}
-                        className="px-3 py-1.5 rounded-full text-[11.5px] font-medium" style={primary}>
-                        Use
-                      </button>
-                    </div>
-                    {idError && <p role="alert" className="text-[11px]" style={{ color: 'var(--danger, #e5484d)' }}>{idError}</p>}
-                  </div>
-                ) : (
-                  <p className="text-[11px] leading-snug" style={muted}>
-                    Automatic: this device gets its own id, made once. Nothing to type.
-                  </p>
+                {idError && <p role="alert" className="text-[11px]" style={{ color: 'var(--danger, #e5484d)' }}>{idError}</p>}
+                {!hasComposioUserId() && !idError && (
+                  <p className="text-[11px]" style={muted}>Connect is available once this is set.</p>
                 )}
               </div>
 
@@ -462,7 +447,7 @@ export function ConnectorsMarketplace() {
                         ) : isWaiting ? (
                           <span className="text-[11px] inline-flex items-center gap-1" style={muted}><Loader2 size={11} className="animate-spin" /> Waiting for sign-in</span>
                         ) : (
-                          <button type="button" onClick={() => connect(app)} disabled={busy === app.slug}
+                          <button type="button" onClick={() => connect(app)} disabled={busy === app.slug || !hasComposioUserId()}
                             className="px-2.5 py-1 rounded-full text-[11px] font-medium inline-flex items-center gap-1 transition-transform active:scale-95"
                             style={primary}>
                             {busy === app.slug && <Loader2 size={11} className="animate-spin" />} Connect

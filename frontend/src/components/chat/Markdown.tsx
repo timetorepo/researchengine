@@ -7,6 +7,7 @@ import rehypeKatex from 'rehype-katex'
 import { Check, Copy, Layers } from 'lucide-react'
 import { useArtifacts } from '@/lib/artifacts/store'
 import { titleFor } from '@/lib/artifacts/preview'
+import { normalizeModelMarkdown } from '@/lib/chat/markdownDialects'
 import { highlight } from '@/lib/highlight'
 import { CssLink } from '@/components/ui/skiper/CssLink'
 // SmoothUI's AIResponse — used for the plain-text streaming path below.
@@ -67,7 +68,7 @@ export function linkCitations(text: string, sources?: { url?: string }[]): strin
 }
 
 export const Markdown = memo(function Markdown({ content: raw, streaming = false, sources }: { content: string; streaming?: boolean; sources?: { url?: string }[] }) {
-  const content = linkCitations(raw, sources)
+  const content = linkCitations(normalizeModelMarkdown(raw, sources), sources)
   const plainStreaming = streaming && !/[`#*_\[\]]/.test(content)
   return (
     <div className={`md-body ${streaming ? 'md-streaming' : ''}`}>
