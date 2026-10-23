@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import { CircuitBoard } from '@/components/ui/componentry/circuit-board'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
@@ -10,7 +9,6 @@ import { useUI } from '@/stores/useUI'
 import { THEMES, applyTheme } from '@/lib/themes/meta'
 import { Button } from '@/components/ui/heroui/Button'
 import { Input } from '@/components/ui/heroui/Input'
-import { SnapText } from '@/components/ui/skecher/snap-text'
 import { HandleReel } from '@/components/ui/spaceui/handle-reel'
 import { normalizeHandle } from '@/lib/profile'
 import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
@@ -18,22 +16,14 @@ import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
 // src/components/smoothui and used for real here: the promises build in the
 // centre, the repo stars count up, the connection test prints into a terminal,
 // the demo contents open out of a folder.
-import TypewriterText from '@/components/smoothui/typewriter-text'
 import StaggerFromEdges from '@/components/smoothui/stagger-from-edges'
 import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-terminal'
 import FolderReveal from '@/components/smoothui/folder-reveal'
-import GitHubStarsAnimation from '@/components/smoothui/github-stars-animation'
 // React Bits, vendored from the published source (see the provenance line in
 // each file under components/ui/reactbits/micro), each on the step it was asked for.
-import TearTicket from '@/components/ui/reactbits/micro/TearTicket'
-import StarBorder from '@/components/ui/reactbits/micro/StarBorder'
-import CrystalizedBall from '@/components/ui/reactbits/micro/CrystalizedBall'
-import InfiniteSpiral from '@/components/ui/reactbits/micro/InfiniteSpiral'
-import MaskedHeading from '@/components/ui/reactbits/micro/MaskedHeading'
-import FlowingMenu from '@/components/ui/reactbits/micro/FlowingMenu'
+import { Welcome } from '@/components/onboarding/Welcome'
 // R16 — the rest of the Aceternity set, each on the step it was picked for.
 // Provenance and digests: frontend/scripts/aceternity-sources.json.
-import { ColourfulText } from '@/components/ui/aceternity/ColourfulText'
 import { ContainerTextFlip } from '@/components/ui/aceternity/ContainerTextFlip'
 // The canvas reveal brings three.js with it (~880 kB, its own chunk). The
 // modes step is the second screen of a first run, so it is loaded when that
@@ -57,14 +47,6 @@ import { encryptWithPassphrase } from '@/lib/crypto/vault'
 import { setVaultPassphrase } from '@/lib/crypto/session'
 import type { ThemeId } from '@/types'
 import { clsx } from 'clsx'
-
-/** The wallpapers the first-run spiral travels through (served from /public). */
-const SPIRAL_ITEMS = [
-  '/wallpapers/glaze-1.webp', '/wallpapers/chromatic-dark-1.webp', '/wallpapers/glass-rainbow.webp',
-  '/wallpapers/mono-dark-1.webp', '/wallpapers/red-distortion-1.webp', '/wallpapers/loupe-mono-dark.webp',
-  '/wallpapers/chromatic-dark-2.webp', '/wallpapers/mono-dark-2.webp', '/wallpapers/red-distortion-4.webp',
-  '/wallpapers/chromatic-light-2.webp',
-]
 
 /**
  * The rounds of first run.
@@ -350,152 +332,8 @@ export function Onboarding() {
   const railed = step > 0 && step < 7 && STEPS[step].cta && !isCarousel
 
   const body = [
-    /* 0 — Welcome. Laid out as a page: the promise and the way in sit side by
-          side, and the explainer, the stars and the spiral run in a row below. */
-    <div key="s0" className="w-full max-w-[1180px] mx-auto">
-      <div className="grid gap-10 lg:grid-cols-2 items-center">
-        <div className="text-center lg:text-left">
-          <div className="relative inline-flex items-center justify-center mb-6">
-            {/* A faceted crystal behind the mark — decorative, and it holds still
-                under reduced motion. */}
-            <div className="absolute -inset-6 opacity-60">
-              <CrystalizedBall size={104} />
-            </div>
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 20, stiffness: 260 }}
-              className="relative inline-flex items-center justify-center w-16 h-16 rounded-[20px]"
-              style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-              <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-              </svg>
-            </motion.div>
-          </div>
-          <h1 className="text-[40px] leading-[1.05] font-bold" style={{ letterSpacing: '-0.03em', fontFamily: DISPLAY }}>Research Engine</h1>
-          {/* Aceternity's Colourful Text, on the one line that should be colourful. */}
-          <h2 className="mt-3 text-[18px] font-semibold" style={{ letterSpacing: '-0.02em', color: 'var(--text-2)', fontFamily: GEOMETRIC }}>
-            The swiss knife of <ColourfulText text="AI Research" />.
-          </h2>
-          {/* Snap Text: the three promises, one per row. The wallpapers are the
-              app's own, so nothing is fetched from outside the machine. */}
-          <div className="mt-4 mx-auto lg:mx-0 w-full max-w-[460px] h-[168px]" style={{ fontFamily: GEOMETRIC }}>
-            <SnapText
-              items={['Perplexity-level answers.', 'Zero data leaves your device.', 'Only the calls you aim leave.']}
-              images={['/wallpapers/glaze-1.webp', '/wallpapers/chromatic-dark-1.webp', '/wallpapers/mono-dark-1.webp']}
-              colors={['var(--primary)', 'var(--secondary)', 'var(--text-1)']}
-              inactiveColor="var(--text-3)"
-              initialIndex={0}
-              itemHeight={56}
-              fontSize="clamp(1.05rem, 2.6vw, 1.45rem)"
-              imageFrameWidth={96}
-              imageFrameRadius={12}
-              showCounter={false}
-              className="h-full"
-            />
-          </div>
-          <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-5" style={{ fontFamily: POPPINS }}>
-            {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Learn', 'Agent Flood'].map((t, i) => (
-              <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
-                className="px-3 py-1 rounded-full text-[11.5px] font-medium"
-                style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
-                {t}
-              </motion.span>
-            ))}
-          </div>
-        </div>
-
-        <div className="text-center lg:text-left">
-          {/* The first-run heading wipes on with a travelling mask. */}
-          <div className="text-[14px] mb-3" style={{ color: 'var(--text-2)', fontFamily: DISPLAY, fontWeight: 600 }}>
-            <MaskedHeading text="Pick where to start" mediaType="image" src="/wallpapers/glaze-1.webp" />
-          </div>
-          {/* Flowing Menu: each row is a way in. Its items are links, so one click
-              handler on the wrapper turns any of them into "continue". */}
-          <div className="flex justify-center h-[200px] w-full"
-            onClickCapture={(e) => { if ((e.target as HTMLElement).closest('a')) { e.preventDefault(); next() } }}>
-            <FlowingMenu items={[
-              { link: '#research', text: 'Research', image: '/wallpapers/glaze-1.webp' },
-              { link: '#learn', text: 'Learn', image: '/wallpapers/chromatic-dark-1.webp' },
-              { link: '#build', text: 'Build', image: '/wallpapers/mono-dark-1.webp' },
-            ]} />
-          </div>
-          <div className="mt-6 flex justify-center lg:justify-start">
-            {/* StarBorder is the requested frame for the get-started button: a border
-                traced by travelling stars rather than a static outline. */}
-            <StarBorder onClick={next} className="w-52 h-12">
-              Get started <ArrowRight size={15} />
-            </StarBorder>
-          </div>
-          {/* A tear-off ticket as a second, more playful way into the app. */}
-          <div className="mt-5 flex justify-center lg:justify-start">
-            <TearTicket
-              width={320}
-              height={120}
-              stub={<span className="text-[12px] font-semibold">Tear to open</span>}
-              onTear={next}
-              background="var(--surface)"
-              color="var(--text-1)"
-              stubBackground="var(--elevated)"
-              borderColor="var(--surface-border)"
-              ariaLabel="Tear to open Research Engine"
-            >
-              <div className="p-4 text-left">
-                <div className="text-[13px] font-semibold" style={{ fontFamily: DISPLAY }}>Research Engine</div>
-                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-3)' }}>Your local-first AI workspace.</div>
-              </div>
-            </TearTicket>
-          </div>
-        </div>
-      </div>
-
-      {/* The explainer row: the circuit-board flow on the left, the stars, the
-          typewriter line and the spiral of the app's wallpapers on the right. */}
-      <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] items-center">
-        <div className="overflow-x-auto" aria-label="How ResearchEngine works">
-          <CircuitBoard
-            width={520}
-            height={200}
-            label="How a question flows through ResearchEngine"
-            nodes={[
-              { id: 'q', x: 60, y: 100, label: 'You ask', status: 'active' },
-              { id: 'src', x: 200, y: 40, label: 'Your sources', status: 'processing' },
-              { id: 'web', x: 200, y: 160, label: 'Web search', status: 'inactive' },
-              { id: 'ai', x: 340, y: 100, label: 'Your model', status: 'processing' },
-              { id: 'out', x: 470, y: 100, label: 'Cited answer', status: 'active' },
-            ]}
-            connections={[
-              { from: 'q', to: 'src', animated: true },
-              { from: 'q', to: 'web', animated: true },
-              { from: 'src', to: 'ai', animated: true },
-              { from: 'web', to: 'ai', animated: true },
-              { from: 'ai', to: 'out', animated: true, bidirectional: false },
-            ]}
-          />
-        </div>
-        <div className="flex flex-col items-center gap-4">
-          {/* real star count from the GitHub API; renders nothing at all when the
-              machine is offline, so no invented numbers on an offline-first app */}
-          <GitHubStarsAnimation owner="timetorepo" repo="researchengine" maxAvatars={5} />
-          <div className="h-[16px] text-[11.5px] font-mono" style={{ color: 'var(--text-3)' }}>
-            <TypewriterText speed={34}>local-first · bring your own key · works offline</TypewriterText>
-          </div>
-          {/* Infinite Spiral: the app's own wallpapers travel round a helix. It holds
-              still under reduce-motion. */}
-          <div className="mt-2 h-[300px] w-full max-w-[400px]">
-            <InfiniteSpiral
-              items={SPIRAL_ITEMS}
-              radius={120}
-              cardWidth={96}
-              cardHeight={96}
-              verticalSpacing={54}
-              cardsPerTurn={7}
-              cardRadius={14}
-              edgeFade={0.35}
-              grayscale={0.2}
-            />
-          </div>
-        </div>
-      </div>
-    </div>,
+    // 0 — Welcome: a scrolling page. The tear ticket at its end is the only way on.
+    <Welcome key="s0" onTear={next} />,
 
     /* 1 — Handle. The handle rolls in with HandleReel. Roll re-deals the other
           names at random and lands on the one the user picked. */
@@ -880,17 +718,17 @@ export function Onboarding() {
     <div className="fixed inset-0 z-[70]">
     <AuroraBackground className="h-full w-full">
       <div className="h-full flex flex-col">
-        {/* progress */}
+        {/* progress. On the welcome page the dots only show progress; the ticket moves on. */}
         <div className="flex items-center justify-center gap-1.5 pt-8">
           {STEPS.map((s, i) => (
-            <button key={s.label} onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${s.label}`} title={s.label}
-              className="h-1.5 rounded-full transition-all"
+            <button key={s.label} onClick={() => setStep(i)} disabled={step === 0} aria-label={`Step ${i + 1}: ${s.label}`} title={s.label}
+              className="h-1.5 rounded-full transition-all disabled:cursor-default"
               style={{ width: i === step ? 28 : 8, background: i <= step ? 'var(--primary)' : 'var(--elevated)' }} />
           ))}
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 overscroll-contain">
-          <div className="min-h-full flex items-center justify-center">
+          <div className={step === 0 ? 'min-h-full' : 'min-h-full flex items-center justify-center'}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
