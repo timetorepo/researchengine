@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 46 versions, 0.53.0 back to 0.10.0.
+ * 47 versions, 0.54.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,57 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.54.0",
+    "tag": "v0.54.0",
+    "name": "one Composio identity, artifacts, live bot replies",
+    "date": "2026-10-23",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.54.0",
+    "summary": "Installers: Research.Engine_0.54.0_x64-setup.exe and Research.Engine_0.54.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.54.0 — one Composio identity, artifacts, live bot replies",
+        "items": [
+          {
+            "label": "Connectors uses your Composio user id.",
+            "text": "The Automatic identity is gone. Save your Composio user id in Connectors, and the apps you connect are filed under it. Connect stays off until an id is saved, and the card says why."
+          },
+          {
+            "label": "Code opens as an artifact.",
+            "text": "Code blocks with three or more lines have an Artifact button. It opens a side panel with the code and, for HTML, SVG, JavaScript and React, a live preview served from this machine. The preview runs in a sandbox with no access to the app."
+          },
+          {
+            "label": "Bot replies stream in.",
+            "text": "One-to-one bot replies and group-room replies appear as they are written. Tool lines stay hidden until the answer is ready."
+          },
+          {
+            "label": "Chain of thought streams and folds.",
+            "text": "The thinking section streams while the model thinks, folds once when the answer starts, and the answer is what you read next."
+          },
+          {
+            "label": "Source chips show the site's icon.",
+            "text": "Each source shows its site's favicon, fetched as soon as the answer arrives."
+          },
+          {
+            "label": "/ and @ work anywhere in the message.",
+            "text": "Type them at the caret, not only at the start. @ lists the apps you connected in Connectors too."
+          },
+          {
+            "label": "ChatGPT, Gemini and Claude Markdown render properly.",
+            "text": "ChatGPT's \\[ \\] and \\( \\) math, Gemini's [cite: n] markers and Claude's cite tags are turned into the forms the chat already shows, and ChatGPT's citation tokens are dropped or linked."
+          },
+          {
+            "label": "The expanded sidebar header no longer crowds.",
+            "text": "The logo gives up room first, so the notification bell and the collapse button keep their size and their clicks."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 8,
+      "sections": 1
+    }
+  },
   {
     "version": "0.53.0",
     "tag": "v0.53.0",

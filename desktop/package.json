@@ -1,7 +1,7 @@
 {
   "name": "research-engine-desktop",
   "private": true,
-  "version": "0.53.0",
+  "version": "0.54.0",
   "type": "module",
   "description": "Research Engine desktop shell (Tauri 2) \u2014 OS webview + local backend, no Electron.",
   "scripts": {
