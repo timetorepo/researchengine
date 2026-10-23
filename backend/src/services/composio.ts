@@ -102,8 +102,12 @@ async function send(key: string, header: string, method: string, path: string, b
   return { ok: true, value: json }
 }
 
+const CONSUMER_KEY_MSG =
+  'That is a Connect consumer key (it starts with ck_). Composio uses it for its Connect MCP endpoint, not for this API. Connectors needs the project API key, which starts with ak_: Composio dashboard → Settings → Project Settings → API Keys.'
+
 /** The header this key goes in. Probes the three kinds once; a key nobody accepts gets no header. */
 async function headerFor(key: string): Promise<ComposioResult<string>> {
+  if (key.startsWith('ck_')) return { ok: false, error: CONSUMER_KEY_MSG, status: 400 }
   const fp = keyFingerprint(key)
   const known = headerByKey.get(fp)
   if (known) return { ok: true, value: known }

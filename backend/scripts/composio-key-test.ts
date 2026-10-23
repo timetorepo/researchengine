@@ -45,6 +45,12 @@ calls = []
 await checkKey('ak_project_123')
 check('a known project key is one request', calls.length === 1 && calls[0] === 'x-api-key', calls.join(','))
 
+// A Connect consumer key (ck_) is not a REST key: say so, and send nothing.
+calls = []
+const ck = await checkKey('ck_consumer_1')
+check('a ck_ consumer key gets the project-key message', !ck.ok && /ak_/.test(ck.error) && /ck_/.test(ck.error), JSON.stringify(ck))
+check('a ck_ consumer key is not sent to Composio', calls.length === 0, calls.join(','))
+
 // Nothing accepts it: a clear message, and the key is not echoed.
 calls = []
 const bad = await checkKey('nope_secret_value')
