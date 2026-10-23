@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 45 versions, 0.52.0 back to 0.10.0.
+ * 46 versions, 0.53.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,41 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.53.0",
+    "tag": "v0.53.0",
+    "name": "a connectors marketplace, built-in integrations in one place",
+    "date": "2026-10-23",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.53.0",
+    "summary": "Installers: Research.Engine_0.53.0_x64-setup.exe and Research.Engine_0.53.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.53.0 — a connectors marketplace, built-in integrations in one place",
+        "items": [
+          {
+            "label": "Connectors is a marketplace.",
+            "text": "One row in the sidebar opens every app Composio supports, with search and categories. Connect an app from there: Composio's sign-in opens in a small window, and the list updates when it is done."
+          },
+          {
+            "label": "Built-in integrations moved into Connectors.",
+            "text": "Files, Google Drive, Gmail, Google Calendar, GitHub, Notion and Slack now sit under the Built in tab, with the step-by-step tutorial and the connection log. Settings has no Integrations tab any more, and the composer's plug menu opens Connectors."
+          },
+          {
+            "label": "The Composio key is pasted once.",
+            "text": "It is entered in the marketplace and stays on this device, encrypted when the vault is on."
+          },
+          {
+            "label": "The sidebar no longer stacks sections on top of each other.",
+            "text": "Connectors is a single row, so nothing overlaps the nav items or Settings on shorter windows."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 4,
+      "sections": 1
+    }
+  },
   {
     "version": "0.52.0",
     "tag": "v0.52.0",
