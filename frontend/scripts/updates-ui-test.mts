@@ -186,7 +186,7 @@ async function main() {
   const shippedVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version as string
   const shippedBase = shippedVersion.replace(/-.*$/, '')
   check('the whole record is here, from the first pre-release to now', CHANGELOG.length >= 29, String(CHANGELOG.length))
-  check('the newest entry is the version this build ships', CHANGELOG[0].version === shippedBase, `${CHANGELOG[0].version} vs ${shippedBase}`)
+  check('the newest entry is the version this build ships', CHANGELOG[0].version === shippedVersion, `${CHANGELOG[0].version} vs ${shippedVersion}`)
   check('the oldest is the first pre-release', CHANGELOG[CHANGELOG.length - 1].version === '0.10.0')
   check('every version carries a date, a summary and at least one section',
     CHANGELOG.every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && r.summary.length > 20 && r.sections.length > 0))

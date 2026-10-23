@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 47 versions, 0.54.0 back to 0.10.0.
+ * 48 versions, 1.0.0-release back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,41 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.0.0-release",
+    "tag": "v1.0.0-release",
+    "name": "the first full release: Composio connects inside the app",
+    "date": "2026-10-24",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.0.0-release",
+    "summary": "Installers: Research.Engine_1.0.0-release_x64-setup.exe and Research.Engine_1.0.0-release_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.0.0-release — the first full release: Composio connects inside the app",
+        "items": [
+          {
+            "label": "Apps connect inside Research Engine.",
+            "text": "Press Connect on an app in Connectors. Composio's sign-in opens in a small window, and the app shows it as connected when you finish. Disconnect from the same list."
+          },
+          {
+            "label": "Your Composio key is recognised.",
+            "text": "The project key (ak_…) works wherever it was created. A Connect consumer key (ck_…) is named as the wrong key, with where to find the right one."
+          },
+          {
+            "label": "The app list loads.",
+            "text": "Live apps are no longer hidden by a field that Composio sends as an object. The catalog loads in one request, and checking the key warms it up."
+          },
+          {
+            "label": "One Composio identity.",
+            "text": "Save your Composio user id in Connectors. Connections are filed under it. The Automatic identity is gone."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 4,
+      "sections": 1
+    }
+  },
   {
     "version": "0.54.0",
     "tag": "v0.54.0",

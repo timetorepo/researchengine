@@ -7,7 +7,7 @@
 
 **Search, read, study, write, code and design, with every page, note, quiz and draft staying on your machine.**
 
-[![Release](https://img.shields.io/badge/release-v0.54.0-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.0--release-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#your-work-stays-yours)
@@ -47,6 +47,7 @@ You do not need to be technical. For real AI answers you need one thing: an acco
 
 The last few releases, newest first. Full notes are on the [releases page](https://github.com/timetorepo/researchengine/releases).
 
+- **1.0.0-release: the first full release.** Apps connect inside Research Engine from Connectors, with your Composio project key. The app list loads, and bot replies, artifacts and the Gemini, Claude and ChatGPT Markdown all came in with 0.54.0.
 - **0.54.0: one Composio identity, artifacts, live bot replies.** Connectors files your connections under the Composio user id you save. Code opens as an artifact, with a live preview on this machine. Bot replies and chain of thought stream in as they are written, and ChatGPT, Gemini and Claude Markdown render properly.
 - **0.53.0: a connectors marketplace, built-in integrations in one place.** Connectors is one row in the sidebar, and it opens every app Composio supports. Connect an app there, without going to the Composio website. Files, Drive, Gmail, Calendar, GitHub, Notion and Slack moved in from Settings, under the Built in tab.
 - **0.52.0: a calmer first run, connectors, documentation lookup, long sessions.** The welcome is a page you scroll, and only the tear ticket moves on. Connectors lists the apps Composio supports, under Automatic or your own Composio account. The chat and the bots can look up current docs through Context7 with no setup. Roles are picked by plain name, and the app chooses the ECC members that fit. Long sessions stay fast, with capped context and an optional daily token budget.
