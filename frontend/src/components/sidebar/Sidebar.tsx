@@ -20,7 +20,8 @@ import { prefetchRoute, routePathOf, navigateNow } from '@/lib/routes/registry'
 import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_DWELL_EXPANDED_MS } from './ChatsFlyout'
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
-import { Bot as BotIcon, CalendarDays } from 'lucide-react'
+import { Bot as BotIcon, CalendarDays, Plug } from 'lucide-react'
+import { ConnectorsSection } from './ConnectorsSection'
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -134,18 +135,21 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
               </DockItem>
             )
           })}
+          <DockItem index={NAV.length + 2} label="Connectors" onClick={() => { ui.toggleSidebar() }}>
+            <Plug size={18} strokeWidth={1.5} />
+          </DockItem>
           <DockSpacer />
           <DockDivider />
-          <DockItem index={NAV.length + 2} label="Theme" onClick={() => useUI.getState().openSettings('appearance')}>
+          <DockItem index={NAV.length + 3} label="Theme" onClick={() => useUI.getState().openSettings('appearance')}>
             <DockThemeIcon />
           </DockItem>
-          <DockItem index={NAV.length + 3} label="Notifications" onClick={() => useUI.getState().openSettings('notifications')}>
+          <DockItem index={NAV.length + 4} label="Notifications" onClick={() => useUI.getState().openSettings('notifications')}>
             <NotificationBell compact />
           </DockItem>
-          <DockItem index={NAV.length + 4} label="Settings" onClick={() => useUI.getState().openSettings()}>
+          <DockItem index={NAV.length + 5} label="Settings" onClick={() => useUI.getState().openSettings()}>
             <Settings size={18} strokeWidth={1.5} />
           </DockItem>
-          <DockItem index={NAV.length + 5} label="Profile" onClick={() => useUI.getState().openSettings('profile')}>
+          <DockItem index={NAV.length + 6} label="Profile" onClick={() => useUI.getState().openSettings('profile')}>
             <UserAvatar size={22} />
           </DockItem>
         </DockRail>
@@ -173,6 +177,10 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             ))}
           </nav>
 
+          {/* Connectors: every app Composio supports, connected from here. */}
+          <div className="mt-2 min-h-0" style={{ borderTop: '1px solid var(--surface-border)' }}>
+            <ConnectorsSection />
+          </div>
         </>
       )}
 
@@ -563,7 +571,7 @@ function DockThemeIcon() {
 /** Bottom padding that makes the collapsed rail feel like a shelf rather than
  *  a column that ran out of room. */
 function DockSpacer() {
-  return <div className="flex-1 min-h-2" />
+  return <div className="re-dock-spacer" />
 }
 
 function IconBtn({ children, label, onClick, active = false }: { children: React.ReactNode; label: string; onClick: () => void; active?: boolean }) {

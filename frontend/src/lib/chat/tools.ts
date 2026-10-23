@@ -247,6 +247,63 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'composio_apps',
+    description: 'List the apps the user has CONNECTED through Composio (Gmail, Slack, GitHub, Notion, Linear and any other app they signed into under Connectors). Call this first to see what is available. If the app a person asks about is not listed, say so and tell them to connect it under Connectors; do not guess.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    run: async () => {
+      const { composioConfigured, listComposioAccounts, isActiveAccount } = await import('@/lib/composio/client')
+      if (!composioConfigured()) return 'Composio is not set up. Add the project key under Connectors in the sidebar.'
+      try {
+        const active = (await listComposioAccounts()).filter(isActiveAccount)
+        return active.length ? JSON.stringify({ connected: active.map((a) => ({ app: a.toolkit, alias: a.alias ?? null })) }) : 'No apps are connected yet. Connect one under Connectors in the sidebar.'
+      } catch (e: any) {
+        return `Could not list connected apps: ${String(e?.message ?? e)}`
+      }
+    },
+  },
+  {
+    name: 'composio_tools',
+    description: 'List the actions one connected app offers (for example gmail, slack, github). Returns tool names such as GMAIL_FETCH_EMAILS with what each does. Use one of these names with composio_run.',
+    parameters: {
+      type: 'object',
+      properties: { app: opt('string', 'App slug, e.g. gmail, slack, github, notion') },
+      required: ['app'],
+    },
+    run: async (args) => {
+      const { listComposioTools } = await import('@/lib/composio/client')
+      try {
+        const tools = await listComposioTools(String(args?.app ?? '').trim().toLowerCase())
+        return JSON.stringify({ app: args?.app, tools: tools.slice(0, 60) }).slice(0, 12_000)
+      } catch (e: any) {
+        return `Could not list the actions: ${String(e?.message ?? e)}`
+      }
+    },
+  },
+  {
+    name: 'composio_run',
+    description: 'Run one action of a CONNECTED app (name from composio_tools, e.g. GMAIL_FETCH_EMAILS) with its arguments as a JSON object. Read actions are fine to run for the person. Before an action that sends, posts, deletes or changes something, say what you will do and wait for their go-ahead.',
+    parameters: {
+      type: 'object',
+      properties: {
+        tool: opt('string', 'Action name, e.g. GMAIL_FETCH_EMAILS'),
+        arguments: opt('string', 'JSON object of arguments for the action, e.g. {"max_results": 5}'),
+      },
+      required: ['tool'],
+    },
+    run: async (args) => {
+      const { runComposioTool } = await import('@/lib/composio/client')
+      let input: Record<string, unknown> = {}
+      const raw = args?.arguments
+      if (typeof raw === 'string' && raw.trim()) {
+        try { input = JSON.parse(raw) } catch { return 'The arguments must be a JSON object.' }
+      } else if (raw && typeof raw === 'object') {
+        input = raw as Record<string, unknown>
+      }
+      const res = await runComposioTool(String(args?.tool ?? ''), input)
+      return res.ok ? JSON.stringify(res.data ?? null).slice(0, 12_000) : `The action failed: ${res.error}`
+    },
+  },
+  {
     name: 'connector_search',
     description: 'Search the user\'s connected local data: Google Drive files, Mail messages and Calendar events (all stored locally in Research Engine). Returns matching items with ids you can open via connector_read.',
     parameters: {
@@ -919,6 +976,7 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else if (def.name === 'design_controls') trace('map controls', 'ok')
     else if (def.name === 'design_console') trace('read console', 'ok')
     else if (def.name === 'ask_user') trace('asking you a few questions', 'ok')
+    else if (def.name.startsWith('composio')) trace(`${def.name === 'composio_run' ? 'run' : 'connectors'} ${String(args.tool ?? args.app ?? '')}`.slice(0, 60), 'ok')
     else if (def.name.startsWith('connector')) trace(`${def.name === 'connector_search' ? 'search' : 'read'} ${String(args.box ?? args.query ?? '')}`.slice(0, 60), 'ok')
     else if (def.name === 'web_search') trace(`web search: ${String(args.query ?? '').slice(0, 50)}`, 'ok')
     else if (def.name === 'library_search') trace(`library search: ${String(args.query ?? '').slice(0, 44)}`, 'ok')

@@ -14,10 +14,12 @@
 import { generateText } from '@/lib/chat/generate'
 import { useBots } from './store'
 import { webOpen, webSearch } from './web'
+import { searchIntegrations } from '@/lib/integrations/client'
+import { composioConfigured, isActiveAccount, listComposioAccounts, listComposioTools, runComposioTool } from '@/lib/composio/client'
 import {
-  buildHandoffPrompt, buildRoomPrompt, buildRoutinePrompt, buildSystemPrompt, buildTurnPrompt, dueRoutines,
+  buildHandoffPrompt, buildRoomPrompt, buildRoutinePrompt, buildSystemPrompt, buildTurnPrompt, dueRoutines, roleMethodFor,
   fallbackBrief, findToolCall, isPass, memoryCommand, pickSpeaker, stripToolLines, MAX_ROOM_TURNS, MAX_TOOL_STEPS,
-  type Bot, type Project, type Routine, type Source, type Room,
+  type Bot, type Project, type Routine, type Source, type Room, type ToolCall,
 } from './logic'
 
 const MODEL_MISSING = 'No model is set up. Connect a provider in Settings → Providers, then try again.'
@@ -38,43 +40,89 @@ async function model(system: string, prompt: string, maxTokens = 900): Promise<M
 export type Reply = { ok: true; text: string; trace: string[]; sources: Source[] } | { ok: false; error: string; trace: string[]; sources: Source[] }
 
 /**
- * One reply from a bot. With web access, the model may ask for up to
- * MAX_TOOL_STEPS searches or page reads; each result is added to the prompt
- * and the model writes the answer after them.
+ * One reply from a bot. The model may ask for up to MAX_TOOL_STEPS tool steps (web
+ * search and page reads when web access is on; connected accounts and apps always).
+ * Each result is added to the prompt, and the model writes the answer after them.
  */
 export async function converse(bot: Bot, prompt: string): Promise<Reply> {
   const web = bot.webAccess === true
-  const system = buildSystemPrompt(bot, { web })
+  const system = buildSystemPrompt(bot, { web, roleText: await roleMethodFor(bot, prompt) })
   const trace: string[] = []
   const sources: Source[] = []
   let transcript = prompt
   for (let step = 0; ; step++) {
     const res = await model(system, transcript)
     if (!res.ok) return { ok: false, error: res.error, trace, sources }
-    const call = web ? findToolCall(res.text) : null
+    const call = findToolCall(res.text, { web })
     if (!call || step >= MAX_TOOL_STEPS) {
       return { ok: true, text: stripToolLines(res.text) || res.text, trace, sources }
     }
-    if (call.kind === 'search') {
-      trace.push(`Searched “${call.query}”`)
-      const found = await webSearch(call.query)
-      const result = found.ok
-        ? (found.results.length
-          ? found.results.map((r, i) => `[${i + 1}] ${r.title} — ${r.url}\n${r.snippet}`).join('\n')
-          : 'The search found nothing.')
-        : `The search failed: ${found.error}`
-      if (found.ok) for (const r of found.results.slice(0, 3)) { if (!sources.some((s) => s.url === r.url)) sources.push({ title: r.title, url: r.url }) }
-      transcript += `\n\n${bot.name}: ${res.text}\n\nSearch results for “${call.query}”:\n${result}\n\nContinue. Answer, or use one more tool line if you must.`
-    } else {
-      trace.push(`Opened ${call.url}`)
-      const page = await webOpen(call.url)
-      const body = page.ok
-        ? `Page “${page.title}” (${page.url}, read ${page.via === 'browser' ? 'in the browser container' : 'directly'}):\n${page.text.slice(0, 6000)}`
-        : `The page could not be read: ${page.error}`
-      if (page.ok && !sources.some((s) => s.url === page.url)) sources.push({ title: page.title, url: page.url })
-      transcript += `\n\n${bot.name}: ${res.text}\n\n${body}\n\nContinue. Answer, or use one more tool line if you must.`
+    const result = await runToolCall(call, trace, sources)
+    transcript += `\n\n${bot.name}: ${res.text}\n\n${result}\n\nContinue. Answer, or use one more tool line if you must.`
+  }
+}
+
+/** Run one tool step and return what the model will read. Every step is written to the trace. */
+async function runToolCall(call: ToolCall, trace: string[], sources: Source[]): Promise<string> {
+  if (call.kind === 'search') {
+    trace.push(`Searched “${call.query}”`)
+    const found = await webSearch(call.query)
+    const result = found.ok
+      ? (found.results.length
+        ? found.results.map((r, i) => `[${i + 1}] ${r.title} — ${r.url}\n${r.snippet}`).join('\n')
+        : 'The search found nothing.')
+      : `The search failed: ${found.error}`
+    if (found.ok) for (const r of found.results.slice(0, 3)) { if (!sources.some((s) => s.url === r.url)) sources.push({ title: r.title, url: r.url }) }
+    return `Search results for “${call.query}”:\n${result}`
+  }
+  if (call.kind === 'open') {
+    trace.push(`Opened ${call.url}`)
+    const page = await webOpen(call.url)
+    const body = page.ok
+      ? `Page “${page.title}” (${page.url}, read ${page.via === 'browser' ? 'in the browser container' : 'directly'}):\n${page.text.slice(0, 6000)}`
+      : `The page could not be read: ${page.error}`
+    if (page.ok && !sources.some((s) => s.url === page.url)) sources.push({ title: page.title, url: page.url })
+    return body
+  }
+  if (call.kind === 'find') {
+    trace.push(`Searched accounts for “${call.query}”`)
+    try {
+      const reply = await searchIntegrations(call.query, { limit: 8 })
+      const lines = reply.results.slice(0, 20).map((r, i) => `[${i + 1}] (${r.integration}) ${r.title}${r.subtitle ? ` — ${r.subtitle}` : ''} · id ${r.id}`)
+      const problems = reply.errors.map((e) => `${e.name}: ${e.error ?? 'not connected'}`)
+      return [
+        lines.length ? `Found in their accounts for “${call.query}”:\n${lines.join('\n')}` : `Nothing in their accounts matched “${call.query}”.`,
+        problems.length ? `Could not search: ${problems.join('; ')}` : '',
+      ].filter(Boolean).join('\n')
+    } catch (e: any) {
+      return `The search failed: ${String(e?.message ?? e)}`
     }
   }
+  if (call.kind === 'apps') {
+    trace.push('Checked connected apps')
+    if (!composioConfigured()) return 'Composio is not set up. The person can add the project key under Connectors in the sidebar.'
+    try {
+      const active = (await listComposioAccounts()).filter(isActiveAccount)
+      return active.length ? `Connected apps: ${active.map((a) => a.toolkit).join(', ')}.` : 'No apps are connected yet.'
+    } catch (e: any) {
+      return `Could not list the apps: ${String(e?.message ?? e)}`
+    }
+  }
+  if (call.kind === 'tools') {
+    trace.push(`Listed actions for ${call.app}`)
+    try {
+      const tools = await listComposioTools(call.app)
+      if (!tools.length) return `${call.app} has no actions listed.`
+      return `Actions for ${call.app}:\n${tools.slice(0, 40).map((t) => `${t.slug} — ${t.description || t.name}`).join('\n')}`
+    } catch (e: any) {
+      return `Could not list the actions: ${String(e?.message ?? e)}`
+    }
+  }
+  // run
+  trace.push(`Ran ${call.tool}`)
+  const res = await runComposioTool(call.tool, call.args)
+  if (!res.ok) return `The action failed: ${res.error}`
+  return `Result of ${call.tool}:\n${JSON.stringify(res.data ?? null).slice(0, 6000)}`
 }
 
 /** Send the person's message to a Bot and store the reply. */

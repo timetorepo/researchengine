@@ -37,6 +37,8 @@
     "bots-test": "tsx scripts/bots-test.mts",
     "calendar-ui-test": "tsx --tsconfig tsconfig.json scripts/calendar-ui-test.mts",
     "bots-collab-test": "tsx scripts/bots-collab-test.mts",
+    "ecc-roles-test": "tsx scripts/ecc-roles-test.mts",
+    "connectors-test": "tsx scripts/connectors-test.mts",
     "bots-ui-test": "tsx --tsconfig tsconfig.json scripts/bots-ui-test.mts"
   },
   "dependencies": {

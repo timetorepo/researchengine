@@ -10,6 +10,8 @@
  * docs/research/grok-bot-notes.md.
  */
 
+import { familyForRole, roleText } from '@/lib/ecc/roles'
+
 export const MAX_ROUTINES = 50
 export const MIN_EVERY_MINUTES = 5
 export const MAX_RUNS_KEPT = 20
@@ -25,7 +27,7 @@ export const MAX_ROOM_THREAD = 300
 export const MAX_PROJECTS = 100
 /** Web steps (SEARCH or OPEN) one reply may take before the bot must answer. */
 export const MAX_TOOL_STEPS = 3
-/** Longest role template a Bot carries. */
+/** Longest legacy role template a Bot carries. */
 export const MAX_ROLE_PROMPT = 6000
 
 /** Bot avatars come from the bot-avatars package (libraries.dev, MIT). */
@@ -71,12 +73,17 @@ export interface Routine {
   runs: RoutineRun[]
 }
 
-/** A role template from ECC (affaan-m/ecc, MIT). The role's prompt is added to the bot's system prompt. */
+/**
+ * A role from ECC (affaan-m/ecc, MIT), chosen by its plain family name (Researcher,
+ * Workflow, …). The ECC members are picked per request, see lib/ecc/roles.ts. `id`
+ * is the family id; older bots stored one ECC agent id and still resolve.
+ */
 export interface BotRole {
   source: 'ecc'
   id: string
   name: string
-  prompt: string
+  /** Legacy: the single template stored by earlier versions. Used only if the role cannot be resolved. */
+  prompt?: string
 }
 
 export interface Bot {
@@ -263,18 +270,59 @@ export function memoryCommand(text: string): string | null {
   return m ? m[1].trim() : null
 }
 
-// ---------------------------------------------------------------- web tools
+// ---------------------------------------------------------------- tools
+//
+// A bot asks for a tool by writing one line. The steps run in the browser and the
+// result is added to the prompt; every step is kept with the reply.
+//   SEARCH: <query>      web search                 (web access on)
+//   OPEN: <https url>    read a page                (web access on)
+//   FIND: <query>        search connected accounts and local files
+//   APPS:                list the apps connected through Composio
+//   TOOLS: <app>         list the actions one app offers
+//   RUN: <ACTION> {json} run one action on a connected app
 
-export type ToolCall = { kind: 'search'; query: string } | { kind: 'open'; url: string }
+export type ToolCall =
+  | { kind: 'search'; query: string }
+  | { kind: 'open'; url: string }
+  | { kind: 'find'; query: string }
+  | { kind: 'apps' }
+  | { kind: 'tools'; app: string }
+  | { kind: 'run'; tool: string; args: Record<string, unknown>; raw: string }
 
-const TOOL_LINE = /^\s*(SEARCH|OPEN)\s*:\s*(.+?)\s*$/gim
+// Uppercase keyword and a colon, so an ordinary sentence such as "Run: npm test"
+// in a normal answer is never taken for a tool. APPS may stand alone.
+const TOOL_LINE = /^\s*(?:(SEARCH|OPEN|FIND|TOOLS|RUN)\s*:\s*(.*?)|(APPS)\s*:?)\s*$/gm
+const WEB_KINDS = new Set(['search', 'open'])
 
-/** The first SEARCH or OPEN line a reply asks for. Anything else is an answer. */
-export function findToolCall(text: string): ToolCall | null {
+function parseArgs(raw: string): { ok: true; value: Record<string, unknown> } | { ok: false } {
+  if (!raw.trim()) return { ok: true, value: {} }
+  try {
+    const v = JSON.parse(raw)
+    return v && typeof v === 'object' && !Array.isArray(v) ? { ok: true, value: v } : { ok: false }
+  } catch { return { ok: false } }
+}
+
+/**
+ * The first tool line a reply asks for. Anything else is an answer. Web lines are
+ * only read when web access is on; connector lines are always read.
+ */
+export function findToolCall(text: string, opts: { web?: boolean } = { web: true }): ToolCall | null {
+  const web = opts.web !== false
   for (const m of text.matchAll(TOOL_LINE)) {
-    const arg = m[2].trim()
-    if (m[1].toUpperCase() === 'SEARCH') return { kind: 'search', query: arg.slice(0, 200) }
-    if (isHttpUrl(arg)) return { kind: 'open', url: arg }
+    const kind = (m[1] ?? m[3] ?? '').toUpperCase()
+    const arg = (m[2] ?? '').trim()
+    if (kind === 'SEARCH') { if (web && arg) return { kind: 'search', query: arg.slice(0, 200) }; continue }
+    if (kind === 'OPEN') { if (web && isHttpUrl(arg)) return { kind: 'open', url: arg }; continue }
+    if (kind === 'FIND') { if (arg) return { kind: 'find', query: arg.slice(0, 200) }; continue }
+    if (kind === 'APPS') return { kind: 'apps' }
+    if (kind === 'TOOLS') { if (arg) return { kind: 'tools', app: arg.slice(0, 64).toLowerCase() }; continue }
+    if (kind === 'RUN') {
+      const sp = arg.search(/\s|\{/)
+      const tool = (sp < 0 ? arg : arg.slice(0, sp)).trim().toUpperCase()
+      const rest = sp < 0 ? '' : arg.slice(sp).trim()
+      const parsed = parseArgs(rest)
+      if (/^[A-Z0-9][A-Z0-9_]{1,119}$/.test(tool) && parsed.ok) return { kind: 'run', tool, args: parsed.value, raw: arg.slice(0, 300) }
+    }
   }
   return null
 }
@@ -282,6 +330,10 @@ export function findToolCall(text: string): ToolCall | null {
 /** The reply without its tool lines, so a step's request is never shown as the answer. */
 export function stripToolLines(text: string): string {
   return text.replace(TOOL_LINE, '').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+export function isWebCall(call: ToolCall): boolean {
+  return WEB_KINDS.has(call.kind)
 }
 
 export function webInstructions(): string {
@@ -293,25 +345,49 @@ export function webInstructions(): string {
   ].join('\n')
 }
 
+export function connectorInstructions(): string {
+  return [
+    'You also have access to the person\'s connected accounts and apps. Write one line to use one:',
+    'FIND: <query>  searches their connected accounts and local files.',
+    'APPS:  lists the apps they have connected through Composio.',
+    'TOOLS: <app>  lists the actions that app offers, e.g. TOOLS: gmail.',
+    'RUN: <ACTION> {"argument": "value"}  runs one action, using a name from TOOLS, e.g. RUN: GMAIL_FETCH_EMAILS {"max_results": 5}.',
+    'Only read or search unless the person has asked for a change. Before anything that sends, posts, deletes or edits, say what you will do and wait for their go-ahead.',
+    `Use at most ${MAX_TOOL_STEPS} tool lines in total, then answer with no tool line. Say plainly when an app is not connected.`,
+  ].join('\n')
+}
+
 // ---------------------------------------------------------------- prompts
 
-export function buildSystemPrompt(bot: Bot, opts: { web?: boolean } = {}): string {
+export function buildSystemPrompt(bot: Bot, opts: { web?: boolean; roleText?: string } = {}): string {
   const memory = bot.memory.length ? bot.memory.map((m) => `- ${m}`).join('\n') : '- (nothing saved yet)'
   const parts = [
     `You are ${bot.name}, a persistent AI teammate. Stay in this role across the conversation.`,
     bot.job ? `Your job: ${bot.job}` : 'Your job has not been written yet. Ask what the person wants from you.',
     `Things you have been asked to remember:\n${memory}`,
   ]
-  if (bot.role) {
-    parts.push(`Your working method, from the ${bot.role.name} role template:\n${bot.role.prompt.slice(0, MAX_ROLE_PROMPT)}`)
-  }
-  if (opts.web) {
-    parts.push(webInstructions())
-  } else {
-    parts.push('You work only from this conversation and these memories. You cannot browse the web, send messages, open files or act in other apps from here, so do not claim that you did. If something needs a source you do not have, say so.')
-  }
+  if (opts.roleText) parts.push(opts.roleText)
+  if (opts.web) parts.push(webInstructions())
+  else parts.push('Web access is off for you. You cannot browse the web, so do not claim that you looked anything up on it. If something needs a web source, say so.')
+  parts.push(connectorInstructions())
   parts.push('Keep replies short unless the person asks for detail.')
   return parts.join('\n\n')
+}
+
+/**
+ * The ECC working method for this reply: the bot's role family, with the members
+ * chosen against the request and the bot's job. Async because the ECC prompts are
+ * loaded on demand. A legacy role that cannot be resolved falls back to its stored
+ * template, capped. Returns '' when the bot has no role.
+ */
+export async function roleMethodFor(bot: Bot, request: string): Promise<string> {
+  if (!bot.role) return ''
+  const family = familyForRole(bot.role)
+  if (family) {
+    const { text } = await roleText(family, request, bot.job)
+    return text ? `Your role is ${family.name}. ${text}` : ''
+  }
+  return bot.role.prompt ? `Your working method, from the ${bot.role.name} role template:\n${bot.role.prompt.slice(0, MAX_ROLE_PROMPT)}` : ''
 }
 
 export function buildTurnPrompt(bot: Bot, userText: string): string {

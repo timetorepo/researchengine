@@ -14,9 +14,10 @@
 import {
   applyHandoff, avatarTypeFor, buildRoomPrompt, buildSystemPrompt, createBot, createProject, createRoom,
   fallbackBrief, findToolCall, isAvatarType, isPass, makeBundle, mentionsName, pickSpeaker, readBundle,
-  remapIncoming, stripToolLines, AVATAR_TYPES, MAX_ROLE_PROMPT, MAX_ROOM_MEMBERS, MAX_TOOL_STEPS,
+  remapIncoming, roleMethodFor, stripToolLines, AVATAR_TYPES, MAX_ROLE_PROMPT, MAX_ROOM_MEMBERS, MAX_TOOL_STEPS,
   type Bot, type Room, type Project,
 } from '../src/lib/bots/logic.ts'
+import { MAX_ROLE_TEXT } from '../src/lib/ecc/roles.ts'
 
 let passed = 0
 let failed = 0
@@ -77,9 +78,10 @@ check('without web access the prompt says it cannot browse', webOff.includes('ca
 check('with web access the prompt gives the tool lines', webOn.includes('SEARCH: <query>') && webOn.includes('OPEN: <https'))
 check('with web access the prompt drops the no-browse line', !webOn.includes('cannot browse'))
 const roled = bot('b9', 'Dee', { role: { source: 'ecc', id: 'planner', name: 'planner', prompt: 'x'.repeat(MAX_ROLE_PROMPT + 500) } })
-const roledPrompt = buildSystemPrompt(roled)
-check('an ECC role is included in the prompt', roledPrompt.includes('planner role template'))
-check('an ECC role is capped', roledPrompt.length < MAX_ROLE_PROMPT + 2000)
+const roledPrompt = buildSystemPrompt(roled, { roleText: await roleMethodFor(roled, 'review my python code') })
+check('a legacy ECC agent role resolves to its family', roledPrompt.includes('Your role is Workflow'))
+check('the family method names the members it drew on', roledPrompt.includes('from the Workflow role (planner'))
+check('the role text is capped', roledPrompt.length < MAX_ROLE_TEXT + 4000)
 
 console.log('6. Avatars')
 check('there are eighteen avatar shapes', AVATAR_TYPES.length === 18)

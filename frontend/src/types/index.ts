@@ -485,6 +485,8 @@ export interface Settings {
   sessionSwitchKey?: string
   /** Persona attached by default to new chats (empty: none). */
   defaultPersonaId?: string
+  /** A plain ECC role family (Researcher, Workflow, …) applied to new chats. The ECC members are chosen per request. */
+  defaultRoleId?: string
   modelDefaults: Record<string, { temperature: number; topP: number; maxTokens: number }>
   customSystemPrompts: Record<string, string>
   /**
@@ -544,6 +546,11 @@ export interface Settings {
     account?: string
     connectedAt?: number
   }>
+  /**
+   * Composio (connectors for 1000+ apps). `token` is the project key, encrypted
+   * like provider keys; `userId` is this machine's id for its connections.
+   */
+  composio?: { token?: string; userId?: string }
   /**
    * Models the user has taken out of the picker. Refs are "provider:model", so
    * hiding one provider's model never hides another's.

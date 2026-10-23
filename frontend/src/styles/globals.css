@@ -1826,9 +1826,16 @@ body {
 .re-dock {
   position: relative;
   gap: 2px;
-  /* The rail is 60px wide; the labels fly out of it, so nothing may clip. */
-  overflow: visible;
+  /* The rail is 60px wide and labels fly out through portals, so the rail itself
+     can scroll when a short window cannot fit every item. Before this, the items
+     shrank and the top and bottom icons were clipped and unclickable. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+.re-dock::-webkit-scrollbar { display: none; }
+.re-dock > * { flex-shrink: 0; }
+.re-dock > .re-dock-spacer { flex: 1 0 8px; }
 .re-dock-item { will-change: transform; }
 .re-dock-label {
   /* Above the page content, never in the way of the pointer. */

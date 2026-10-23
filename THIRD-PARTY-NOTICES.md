@@ -97,7 +97,7 @@ be reached from the build environment. None of their code is in this repository.
 
 Source: affaan-m/ecc (Everything Claude Code), pinned at commit 76aaa77df6adc5b889e689007bf99b9a4f74af34.
 Copyright (c) 2026 Affaan Mustafa, MIT licence. Vendored: sixteen skills (`frontend/src/content/skills/upstream/`,
-catalogued in `catalog.ts`) and eight agent roles (`frontend/src/content/ecc/agents.ts`). Refreshed by
+catalogued in `catalog.ts`) and all 71 agent roles (`frontend/src/content/ecc/agents.ts`, metadata in `meta.ts`). Refreshed by
 `scripts/vendor-skills.mjs --only …` and `scripts/vendor-ecc-agents.mjs`. The text is upstream's, unchanged except
 for a length cap on the agent roles, which is marked in the text.
 

@@ -189,11 +189,23 @@ function BotThread({ bot }: { bot: Bot }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [jobDraft, setJobDraft] = useState(bot.job)
-  const endRef = useRef<HTMLDivElement | null>(null)
+  // The message list is the one scroll container. The card has a height, so the
+  // list scrolls inside it. Scrolling the list (not the page) keeps the top of the
+  // card, and the composer, where they are.
+  const threadRef = useRef<HTMLDivElement | null>(null)
   const ui = useUI()
 
   useEffect(() => { setJobDraft(bot.job); setText('') }, [bot.id])
-  useEffect(() => { endRef.current?.scrollIntoView?.({ block: 'end' }) }, [bot.thread.length])
+  // A new message scrolls the list to its end, but only when the person is already
+  // near the end; if they scrolled up to read, it stays where they are.
+  useEffect(() => {
+    const el = threadRef.current
+    if (!el) return
+    const last = bot.thread[bot.thread.length - 1]
+    const nearEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 160
+    if (nearEnd || last?.role === 'user') el.scrollTop = el.scrollHeight
+  }, [bot.thread.length, bot.thread])
+  useEffect(() => { const el = threadRef.current; if (el) el.scrollTop = el.scrollHeight }, [bot.id])
 
   const send = async () => {
     const t = text.trim()
@@ -210,7 +222,7 @@ function BotThread({ bot }: { bot: Bot }) {
   }
 
   return (
-    <div className="surface flex flex-col min-h-[560px]">
+    <div className="surface flex flex-col h-[min(720px,calc(100dvh-220px))] min-h-[420px] overflow-hidden">
       <header className="px-4 py-3 flex items-start gap-3" style={{ borderBottom: '1px solid var(--surface-border)' }}>
         <BotFace bot={bot} size={36} busy={busy} />
         <div className="min-w-0 flex-1">
@@ -229,7 +241,7 @@ function BotThread({ bot }: { bot: Bot }) {
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" aria-live="polite">
+      <div ref={threadRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-3" aria-live="polite" aria-label={`Conversation with ${bot.name}`} tabIndex={0}>
         {bot.thread.length === 0 && (
           <p className="text-[12.5px] text-center py-10" style={{ color: 'var(--text-3)' }}>
             Say what you need. To save something for later, start with “remember:”.
@@ -253,7 +265,6 @@ function BotThread({ bot }: { bot: Bot }) {
           </div>
         ))}
         {busy && <div className="text-[11.5px] inline-flex items-center gap-1.5" style={{ color: 'var(--text-3)' }}><Loader2 size={12} className="animate-spin" /> {bot.name} is thinking</div>}
-        <div ref={endRef} />
       </div>
 
       <form className="p-3 flex items-end gap-2" style={{ borderTop: '1px solid var(--surface-border)' }}

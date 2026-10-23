@@ -1,6 +1,7 @@
 // The send pipeline: classify → prune → shape prompt → call provider (or
 // local demo) → stream → record Flow transparency stats.
 import { inferWorkMode, type WorkMode } from '@/lib/prompts/workModes'
+import { familyById, roleText } from '@/lib/ecc/roles'
 import { nanoid } from 'nanoid'
 import type { IntegrationId } from '@/lib/integrations/registry'
 import { useStore } from '@/stores/useStore'
@@ -216,6 +217,15 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (slug) {
       const pt = await personaText(slug)
       if (pt) system = `# Persona (follow its voice and rules where they do not conflict with the user)\n${pt.slice(0, 8000)}\n\n${system}`
+    }
+  }
+  // ECC role: the default role's ECC members are picked for this question and the
+  // custom instructions, and their method is added below the base prompt.
+  {
+    const family = familyById(settings.defaultRoleId ?? '')
+    if (family) {
+      const { text } = await roleText(family, prompt, customSys ?? '')
+      if (text) system = `${system}\n\n# Role (apply its method where it fits the question)\n${text}`
     }
   }
   // Attached skill packs ride below the base prompt, capped per pack.
