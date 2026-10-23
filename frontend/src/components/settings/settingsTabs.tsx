@@ -5,7 +5,6 @@ import { Wallet, KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Datab
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
-import { IntegrationsTab } from './IntegrationsTab'
 import { SearchTab } from './SearchTab'
 import { AppearanceTab } from './AppearanceTab'
 import { ModelsTab } from './ModelsTab'
@@ -29,7 +28,6 @@ export const TABS = [
   { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'providers', label: 'Providers', icon: KeyRound },
   { id: 'updates', label: 'Updates', icon: ArrowDownToLine },
-  { id: 'integrations', label: 'Integrations', icon: Plug },
   { id: 'voice', label: 'Voice', icon: Mic },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'search', label: 'Search', icon: Search },
@@ -83,7 +81,6 @@ export function renderTab(tab: string): React.ReactNode {
     case 'profile': return <ProfileTab />
     case 'providers': return <ProvidersTab />
     case 'updates': return <UpdatesTab />
-    case 'integrations': return <IntegrationsTab />
     case 'voice': return <VoiceTab />
     case 'notifications': return <NotificationsTab />
     case 'search': return <SearchTab />

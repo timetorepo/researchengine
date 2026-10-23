@@ -79,6 +79,8 @@ interface UIState {
   updatePopup: string | null
   /** The Connectors marketplace dialog is open. */
   connectorsOpen: boolean
+  /** Which tab of the Connectors marketplace is showing. */
+  connectorsTab: 'apps' | 'builtin'
   /** How many Composio accounts are connected, for the sidebar row. */
   connectorsCount: number
   /**
@@ -160,6 +162,7 @@ export const useUI = create<UIState>((set, get) => ({
   tasksOpen: false,
   updatePopup: null,
   connectorsOpen: false,
+  connectorsTab: 'apps',
   connectorsCount: 0,
   composerSeed: null,
   handoff: null,

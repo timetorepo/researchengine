@@ -25,6 +25,7 @@ import {
   type ComposioAccount, type ComposioApp, type ComposioIdentityMode,
 } from '@/lib/composio/client'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
+import { IntegrationsPanel } from '@/components/settings/IntegrationsTab'
 
 const PAGE = 48
 const CHIPS = 10
@@ -41,6 +42,7 @@ const primary = { background: 'var(--primary)', color: '#fff' } as const
 
 export function ConnectorsMarketplace() {
   const open = useUI((s) => s.connectorsOpen)
+  const tab = useUI((s) => s.connectorsTab)
   const count = useUI((s) => s.connectorsCount)
   const identity = useStore((s) => s.settings.composio)
   const configured = !!identity?.token
@@ -255,7 +257,19 @@ export function ConnectorsMarketplace() {
         </ModalHeader>
 
         <ModalBody>
-          {!configured ? (
+          <div role="tablist" aria-label="Connectors" className="grid grid-cols-2 gap-1 p-0.5 rounded-[11px] mb-4" style={{ background: 'var(--elevated)' }}>
+            {([['apps', 'Apps'], ['builtin', 'Built in']] as const).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={tab === id}
+                onClick={() => useUI.setState({ connectorsTab: id })}
+                className="px-3 py-1.5 rounded-[9px] text-[12px] font-medium transition-colors"
+                style={{ background: tab === id ? 'var(--surface)' : 'transparent', color: tab === id ? 'var(--text-1)' : 'var(--text-3)', border: tab === id ? '1px solid var(--surface-border)' : '1px solid transparent' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {tab === 'builtin' ? (
+            <IntegrationsPanel />
+          ) : !configured ? (
             <div className="space-y-3 max-w-md">
               <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
                 One project key lets the chat and the bots reach every app Composio supports. Paste it here once; it stays on this device, encrypted when the vault is on.
@@ -416,7 +430,7 @@ export function ConnectorsMarketplace() {
           )}
         </ModalBody>
 
-        {configured && (
+        {configured && tab === 'apps' && (
           <ModalFooter className="justify-between">
             <button type="button" onClick={refreshAll} disabled={refreshing} className="text-[11.5px] underline underline-offset-2 inline-flex items-center gap-1" style={muted}>
               {refreshing && <Loader2 size={11} className="animate-spin" />} Refresh list

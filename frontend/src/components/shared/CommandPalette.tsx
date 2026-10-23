@@ -97,7 +97,7 @@ export function CommandPalette() {
     }))
     const intItems: Item[] = Object.entries(integrations).map(([k, v]) => ({
       id: `int-${k}`, label: `Integration — ${k}`, sub: v.connected ? 'Connected' : 'Not connected', icon: Plug, kind: 'Integration',
-      run: () => { ui.set({ settingsOpen: true, settingsTab: 'integrations' }); navigate('/settings') }, score: 0,
+      run: () => { ui.set({ connectorsOpen: true, connectorsTab: 'builtin' }) }, score: 0,
     }))
     const workflowItems: Item[] = workflows.map((w) => ({
       id: `wf-${w.id}`, label: w.name, sub: `${w.nodes.length} nodes`, icon: WorkflowIcon, kind: 'Workflow',

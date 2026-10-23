@@ -94,7 +94,7 @@ export function IntegrationsMenu({
   }, [query, settings.integrations])
 
   const openSettings = useCallback(() => {
-    useUI.getState().set({ settingsOpen: true, settingsTab: 'integrations' })
+    useUI.getState().set({ connectorsOpen: true, connectorsTab: 'builtin' })
     onClose()
   }, [onClose])
 

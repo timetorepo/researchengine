@@ -2739,8 +2739,8 @@ async function main() {
       useUI.setState({ settingsOpen: false, settingsTab: 'providers' })
       fire(manage)
       await wait(120)
-      check('which opens Settings on Integrations', useUI.getState().settingsOpen === true && useUI.getState().settingsTab === 'integrations',
-        `${useUI.getState().settingsOpen} / ${useUI.getState().settingsTab}`)
+      check('which opens the Built in tab of Connectors', useUI.getState().connectorsOpen === true && useUI.getState().connectorsTab === 'builtin',
+        `${useUI.getState().connectorsOpen} / ${useUI.getState().connectorsTab}`)
     }
     plugRoot.unmount()
     plugAnchor.remove()

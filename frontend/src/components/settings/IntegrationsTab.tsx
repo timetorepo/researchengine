@@ -302,7 +302,9 @@ function ConnectorDataPanel() {
   )
 }
 
-export function IntegrationsTab() {
+/** The built-in integrations: accounts, the local workspace, and the connection log.
+ *  Lives in the Connectors marketplace ("Built in" tab). */
+export function IntegrationsPanel() {
   const integrations = useStore((s) => s.integrations)
   const log = useStore((s) => s.connectionLog)
   const ui = useUI()
@@ -318,10 +320,8 @@ export function IntegrationsTab() {
 
   return (
     <div>
-      <div className="flex items-start gap-3 mb-5">
-        <div className="flex-1">
-          <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Integrations</h2>
-        </div>
+      <div className="flex items-start gap-3 mb-4">
+        <div className="flex-1" />
         <button onClick={() => setTutorial((t) => !t)}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-medium"
           style={{
