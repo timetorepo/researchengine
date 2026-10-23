@@ -10,6 +10,8 @@ import { runReplicate } from './replicate'
 import { perfCaps } from '@/lib/system/performance'
 import { createFlowRun, shapeConfigFrom } from '@/lib/flow/engine'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
+import { LIMITS, clip, compactToolRounds } from '@/lib/context/budget'
+import { assertBudget, recordTokens } from '@/lib/usage/guard'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
 import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
@@ -225,13 +227,13 @@ export async function runChat(opts: RunOptions): Promise<void> {
     const family = familyById(settings.defaultRoleId ?? '')
     if (family) {
       const { text } = await roleText(family, prompt, customSys ?? '')
-      if (text) system = `${system}\n\n# Role (apply its method where it fits the question)\n${text}`
+      if (text) system = `${system}\n\n# Role (apply its method where it fits the question)\n${clip(text, LIMITS.roleText)}`
     }
   }
   // Attached skill packs ride below the base prompt, capped per pack.
   if ((liveChat.skillPacks ?? []).length) {
     const texts = await Promise.all(liveChat.skillPacks!.slice(0, 3).map((id) => packText(id)))
-    const joined = texts.filter(Boolean).join('\n\n---\n\n')
+    const joined = clip(texts.filter(Boolean).join('\n\n---\n\n'), LIMITS.skillPacks)
     if (joined) system = `${system}\n\n# Attached skill packs (apply their rules while answering)\n${joined}`
   }
   // The model can hand work back to the app: markers the UI turns into chips.
@@ -267,7 +269,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
       const thinNote = rag.stats.thin
         ? ' Grounding is thin — few sources or none fully read — so say plainly where the answer rests on your own knowledge rather than the sources.'
         : ''
-      system += `\n\n${rag.context}\n\nGrounding rules: answer the user's question completely — several sentences at minimum, never just a list of links. Cite inline with [n] markers, using ONLY numbers 1–${ragSourceCount} that appear above; prefer primary and trusted sources over web-tier ones, and say which tier a claim leans on when it matters. Where sources disagree, say so instead of blending them into one confident sentence. Attribute each factual claim to a source; never state as retrieved fact anything the sources do not contain.${thinNote}`
+      system += `\n\n${clip(rag.context, LIMITS.retrieved)}\n\nGrounding rules: answer the user's question completely — several sentences at minimum, never just a list of links. Cite inline with [n] markers, using ONLY numbers 1–${ragSourceCount} that appear above; prefer primary and trusted sources over web-tier ones, and say which tier a claim leans on when it matters. Where sources disagree, say so instead of blending them into one confident sentence. Attribute each factual claim to a source; never state as retrieved fact anything the sources do not contain.${thinNote}`
       useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
     } else {
       const outcome = await webSearch(prompt, perfCaps().searchResults)
@@ -304,7 +306,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     // so the skill picker and this prompt can never drift apart.
     system += `\n\n${CODING_RULES}`
     if (opts.projectTree) {
-      const tree = shieldOutbound(opts.projectTree.slice(0, 4000))
+      const tree = shieldOutbound(clip(opts.projectTree, LIMITS.projectTree))
       if (tree.findings.length) recordScan('coding project tree', tree.findings)
       system += `\nProject files:\n${tree.text}`
     }
@@ -324,7 +326,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     system += `\n\nIf the user asks for code rather than an explanation — build me an app, write a script, make a website, fix this project, refactor that — call the start_coding_mode tool FIRST with a short project name and one line for the user, then do the work inside the coding workspace it opens. Do not ask permission to switch, and do not try to write files from a research chat: the file tools only exist there. Explaining code, answering questions about code, and reviewing a snippet do NOT need the switch.`
   }
   if (opts.preamble) system += `\n\n${opts.preamble}`
-  system += mcpContextBlock()
+  system += clip(mcpContextBlock(), LIMITS.mcpBlock)
   system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`
 
   // ---- connector references attached from the chatbox picker ----
@@ -357,7 +359,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (parts.length) {
       // Attached connector data is user content heading outbound — run it
       // through the Privacy Shield so secrets are redacted per the active mode.
-      const joined = shieldOutbound(parts.join('\n\n'))
+      const joined = shieldOutbound(clip(parts.join('\n\n'), LIMITS.connectorRefs))
       if (joined.findings.length) recordScan(`connector attachments (${opts.contextRefs!.length})`, joined.findings)
       system += `\n\nThe user attached these connector items to the message — use them directly:\n\n${joined.text}`
     }
@@ -483,6 +485,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
       // Shield the assembled system context as a final boundary. This covers
       // generated search/MCP/project context that may not have passed through
       // an earlier content-specific path.
+      assertBudget()
       const shieldedSystem = shieldOutbound(system)
       if (shieldedSystem.findings.length) recordScan(`system context → ${providerMeta!.name}`, shieldedSystem.findings)
 
@@ -505,7 +508,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
           // Our own patience for this provider, in seconds, set by the user.
           timeoutMs: (settings.providerTimeouts?.[providerId] ?? 45) * 1000,
           system: shieldedSystem.text,
-          messages: current,
+          messages: round > 1 ? compactToolRounds(current) : current,
           temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
           maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
           signal: controller.signal,
@@ -526,7 +529,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
           const result = await executeTool({ id: tc.id, name: tc.name, arguments: tc.arguments }, toolCtx, trace)
           // Tool output re-enters the outbound conversation on the next round
           // (a file read could surface a .env secret) — shield it too.
-          const shielded = shieldOutbound(result)
+          const shielded = shieldOutbound(clip(result, LIMITS.toolResultChars))
           if (shielded.findings.length) recordScan(`tool result · ${tc.name}`, shielded.findings)
           current.push({ role: 'tool', toolCallId: tc.id, name: tc.name, content: shielded.text })
         }
@@ -623,6 +626,7 @@ function finish(
   }
   usage.total = usage.prompt + usage.completion
   if (usage.total > 0) store.addTokensUsed(usage.total)
+  if (usage.total > 0 && !ctx.usedDemo) recordTokens(usage.total)
 
   const followUps = DEMO_FOLLOW_UPS
     .sort(() => Math.random() - 0.5)

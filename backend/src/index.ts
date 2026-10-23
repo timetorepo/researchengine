@@ -48,6 +48,7 @@ async function main() {
   const { ollamaRoutes } = await import('./routes/ollama')
   const { integrationRoutes } = await import('./routes/integrations')
   const { composioRoutes } = await import('./routes/composio')
+  const { context7Routes } = await import('./routes/context7')
   const { resourceRoutes } = await import('./routes/resources')
   const { fsRoutes } = await import('./routes/fs')
   const { providerRoutes } = await import('./routes/providers')
@@ -86,6 +87,7 @@ async function main() {
   app.route('/api/ollama', ollamaRoutes)
   app.route('/api/integrations', integrationRoutes(rt))
   app.route('/api', composioRoutes(rt))
+  app.route('/api', context7Routes(rt))
   app.route('/api', providerRoutes)
   // The updater. Everything it can touch is guarded inside update/service.ts.
   app.route('/api', updateRoutes(rt))

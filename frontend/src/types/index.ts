@@ -478,6 +478,8 @@ export interface Settings {
   aiThemeWelcome?: boolean
   flowEnabled: boolean
   flowMode: FlowMode
+  /** Real tokens per local day before new requests stop. 0 = no limit. */
+  dailyTokenBudget?: number
   defaultModel: string // "provider:model"
   /** Effort level sent to providers that understand it (Claude, OpenAI…). */
   effort?: string
@@ -550,7 +552,9 @@ export interface Settings {
    * Composio (connectors for 1000+ apps). `token` is the project key, encrypted
    * like provider keys; `userId` is this machine's id for its connections.
    */
-  composio?: { token?: string; userId?: string }
+  composio?: { token?: string; userId?: string; identityMode?: 'automatic' | 'account'; accountUserId?: string }
+  /** Optional Context7 key. Documentation search works without one, at lower limits. */
+  context7?: { token?: string }
   /**
    * Models the user has taken out of the picker. Refs are "provider:model", so
    * hiding one provider's model never hides another's.

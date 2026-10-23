@@ -15,6 +15,7 @@ export function formatTokens(n: number): string {
   return `${Math.round(n / 1000)}k`
 }
 import { Markdown } from './Markdown'
+import { StreamingText } from './StreamingText'
 import { ReplicateTimeline } from './ReplicateTimeline'
 import { ThinkingPhases } from './ThinkingPhases'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
@@ -361,7 +362,9 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                 onRestore={() => store.getState().updateMessage(chatId, msg.id, { humanized: undefined, humanizedBy: undefined, humanizeError: undefined })}
               />
             ) : (
-              !msg.humanizing && <Markdown content={stripMarkers(msg.content)} streaming={streaming} sources={msg.sources} />
+              !msg.humanizing && (streaming
+                ? <StreamingText content={stripMarkers(msg.content)} sources={msg.sources} />
+                : <Markdown content={stripMarkers(msg.content)} sources={msg.sources} />)
             )}
             {msg.humanizeError && <HumanizeError message={msg.humanizeError} onRetry={() => void runHumanize()} />}
           </>

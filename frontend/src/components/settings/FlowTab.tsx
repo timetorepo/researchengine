@@ -7,6 +7,8 @@ import { flowDiagnostics } from '@/lib/flow/engine'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { fmt } from '@/lib/utils'
 import { ToggleRow } from './AppearanceTab'
+import { DAILY_BUDGET_CHOICES, budgetState } from '@/lib/usage/guard'
+import { localDay } from '@/lib/usage/day'
 
 const MODES = [
   { id: 'efficient', name: 'Efficient', desc: 'Maximum token savings. Aggressive context pruning.' },
@@ -80,6 +82,8 @@ export function FlowTab() {
   const savedLifetime = useStore((s) => s.tokensSavedLifetime)
   const diagnostics = useUI((s) => s.diagnostics)
   const update = (patch: any) => useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
+  const dailyUsage = useStore((s) => s.dailyUsage)
+  const budget = { ...budgetState(), used: dailyUsage.day === localDay() ? dailyUsage.tokens : 0 }
 
   return (
     <div>
@@ -105,6 +109,30 @@ export function FlowTab() {
 
       <ToggleRow label="Enable AIFlowEngine" desc="Applies to chat and every Agent Flood agent by default."
         value={settings.flowEnabled} onChange={(v) => update({ flowEnabled: v })} />
+
+      <div className="mt-5">
+        <div className="text-[13px] font-medium mb-1">Daily token budget</div>
+        <p className="text-[12px] mb-2" style={{ color: 'var(--text-3)' }}>
+          Real provider tokens per day, counted across chat, bots and agents. New requests stop at the limit, so a runaway loop cannot run up a bill. The on-device engine is never counted.
+          Today: {budget.used.toLocaleString()} of {budget.limit ? budget.limit.toLocaleString() : 'no limit'}.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {DAILY_BUDGET_CHOICES.map((v) => (
+            <button key={v} onClick={() => update({ dailyTokenBudget: v })}
+              className="px-3 py-1.5 rounded-[10px] text-[12.5px] transition-colors"
+              style={{
+                background: budget.limit === v ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--surface)',
+                border: `1px solid ${budget.limit === v ? 'var(--primary)' : 'var(--surface-border)'}`,
+                color: budget.limit === v ? 'var(--text-1)' : 'var(--text-2)',
+              }}>
+              {v === 0 ? 'No limit' : `${(v / 1_000_000).toFixed(0)}M / day`}
+            </button>
+          ))}
+        </div>
+        {budget.state === 'blocked' && (
+          <p className="text-[12px] mt-2" style={{ color: 'var(--danger, #e5484d)' }}>Today's budget is spent. Raise it or wait until tomorrow.</p>
+        )}
+      </div>
 
       <div className="mt-5">
         <div className="text-[13px] font-medium mb-2">Mode</div>

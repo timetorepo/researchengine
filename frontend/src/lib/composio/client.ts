@@ -48,13 +48,42 @@ export function composioConfigured(): boolean {
   return !!useStore.getState().settings.composio?.token
 }
 
-/** The user id Composio files this machine's connections under. Made once. */
+export type ComposioIdentityMode = 'automatic' | 'account'
+
+/** Same rule the server applies to user ids (letters, digits and _ . @ : -, up to 128). */
+export const COMPOSIO_USER_RE = /^[A-Za-z0-9_.@:-]{1,128}$/
+
+export function composioIdentity(): { mode: ComposioIdentityMode; accountUserId: string } {
+  const c = useStore.getState().settings.composio ?? {}
+  return { mode: c.identityMode === 'account' ? 'account' : 'automatic', accountUserId: c.accountUserId ?? '' }
+}
+
+/**
+ * The user id Composio files connections under. Two ways to get one:
+ *  - "account": the person's own Composio user id (the one their Composio
+ *    dashboard uses). Connections made there show up here.
+ *  - "automatic": an id made once on this machine, so nothing needs typing.
+ */
 export function composioUserId(): string {
+  const who = composioIdentity()
+  if (who.mode === 'account' && COMPOSIO_USER_RE.test(who.accountUserId.trim())) return who.accountUserId.trim()
   const current = useStore.getState().settings.composio?.userId
   if (current) return current
   const id = `re-${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`
   useStore.setState((s) => ({ settings: { ...s.settings, composio: { ...(s.settings.composio ?? {}), userId: id } } }))
   return id
+}
+
+/** Switch identity mode. Returns an error text when the chosen account id is not usable. */
+export function setComposioIdentity(mode: ComposioIdentityMode, accountUserId?: string): string | null {
+  const id = (accountUserId ?? composioIdentity().accountUserId).trim()
+  if (mode === 'account' && !COMPOSIO_USER_RE.test(id)) {
+    return 'Enter your Composio user id: letters, numbers, and _ . @ : - only, up to 128 characters.'
+  }
+  useStore.setState((s) => ({
+    settings: { ...s.settings, composio: { ...(s.settings.composio ?? {}), identityMode: mode, accountUserId: id } },
+  }))
+  return null
 }
 
 /** Save (or clear) the project key, encrypted when the vault is in use. */
@@ -64,7 +93,7 @@ export async function saveComposioKey(raw: string): Promise<void> {
   const token = key ? (pass ? await encryptWithPassphrase(key, pass) : key) : undefined
   useStore.setState((s) => {
     const prev = s.settings.composio ?? {}
-    return { settings: { ...s.settings, composio: token ? { ...prev, token } : { userId: prev.userId } } }
+    return { settings: { ...s.settings, composio: token ? { ...prev, token } : { ...prev, token: undefined } } }
   })
 }
 

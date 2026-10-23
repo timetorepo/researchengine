@@ -1,3 +1,4 @@
+import { clip } from '@/lib/context/budget'
 /**
  * Bots, as plain data and plain rules. A Bot is a named teammate with a job,
  * its own thread, memory it keeps, and routines that run on a schedule. Bots can
@@ -29,6 +30,9 @@ export const MAX_PROJECTS = 100
 export const MAX_TOOL_STEPS = 3
 /** Longest legacy role template a Bot carries. */
 export const MAX_ROLE_PROMPT = 6000
+/** Context budget for bots: each message in a prompt is capped, and only the newest memories are sent. */
+export const BOT_MESSAGE_CHARS = 2000
+export const MAX_MEMORY_IN_PROMPT = 30
 
 /** Bot avatars come from the bot-avatars package (libraries.dev, MIT). */
 export const AVATAR_TYPES = [
@@ -280,6 +284,7 @@ export function memoryCommand(text: string): string | null {
 //   APPS:                list the apps connected through Composio
 //   TOOLS: <app>         list the actions one app offers
 //   RUN: <ACTION> {json} run one action on a connected app
+//   DOCS: <library> | <question>  current documentation (Context7)
 
 export type ToolCall =
   | { kind: 'search'; query: string }
@@ -287,12 +292,14 @@ export type ToolCall =
   | { kind: 'find'; query: string }
   | { kind: 'apps' }
   | { kind: 'tools'; app: string }
+  | { kind: 'docs'; query: string; library?: string }
   | { kind: 'run'; tool: string; args: Record<string, unknown>; raw: string }
 
 // Uppercase keyword and a colon, so an ordinary sentence such as "Run: npm test"
 // in a normal answer is never taken for a tool. APPS may stand alone.
-const TOOL_LINE = /^\s*(?:(SEARCH|OPEN|FIND|TOOLS|RUN)\s*:\s*(.*?)|(APPS)\s*:?)\s*$/gm
+const TOOL_LINE = /^\s*(?:(SEARCH|OPEN|FIND|TOOLS|RUN|DOCS)\s*:\s*(.*?)|(APPS)\s*:?)\s*$/gm
 const WEB_KINDS = new Set(['search', 'open'])
+/** Documentation lookups are read-only, so they are always allowed. */
 
 function parseArgs(raw: string): { ok: true; value: Record<string, unknown> } | { ok: false } {
   if (!raw.trim()) return { ok: true, value: {} }
@@ -315,6 +322,15 @@ export function findToolCall(text: string, opts: { web?: boolean } = { web: true
     if (kind === 'OPEN') { if (web && isHttpUrl(arg)) return { kind: 'open', url: arg }; continue }
     if (kind === 'FIND') { if (arg) return { kind: 'find', query: arg.slice(0, 200) }; continue }
     if (kind === 'APPS') return { kind: 'apps' }
+    if (kind === 'DOCS') {
+      // DOCS: <library> | <question>, or DOCS: <question>
+      if (!arg) continue
+      const bar = arg.indexOf('|')
+      const library = bar < 0 ? undefined : arg.slice(0, bar).trim().slice(0, 80) || undefined
+      const query = (bar < 0 ? arg : arg.slice(bar + 1)).trim().slice(0, 300)
+      if (query.length >= 2) return { kind: 'docs', query, library }
+      continue
+    }
     if (kind === 'TOOLS') { if (arg) return { kind: 'tools', app: arg.slice(0, 64).toLowerCase() }; continue }
     if (kind === 'RUN') {
       const sp = arg.search(/\s|\{/)
@@ -350,6 +366,7 @@ export function connectorInstructions(): string {
     'You also have access to the person\'s connected accounts and apps. Write one line to use one:',
     'FIND: <query>  searches their connected accounts and local files.',
     'APPS:  lists the apps they have connected through Composio.',
+    'DOCS: <library> | <question>  looks up current documentation (e.g. DOCS: next.js | how do route handlers stream?). Use it before you state how a library works.',
     'TOOLS: <app>  lists the actions that app offers, e.g. TOOLS: gmail.',
     'RUN: <ACTION> {"argument": "value"}  runs one action, using a name from TOOLS, e.g. RUN: GMAIL_FETCH_EMAILS {"max_results": 5}.',
     'Only read or search unless the person has asked for a change. Before anything that sends, posts, deletes or edits, say what you will do and wait for their go-ahead.',
@@ -360,7 +377,9 @@ export function connectorInstructions(): string {
 // ---------------------------------------------------------------- prompts
 
 export function buildSystemPrompt(bot: Bot, opts: { web?: boolean; roleText?: string } = {}): string {
-  const memory = bot.memory.length ? bot.memory.map((m) => `- ${m}`).join('\n') : '- (nothing saved yet)'
+  // Newest memories first when there are many, so the most recent ones always fit.
+  const kept = bot.memory.slice(-MAX_MEMORY_IN_PROMPT)
+  const memory = kept.length ? kept.map((m) => `- ${m}`).join('\n') : '- (nothing saved yet)'
   const parts = [
     `You are ${bot.name}, a persistent AI teammate. Stay in this role across the conversation.`,
     bot.job ? `Your job: ${bot.job}` : 'Your job has not been written yet. Ask what the person wants from you.',
@@ -392,7 +411,7 @@ export async function roleMethodFor(bot: Bot, request: string): Promise<string> 
 
 export function buildTurnPrompt(bot: Bot, userText: string): string {
   const recent = bot.thread.filter((m) => m.role !== 'note').slice(-CONTEXT_MESSAGES)
-  const lines = recent.map((m) => `${m.role === 'user' ? 'Person' : bot.name}: ${m.text}`)
+  const lines = recent.map((m) => `${m.role === 'user' ? 'Person' : bot.name}: ${clip(m.text, BOT_MESSAGE_CHARS)}`)
   return [
     lines.length ? `Recent conversation:\n${lines.join('\n')}` : 'This is the first message.',
     `Person: ${userText}`,
@@ -452,7 +471,7 @@ export function buildRoomPrompt(room: Room, bot: Bot, bots: Bot[]): string {
     if (m.role === 'user') return `Person: ${m.text}`
     if (m.role === 'note') return `(note) ${m.text}`
     const who = bots.find((b) => b.id === m.botId)?.name ?? 'Bot'
-    return `${who}: ${m.text}`
+    return `${who}: ${clip(m.text, BOT_MESSAGE_CHARS)}`
   })
   return [
     `You are in a group chat called "${room.name}" with: ${names.join(', ')}.`,

@@ -1,3 +1,4 @@
+import { LIMITS, clip } from '@/lib/context/budget'
 /**
  * Runs a Bot: a reply in its thread, a turn in a group room, a handoff, or a
  * routine on its schedule. All of them use the model you have configured (the
@@ -58,7 +59,7 @@ export async function converse(bot: Bot, prompt: string): Promise<Reply> {
       return { ok: true, text: stripToolLines(res.text) || res.text, trace, sources }
     }
     const result = await runToolCall(call, trace, sources)
-    transcript += `\n\n${bot.name}: ${res.text}\n\n${result}\n\nContinue. Answer, or use one more tool line if you must.`
+    transcript += `\n\n${bot.name}: ${res.text}\n\n${clip(result, LIMITS.toolResultChars)}\n\nContinue. Answer, or use one more tool line if you must.`
   }
 }
 
@@ -97,6 +98,14 @@ async function runToolCall(call: ToolCall, trace: string[], sources: Source[]): 
     } catch (e: any) {
       return `The search failed: ${String(e?.message ?? e)}`
     }
+  }
+  if (call.kind === 'docs') {
+    trace.push(`Read the docs for ${call.library ?? call.query.slice(0, 40)}`)
+    const { searchDocs } = await import('@/lib/context7/client')
+    const res = await searchDocs(call.query, call.library)
+    if (!res.ok) return `The documentation lookup failed: ${res.error}`
+    if (!res.hits.length) return `No documentation matched “${call.query}”. Say so rather than guessing.`
+    return clip(res.hits.map((h) => [`${h.library} — ${h.title}`.trim(), h.info, ...h.code.map((c) => '```\n' + c + '\n```')].filter(Boolean).join('\n')).join('\n\n'), LIMITS.toolResultChars)
   }
   if (call.kind === 'apps') {
     trace.push('Checked connected apps')

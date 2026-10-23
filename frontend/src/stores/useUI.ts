@@ -193,3 +193,12 @@ export const useUI = create<UIState>((set, get) => ({
   clearNotices: () => { saveNotices([]); set({ notices: [] }) },
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))
+
+// Browser storage filled up and the saved copy was trimmed: say so once, in the
+// same toast channel as everything else (see lib/security/lock.ts).
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage-trimmed', (e) => {
+    const note = (e as CustomEvent<string>).detail
+    useUI.getState().toast('Storage is nearly full', note, 'warning')
+  })
+}

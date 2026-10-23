@@ -10,6 +10,7 @@ import { builtinSkills } from '@/lib/skills/builtins'
 import type { WalletState } from '@/lib/wallet/types'
 import { builtinSquads } from '@/lib/agents/squads'
 import { scopedStorage } from '@/lib/security/lock'
+import { localDay } from '@/lib/usage/day'
 import { DEFAULT_BUBBLES } from '@/lib/chat/bubbles'
 
 export const AGENT_COLORS = ['#6C8EEF', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#22D3EE', '#F472B6']
@@ -68,6 +69,8 @@ interface StoreState {
   logConnection: (endpoint: string, purpose: string, bytes: number, status?: 'ok' | 'error' | 'local') => void
   addTokensSaved: (n: number) => void
   addTokensUsed: (n: number) => void
+  dailyUsage: { day: string; tokens: number }
+  addDailyTokens: (n: number) => void
   resetAll: () => void
 
   // tasks (shared by Research and Coding)
@@ -96,6 +99,7 @@ const defaultSettings: Settings = {
   reduceMotion: false,
   flowEnabled: true,
   flowMode: 'balanced',
+  dailyTokenBudget: 2_000_000,
   defaultModel: '',
   modelDefaults: {},
   customSystemPrompts: {},
@@ -308,6 +312,12 @@ export const useStore = create<StoreState>()(
       }),
 
       addTokensUsed: (n) => set((s) => ({ tokensUsedSession: s.tokensUsedSession + Math.max(0, Math.round(n)) })),
+      dailyUsage: { day: '', tokens: 0 },
+      addDailyTokens: (n) => set((s) => {
+        const day = localDay()
+        const base = s.dailyUsage.day === day ? s.dailyUsage.tokens : 0
+        return { dailyUsage: { day, tokens: base + Math.max(0, Math.round(n)) } }
+      }),
       addTokensSaved: (n) => set((s) => ({
         tokensSavedSession: s.tokensSavedSession + n,
         tokensSavedLifetime: s.tokensSavedLifetime + n,
@@ -345,6 +355,7 @@ export const useStore = create<StoreState>()(
         workflows: s.workflows,
         settings: s.settings, tokensSavedLifetime: s.tokensSavedLifetime,
         totalRequests: s.totalRequests,
+        dailyUsage: s.dailyUsage,
       }),
       // Deep-merge persisted state over fresh defaults so settings fields added
       // in newer versions (themeFavorites, masterPromptOverrides, …) are never

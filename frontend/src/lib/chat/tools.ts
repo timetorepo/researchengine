@@ -304,6 +304,25 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'docs_search',
+    description: 'Look up CURRENT documentation and code examples for a library, framework or API (Context7). Use it before writing code against a library, or when a question is about how a specific version of a tool behaves. Give the question and optionally the library name, e.g. query "stream a response in Next.js route handlers", library "next.js". Cite the library and version in the answer.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: opt('string', 'What you need to know, in plain words'),
+        library: opt('string', 'Optional library or framework name(s), comma-separated'),
+      },
+      required: ['query'],
+    },
+    run: async (args) => {
+      const { searchDocs } = await import('@/lib/context7/client')
+      const res = await searchDocs(String(args?.query ?? ''), args?.library ? String(args.library) : undefined)
+      if (!res.ok) return `Documentation lookup failed: ${res.error}`
+      if (!res.hits.length) return 'No documentation matched. Say so rather than guessing.'
+      return JSON.stringify(res.hits).slice(0, 12_000)
+    },
+  },
+  {
     name: 'connector_search',
     description: 'Search the user\'s connected local data: Google Drive files, Mail messages and Calendar events (all stored locally in Research Engine). Returns matching items with ids you can open via connector_read.',
     parameters: {
@@ -976,6 +995,7 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else if (def.name === 'design_controls') trace('map controls', 'ok')
     else if (def.name === 'design_console') trace('read console', 'ok')
     else if (def.name === 'ask_user') trace('asking you a few questions', 'ok')
+    else if (def.name === 'docs_search') trace(`docs: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
     else if (def.name.startsWith('composio')) trace(`${def.name === 'composio_run' ? 'run' : 'connectors'} ${String(args.tool ?? args.app ?? '')}`.slice(0, 60), 'ok')
     else if (def.name.startsWith('connector')) trace(`${def.name === 'connector_search' ? 'search' : 'read'} ${String(args.box ?? args.query ?? '')}`.slice(0, 60), 'ok')
     else if (def.name === 'web_search') trace(`web search: ${String(args.query ?? '').slice(0, 50)}`, 'ok')
