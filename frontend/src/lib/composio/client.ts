@@ -107,13 +107,27 @@ async function readError(res: Response): Promise<string> {
   return typeof body?.error === 'string' ? body.error : `Composio answered ${res.status}.`
 }
 
-/** Does the saved key work? Never shows the key. */
+/**
+ * Does the saved key work? Never shows the key. Each failure says what actually
+ * went wrong: a locked vault is not a rejected key, and a missing answer is not
+ * a verdict on the key.
+ */
 export async function checkComposio(): Promise<{ configured: boolean; ok: boolean; apps?: number; error?: string }> {
   if (!composioConfigured()) return { configured: false, ok: false }
+  let key: string
   try {
-    const res = await fetch('/api/composio/status', { headers: await headers() })
-    const body = await res.json().catch(() => ({} as any))
-    return { configured: true, ok: !!body.ok, apps: body.apps, error: body.error }
+    key = await composioKey()
+  } catch {
+    return { configured: true, ok: false, error: 'The Composio key is encrypted and the vault is locked. Unlock the vault, then press Check key.' }
+  }
+  if (!key) return { configured: true, ok: false, error: 'The saved Composio key could not be read. Paste it again.' }
+  try {
+    const res = await fetch('/api/composio/status', { headers: { 'x-re-composio-key': key } })
+    const body = await res.json().catch(() => null as any)
+    if (!body || typeof body.ok !== 'boolean') {
+      return { configured: true, ok: false, error: `The local server answered ${res.status} without a result. Restart the app and try again.` }
+    }
+    return { configured: true, ok: body.ok, apps: body.apps, error: body.ok ? undefined : (typeof body.error === 'string' ? body.error : 'Composio did not accept the key.') }
   } catch {
     return { configured: true, ok: false, error: 'The local server did not answer.' }
   }

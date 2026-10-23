@@ -56,6 +56,9 @@ export function ConnectorsMarketplace() {
   const [error, setError] = useState<string | null>(null)
   const [waiting, setWaiting] = useState<Waiting | null>(null)
   const [keyDraft, setKeyDraft] = useState('')
+  /** Which destructive action is waiting for its second press (no window.confirm: it can be blocked in the app). */
+  const [armed, setArmed] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
   const who = composioIdentity()
   const [idMode, setIdMode] = useState<ComposioIdentityMode>(who.mode)
   const [idDraft, setIdDraft] = useState(who.accountUserId)
@@ -91,7 +94,7 @@ export function ConnectorsMarketplace() {
     })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, configured, identity?.identityMode, identity?.accountUserId])
+  }, [open, configured, identity?.token, identity?.identityMode, identity?.accountUserId])
 
   // Waiting for a sign-in window: poll the accounts until the app shows up, the
   // window is closed, or a few minutes pass.
@@ -163,8 +166,21 @@ export function ConnectorsMarketplace() {
     } finally { setBusy(null) }
   }
 
+  /** Check the saved key now, and say plainly what happened. */
+  const checkKeyNow = async () => {
+    setChecking(true)
+    setError(null)
+    try {
+      const status = await checkComposio()
+      if (!status.ok) { setError(status.error ?? 'Composio did not accept the key.'); return }
+      await refreshAll()
+      useUI.getState().toast('Composio accepted the key', status.apps ? `${status.apps} apps are available.` : undefined, 'success')
+    } finally { setChecking(false) }
+  }
+
   const removeKey = async () => {
-    if (!window.confirm('Remove the Composio key from this device? Connected accounts stay connected at Composio, but this app stops using them until you add the key again.')) return
+    if (armed !== 'key') { setArmed('key'); return }
+    setArmed(null)
     await saveComposioKey('')
     setApps(null)
     setAccounts([])
@@ -203,7 +219,8 @@ export function ConnectorsMarketplace() {
   }
 
   const disconnect = async (acc: ComposioAccount, name: string) => {
-    if (!window.confirm(`Disconnect ${name}? The bots and the chat lose access to it.`)) return
+    if (armed !== acc.id) { setArmed(acc.id); return }
+    setArmed(null)
     setBusy(acc.id)
     try {
       await disconnectComposio(acc.id)
@@ -298,6 +315,41 @@ export function ConnectorsMarketplace() {
             <div className="space-y-4">
               {error && <p role="alert" className="text-[12px] leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>{error}</p>}
 
+              {/* The project key: saved on this device. Replace it or check it here. */}
+              <div className="rounded-[12px] p-3 space-y-2" style={field}>
+                <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text-2)' }}>
+                  <span className="flex-1">Project key</span>
+                  <span className="text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--surface)', color: 'var(--text-3)' }}>Saved on this device</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <input
+                    type="password"
+                    value={keyDraft}
+                    onChange={(e) => setKeyDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && keyDraft.trim()) void saveKey() }}
+                    aria-label="Replace Composio project key"
+                    placeholder="Paste a new key to replace it"
+                    autoComplete="off"
+                    className="flex-1 min-w-0 px-2.5 py-1.5 rounded-[9px] text-[11.5px] outline-none"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+                  />
+                  <button type="button" onClick={saveKey} disabled={!keyDraft.trim() || busy === 'key'}
+                    className="px-3 py-1.5 rounded-full text-[11px] font-medium disabled:opacity-50" style={primary}>
+                    Replace
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 pt-0.5">
+                  <button type="button" onClick={checkKeyNow} disabled={checking}
+                    className="text-[11px] underline underline-offset-2 inline-flex items-center gap-1" style={muted}>
+                    {checking && <Loader2 size={11} className="animate-spin" />} Check key
+                  </button>
+                  <button type="button" onClick={removeKey}
+                    className="text-[11px] underline underline-offset-2" style={armed === 'key' ? { color: 'var(--danger, #e5484d)' } : muted}>
+                    {armed === 'key' ? 'Press again to remove the key' : 'Remove key'}
+                  </button>
+                </div>
+              </div>
+
               {/* Identity: whose connections these are. */}
               <div className="rounded-[12px] p-3 space-y-2" style={{ ...field }}>
                 <div role="radiogroup" aria-label="Account identity" className="grid grid-cols-2 gap-1 p-0.5 rounded-[9px]" style={{ background: 'var(--surface)' }}>
@@ -343,8 +395,11 @@ export function ConnectorsMarketplace() {
                       <span key={a.id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
                         <Check size={11} aria-hidden /> {appName(a.toolkit)}
                         <button type="button" onClick={() => disconnect(a, appName(a.toolkit))} disabled={busy === a.id}
-                          aria-label={`Disconnect ${appName(a.toolkit)}`} className="p-1 rounded-full hover:opacity-80" style={muted}>
+                          aria-label={armed === a.id ? `Confirm disconnect ${appName(a.toolkit)}` : `Disconnect ${appName(a.toolkit)}`}
+                          className="px-1.5 py-0.5 rounded-full hover:opacity-80 text-[10.5px] inline-flex items-center gap-1"
+                          style={armed === a.id ? { color: 'var(--danger, #e5484d)' } : muted}>
                           {busy === a.id ? <Loader2 size={11} className="animate-spin" /> : <Unplug size={11} />}
+                          {armed === a.id && 'Confirm'}
                         </button>
                       </span>
                     ))}
