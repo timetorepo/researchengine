@@ -34,6 +34,7 @@ export function composioRoutes(_rt: Runtime) {
     if (!key) return c.json({ configured: false })
     const res = await checkKey(key)
     if (!res.ok) return c.json({ configured: true, ok: false, error: res.error })
+    void listApps(key) // warm the catalog so the marketplace opens with the list
     return c.json({ configured: true, ok: true, apps: res.value.apps })
   })
 

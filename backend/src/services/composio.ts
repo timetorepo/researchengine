@@ -23,7 +23,7 @@ import { createHash } from 'node:crypto'
 export const COMPOSIO_BASE = 'https://backend.composio.dev'
 const TIMEOUT_MS = 20_000
 const CATALOG_TTL_MS = 5 * 60_000
-const MAX_CATALOG_PAGES = 40
+const MAX_CATALOG_PAGES = 10
 
 export interface ComposioApp {
   slug: string
@@ -128,7 +128,7 @@ async function call(key: string, method: string, path: string, body?: unknown): 
 
 function asApp(raw: any): ComposioApp | null {
   if (!raw || typeof raw.slug !== 'string') return null
-  if (raw.deprecated) return null
+  if (raw.deprecated === true) return null
   const meta = raw.meta ?? {}
   return {
     slug: raw.slug,
@@ -152,7 +152,7 @@ export async function listApps(key: string, opts: { refresh?: boolean } = {}): P
   const apps: ComposioApp[] = []
   let cursor: string | undefined
   for (let page = 0; page < MAX_CATALOG_PAGES; page++) {
-    const q = new URLSearchParams({ limit: '200', sort_by: 'alphabetically' })
+    const q = new URLSearchParams({ limit: '1000', sort_by: 'alphabetically' })
     if (cursor) q.set('cursor', cursor)
     const r = await call(key, 'GET', `/api/v3.1/toolkits?${q.toString()}`)
     if (!r.ok) return r
@@ -164,7 +164,7 @@ export async function listApps(key: string, opts: { refresh?: boolean } = {}): P
     if (!cursor) break
   }
   apps.sort((a, b) => a.name.localeCompare(b.name))
-  catalogCache.set(fp, { at: Date.now(), apps })
+  if (apps.length) catalogCache.set(fp, { at: Date.now(), apps })
   return { ok: true, value: apps }
 }
 
