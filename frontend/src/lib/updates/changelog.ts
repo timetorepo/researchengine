@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 44 versions, 0.51.1 back to 0.10.0.
+ * 45 versions, 0.52.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,65 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "0.52.0",
+    "tag": "v0.52.0",
+    "name": "a calmer first run, connectors, documentation lookup, long sessions",
+    "date": "2026-10-23",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.52.0",
+    "summary": "Installers: Research.Engine_0.52.0_x64-setup.exe and Research.Engine_0.52.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.52.0 — a calmer first run, connectors, documentation lookup, long sessions",
+        "items": [
+          {
+            "label": "The first screen is a page you scroll.",
+            "text": "Welcome reads as a site: a hero, three promises, the three ways to work, and a close. The tear ticket at the end is the only way on, so reading the page never starts setup by accident."
+          },
+          {
+            "label": "Connectors in the sidebar.",
+            "text": "Every app Composio supports is listed, with search and category chips. Connect an app there. Choose Automatic (one id made on this device) or My Composio account (your own Composio user id, so connections you made there show up here)."
+          },
+          {
+            "label": "Bots and the chat share connectors.",
+            "text": "Both can use connected apps. A bot can also read current documentation with a DOCS line."
+          },
+          {
+            "label": "Documentation lookup, built in.",
+            "text": "The chat and the bots can look up current docs and code examples through Context7. It works with no setup; an optional key in Connectors raises the limits."
+          },
+          {
+            "label": "Roles by plain name.",
+            "text": "You pick Researcher, Workflow, Builder and so on. The app chooses the matching members of the ECC library (71 roles in 8 families) from your request and your custom instructions."
+          },
+          {
+            "label": "Streaming words reveal smoothly.",
+            "text": "The live part of an answer fades in word by word with SpaceUI's blur reveal. Paragraphs that have finished are rendered as formatted text. Reduced motion shows the answer at once."
+          },
+          {
+            "label": "Long sessions stay fast.",
+            "text": "Each part sent to the model has a limit. Old tool output is shortened, the newest turns are kept whole, and a note says when something was left out."
+          },
+          {
+            "label": "Storage that does not break.",
+            "text": "When browser storage is full, the oldest chat detail is trimmed and a notice says what was trimmed, instead of the app failing to save."
+          },
+          {
+            "label": "A daily token budget.",
+            "text": "Real provider tokens are counted per day across chat, bots and agents. New requests stop at the limit you set in Settings → AIFlowEngine (default 2M, or no limit). The on-device engine is never counted."
+          },
+          {
+            "label": "The sidebar and the bots chat behave.",
+            "text": "The collapsed sidebar keeps every button reachable. The bots conversation scrolls on its own instead of pinning to the last message."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 10,
+      "sections": 1
+    }
+  },
   {
     "version": "0.51.1",
     "tag": "v0.51.1",
