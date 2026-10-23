@@ -64,13 +64,26 @@ export function keyFingerprint(key: string): string {
   return createHash('sha256').update(key).digest('hex').slice(0, 16)
 }
 
-async function call(key: string, method: string, path: string, body?: unknown): Promise<ComposioResult<any>> {
+/**
+ * Composio has three kinds of key and each one travels in its own header: a
+ * project key in x-api-key, a user key (uak_…) in x-user-api-key, an organization
+ * key in x-org-api-key. Sending the wrong kind is refused with a 401, so the
+ * server works out which kind it was given. The first request tries the three
+ * headers in turn; the one that works is remembered for this key (by fingerprint
+ * only, never the key itself).
+ */
+const KEY_HEADERS = ['x-api-key', 'x-user-api-key', 'x-org-api-key'] as const
+const headerByKey = new Map<string, string>()
+const NOT_ACCEPTED =
+  'Composio did not accept this key. Copy the project API key from the Composio dashboard (Settings → Project Settings → API Keys), or a user key that starts with uak_.'
+
+async function send(key: string, header: string, method: string, path: string, body?: unknown): Promise<ComposioResult<any>> {
   let res: Response
   try {
     res = await fetch(`${COMPOSIO_BASE}${path}`, {
       method,
       headers: {
-        'x-api-key': key,
+        [header]: key,
         accept: 'application/json',
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
       },
@@ -87,6 +100,26 @@ async function call(key: string, method: string, path: string, body?: unknown): 
     return { ok: false, error: typeof msg === 'string' ? msg.slice(0, 300) : `Composio answered ${res.status}.`, status }
   }
   return { ok: true, value: json }
+}
+
+/** The header this key goes in. Probes the three kinds once; a key nobody accepts gets no header. */
+async function headerFor(key: string): Promise<ComposioResult<string>> {
+  const fp = keyFingerprint(key)
+  const known = headerByKey.get(fp)
+  if (known) return { ok: true, value: known }
+  for (const header of KEY_HEADERS) {
+    const r = await send(key, header, 'GET', '/api/v3.1/toolkits?limit=1')
+    if (r.ok) { headerByKey.set(fp, header); return { ok: true, value: header } }
+    // Only a refusal says "wrong kind". Anything else (network, server) is not about the key kind.
+    if (r.status !== 401) return { ok: false, error: r.error, status: r.status }
+  }
+  return { ok: false, error: NOT_ACCEPTED, status: 401 }
+}
+
+async function call(key: string, method: string, path: string, body?: unknown): Promise<ComposioResult<any>> {
+  const h = await headerFor(key)
+  if (!h.ok) return h
+  return send(key, h.value, method, path, body)
 }
 
 function asApp(raw: any): ComposioApp | null {
