@@ -6,6 +6,7 @@ import { useUI } from '@/stores/useUI'
 import { TABS, renderTab } from './settingsTabs'
 import { closeSettings } from '@/lib/ui/settingsExit'
 import { DUR, EASE } from '@/lib/ui/handoff'
+import { SettingsNotices } from '@/components/settings/SettingsNotices'
 
 export function SettingsView() {
   const ui = useUI()
@@ -78,6 +79,7 @@ export function SettingsView() {
         </div>
         <div className="flex-1 overflow-y-auto min-h-0 pane-scroll">
           <div className="max-w-[680px] mx-auto px-5 pt-6 pb-24">
+            <SettingsNotices />
             {renderTab(tab)}
           </div>
         </div>

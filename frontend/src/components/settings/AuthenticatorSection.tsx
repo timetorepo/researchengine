@@ -8,6 +8,8 @@ import {
   checkSecondFactor, disableAuthenticator, enableAuthenticator, passphraseMatchesKeys,
 } from '@/lib/security/apiKeyAuth'
 import { formatSecret, newTotpSecret, otpauthUri, totpCode, verifyTotp } from '@/lib/security/totp'
+import { OtpCode } from '@/components/ui/heroui/OtpCode'
+import { saveNotice, warnNotice } from '@/stores/useNotices'
 
 /**
  * Lock the API key vault behind an authenticator app.
@@ -57,7 +59,7 @@ export function AuthenticatorSection() {
       }
       await enableAuthenticator(secret, pass)
       setVaultPassphrase(pass)
-      ui.toast('Authenticator on', 'Unlocking the key vault now needs a code from your app.', 'success')
+      saveNotice('Authenticator on', 'Unlocking the key vault now needs a code from your app.')
       reset()
     } catch {
       setErr('The lock could not be saved. Try again.')
@@ -75,7 +77,7 @@ export function AuthenticatorSection() {
         return
       }
       disableAuthenticator()
-      ui.toast('Authenticator off', 'The key vault opens with the passphrase again.', 'warning')
+      warnNotice('Authenticator off', 'The key vault opens with the passphrase again.')
       reset()
     } finally {
       setBusy(false)
@@ -181,13 +183,7 @@ export function AuthenticatorSection() {
             <div className="text-[11px] mb-1.5" style={{ color: 'var(--text-3)' }}>
               Type the 6-digit code your app shows now (it currently reads {preview || '······'}).
             </div>
-            <input
-              inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} aria-label="Authenticator code"
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="000000"
-              className="w-full px-3 py-2 rounded-[11px] outline-none text-[15px] tracking-[0.35em] text-center tabular-nums mb-2"
-              style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
-            />
+            <div className="mb-2"><OtpCode value={code} onChange={setCode} label="Authenticator code" /></div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => void confirmSetup()} disabled={busy || code.length !== 6}
                 className="flex items-center gap-2 px-3.5 py-2 rounded-[11px] text-[12.5px] font-medium disabled:opacity-40"
@@ -207,11 +203,7 @@ export function AuthenticatorSection() {
             placeholder="Vault passphrase" aria-label="Vault passphrase" autoComplete="current-password"
             className="px-3 py-2 rounded-[11px] outline-none text-[13px]"
             style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
-          <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder="Current code" aria-label="Current authenticator code"
-            className="px-3 py-2 rounded-[11px] outline-none text-[14px] tracking-[0.3em] text-center tabular-nums"
-            style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
+          <div className="mb-2"><OtpCode value={code} onChange={setCode} label="Current authenticator code" /></div>
           <label className="text-[11px] flex items-center gap-2" style={{ color: 'var(--text-3)' }}>
             <input type="checkbox" checked={showPass} onChange={(e) => setShowPass(e.target.checked)} /> Show passphrase
           </label>

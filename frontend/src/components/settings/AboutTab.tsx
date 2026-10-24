@@ -14,6 +14,7 @@ import { ProfileCard } from '@/components/ui/watermelon/ProfileCard'
 import SpotlightCard from '@/components/ui/reactbits/micro/SpotlightCard'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { BUNDLE_BUILD, runningVersion, useRunningVersion } from '@/lib/appVersion'
+import { saveNotice, updateNotice } from '@/stores/useNotices'
 
 /**
  * Injected by Vite from package.json, so it never drifts from the shipped build.
@@ -155,10 +156,10 @@ export function AboutTab() {
       if (!res.ok || j.error) throw new Error(j.error ?? `HTTP ${res.status}`)
       const tag = j.latest ? `v${j.latest}` : null
       if (j.available) {
-        ui.toast('Update available', `${tag} is out — you are on v${version}.`, 'success')
+        updateNotice('Update available', `${tag} is out — you are on v${version}.`)
         ui.openSettings('updates')
       } else if (tag) {
-        ui.toast('Up to date', `You are running the latest release (v${j.current}).`, 'success')
+        saveNotice('Up to date', `You are running the latest release (v${j.current}).`)
       } else {
         ui.toast('Could not check', 'GitHub did not return a release.', 'danger')
       }

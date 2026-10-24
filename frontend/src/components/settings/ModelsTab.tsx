@@ -3,6 +3,7 @@ import { ScrollText, RotateCcw, GitBranch } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { MASTERS, MASTER_VERSION } from '@/lib/prompts/masters'
+import { saveNotice } from '@/stores/useNotices'
 
 export function ModelsTab() {
   const settings = useStore((s) => s.settings)
@@ -66,7 +67,7 @@ function MasterPromptsSection() {
       else next[key] = text
       return { settings: { ...s.settings, masterPromptOverrides: next } }
     })
-    ui.toast('Master prompt saved', 'Active immediately for new messages.', 'success')
+    saveNotice('Master prompt saved', 'Active immediately for new messages.')
   }
   const reset = (key: string) => {
     useStore.setState((s) => {

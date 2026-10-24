@@ -26,6 +26,7 @@ import { useUI } from '@/stores/useUI'
 import { useUpdates, formatBytes, phaseLabel } from '@/lib/updates/client'
 import { useRunningVersion } from '@/lib/appVersion'
 import { ReleaseNotes } from '@/components/updates/ReleaseNotes'
+import { InlineAlert } from '@/components/ui/heroui/InlineAlert'
 
 const KINDS = {
   portable: { label: 'portable install', action: 'Download & install' },
@@ -143,6 +144,13 @@ export function UpdateModal() {
         </ModalHeader>
 
         <ModalBody>
+          {pending && (
+            <div className="mb-4">
+              <InlineAlert status="accent" title={`Version ${pending.to} is ready`}>
+                Restart when you are ready to run it.
+              </InlineAlert>
+            </div>
+          )}
           {/* The install engine's own words, whichever kind of build this is. */}
           {running && progress && (
             <div className="mb-4">

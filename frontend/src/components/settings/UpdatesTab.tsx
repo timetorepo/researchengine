@@ -16,6 +16,7 @@ import { useRunningVersion } from '@/lib/appVersion'
 import { ChangelogPanel } from '@/components/settings/ChangelogPanel'
 import { CHANGELOG } from '@/lib/updates/changelog'
 import { History } from 'lucide-react'
+import { saveNotice, updateNotice, warnNotice } from '@/stores/useNotices'
 
 /**
  * Settings → Updates.
@@ -73,8 +74,8 @@ export function UpdatesTab() {
     const result = await runCheck(true)
     setChecking(false)
     setJustChecked(true)
-    if (result?.available) toast('Update available', `${result.latest} is out — you are on ${result.current}.`, 'success')
-    else if (result) toast('Up to date', `You are running the newest release (${result.current}).`, 'success')
+    if (result?.available) updateNotice('Update available', `${result.latest} is out — you are on ${result.current}.`)
+    else if (result) saveNotice('Up to date', `You are running the newest release (${result.current}).`)
   }
 
   const doInstall = async () => {
@@ -103,7 +104,7 @@ export function UpdatesTab() {
       const res = await fetch('/api/update/rollback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body?.error ?? 'rollback failed')
-      toast('Rolled back', 'The previous version is on disk again — restart to run it.', 'success')
+      warnNotice('Rolled back', 'The previous version is on disk again — restart to run it.')
       await refreshStatus()
     } catch (e: any) {
       setError(String(e?.message ?? e))

@@ -7,6 +7,7 @@ import { setVaultPassphrase } from '@/lib/crypto/session'
 import { decryptWithPassphrase } from '@/lib/crypto/vault'
 import { authenticatorOn, readAuthenticatorSecret } from '@/lib/security/apiKeyAuth'
 import { verifyTotp } from '@/lib/security/totp'
+import { OtpCode } from '@/components/ui/heroui/OtpCode'
 
 /** After this many wrong codes, the code box waits before it tries again. */
 const CODE_TRIES = 5
@@ -145,15 +146,9 @@ export function VaultUnlock() {
                 <p className="text-[12px] leading-relaxed mb-3" style={{ color: 'var(--text-2)' }}>
                   Type the 6-digit code from your authenticator app for ResearchEngine.
                 </p>
-                <input
-                  autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
-                  disabled={wait > 0}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && code.length === 6) void submitCode() }}
-                  placeholder="000000" aria-label="Authenticator code"
-                  className="w-full px-3 py-2 rounded-[11px] outline-none text-[18px] tracking-[0.4em] text-center tabular-nums mb-2 disabled:opacity-50"
-                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
-                />
+                <div className="mb-2" onKeyDown={(e) => { if (e.key === 'Enter' && code.length === 6) void submitCode() }}>
+                  <OtpCode value={code} onChange={setCode} label="Authenticator code" autoFocus disabled={wait > 0} />
+                </div>
                 {wait > 0 && <div className="text-[11.5px] mb-2" style={{ color: 'var(--text-3)' }}>Try again in {wait}s.</div>}
               </>
             )}

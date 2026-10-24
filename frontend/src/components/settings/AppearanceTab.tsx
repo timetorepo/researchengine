@@ -14,6 +14,7 @@ import { fileToBackgroundUrl, SOLID_PRESETS } from '@/lib/backgrounds'
 import { WALLPAPERS, WALLPAPER_SOURCE } from '@/lib/wallpapers'
 import { getPropsForTheme, mixVec3, ANIMATED_BG_META } from '@/lib/backgrounds/themeProps'
 import type { AnimatedBgKind, BackgroundConfig } from '@/types'
+import { saveNotice } from '@/stores/useNotices'
 
 const rgb = (v: [number, number, number]) => `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
 
@@ -69,7 +70,7 @@ export function AppearanceTab() {
     try {
       const dataUrl = await fileToBackgroundUrl(f)
       setBg(blur ? { kind: 'blur', dataUrl } : { kind: 'image', dataUrl })
-      ui.toast('Background updated', 'Stored locally, downscaled to stay light.', 'success')
+      saveNotice('Background updated', 'Stored locally, downscaled to stay light.')
     } catch {
       ui.toast('Could not read image', 'Try a different file.', 'danger')
     }
