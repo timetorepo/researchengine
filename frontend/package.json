@@ -44,6 +44,7 @@
     "composio-identity-test": "tsx --tsconfig tsconfig.json scripts/composio-identity-test.mts",
     "composio-activity-test": "tsx --tsconfig tsconfig.json scripts/composio-activity-test.mts",
     "services-test": "tsx scripts/services-test.mts",
+    "reactbits-test": "tsx scripts/reactbits-test.mts",
     "perf-storage-test": "tsx --tsconfig tsconfig.json scripts/perf-storage-test.mts",
     "video-timeline-test": "tsx --tsconfig tsconfig.json scripts/video-timeline-test.mts"
   },

@@ -417,8 +417,22 @@ export type BackgroundConfig =
   | { kind: 'dither'; intensity?: number }
   | { kind: 'animated-gradient'; intensity?: number }
   | { kind: 'etched-accretion'; intensity?: number }
+  | { kind: 'gradient-ascii'; intensity?: number }
+  | { kind: 'ghost-fibers'; intensity?: number }
+  | { kind: 'topography'; intensity?: number }
+  | { kind: 'prism'; intensity?: number }
+  | { kind: 'light-pillar'; intensity?: number }
+  | { kind: 'antigravity'; intensity?: number }
+  | { kind: 'silk'; intensity?: number }
+  | { kind: 'pixel-blast'; intensity?: number }
+  | { kind: 'color-bends'; intensity?: number }
+  | { kind: 'plasma'; intensity?: number }
+  | { kind: 'prismatic-burst'; intensity?: number }
+  | { kind: 'galaxy'; intensity?: number }
+  | { kind: 'liquid-chrome'; intensity?: number }
 
-export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', 'dither', 'animated-gradient', 'etched-accretion'] as const
+export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', 'dither', 'animated-gradient', 'etched-accretion',
+  'gradient-ascii', 'ghost-fibers', 'topography', 'prism', 'light-pillar', 'antigravity', 'silk', 'pixel-blast', 'color-bends', 'plasma', 'prismatic-burst', 'galaxy', 'liquid-chrome'] as const
 export type AnimatedBgKind = typeof ANIMATED_BG_KINDS[number]
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'

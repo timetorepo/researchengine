@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, PinOff, Download, Box, Monitor, ServerCog } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Tabs, Tab } from '@heroui/tabs'
+import GooeyNav from '@/components/reactbits/GooeyNav/GooeyNav'
+import { getPropsForTheme } from '@/lib/backgrounds/themeProps'
 import { useStore } from '@/stores/useStore'
 import { download, timeAgo } from '@/lib/utils'
 import { navigateNow } from '@/lib/routes/registry'
@@ -97,6 +98,7 @@ export function ChatsView() {
   const chats = useStore((s) => s.chats)
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<Kind>('all')
+  const isLight = useStore((st) => getPropsForTheme(st.settings.theme).isLight)
   const [removing, setRemoving] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -241,38 +243,20 @@ export function ChatsView() {
           />
         </div>
 
-        {/* HeroUI Tabs — the real component, not a lookalike.
-            It renders the `tablist`/`tab` roles, the arrow-key model, roving
-            tabindex and the selected/disabled states, and its slots are styled
-            onto this app's tokens through `classNames`, so it still looks like
-            the segmented control it replaces. */}
-        <div className="flex items-center gap-2 mb-5 max-w-[380px]">
-          <Tabs
-            aria-label="Conversation kind"
-            variant="light"
-            color="primary"
-            selectedKey={kind}
-            onSelectionChange={(key) => setKind(String(key) as Kind)}
-            className="flex-1"
-            classNames={{
-              tabList: 'w-full gap-0.5 p-0.5 rounded-[9px] bg-[var(--elevated)]',
-              tab: 'flex-1 h-auto min-h-0 px-2 py-1 rounded-[7px] text-[10.5px] font-semibold tracking-[0.02em] text-[var(--text-3)] data-[hover-unselected=true]:text-[var(--text-2)] data-[selected=true]:bg-[var(--surface)] data-[selected=true]:text-[var(--text)] data-[selected=true]:shadow-[0_1px_3px_rgba(0,0,0,0.28)] data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-offset-1',
-              tabContent: 'text-inherit',
-              panel: 'p-0',
-            }}
-          >
-            {tabs.map((t) => (
-              <Tab
-                key={t.id}
-                title={
-                  <span className="flex items-center justify-center gap-1">
-                    {t.label}
-                    <span className="re-history-count">{t.n}</span>
-                  </span>
-                }
-              />
-            ))}
-          </Tabs>
+        {/* GooeyNav (ReactBits): the kind switch. The pill slides and stretches
+            between All, Research and Coding; keyboard and screen-reader
+            selection stay on the same index. */}
+        <div className="flex items-center gap-2 mb-5 max-w-[420px]">
+          <div className="flex-1 min-w-0">
+            <GooeyNav
+              theme={isLight ? 'light' : 'dark'}
+              items={tabs.map((t) => ({ label: `${t.label} ${t.n}` }))}
+              activeIndex={Math.max(0, tabs.findIndex((t) => t.id === kind))}
+              onChange={(i: number) => { const t = tabs[i]; if (t) setKind(t.id) }}
+              size="sm"
+              animationTime={450}
+            />
+          </div>
           <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{filtered.length} shown</span>
         </div>
 

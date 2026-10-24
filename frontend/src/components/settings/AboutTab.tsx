@@ -133,6 +133,7 @@ const UI_LIBRARIES: { name: string; href: string; author?: string; used: string 
   { name: 'Watermelon UI', href: 'https://ui.watermelon.sh', used: 'Expandable profile card, shuffled pinned list (tasks), and the select used across settings and the quiz' },
   { name: 'Cult UI', href: 'https://www.cult-ui.com', used: 'Timer anatomy (compound icon/display/progress) and the magnified dock behaviour in the collapsed sidebar' },
   { name: 'Number Flow', href: 'https://number-flow.barvian.me', author: 'Max Barvian', used: 'The per-digit roll behind every animated number' },
+  { name: 'ReactBits', href: 'https://github.com/DavidHDev/react-bits', author: 'David Haz', used: 'The GooeyNav kind switch, the CardSwap session switcher and the animated backgrounds (Silk, Galaxy, Liquid Chrome, Floating Lines and more). Licence: MIT + Commons Clause, so the code may not be sold on its own.' },
 ]
 
 const RUNTIME_LIBRARIES = ['React', 'Vite', 'Tailwind CSS', 'Framer Motion', 'Zustand', 'Lucide', 'KaTeX', 'react-markdown', 'JSZip']

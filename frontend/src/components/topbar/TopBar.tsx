@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Menu, Wind, ListChecks, ArrowDownToLine, X, Maximize2, Minimize2 } from 'lucide-react'
+import { Menu, Wind, ListChecks, ArrowDownToLine, X, Maximize2, Minimize2, Layers } from 'lucide-react'
+import { SESSION_SWITCHER_EVENT } from '@/components/sessions/SessionSwitcher'
 import { fullscreenSupported, isFullscreen, onFullscreenChange, toggleFullscreen } from '@/lib/dom/fullscreen'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
@@ -17,6 +18,25 @@ import StatusMark from '@/components/ui/reactbits/micro/StatusMark'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
 import AIContextMeter from '@/components/smoothui/ai-context-meter'
 import { contextWindowFor } from '@/lib/providers/context-window'
+
+/**
+ * Opens the iOS-style session switcher (CardSwap deck of recent sessions).
+ * The same switcher is on the alt+shift shortcut.
+ */
+function SessionSwitcherButton() {
+  return (
+    <button
+      onClick={() => window.dispatchEvent(new Event(SESSION_SWITCHER_EVENT))}
+      aria-label="Switch session"
+      title="Switch session (alt+shift)"
+      data-ui="session-switcher-toggle"
+      className="p-2 rounded-[10px] hover:bg-[var(--elevated)]"
+      style={{ color: 'var(--text-3)' }}
+    >
+      <Layers size={16} />
+    </button>
+  )
+}
 
 /**
  * One press gives the app the whole window. The icon tracks the browser's
@@ -232,6 +252,7 @@ export function TopBar() {
       {/* Fullscreen — the whole window for the app. The icon tracks the real
           fullscreen state (including F11 and the webview's own menus), and on
           a shell without the API the button simply is not there. */}
+      <SessionSwitcherButton />
       <FullscreenButton />
 
       {/* Live machine load — memory, processor and GPU, from the server's own
