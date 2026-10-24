@@ -154,17 +154,31 @@ export function isActiveAccount(a: ComposioAccount): boolean {
  * Open a sign-in page in the person's own default browser (the one that holds their
  * logins). False when the server could not start a browser; the caller then falls back.
  */
-export async function openInDefaultBrowser(url: string): Promise<boolean> {
+export type OpenResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * Ask this app's local server to open the link in the default browser on this
+ * machine. Only meaningful when the app runs on this machine (the desktop app).
+ */
+export async function openInDefaultBrowser(url: string): Promise<OpenResult> {
   try {
     const res = await fetch('/api/composio/open', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ url }),
     })
-    return res.ok
+    if (res.ok) return { ok: true }
+    const body = await res.json().catch(() => ({} as any))
+    return { ok: false, error: typeof body?.error === 'string' ? body.error : 'The browser could not be opened.' }
   } catch {
-    return false
+    return { ok: false, error: 'The app could not reach its local server to open the browser.' }
   }
+}
+
+/** True when this page is served from the machine the server runs on. */
+export function isLocalApp(): boolean {
+  const h = window.location.hostname
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'
 }
 
 export async function startComposioConnect(toolkit: string): Promise<{ redirectUrl: string }> {

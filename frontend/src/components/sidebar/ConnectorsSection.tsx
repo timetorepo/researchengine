@@ -21,7 +21,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
   checkComposio, composioIdentity, disconnectComposio, hasComposioUserId, isActiveAccount,
-  listComposioAccounts, listComposioApps, openInDefaultBrowser, saveComposioKey, setComposioIdentity, startComposioConnect,
+  isLocalApp, listComposioAccounts, listComposioApps, openInDefaultBrowser, saveComposioKey, setComposioIdentity, startComposioConnect,
   type ComposioAccount, type ComposioApp,
 } from '@/lib/composio/client'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
@@ -201,12 +201,33 @@ export function ConnectorsMarketplace() {
    * Send the person to the sign-in page in their own default browser. If the server
    * cannot start one, try a plain new tab; if that is blocked too, show a link to press.
    */
-  const openSignIn = async (url: string, name: string): Promise<boolean> => {
-    if (await openInDefaultBrowser(url)) return true
-    const tab = window.open(url, '_blank')
-    if (tab) { try { tab.opener = null } catch { /* the page still works without this */ } return true }
+  /**
+   * Put the person on the sign-in page. A browser tab takes the link in the tab
+   * that was opened on the click. The desktop app asks its local server to start
+   * the default browser on this machine. The link stays visible either way.
+   */
+  const openSignIn = async (url: string, name: string, pending: Window | null): Promise<{ opened: boolean; reason: string }> => {
     setSignInLink({ name, url })
-    return false
+    if (pending && !pending.closed) {
+      try {
+        pending.opener = null
+        pending.location.href = url
+        return { opened: true, reason: '' }
+      } catch { /* the tab was refused; try the default browser */ }
+    }
+    const r = await openInDefaultBrowser(url)
+    pending?.close()
+    if (r.ok) return { opened: true, reason: '' }
+    return { opened: false, reason: r.error }
+  }
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      useUI.getState().toast('Sign-in link copied', 'Paste it into the browser you are signed in to.', 'success')
+    } catch {
+      useUI.getState().toast('Could not copy', 'Select the link and copy it by hand.', 'warning')
+    }
   }
 
   const connect = async (app: ComposioApp) => {
@@ -214,13 +235,17 @@ export function ConnectorsMarketplace() {
     setBusy(app.slug)
     setError(null)
     setSignInLink(null)
+    // In a browser tab, open the tab now, while the click still counts as a user
+    // gesture. A tab opened after the request returns is blocked.
+    const pending = isLocalApp() ? null : window.open('about:blank', '_blank')
     try {
       const { redirectUrl } = await startComposioConnect(app.slug)
-      const opened = await openSignIn(redirectUrl, app.name)
+      const result = await openSignIn(redirectUrl, app.name, pending)
       setWaiting({ slug: app.slug, name: app.name, since: Date.now() })
-      if (opened) useUI.getState().toast(`Sign in to ${app.name}`, 'Finish in your browser. This list updates by itself.', 'info')
-      else setError(`Your browser did not open. Use the sign-in link below; this list updates when you finish.`)
+      if (result.opened) useUI.getState().toast(`Sign in to ${app.name}`, 'Finish in your browser. This list updates by itself.', 'info')
+      else setError(`${result.reason} Use the sign-in link below; this list updates when you finish.`)
     } catch (e: any) {
+      pending?.close()
       setError(String(e?.message ?? e))
     } finally { setBusy(null) }
   }
@@ -322,10 +347,16 @@ export function ConnectorsMarketplace() {
             <div className="space-y-4">
               {error && <p role="alert" className="text-[12px] leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>{error}</p>}
               {signInLink && (
-                <a href={signInLink.url} target="_blank" rel="noopener noreferrer"
-                  className="text-[12px] underline underline-offset-2 inline-block" style={{ color: 'var(--primary)' }}>
-                  Open the sign-in page for {signInLink.name}
-                </a>
+                <div className="flex flex-wrap items-center gap-3 text-[12px]">
+                  <a href={signInLink.url} target="_blank" rel="noopener noreferrer"
+                    className="underline underline-offset-2" style={{ color: 'var(--primary)' }}>
+                    Open the sign-in page for {signInLink.name}
+                  </a>
+                  <button type="button" onClick={() => void copyLink(signInLink.url)}
+                    className="underline underline-offset-2" style={{ color: 'var(--text-2)' }}>
+                    Copy link
+                  </button>
+                </div>
               )}
 
               {/* The project key: saved on this device. Replace it or check it here. */}
