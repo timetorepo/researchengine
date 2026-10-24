@@ -22,7 +22,7 @@ Installation steps for end users are in [install.md](../install.md).
   (`bun build --compile --minify --target=bun-<target>`) into one binary, so users
   do not need Node.
 - `desktop/src-tauri/tauri.conf.json` holds the product name, version
-  (`1.0.1`), identifier (`dev.researchengine.desktop`) and bundle targets.
+  (`1.1.0`), identifier (`dev.researchengine.desktop`) and bundle targets.
 - Cargo dependencies are only `tauri` and `tauri-build`. There is no opener plugin,
   which is why opening an external browser from the desktop app is a known issue
   ([known issues](14-known-issues.md)).
@@ -59,7 +59,7 @@ Commands: `npm run site:dev`, `npm run site:build`, `npm run site:test`, and
 Releases are tagged with `vX.Y.Z`, and the tag triggers the desktop workflow. The
 steps, as they have been followed:
 
-1. Bump the version everywhere it appears. `grep -rn "1.0.1" --include=*.json
+1. Bump the version everywhere it appears. `grep -rn "1.1.0" --include=*.json
    --include=*.toml --include=*.ts --include=*.html --include=*.md` finds them all:
    the root, backend, desktop and frontend `package.json` files and their lock
    files, `desktop/src-tauri/Cargo.toml` and `tauri.conf.json`,

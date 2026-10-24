@@ -65,7 +65,7 @@ npm workspaces (`frontend`, `backend`) and the top-level scripts.
 
 ## Version and status
 
-- Current version: **1.0.1**, the version in every `package.json`, in
+- Current version: **1.1.0**, the version in every `package.json`, in
   `desktop/src-tauri/tauri.conf.json`, and in `website/`.
 - Platforms: Windows 10/11 x64 and Linux x64/arm64 are the targets. There is no
   macOS installer and no macOS runner in CI, although the code runs there from

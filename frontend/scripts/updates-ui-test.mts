@@ -7,12 +7,22 @@
  * they go through jsdom here: the popup is opened with a stubbed update check
  * and asserted to show the version, the notes and a download button; the chats
  * page is rendered with two conversations and asserted to put All / Research /
- * Coding into HeroUI's real `tablist`.
+ * Coding into the kind switch (ReactBits GooeyNav, which replaced the HeroUI tab row).
  *
  * Run: npx tsx --tsconfig tsconfig.json scripts/updates-ui-test.mts   (from frontend/)
  */
 import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
+import { register } from 'node:module'
+
+// Stylesheets are bundled by Vite in the app; plain Node cannot import them.
+// Treat each .css import as an empty module so components that ship their own
+// CSS (ReactBits) can be loaded here.
+register('data:text/javascript,' + encodeURIComponent(`
+export async function load(url, context, next) {
+  if (url.endsWith('.css')) return { format: 'module', source: 'export default {}', shortCircuit: true };
+  return next(url, context);
+}`))
 
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
   url: 'http://localhost:5173/#/chats',
@@ -150,7 +160,7 @@ async function main() {
   }
   root.unmount()
 
-  console.log('\n[2] the chats tab strip (HeroUI Tabs)')
+  console.log("\n[2] the chats kind switch (GooeyNav)")
   const now = Date.now()
   useStore.setState({
     chats: [
@@ -165,13 +175,15 @@ async function main() {
   const root2 = createRoot(host2)
   root2.render(React.createElement(MemoryRouter as any, null, React.createElement(ChatsView as any)))
   await wait(500)
-  const tablist = host2.querySelector('[role="tablist"]')
-  check('the tab row is a real tablist', !!tablist)
-  const tabsInDom = [...host2.querySelectorAll('[role="tab"]')].map((t) => (t.textContent ?? '').replace(/\d+/g, '').trim())
-  check('with All / Research / Coding in it', tabsInDom.join(',') === 'All,Research,Coding', tabsInDom.join(','))
+  // The kind switch is the ReactBits GooeyNav. Its visible list is the first
+  // ul that is not the aria-hidden overlay that draws the sliding pill.
+  const kindItems = () => [...host2.querySelectorAll<HTMLButtonElement>('nav.gooey-nav .gooey-nav__list:not(.gooey-nav__list--active) button')]
+  check('the kind switch is the GooeyNav control', !!host2.querySelector('nav.gooey-nav'))
+  const kindLabels = kindItems().map((b) => (b.textContent ?? '').replace(/\d+/g, '').trim())
+  check('with All / Research / Coding in it', kindLabels.join(',') === 'All,Research,Coding', kindLabels.join(','))
   check('and the list marks one as selected',
-    host2.querySelectorAll('[role="tab"][aria-selected="true"]').length === 1)
-  const codingTab = [...host2.querySelectorAll('[role="tab"]')].find((t) => /Coding/.test(t.textContent ?? '')) as any
+    host2.querySelectorAll('nav.gooey-nav button[aria-current="page"]').length === 1)
+  const codingTab = kindItems().find((b) => /Coding/.test(b.textContent ?? ''))
   codingTab?.dispatchEvent(new win.MouseEvent('click', { bubbles: true }))
   await wait(400)
   check('picking Coding filters the list to coding chats',

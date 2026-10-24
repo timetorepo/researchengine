@@ -7,7 +7,7 @@
 
 **Search, read, study, write, code and design, with every page, note, quiz and draft staying on your machine.**
 
-[![Release](https://img.shields.io/badge/release-v1.0.1-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v1.1.0-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#your-work-stays-yours)
@@ -47,6 +47,7 @@ You do not need to be technical. For real AI answers you need one thing: an acco
 
 The last few releases, newest first. Full notes are on the [releases page](https://github.com/timetorepo/researchengine/releases).
 
+- **1.1.0: animated backgrounds, a session switcher, and built-in services.** The session switcher is a card deck you open from the top bar or with Alt+Shift. Chats has a new kind switch, and fourteen ReactBits backgrounds sit behind every screen. Connectors has a Connected tab that follows connects and disconnects, and Library videos take timeline notes from you or the AI. OpenSEO, VoiceStudio, Twenty and Postiz are built in under Settings → Services, and OpenWhispr supplies dictation. Postiz only creates drafts, so nothing is published from the agent. The technical handbook is in `docs/technical/`.
 - **1.0.1: Connect opens in your browser, smoother long chats.** Press Connect and Composio signs you in through your default browser, where you are already logged in. Long chats save in batches, so streamed answers stay smooth, and Delete everything stays deleted. Settings and update notices are alerts, and two-factor codes use a six-box input.
 - **1.0.0-release: the first full release.** Apps connect inside Research Engine from Connectors, with your Composio project key. The app list loads, and bot replies, artifacts and the Gemini, Claude and ChatGPT Markdown all came in with 0.54.0.
 - **0.54.0: one Composio identity, artifacts, live bot replies.** Connectors files your connections under the Composio user id you save. Code opens as an artifact, with a live preview on this machine. Bot replies and chain of thought stream in as they are written, and ChatGPT, Gemini and Claude Markdown render properly.

@@ -5,7 +5,7 @@ project is put together, why it is put together that way, and where to find
 everything. It is written for a developer who has just cloned the repository
 and needs to be productive without asking the original author.
 
-Version documented: **1.0.1** (`package.json`, `backend`, `frontend`, `desktop`).
+Version documented: **1.1.0** (`package.json`, `backend`, `frontend`, `desktop`).
 
 ## Reading order
 

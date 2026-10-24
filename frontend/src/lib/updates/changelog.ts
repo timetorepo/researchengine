@@ -48,6 +48,46 @@ export function kindOf(title: string): ChangeKind {
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "1.1.0",
+    "tag": "v1.1.0",
+    "name": "Animated backgrounds, a session switcher, built-in services",
+    "date": "2026-10-24",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.1.0",
+    "summary": "Installers: Research.Engine_1.1.0_x64-setup.exe and Research.Engine_1.1.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.1.0 — Animated backgrounds, a session switcher, built-in services",
+        "items": [
+          {
+            "label": "Session switcher.",
+            "text": "Recent sessions open as a card deck from the top bar, or with your switcher key (Alt+Shift by default)."
+          },
+          {
+            "label": "Fourteen ReactBits backgrounds.",
+            "text": "ReactBits backgrounds such as Silk, Galaxy, Prism and Plasma are available in Settings → Appearance, and they cover chats and home."
+          },
+          {
+            "label": "Chats kind switch.",
+            "text": "The Chats page filters by kind with an animated switch."
+          },
+          {
+            "label": "Connected tab follows your accounts.",
+            "text": "Connectors lists your connected services, lets you disconnect them, and updates when a connect or disconnect happens on Composio's website."
+          },
+          {
+            "label": "Library videos take timeline notes.",
+            "text": "Add a note at a moment in a saved video, written by you or by the AI."
+          },
+          {
+            "label": "Built-in services.",
+            "text": "OpenSEO, VoiceStudio, Twenty and Postiz are set up under Settings → Services. OpenWhispr supplies dictation. Postiz only creates drafts, so nothing is published or scheduled by the agent."
+          }
+        ]
+      }
+    ],
+    "counts": { "items": 6, "sections": 1 }
+  },
+  {
     "version": "1.0.1",
     "tag": "v1.0.1",
     "name": "Connect opens in your browser, smoother long chats",

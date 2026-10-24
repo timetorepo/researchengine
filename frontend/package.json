@@ -1,7 +1,7 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "bridge-pick-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/bridge-pick-test.mts",
