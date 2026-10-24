@@ -150,6 +150,23 @@ export function isActiveAccount(a: ComposioAccount): boolean {
 }
 
 /** Start sign-in for one app. Returns the URL the person must open. */
+/**
+ * Open a sign-in page in the person's own default browser (the one that holds their
+ * logins). False when the server could not start a browser; the caller then falls back.
+ */
+export async function openInDefaultBrowser(url: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/composio/open', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 export async function startComposioConnect(toolkit: string): Promise<{ redirectUrl: string }> {
   const callbackUrl = `${window.location.origin}/?composio=connected`
   const res = await fetch('/api/composio/connect', {

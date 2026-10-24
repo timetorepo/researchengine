@@ -21,7 +21,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
   checkComposio, composioIdentity, disconnectComposio, hasComposioUserId, isActiveAccount,
-  listComposioAccounts, listComposioApps, saveComposioKey, setComposioIdentity, startComposioConnect,
+  listComposioAccounts, listComposioApps, openInDefaultBrowser, saveComposioKey, setComposioIdentity, startComposioConnect,
   type ComposioAccount, type ComposioApp,
 } from '@/lib/composio/client'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
@@ -32,9 +32,8 @@ const CHIPS = 10
 const POLL_MS = 2500
 const WAIT_MS = 5 * 60_000
 /** The name the sign-in window is opened with; the return page uses it to close itself. */
-const POPUP_NAME = 'composio-connect'
 
-interface Waiting { slug: string; name: string; popup: Window; since: number }
+interface Waiting { slug: string; name: string; since: number }
 
 const muted = { color: 'var(--text-3)' } as const
 const field = { background: 'var(--elevated)', border: '1px solid var(--surface-border)' } as const
@@ -55,6 +54,8 @@ export function ConnectorsMarketplace() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [waiting, setWaiting] = useState<Waiting | null>(null)
+  /** A sign-in page the person opens by hand, when no browser could be started for them. */
+  const [signInLink, setSignInLink] = useState<{ name: string; url: string } | null>(null)
   const [keyDraft, setKeyDraft] = useState('')
   /** Which destructive action is waiting for its second press (no window.confirm: it can be blocked in the app). */
   const [armed, setArmed] = useState<string | null>(null)
@@ -103,7 +104,6 @@ export function ConnectorsMarketplace() {
     let stopped = false
     const tick = async () => {
       if (stopped) return
-      const closed = waiting.popup.closed
       const timedOut = Date.now() - waiting.since > WAIT_MS
       let done = false
       try {
@@ -111,7 +111,7 @@ export function ConnectorsMarketplace() {
         done = acc.some((a) => isActiveAccount(a) && a.toolkit.toLowerCase() === waiting.slug)
       } catch { /* try again on the next tick */ }
       if (stopped) return
-      if (done || closed || timedOut) {
+      if (done || timedOut) {
         setWaiting(null)
         if (done) useUI.getState().toast(`${waiting.name} connected`, undefined, 'success')
       }
@@ -125,7 +125,6 @@ export function ConnectorsMarketplace() {
   useEffect(() => {
     const url = new URL(window.location.href)
     if (url.searchParams.get('composio') !== 'connected') return
-    if (window.name === POPUP_NAME) { window.close(); return }
     url.searchParams.delete('composio')
     window.history.replaceState(null, '', url.toString())
     useUI.setState({ connectorsOpen: true })
@@ -198,22 +197,30 @@ export function ConnectorsMarketplace() {
     useUI.getState().toast('Composio user id saved', undefined, 'success')
   }
 
+  /**
+   * Send the person to the sign-in page in their own default browser. If the server
+   * cannot start one, try a plain new tab; if that is blocked too, show a link to press.
+   */
+  const openSignIn = async (url: string, name: string): Promise<boolean> => {
+    if (await openInDefaultBrowser(url)) return true
+    const tab = window.open(url, '_blank')
+    if (tab) { try { tab.opener = null } catch { /* the page still works without this */ } return true }
+    setSignInLink({ name, url })
+    return false
+  }
+
   const connect = async (app: ComposioApp) => {
     if (!hasComposioUserId()) { setError('Enter your Composio user id first. Connections are filed under it.'); return }
     setBusy(app.slug)
     setError(null)
-    // Open the window now, inside the click, so the browser does not block it.
-    const popup = window.open('about:blank', POPUP_NAME, 'width=520,height=720,left=160,top=80')
+    setSignInLink(null)
     try {
       const { redirectUrl } = await startComposioConnect(app.slug)
-      if (!popup) { setError('Your browser blocked the sign-in window. Allow pop-ups for this site, then press Connect again.'); return }
-      // The sign-in page is Composio's: cut its link back to this window before it loads.
-      try { popup.opener = null } catch { /* some browsers forbid this; the page still works */ }
-      popup.location.href = redirectUrl
-      setWaiting({ slug: app.slug, name: app.name, popup, since: Date.now() })
-      useUI.getState().toast(`Sign in to ${app.name}`, 'Finish in the window that opened. This list updates by itself.', 'info')
+      const opened = await openSignIn(redirectUrl, app.name)
+      setWaiting({ slug: app.slug, name: app.name, since: Date.now() })
+      if (opened) useUI.getState().toast(`Sign in to ${app.name}`, 'Finish in your browser. This list updates by itself.', 'info')
+      else setError(`Your browser did not open. Use the sign-in link below; this list updates when you finish.`)
     } catch (e: any) {
-      popup?.close()
       setError(String(e?.message ?? e))
     } finally { setBusy(null) }
   }
@@ -314,6 +321,12 @@ export function ConnectorsMarketplace() {
           ) : (
             <div className="space-y-4">
               {error && <p role="alert" className="text-[12px] leading-snug" style={{ color: 'var(--danger, #e5484d)' }}>{error}</p>}
+              {signInLink && (
+                <a href={signInLink.url} target="_blank" rel="noopener noreferrer"
+                  className="text-[12px] underline underline-offset-2 inline-block" style={{ color: 'var(--primary)' }}>
+                  Open the sign-in page for {signInLink.name}
+                </a>
+              )}
 
               {/* The project key: saved on this device. Replace it or check it here. */}
               <div className="rounded-[12px] p-3 space-y-2" style={field}>

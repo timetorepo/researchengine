@@ -1,6 +1,7 @@
 // The Composio gateway.
 //
 //   GET    /api/composio/status            does the key work (never echoes it)
+//   POST   /api/composio/open              open a sign-in link in the default browser
 //   GET    /api/composio/apps              every app Composio supports
 //   GET    /api/composio/accounts          the apps this user has connected
 //   POST   /api/composio/connect           start sign-in for one app → redirectUrl
@@ -12,6 +13,7 @@
 // that request only. Inputs are checked here before they reach Composio.
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
+import { openInDefaultBrowser } from '../services/browser'
 import {
   checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, removeAccount, startConnect,
 } from '../services/composio'
@@ -36,6 +38,18 @@ export function composioRoutes(_rt: Runtime) {
     if (!res.ok) return c.json({ configured: true, ok: false, error: res.error })
     void listApps(key) // warm the catalog so the marketplace opens with the list
     return c.json({ configured: true, ok: true, apps: res.value.apps })
+  })
+
+  // Sign-in pages open in the person's own browser. Only https links are accepted.
+  r.post('/composio/open', async (c) => {
+    const body = await c.req.json().catch(() => null) as any
+    const url = typeof body?.url === 'string' ? body.url.trim() : ''
+    if (url.length > 2000 || !/^https:\/\/[^\s]+$/i.test(url)) {
+      return c.json({ error: 'Only https sign-in links can be opened.' }, 400)
+    }
+    const res = await openInDefaultBrowser(url)
+    if (!res.ok) return c.json({ error: res.error }, 500)
+    return c.json({ opened: true })
   })
 
   r.get('/composio/apps', async (c) => {
