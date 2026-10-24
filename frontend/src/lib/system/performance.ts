@@ -58,28 +58,6 @@ export async function fetchResources(signal?: AbortSignal): Promise<ResourceSnap
   }
 }
 
-/* ---- low-memory machines ---- */
-
-/** Browsers report RAM in GB (rounded, capped at 8). Undefined where unsupported. */
-export function deviceMemoryGB(): number | undefined {
-  if (typeof navigator === 'undefined') return undefined
-  const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
-  return typeof mem === 'number' ? mem : undefined
-}
-
-/**
- * A laptop with 4 GB of RAM starts on eco: one stream at a time, smaller
- * retrieval, background work off, and the glass blur capped. A choice the user
- * made in Settings always wins, so this only sets the default.
- */
-export function applyLowMemoryDefault(): void {
-  const mem = deviceMemoryGB()
-  if (mem === undefined || mem > 4) return
-  const s = useStore.getState().settings
-  if (s.performanceProfileChosen || s.performanceProfile === 'eco') return
-  useStore.setState((st) => ({ settings: { ...st.settings, performanceProfile: 'eco' } }))
-}
-
 /**
  * Mirror the active profile onto <html data-perf>, so CSS can adjust costly
  * effects (backdrop blur) without each component checking the profile.

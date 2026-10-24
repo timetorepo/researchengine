@@ -22,10 +22,9 @@ import 'blobatar/motion.css'
 // globals.css (.re-sonner-toast) so toasts belong to every theme.
 import 'sonner/dist/styles.css'
 import App from './App'
-import { applyLowMemoryDefault, startPerformanceSync } from '@/lib/system/performance'
+import { startPerformanceSync } from '@/lib/system/performance'
 
-// Low-memory laptops start on eco; the profile is mirrored to <html data-perf>.
-applyLowMemoryDefault()
+// The active profile is mirrored to <html data-perf> for the eco blur cap.
 startPerformanceSync()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
