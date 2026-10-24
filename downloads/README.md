@@ -12,13 +12,14 @@ release. CI builds them from this tag and attaches them to the release:
 | Installer | Platform | Size |
 |---|---|---|
 | `Research.Engine_1.1.0_x64-setup.exe` | Windows 10/11 x64 (per-user) | 61.8 MB |
-| `Research.Engine_1.1.0_amd64.deb` | Debian/Ubuntu x64 | 76.7 MB |
+| `Research.Engine_1.1.0_amd64.deb` | Debian/Ubuntu x64 | 76.9 MB |
 
-Their hashes are recorded in `INSTALLERS.sha256` in this folder, and every one
-of them is **GitHub's own sha256 digest for the uploaded asset**, read back from
-the release API (`digest` on the asset), not a hash of a local build folder that
-could have drifted. A freshly built
-installer is never claimed here before it exists.
+Their hashes are recorded in `INSTALLERS.sha256` in this folder. For releases up
+to 1.0.1 every one of them is **GitHub's own sha256 digest for the uploaded asset**,
+read back from the release API (`digest` on the asset). For 1.1.0 the release API
+returned no digest for either asset, so those two hashes are the ones the release
+workflow printed when it built and attached them. They are not read back from the
+release. A freshly built installer is never claimed here before it exists.
 
 See `desktop/README.md` for how the shell boots the local server, and
 `.github/workflows/desktop.yml` for the build.
