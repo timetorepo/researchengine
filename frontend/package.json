@@ -42,6 +42,7 @@
     "bots-ui-test": "tsx --tsconfig tsconfig.json scripts/bots-ui-test.mts",
     "context-budget-test": "tsx --tsconfig tsconfig.json scripts/context-budget-test.mts",
     "composio-identity-test": "tsx --tsconfig tsconfig.json scripts/composio-identity-test.mts",
+    "composio-activity-test": "tsx --tsconfig tsconfig.json scripts/composio-activity-test.mts",
     "perf-storage-test": "tsx --tsconfig tsconfig.json scripts/perf-storage-test.mts",
     "video-timeline-test": "tsx --tsconfig tsconfig.json scripts/video-timeline-test.mts"
   },

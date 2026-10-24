@@ -80,7 +80,7 @@ interface UIState {
   /** The Connectors marketplace dialog is open. */
   connectorsOpen: boolean
   /** Which tab of the Connectors marketplace is showing. */
-  connectorsTab: 'apps' | 'builtin'
+  connectorsTab: 'apps' | 'builtin' | 'connected'
   /** How many Composio accounts are connected, for the sidebar row. */
   connectorsCount: number
   /**

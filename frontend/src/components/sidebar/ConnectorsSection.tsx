@@ -14,7 +14,7 @@
  * Context7 documentation search is built in and works without a key; the
  * optional key at the bottom raises its limits.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/modal'
 import { Check, Loader2, Plug, Search, Unplug } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
@@ -26,6 +26,9 @@ import {
 } from '@/lib/composio/client'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
 import { IntegrationsPanel } from '@/components/settings/IntegrationsTab'
+import { ConnectedServices } from '@/components/sidebar/ConnectedServices'
+import { useComposioActivity, snapshotOf, type ActivityEvent } from '@/lib/composio/activity'
+import { composioUserId } from '@/lib/composio/client'
 
 const PAGE = 48
 const CHIPS = 10
@@ -63,18 +66,54 @@ export function ConnectorsMarketplace() {
   const [idDraft, setIdDraft] = useState(composioIdentity().accountUserId)
   const [idError, setIdError] = useState<string | null>(null)
 
+  const [refreshedAt, setRefreshedAt] = useState<number | null>(null)
+  const appsRef = useRef<ComposioApp[] | null>(null)
+
   const refreshAccounts = useCallback(async (): Promise<ComposioAccount[]> => {
     // Without a user id there is nothing to list yet; the card asks for it.
     if (!hasComposioUserId()) { setAccounts([]); useUI.setState({ connectorsCount: 0 }); return [] }
+    const userId = composioUserId()
     const acc = await listComposioAccounts()
+    const now = Date.now()
     setAccounts(acc)
+    setRefreshedAt(now)
     useUI.setState({ connectorsCount: acc.filter(isActiveAccount).length })
+    // Connections made here or on Composio's website: say so when they change.
+    const changes = useComposioActivity.getState().observe(userId, snapshotOf(acc, isActiveAccount), now)
+    for (const e of changes.slice(0, 3)) {
+      const name = appsRef.current?.find((a) => a.slug === e.toolkit)?.name ?? e.toolkit
+      useUI.getState().toast(
+        e.kind === 'connected' ? `${name} connected` : `${name} disconnected`,
+        e.kind === 'connected' ? 'Added to your connected services.' : 'Removed from your connected services.',
+        e.kind === 'connected' ? 'success' : 'info',
+      )
+    }
     return acc
   }, [])
 
   const loadApps = useCallback(async (fresh = false) => {
-    setApps(await listComposioApps({ refresh: fresh }))
+    const list = await listComposioApps({ refresh: fresh })
+    appsRef.current = list
+    setApps(list)
   }, [])
+
+  // Keep connections current while the person works elsewhere (for example on
+  // Composio's website): read the accounts every so often, and again whenever the
+  // window comes back into focus. Faster while the dialog is open.
+  const identityUser = identity?.accountUserId
+  useEffect(() => {
+    if (!configured || !hasComposioUserId()) return
+    const tick = () => { void refreshAccounts().catch(() => { /* try again on the next tick */ }) }
+    const id = window.setInterval(tick, open ? 10_000 : 30_000)
+    const onBack = () => { if (!document.hidden) tick() }
+    window.addEventListener('focus', onBack)
+    document.addEventListener('visibilitychange', onBack)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener('focus', onBack)
+      document.removeEventListener('visibilitychange', onBack)
+    }
+  }, [configured, open, identityUser, refreshAccounts])
 
   // When the dialog opens (or the key or identity changes), check the key and load
   // the catalog. Closed, we only refresh the count the sidebar row shows.
@@ -113,7 +152,7 @@ export function ConnectorsMarketplace() {
       if (stopped) return
       if (done || timedOut) {
         setWaiting(null)
-        if (done) useUI.getState().toast(`${waiting.name} connected`, undefined, 'success')
+        // The change itself is announced by refreshAccounts (see the activity log).
       }
     }
     const id = window.setInterval(() => { void tick() }, POLL_MS)
@@ -257,7 +296,7 @@ export function ConnectorsMarketplace() {
     try {
       await disconnectComposio(acc.id)
       await refreshAccounts()
-      useUI.getState().toast(`${name} disconnected`, undefined, 'success')
+      // Announced by refreshAccounts, like every other change.
     } catch (e: any) {
       setError(String(e?.message ?? e))
     } finally { setBusy(null) }
@@ -271,6 +310,20 @@ export function ConnectorsMarketplace() {
     catch (e: any) { setError(String(e?.message ?? e)) }
     finally { setRefreshing(false) }
   }
+
+  const refreshConnected = async () => {
+    setRefreshing(true)
+    setError(null)
+    try { await refreshAccounts() }
+    catch (e: any) { setError(String(e?.message ?? e)) }
+    finally { setRefreshing(false) }
+  }
+
+  const allEvents = useComposioActivity((s) => s.events)
+  const changes: ActivityEvent[] = useMemo(
+    () => allEvents.filter((e) => e.userId === composioUserId()),
+    [allEvents, identityUser],
+  )
 
   const connectedList = accounts.filter(isActiveAccount)
 
@@ -306,8 +359,8 @@ export function ConnectorsMarketplace() {
         </ModalHeader>
 
         <ModalBody>
-          <div role="tablist" aria-label="Connectors" className="grid grid-cols-2 gap-1 p-0.5 rounded-[11px] mb-4" style={{ background: 'var(--elevated)' }}>
-            {([['apps', 'Apps'], ['builtin', 'Built in']] as const).map(([id, label]) => (
+          <div role="tablist" aria-label="Connectors" className="grid grid-cols-3 gap-1 p-0.5 rounded-[11px] mb-4" style={{ background: 'var(--elevated)' }}>
+            {([['apps', 'Apps'], ['connected', count ? `Connected · ${count}` : 'Connected'], ['builtin', 'Built in']] as const).map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={tab === id}
                 onClick={() => useUI.setState({ connectorsTab: id })}
                 className="px-3 py-1.5 rounded-[9px] text-[12px] font-medium transition-colors"
@@ -316,7 +369,20 @@ export function ConnectorsMarketplace() {
               </button>
             ))}
           </div>
-          {tab === 'builtin' ? (
+          {tab === 'connected' ? (
+            <ConnectedServices
+              accounts={connectedList}
+              events={changes}
+              appName={appName}
+              busy={busy}
+              armed={armed}
+              onDisconnect={disconnect}
+              onRefresh={() => void refreshConnected()}
+              refreshedAt={refreshedAt}
+              refreshing={refreshing}
+              onBrowseApps={() => useUI.setState({ connectorsTab: 'apps' })}
+            />
+          ) : tab === 'builtin' ? (
             <IntegrationsPanel />
           ) : !configured ? (
             <div className="space-y-3 max-w-md">
