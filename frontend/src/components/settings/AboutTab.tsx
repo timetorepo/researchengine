@@ -377,6 +377,7 @@ export function AboutTab() {
       {/* Changelog ----------------------------------------------------- */}
       <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>
+        <p><b>1.0.1: Connect opens in your browser, smoother long chats:</b> Sign-in opens in your default browser. Settings and update notices are alerts, two-factor codes use a six-box input, long chats save in batches, and Delete everything stays deleted.</p>
         <p><b>1.0.0-release: the first full release:</b> Apps connect inside Research Engine from Connectors. Your Composio project key is recognised, and the app list loads.</p>
         <p><b>0.54.0: one Composio identity, artifacts, live bot replies:</b> Connectors files your connections under the Composio user id you save; the Automatic id is gone. Code opens as an artifact with a live preview, bot replies stream in, and ChatGPT, Gemini and Claude Markdown render properly.</p>
         <p><b>0.53.0: a connectors marketplace, built-in integrations in one place:</b> Connectors is one row in the sidebar. It opens every app Composio supports, and you connect an app from there. Files, Drive, Gmail, Calendar, GitHub, Notion and Slack now sit under its Built in tab. Settings has no Integrations tab any more.</p>

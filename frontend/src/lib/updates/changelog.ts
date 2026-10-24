@@ -48,6 +48,49 @@ export function kindOf(title: string): ChangeKind {
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "1.0.1",
+    "tag": "v1.0.1",
+    "name": "Connect opens in your browser, smoother long chats",
+    "date": "2026-10-24",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.0.1",
+    "summary": "Installers: Research.Engine_1.0.1_x64-setup.exe and Research.Engine_1.0.1_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.0.1 — Connect opens in your browser, smoother long chats",
+        "items": [
+          {
+            "label": "Connect opens sign-in in your browser.",
+            "text": "Press Connect on an app and Composio's sign-in opens in your default browser, the one where you are already signed in. If it cannot open, a link appears to click."
+          },
+          {
+            "label": "Notices are alerts.",
+            "text": "Saved settings and new update notices show as alerts at the top of Settings, and a ready update has its own alert in the update window."
+          },
+          {
+            "label": "Two-factor codes use a six-box input.",
+            "text": "Authenticator setup, turning it off and unlocking the vault all use the same code boxes."
+          },
+          {
+            "label": "Delete everything stays deleted.",
+            "text": "A save that was still pending could write chats back after a wipe. Saves now stop at the wipe."
+          },
+          {
+            "label": "Smoother long chats.",
+            "text": "Chat history is saved at most every 400 ms, instead of on every streamed token, so long answers stay fluid. Pending changes are saved when the window is hidden or closed."
+          },
+          {
+            "label": "Server caches stay bounded.",
+            "text": "Link previews and robots.txt checks keep a fixed number of entries, so a long session does not grow the server without limit."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 1
+    }
+  },
+  {
     "version": "1.0.0-release",
     "tag": "v1.0.0-release",
     "name": "the first full release: Composio connects inside the app",
