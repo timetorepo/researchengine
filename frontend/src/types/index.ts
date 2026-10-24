@@ -556,6 +556,19 @@ export interface Settings {
   /** Optional Context7 key. Documentation search works without one, at lower limits. */
   context7?: { token?: string }
   /**
+   * Third-party services for the chat and the bots (lib/services/config.ts). Each
+   * `token` is encrypted like the provider keys and sent per request, never stored
+   * on the server. `url` is the address of the service, or empty for its default.
+   */
+  services?: {
+    openseo?: { url?: string; token?: string; projectId?: string }
+    voicestudio?: { url?: string; token?: string }
+    twenty?: { url?: string; token?: string }
+    postiz?: { url?: string; token?: string }
+    /** Voices cloned with the speaker's permission. The app holds the only record of consent. */
+    voiceConsents?: { id: string; speaker: string; voiceId: string; grantedAt: number }[]
+  }
+  /**
    * Models the user has taken out of the picker. Refs are "provider:model", so
    * hiding one provider's model never hides another's.
    */

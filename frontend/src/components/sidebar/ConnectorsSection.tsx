@@ -26,6 +26,7 @@ import {
 } from '@/lib/composio/client'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
 import { IntegrationsPanel } from '@/components/settings/IntegrationsTab'
+import { ServicesPanel } from '@/components/sidebar/ServicesPanel'
 import { ConnectedServices } from '@/components/sidebar/ConnectedServices'
 import { useComposioActivity, snapshotOf, type ActivityEvent } from '@/lib/composio/activity'
 import { composioUserId } from '@/lib/composio/client'
@@ -359,13 +360,16 @@ export function ConnectorsMarketplace() {
         </ModalHeader>
 
         <ModalBody>
-          <div role="tablist" aria-label="Connectors" className="grid grid-cols-3 gap-1 p-0.5 rounded-[11px] mb-4" style={{ background: 'var(--elevated)' }}>
-            {([['apps', 'Apps'], ['connected', count ? `Connected · ${count}` : 'Connected'], ['builtin', 'Built in']] as const).map(([id, label]) => (
+          <div role="tablist" aria-label="Connectors" className="grid grid-cols-3 gap-1 p-1 rounded-[12px] mb-4" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
+            {([['apps', 'Apps'], ['connected', 'Connected'], ['builtin', 'Built in']] as const).map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={tab === id}
                 onClick={() => useUI.setState({ connectorsTab: id })}
-                className="px-3 py-1.5 rounded-[9px] text-[12px] font-medium transition-colors"
-                style={{ background: tab === id ? 'var(--surface)' : 'transparent', color: tab === id ? 'var(--text-1)' : 'var(--text-3)', border: tab === id ? '1px solid var(--surface-border)' : '1px solid transparent' }}>
-                {label}
+                className="h-9 px-3 rounded-[9px] text-[13px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5 min-w-0"
+                style={{ background: tab === id ? 'var(--surface)' : 'transparent', color: tab === id ? 'var(--text-1)' : 'var(--text-3)', border: tab === id ? '1px solid var(--surface-border)' : '1px solid transparent', boxShadow: tab === id ? '0 1px 2px rgba(0,0,0,0.25)' : 'none' }}>
+                <span className="truncate">{label}</span>
+                {id === 'connected' && count > 0 && (
+                  <span className="text-[10.5px] tabular-nums px-1.5 rounded-full shrink-0" style={{ background: 'var(--primary)', color: '#fff' }}>{count}</span>
+                )}
               </button>
             ))}
           </div>
@@ -383,7 +387,10 @@ export function ConnectorsMarketplace() {
               onBrowseApps={() => useUI.setState({ connectorsTab: 'apps' })}
             />
           ) : tab === 'builtin' ? (
-            <IntegrationsPanel />
+            <div className="space-y-5">
+              <IntegrationsPanel />
+              <ServicesPanel />
+            </div>
           ) : !configured ? (
             <div className="space-y-3 max-w-md">
               <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>

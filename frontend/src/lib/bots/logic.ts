@@ -285,6 +285,13 @@ export function memoryCommand(text: string): string | null {
 //   TOOLS: <app>         list the actions one app offers
 //   RUN: <ACTION> {json} run one action on a connected app
 //   DOCS: <library> | <question>  current documentation (Context7)
+//   SEO: <domain>                 SEO overview of a site (OpenSEO)
+//   SEO: KEYWORDS <a>, <b>        keyword ideas (OpenSEO)
+//   CRM: FIND <name>              find a person in the CRM (Twenty)
+//   CRM: COMPANIES <name>         find a company in the CRM
+//   CRM: ADD {json}               add a person, company or note (after the person says yes)
+//   SOCIAL: CHANNELS              list connected channels (Postiz)
+//   SOCIAL: DRAFT <channel> | <text>  save a draft; nothing is published
 
 export type ToolCall =
   | { kind: 'search'; query: string }
@@ -293,11 +300,17 @@ export type ToolCall =
   | { kind: 'apps' }
   | { kind: 'tools'; app: string }
   | { kind: 'docs'; query: string; library?: string }
+  | { kind: 'seo_domain'; domain: string }
+  | { kind: 'seo_keywords'; seeds: string[] }
+  | { kind: 'crm_find'; query: string; companies: boolean }
+  | { kind: 'crm_add'; record: Record<string, unknown> }
+  | { kind: 'social_channels' }
+  | { kind: 'social_draft'; channelId: string; text: string }
   | { kind: 'run'; tool: string; args: Record<string, unknown>; raw: string }
 
 // Uppercase keyword and a colon, so an ordinary sentence such as "Run: npm test"
 // in a normal answer is never taken for a tool. APPS may stand alone.
-const TOOL_LINE = /^\s*(?:(SEARCH|OPEN|FIND|TOOLS|RUN|DOCS)\s*:\s*(.*?)|(APPS)\s*:?)\s*$/gm
+const TOOL_LINE = /^\s*(?:(SEARCH|OPEN|FIND|TOOLS|RUN|DOCS|SEO|CRM|SOCIAL)\s*:\s*(.*?)|(APPS)\s*:?)\s*$/gm
 const WEB_KINDS = new Set(['search', 'open'])
 /** Documentation lookups are read-only, so they are always allowed. */
 
@@ -332,6 +345,34 @@ export function findToolCall(text: string, opts: { web?: boolean } = { web: true
       continue
     }
     if (kind === 'TOOLS') { if (arg) return { kind: 'tools', app: arg.slice(0, 64).toLowerCase() }; continue }
+    if (kind === 'SEO') {
+      const keywords = /^KEYWORDS\s+(.+)$/i.exec(arg)
+      if (keywords) {
+        const seeds = keywords[1].split(',').map((x) => x.trim()).filter(Boolean).slice(0, 5)
+        if (seeds.length) return { kind: 'seo_keywords', seeds }
+        continue
+      }
+      // A domain has no spaces. Anything else is not a site to look up.
+      if (/^[^\s/]+\.[^\s]+$/.test(arg) || /^https?:\/\/\S+$/i.test(arg)) return { kind: 'seo_domain', domain: arg.slice(0, 2048) }
+      continue
+    }
+    if (kind === 'CRM') {
+      const add = /^ADD\s+(\{.*\})$/i.exec(arg)
+      if (add) {
+        const parsed = parseArgs(add[1])
+        if (parsed.ok) return { kind: 'crm_add', record: parsed.value }
+        continue
+      }
+      const find = /^(FIND|COMPANIES)\s+(.{2,120})$/i.exec(arg)
+      if (find) return { kind: 'crm_find', query: find[2].trim(), companies: find[1].toUpperCase() === 'COMPANIES' }
+      continue
+    }
+    if (kind === 'SOCIAL') {
+      if (/^CHANNELS$/i.test(arg)) return { kind: 'social_channels' }
+      const draft = /^DRAFT\s+(\S+)\s*\|\s*(.+)$/i.exec(arg)
+      if (draft) return { kind: 'social_draft', channelId: draft[1].slice(0, 120), text: draft[2].slice(0, 5000) }
+      continue
+    }
     if (kind === 'RUN') {
       const sp = arg.search(/\s|\{/)
       const tool = (sp < 0 ? arg : arg.slice(0, sp)).trim().toUpperCase()
@@ -361,7 +402,18 @@ export function webInstructions(): string {
   ].join('\n')
 }
 
-export function connectorInstructions(): string {
+/** Only the services that are set up are described, so the prompt carries no dead tools. */
+export interface ServiceFlags { seo?: boolean; crm?: boolean; social?: boolean }
+
+export function serviceInstructions(flags: ServiceFlags = {}): string[] {
+  const out: string[] = []
+  if (flags.seo) out.push('SEO: <domain>  gives the SEO overview of a site, e.g. SEO: example.com. SEO: KEYWORDS <a>, <b>  gives keyword ideas.')
+  if (flags.crm) out.push('CRM: FIND <name>  finds a person in the CRM; CRM: COMPANIES <name> finds a company. CRM: ADD {json}  adds a person, company or note, e.g. CRM: ADD {"kind":"people","firstName":"Ana","email":"ana@example.com"}. Add only after the person has said yes.')
+  if (flags.social) out.push('SOCIAL: CHANNELS  lists the connected social channels. SOCIAL: DRAFT <channel id> | <text>  saves a draft; nothing is published. Save a draft only after the person has said yes.')
+  return out
+}
+
+export function connectorInstructions(services: ServiceFlags = {}): string {
   return [
     'You also have access to the person\'s connected accounts and apps. Write one line to use one:',
     'FIND: <query>  searches their connected accounts and local files.',
@@ -369,6 +421,7 @@ export function connectorInstructions(): string {
     'DOCS: <library> | <question>  looks up current documentation (e.g. DOCS: next.js | how do route handlers stream?). Use it before you state how a library works.',
     'TOOLS: <app>  lists the actions that app offers, e.g. TOOLS: gmail.',
     'RUN: <ACTION> {"argument": "value"}  runs one action, using a name from TOOLS, e.g. RUN: GMAIL_FETCH_EMAILS {"max_results": 5}.',
+    ...serviceInstructions(services),
     'Only read or search unless the person has asked for a change. Before anything that sends, posts, deletes or edits, say what you will do and wait for their go-ahead.',
     `Use at most ${MAX_TOOL_STEPS} tool lines in total, then answer with no tool line. Say plainly when an app is not connected.`,
   ].join('\n')
@@ -376,7 +429,7 @@ export function connectorInstructions(): string {
 
 // ---------------------------------------------------------------- prompts
 
-export function buildSystemPrompt(bot: Bot, opts: { web?: boolean; roleText?: string } = {}): string {
+export function buildSystemPrompt(bot: Bot, opts: { web?: boolean; roleText?: string; services?: ServiceFlags } = {}): string {
   // Newest memories first when there are many, so the most recent ones always fit.
   const kept = bot.memory.slice(-MAX_MEMORY_IN_PROMPT)
   const memory = kept.length ? kept.map((m) => `- ${m}`).join('\n') : '- (nothing saved yet)'
@@ -388,7 +441,7 @@ export function buildSystemPrompt(bot: Bot, opts: { web?: boolean; roleText?: st
   if (opts.roleText) parts.push(opts.roleText)
   if (opts.web) parts.push(webInstructions())
   else parts.push('Web access is off for you. You cannot browse the web, so do not claim that you looked anything up on it. If something needs a web source, say so.')
-  parts.push(connectorInstructions())
+  parts.push(connectorInstructions(opts.services))
   parts.push('Keep replies short unless the person asks for detail.')
   return parts.join('\n\n')
 }

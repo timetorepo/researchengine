@@ -18,6 +18,7 @@ import { webOpen, webSearch } from './web'
 import { looksLikeToolLine, useBotDrafts } from './drafts'
 import { searchIntegrations } from '@/lib/integrations/client'
 import { composioConfigured, isActiveAccount, listComposioAccounts, listComposioTools, runComposioTool } from '@/lib/composio/client'
+import { serviceReady } from '@/lib/services/config'
 import {
   buildHandoffPrompt, buildRoomPrompt, buildRoutinePrompt, buildSystemPrompt, buildTurnPrompt, dueRoutines, roleMethodFor,
   fallbackBrief, findToolCall, isPass, memoryCommand, pickSpeaker, stripToolLines, MAX_ROOM_TURNS, MAX_TOOL_STEPS,
@@ -48,7 +49,7 @@ export type Reply = { ok: true; text: string; trace: string[]; sources: Source[]
  */
 export async function converse(bot: Bot, prompt: string, onDraft?: (text: string) => void): Promise<Reply> {
   const web = bot.webAccess === true
-  const system = buildSystemPrompt(bot, { web, roleText: await roleMethodFor(bot, prompt) })
+  const system = buildSystemPrompt(bot, { web, roleText: await roleMethodFor(bot, prompt), services: { seo: serviceReady('openseo'), crm: serviceReady('twenty'), social: serviceReady('postiz') } })
   const trace: string[] = []
   const sources: Source[] = []
   let transcript = prompt
@@ -134,6 +135,46 @@ async function runToolCall(call: ToolCall, trace: string[], sources: Source[]): 
     } catch (e: any) {
       return `Could not list the actions: ${String(e?.message ?? e)}`
     }
+  }
+  if (call.kind === 'seo_domain' || call.kind === 'seo_keywords') {
+    if (!serviceReady('openseo')) return 'OpenSEO is not set up. The person can add its key under Connectors → Built in.'
+    const svc = await import('@/lib/services/client')
+    if (call.kind === 'seo_domain') {
+      trace.push(`SEO overview for ${call.domain}`)
+      const res = await svc.seoDomain(call.domain)
+      return res.ok ? clip(`SEO overview for ${call.domain} (estimates from OpenSEO):\n${JSON.stringify(res.data.result)}`, LIMITS.toolResultChars) : `The SEO lookup failed: ${res.error}`
+    }
+    trace.push(`Keyword ideas for ${call.seeds.join(', ')}`)
+    const res = await svc.seoKeywords(call.seeds)
+    return res.ok ? clip(`Keyword ideas (OpenSEO):\n${JSON.stringify(res.data.result)}`, LIMITS.toolResultChars) : `The keyword research failed: ${res.error}`
+  }
+  if (call.kind === 'crm_find' || call.kind === 'crm_add') {
+    if (!serviceReady('twenty')) return 'Twenty CRM is not set up. The person can add its key under Connectors → Built in.'
+    const svc = await import('@/lib/services/client')
+    if (call.kind === 'crm_find') {
+      trace.push(`CRM search “${call.query}”`)
+      const res = await svc.crmSearch(call.companies ? 'companies' : 'people', call.query)
+      if (!res.ok) return `The CRM search failed: ${res.error}`
+      return res.data.records.length ? res.data.records.map((r, i) => `[${i + 1}] ${r.name}${r.detail ? ` — ${r.detail}` : ''} · id ${r.id}`).join('\n') : `Nothing in the CRM matched “${call.query}”.`
+    }
+    const kind = call.record.kind
+    if (kind !== 'people' && kind !== 'companies' && kind !== 'notes') return 'CRM: ADD needs "kind" to be people, companies or notes.'
+    trace.push(`CRM add (${kind})`)
+    const res = await svc.crmCreate(call.record as any)
+    return res.ok ? `Added to the CRM (id ${res.data.id}).` : `The CRM could not add it: ${res.error}`
+  }
+  if (call.kind === 'social_channels' || call.kind === 'social_draft') {
+    if (!serviceReady('postiz')) return 'Postiz is not set up. The person can add its key under Connectors → Built in.'
+    const svc = await import('@/lib/services/client')
+    if (call.kind === 'social_channels') {
+      trace.push('Listed social channels')
+      const res = await svc.socialChannels()
+      if (!res.ok) return `Could not list the channels: ${res.error}`
+      return res.data.channels.length ? res.data.channels.map((c) => `${c.id} — ${c.name} (${c.identifier})${c.disabled ? ' [disabled]' : ''}`).join('\n') : 'No channels are connected in Postiz yet.'
+    }
+    trace.push('Saved a social draft')
+    const res = await svc.socialDraft(call.channelId, call.text)
+    return res.ok ? `Saved a draft on ${res.data.channel}. Nothing was published.` : `The draft was not saved: ${res.error}`
   }
   // run
   trace.push(`Ran ${call.tool}`)

@@ -137,6 +137,41 @@ const UI_LIBRARIES: { name: string; href: string; author?: string; used: string 
 
 const RUNTIME_LIBRARIES = ['React', 'Vite', 'Tailwind CSS', 'Framer Motion', 'Zustand', 'Lucide', 'KaTeX', 'react-markdown', 'JSZip']
 
+const CREDITS: { name: string; by: string; license: string; role: string; url: string }[] = [
+  { name: 'OpenWhispr', by: 'OpenWhispr', license: 'MIT', role: 'Voice dictation in the composer, with a self-hosted model or your own provider key.', url: 'https://github.com/OpenWhispr/openwhispr' },
+  { name: 'OpenSEO', by: 'Every App', license: 'MIT', role: 'SEO data for the chat and the bots: site overviews and keyword ideas.', url: 'https://github.com/every-app/open-seo' },
+  { name: 'VoiceStudio', by: 'Palash Debnath', license: 'AGPL-3.0', role: 'Speech in a voice, and voice cloning that needs the speaker’s permission.', url: 'https://github.com/debpalash/VoiceStudio' },
+  { name: 'Twenty', by: 'Twenty', license: 'AGPL-3.0, with Enterprise files', role: 'The CRM the agent can search and add people, companies and notes to.', url: 'https://github.com/twentyhq/twenty' },
+  { name: 'Postiz', by: 'Gitroom', license: 'AGPL-3.0', role: 'Social drafts on your channels. Publishing stays in Postiz.', url: 'https://github.com/gitroomhq/postiz-app' },
+]
+
+function CreditsCard() {
+  return (
+    <section className="mb-4 p-4 rounded-[18px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} aria-labelledby="about-credits">
+      <h3 id="about-credits" className="text-[13px] font-semibold mb-1" style={{ color: 'var(--text-1)' }}>Built with</h3>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
+        These projects do real work in this app. Each is open source; the licence is the one its project publishes.
+      </p>
+      <ul className="space-y-2">
+        {CREDITS.map((c) => (
+          <li key={c.name} className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <button type="button" onClick={() => window.open(c.url, '_blank', 'noreferrer')}
+                  className="text-[12.5px] font-medium underline underline-offset-2" style={{ color: 'var(--text-1)' }}>
+                  {c.name}
+                </button>
+                <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>by {c.by} · {c.license}</span>
+              </div>
+              <p className="text-[11.5px] leading-snug" style={{ color: 'var(--text-2)' }}>{c.role}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 export function AboutTab() {
   const ui = useUI()
   const profile = useStore((s) => s.settings.profile)
@@ -222,6 +257,9 @@ export function AboutTab() {
         />
         <span className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>hover for who that is</span>
       </div>
+      {/* Credits: the open-source projects this app builds on, and what each does here. */}
+      <CreditsCard />
+
       {/* The maker, as the same expandable card the user's own profile uses —
           expand it for the long version. */}
       {/* reactbits' Spotlight Card frames the developer block: a light that

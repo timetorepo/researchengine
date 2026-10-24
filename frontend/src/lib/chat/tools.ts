@@ -8,6 +8,7 @@ import { useUI } from '@/stores/useUI'
 import { designSession, captureStore, formatSnapshot, formatFindings, formatControls } from '@/lib/ide/bridge'
 import { ensurePreviewServer, previewStatus, stopPreview } from '@/lib/ide/preview'
 import { runUiTest } from '@/lib/ide/tests'
+import { serviceReady, permittedVoice } from '@/lib/services/config'
 
 export interface ToolCall { id: string; name: string; arguments: Record<string, unknown> | string }
 
@@ -65,6 +66,8 @@ interface ToolDef {
   description: string
   parameters: Record<string, unknown>
   needsProject?: boolean
+  /** Only offered when this returns true, so an unset-up service adds nothing to the prompt. */
+  when?: () => boolean
   run: (args: any, ctx: ToolContext) => Promise<string>
 }
 
@@ -320,6 +323,144 @@ export const TOOLS: ToolDef[] = [
       if (!res.ok) return `Documentation lookup failed: ${res.error}`
       if (!res.hits.length) return 'No documentation matched. Say so rather than guessing.'
       return JSON.stringify(res.hits).slice(0, 12_000)
+    },
+  },
+  {
+    name: 'seo_domain',
+    description: 'Look up SEO data for a website from OpenSEO: estimated organic traffic, the number of keywords it ranks for, backlinks and referring domains. Use it when someone asks how a site performs in search or who it competes with. Give the domain, e.g. example.com. Report the figures as estimates from the data provider.',
+    parameters: {
+      type: 'object',
+      properties: { domain: opt('string', 'Domain or URL, e.g. example.com') },
+      required: ['domain'],
+    },
+    when: () => serviceReady('openseo'),
+    run: async (args) => {
+      const { seoDomain } = await import('@/lib/services/client')
+      const res = await seoDomain(String(args?.domain ?? ''))
+      return res.ok ? JSON.stringify(res.data.result).slice(0, 12_000) : `OpenSEO lookup failed: ${res.error}`
+    },
+  },
+  {
+    name: 'seo_keywords',
+    description: 'Research keywords with OpenSEO for up to five seed phrases: related keywords with search volume, difficulty and cost per click. Use it for keyword ideas or to size a topic before writing about it.',
+    parameters: {
+      type: 'object',
+      properties: { seeds: { type: 'array', items: STR, description: '1 to 5 seed keywords' } },
+      required: ['seeds'],
+    },
+    when: () => serviceReady('openseo'),
+    run: async (args) => {
+      const seeds = Array.isArray(args?.seeds) ? args.seeds.map((x: unknown) => String(x)).slice(0, 5) : []
+      if (!seeds.length) return 'Give at least one seed keyword.'
+      const { seoKeywords } = await import('@/lib/services/client')
+      const res = await seoKeywords(seeds)
+      return res.ok ? JSON.stringify(res.data.result).slice(0, 12_000) : `OpenSEO research failed: ${res.error}`
+    },
+  },
+  {
+    name: 'crm_search',
+    description: 'Find people or companies in the person\'s CRM (Twenty) by name. Returns matching records with their ids.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['people', 'companies'], description: 'Which records to search' },
+        query: opt('string', 'Name or part of a name'),
+      },
+      required: ['query'],
+    },
+    when: () => serviceReady('twenty'),
+    run: async (args) => {
+      const { crmSearch } = await import('@/lib/services/client')
+      const res = await crmSearch(args?.kind === 'companies' ? 'companies' : 'people', String(args?.query ?? ''))
+      if (!res.ok) return `CRM search failed: ${res.error}`
+      return res.data.records.length ? JSON.stringify(res.data.records) : 'Nothing in the CRM matched.'
+    },
+  },
+  {
+    name: 'crm_create',
+    description: 'Create a person, a company or a note in the CRM (Twenty). Only do this when the person has asked you to add it and has given you the details. Never guess an email address or company name.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['people', 'companies', 'notes'] },
+        firstName: opt('string', 'People: first name'),
+        lastName: opt('string', 'People: last name'),
+        email: opt('string', 'People: email address'),
+        jobTitle: opt('string', 'People: job title'),
+        name: opt('string', 'Companies: company name'),
+        domain: opt('string', 'Companies: website domain'),
+        title: opt('string', 'Notes: title'),
+        body: opt('string', 'Notes: text, in plain words or Markdown'),
+      },
+      required: ['kind'],
+    },
+    when: () => serviceReady('twenty'),
+    run: async (args) => {
+      const kind = args?.kind === 'companies' || args?.kind === 'notes' ? args.kind : 'people'
+      const { crmCreate } = await import('@/lib/services/client')
+      const res = await crmCreate({ ...args, kind } as any)
+      return res.ok ? `Created the ${kind === 'people' ? 'person' : kind === 'companies' ? 'company' : 'note'} (id ${res.data.id}).` : `CRM could not create it: ${res.error}`
+    },
+  },
+  {
+    name: 'social_channels',
+    description: 'List the social channels connected in Postiz (for example X, LinkedIn, a blog). Call it before social_draft to get a channel id.',
+    parameters: { type: 'object', properties: {} },
+    when: () => serviceReady('postiz'),
+    run: async () => {
+      const { socialChannels } = await import('@/lib/services/client')
+      const res = await socialChannels()
+      if (!res.ok) return `Could not list the channels: ${res.error}`
+      return res.data.channels.length
+        ? JSON.stringify(res.data.channels.map((c) => ({ id: c.id, name: c.name, platform: c.identifier, disabled: c.disabled })))
+        : 'No channels are connected in Postiz yet.'
+    },
+  },
+  {
+    name: 'social_draft',
+    description: 'Save a DRAFT post on one connected channel in Postiz. Drafts only: nothing is published or scheduled, and the person does that in Postiz. Write the text for that platform\'s length and style.',
+    parameters: {
+      type: 'object',
+      properties: {
+        channelId: opt('string', 'The channel id from social_channels'),
+        text: opt('string', 'The post text'),
+      },
+      required: ['channelId', 'text'],
+    },
+    when: () => serviceReady('postiz'),
+    run: async (args) => {
+      const { socialDraft } = await import('@/lib/services/client')
+      const res = await socialDraft(String(args?.channelId ?? ''), String(args?.text ?? ''))
+      return res.ok ? `Saved a draft on ${res.data.channel} (post ${res.data.postId || 'created'}). It is in Postiz; nothing was published.` : `The draft was not saved: ${res.error}`
+    },
+  },
+  {
+    name: 'voice_speak',
+    description: 'Speak text aloud with a voice from VoiceStudio and play it in the app. Use a built-in voice name ("default", "alloy", "nova" and so on), or the name of a voice the person has cloned with their permission. You cannot clone a voice yourself: cloning is always started by the person.',
+    parameters: {
+      type: 'object',
+      properties: {
+        voice: opt('string', 'Built-in voice name, or a cloned voice name the person has permitted'),
+        text: opt('string', 'What the voice should say'),
+      },
+      required: ['text'],
+    },
+    when: () => serviceReady('voicestudio'),
+    run: async (args) => {
+      const text = String(args?.text ?? '').trim()
+      if (!text) return 'Say what the voice should read.'
+      const requested = String(args?.voice ?? 'default').trim() || 'default'
+      const consent = permittedVoice(requested)
+      const builtIn = /^(default|alloy|ash|ballad|coral|echo|fable|nova|onyx|sage|shimmer|verse|marin|cedar)$/i.test(requested)
+      if (!consent && !builtIn) return `There is no permitted voice called “${requested}”. Use a built-in voice, or a voice the person cloned with their permission.`
+      const { voiceSpeak } = await import('@/lib/services/client')
+      const res = await voiceSpeak(consent ? consent.voiceId : requested, text)
+      if (!res.ok) return `Speech failed: ${res.error}`
+      const url = URL.createObjectURL(res.data.blob)
+      const audio = new Audio(url)
+      audio.onended = () => URL.revokeObjectURL(url)
+      void audio.play().catch(() => { /* the person can press play in the app if the browser blocks it */ })
+      return `Spoke the text with ${consent ? `the cloned voice “${consent.speaker}”` : `the “${requested}” voice`}. It is playing in the app.`
     },
   },
   {
@@ -966,7 +1107,7 @@ export const TOOLS: ToolDef[] = [
 /** OpenAI-style tool specs for the provider payload. */
 export function toolSpecs(ctx: ToolContext): { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }[] {
   return TOOLS
-    .filter((t) => !t.needsProject || !!ctx.project)
+    .filter((t) => (!t.needsProject || !!ctx.project) && (!t.when || t.when()))
     .map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }))
 }
 
@@ -975,6 +1116,7 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
   const def = TOOLS.find((t) => t.name === call.name)
   if (!def) return `Unknown tool: ${call.name}`
   if (def.needsProject && !ctx.project) return 'This tool needs an open project in Coding mode.'
+  if (def.when && !def.when()) return `${def.name} is not set up. Add it under Connectors → Built in.`
   let args: any = call.arguments
   if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = { input: args } } }
   args = args ?? {}

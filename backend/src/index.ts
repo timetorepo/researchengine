@@ -50,6 +50,7 @@ async function main() {
   const { integrationRoutes } = await import('./routes/integrations')
   const { composioRoutes } = await import('./routes/composio')
   const { context7Routes } = await import('./routes/context7')
+  const { serviceRoutes } = await import('./routes/services')
   const { resourceRoutes } = await import('./routes/resources')
   const { fsRoutes } = await import('./routes/fs')
   const { providerRoutes } = await import('./routes/providers')
@@ -89,6 +90,7 @@ async function main() {
   app.route('/api/integrations', integrationRoutes(rt))
   app.route('/api', composioRoutes(rt))
   app.route('/api', context7Routes(rt))
+  app.route('/api', serviceRoutes(rt))
   app.route('/api', artifactRoutes(rt))
   app.route('/api', providerRoutes)
   // The updater. Everything it can touch is guarded inside update/service.ts.
