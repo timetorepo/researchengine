@@ -19,6 +19,7 @@
  *   POST /api/v3.1/tools/execute/:slug      run a tool on an account
  */
 import { createHash } from 'node:crypto'
+import { BoundedMap } from './boundedMap'
 
 export const COMPOSIO_BASE = 'https://backend.composio.dev'
 const TIMEOUT_MS = 20_000
@@ -142,7 +143,7 @@ function asApp(raw: any): ComposioApp | null {
   }
 }
 
-const catalogCache = new Map<string, { at: number; apps: ComposioApp[] }>()
+const catalogCache = new BoundedMap<string, { at: number; apps: ComposioApp[] }>(8)
 
 /** Every toolkit the project can see, paged until the end. Cached for a few minutes. */
 export async function listApps(key: string, opts: { refresh?: boolean } = {}): Promise<ComposioResult<ComposioApp[]>> {

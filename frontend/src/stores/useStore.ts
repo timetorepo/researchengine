@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import { DEFAULT_PROFILE, migrateProfile } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
@@ -9,9 +9,18 @@ import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
 import type { WalletState } from '@/lib/wallet/types'
 import { builtinSquads } from '@/lib/agents/squads'
-import { scopedStorage } from '@/lib/security/lock'
 import { localDay } from '@/lib/usage/day'
 import { DEFAULT_BUBBLES } from '@/lib/chat/bubbles'
+import { createDeferredJsonStorage } from '@/lib/storage/deferredJson'
+import { activeNamespace, scopedStorage, writeNamespaced } from '@/lib/security/lock'
+
+/** The main store's persistence: scoped per user, written at most every 400 ms. */
+const deferredMainStorage = createDeferredJsonStorage({
+  namespace: activeNamespace,
+  read: (name) => scopedStorage.getItem(name),
+  write: writeNamespaced,
+  remove: (ns, name) => localStorage.removeItem(`${ns}:${name}`),
+})
 
 export const AGENT_COLORS = ['#6C8EEF', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#22D3EE', '#F472B6']
 
@@ -346,7 +355,8 @@ export const useStore = create<StoreState>()(
       // Scoped to whoever unlocked the app: the main user's state and a guest's
       // state are different data in different namespaces, so a guest session
       // cannot read the main user's chats and the main user can read a guest's.
-      storage: createJSONStorage(() => scopedStorage),
+      // Batched: a streamed answer would otherwise re-serialise every chat per token.
+      storage: deferredMainStorage as any,
       partialize: (s) => ({
         chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces, wallet: s.wallet,
         citations: s.citations, knowledge: s.knowledge, documents: s.documents,

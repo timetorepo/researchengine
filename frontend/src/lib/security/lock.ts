@@ -224,7 +224,21 @@ export const scopedStorage = {
     return localStorage.getItem(`${activeNamespace()}:${name}`)
   },
   setItem(name: string, value: string): void {
-    const key = `${activeNamespace()}:${name}`
+    writeNamespaced(activeNamespace(), name, value)
+  },
+  removeItem(name: string): void {
+    localStorage.removeItem(`${activeNamespace()}:${name}`)
+  },
+}
+
+/**
+ * Writes one value under an explicit namespace. The store batches its writes
+ * (see lib/storage/deferredJson.ts) and must land each write in the namespace
+ * that was active when the change happened, not whichever is active when the
+ * batch flushes.
+ */
+export function writeNamespaced(ns: string, name: string, value: string): void {
+    const key = `${ns}:${name}`
     try {
       localStorage.setItem(key, value)
     } catch (err) {
@@ -240,10 +254,6 @@ export const scopedStorage = {
         notifyStorageTrimmed('Browser storage is full. Newer changes stay in memory until you export or clear older chats.')
       }
     }
-  },
-  removeItem(name: string): void {
-    localStorage.removeItem(`${activeNamespace()}:${name}`)
-  },
 }
 
 /**
@@ -289,6 +299,8 @@ export interface WipeReport {
  * it and nowhere else.
  */
 export async function wipeEverything(): Promise<WipeReport> {
+  // Nothing batched may write back after this point (see deferredJson.ts).
+  freezePendingWrites()
   const before = localStorage.length + sessionStorage.length
   const keys = readNamespaceKeys(MAIN_NAMESPACE).length + readNamespaceKeys(GUEST_NAMESPACE).length
 
@@ -363,6 +375,7 @@ export function pinWarning(pin: string): string | null {
 }
 
 import { isQuotaError, trimForQuota } from './quota'
+import { freezePendingWrites } from '@/lib/storage/deferredJson'
 
 const STORAGE_EVENT = 'storage-trimmed'
 function notifyStorageTrimmed(note: string) {

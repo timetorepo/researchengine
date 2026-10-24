@@ -50,7 +50,7 @@ export function PerformanceTab() {
           const caps = PROFILE_CAPS[p]
           const active = profile === p
           return (
-            <button key={p} onClick={() => set({ performanceProfile: p })}
+            <button key={p} onClick={() => set({ performanceProfile: p, performanceProfileChosen: true })}
               className="text-left p-4 rounded-[16px] transition-all hover:scale-[1.015]"
               style={{
                 border: `1.5px solid ${active ? 'var(--primary)' : 'var(--surface-border)'}`,

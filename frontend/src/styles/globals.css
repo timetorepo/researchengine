@@ -3576,3 +3576,14 @@ button.re-act-row:hover { background: var(--ide-hover); border-left-color: var(-
 @media (prefers-reduced-motion: reduce) {
   .tabs-sliding-pill { transition: none !important; }
 }
+
+/* ---- Eco profile: cheaper glass ----
+ * Backdrop blur is the costliest paint on integrated graphics. On the eco
+ * profile every glass surface keeps its frosted look at a smaller radius, so
+ * the layers still read as glass while a 4 GB laptop keeps up. Stylesheet
+ * !important overrides the inline styles that set the blur radius. */
+html[data-perf="eco"] [class*="backdrop-blur"],
+html[data-perf="eco"] [style*="backdrop-filter"] {
+  backdrop-filter: blur(6px) saturate(1.1) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(1.1) !important;
+}

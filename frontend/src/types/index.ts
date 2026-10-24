@@ -703,6 +703,11 @@ export interface Settings {
   notifyRecommendations?: boolean
   performanceProfile: 'eco' | 'balanced' | 'performance'
   /**
+   * Set once the user picks a profile in Settings. Until then, a device with
+   * 4 GB of RAM or less starts on eco (see lib/system/performance.ts).
+   */
+  performanceProfileChosen?: boolean
+  /**
    * Adaptive quality: sample the real frame rate and let the animated layers
    * thin themselves out on a machine that cannot hold frames (lib/system/
    * frame-budget). On by default; off means every layer always draws fully.
