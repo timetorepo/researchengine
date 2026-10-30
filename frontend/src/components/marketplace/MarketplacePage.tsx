@@ -18,13 +18,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { Accordion, Button, ButtonGroup, Spinner, toast } from '@heroui/react'
-import { ArrowLeft, CheckCircle2, Check, ChevronLeft, ChevronRight, Loader2, Plug, Search, Unplug, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plug, Search, Unplug, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
   checkComposio, composioIdentity, composioUserId, disconnectComposio, hasComposioUserId, isActiveAccount,
   isLocalApp, listComposioApps, listComposioTools, openInDefaultBrowser, saveComposioKey, setComposioIdentity,
-  startComposioConnect, type ComposioAccount, type ComposioApp, type ComposioTool,
+  startComposioConnect, type ComposioAccount, type ComposioApp, type ComposioTool, NeedsAppCredentialsError, clearComposioAppCredentials, saveComposioAppCredentials, COMPOSIO_OAUTH_CALLBACK, type ComposioAppCredentials,
 } from '@/lib/composio/client'
 import { syncConnectorAccounts } from '@/lib/composio/sync'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
@@ -59,7 +59,7 @@ interface Flight {
   /** The browser refused the tab, so the person presses the link themselves. */
   blocked?: boolean
   closedAt?: number
-  reason?: 'closed' | 'timeout' | 'error' | 'opener'
+  reason?: 'closed' | 'timeout' | 'error' | 'opener' | 'needs_credentials'
   message?: string
 }
 
@@ -349,7 +349,7 @@ export function MarketplacePage() {
       url = (await startComposioConnect(app.slug)).redirectUrl
     } catch (e: any) {
       win?.close()
-      finishFlight(app, 'error', String(e?.message ?? e))
+      finishFlight(app, e instanceof NeedsAppCredentialsError ? 'needs_credentials' : 'error', String(e?.message ?? e))
       return
     }
     if (!url) { win?.close(); finishFlight(app, 'error'); return }
@@ -779,6 +779,7 @@ function AppDetail({
 
   return (
     <div className="space-y-6">
+      <OwnAppPanel app={app} needed={flight?.reason === 'needs_credentials'} onConnect={() => onConnect(app)} />
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] hover:opacity-80" style={{ color: 'var(--text-2)' }}>
           <ArrowLeft size={14} /> Marketplace
@@ -919,6 +920,94 @@ function AppDetail({
 }
 
 /** Documentation search. On by default with no setup; the key is optional. */
+/** Where the person creates a developer app, for toolkits that need one. */
+const APP_PORTALS: Record<string, { label: string; url: string }> = {
+  spotify: { label: 'Spotify developer dashboard', url: 'https://developer.spotify.com/dashboard' },
+}
+
+/**
+ * The person's own developer app for one toolkit. Opens by itself when a connect is
+ * refused because Composio has no managed sign-in for the app (Spotify, for example).
+ * The secret is saved encrypted on this device and sent only with the connect request.
+ */
+function OwnAppPanel({ app, needed, onConnect }: { app: ComposioApp; needed: boolean; onConnect: () => void }) {
+  const saved = useStore((s) => s.settings.composio?.apps?.[app.slug])
+  const [open, setOpen] = useState(needed || !!saved)
+  const [clientId, setClientId] = useState(saved?.clientId ?? '')
+  const [secret, setSecret] = useState('')
+  const [scopes, setScopes] = useState(saved?.scopes ?? '')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { if (needed) setOpen(true) }, [needed])
+  const portal = APP_PORTALS[app.slug]
+
+  const save = async (connectAfter: boolean) => {
+    setErr(null)
+    setBusy(true)
+    try {
+      const problem = await saveComposioAppCredentials(app.slug, { clientId, clientSecret: secret, scopes })
+      if (problem) { setErr(problem); return }
+      setSecret('')
+      toast.success(`${app.name} app saved`, { description: 'It is kept encrypted on this device.', timeout: 4000 })
+      if (connectAfter) onConnect()
+    } catch (e: any) {
+      setErr(String(e?.message ?? e))
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <section className="rounded-[14px] p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} aria-label={`Your own ${app.name} app`}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="w-full flex items-center gap-2 text-left">
+        <span className="flex-1 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+          {needed ? `${app.name} needs your own developer app` : `Use your own ${app.name} developer app`}
+          {saved && <span className="ml-2 text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>Saved</span>}
+        </span>
+        <ChevronDown size={15} className="transition-transform" style={{ transform: open ? 'rotate(180deg)' : 'none', color: 'var(--text-3)' }} />
+      </button>
+      {open && (
+        <div className="space-y-3">
+          <ol className="text-[11.5px] leading-snug list-decimal pl-4 space-y-1" style={muted}>
+            <li>
+              Create an app in the {portal ? <a href={portal.url} target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--primary)' }}>{portal.label}</a> : `${app.name} developer portal`}.
+            </li>
+            <li>Add this redirect URI: <code className="break-all select-all" style={{ color: 'var(--text-2)' }}>{COMPOSIO_OAUTH_CALLBACK}</code></li>
+            <li>Paste the client ID and client secret below. Scopes are optional; leave them empty to use Composio's defaults.</li>
+          </ol>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input value={clientId} onChange={(e) => { setClientId(e.target.value); setErr(null) }} autoComplete="off"
+              aria-label={`${app.name} client ID`} placeholder="Client ID"
+              className="px-2.5 py-1.5 rounded-[9px] text-[11.5px] outline-none" style={field} />
+            <input type="password" value={secret} onChange={(e) => { setSecret(e.target.value); setErr(null) }} autoComplete="off"
+              aria-label={`${app.name} client secret`} placeholder={saved ? 'Client secret (leave blank to keep)' : 'Client secret'}
+              className="px-2.5 py-1.5 rounded-[9px] text-[11.5px] outline-none" style={field} />
+          </div>
+          <input value={scopes} onChange={(e) => setScopes(e.target.value)} autoComplete="off"
+            aria-label={`${app.name} scopes (optional)`} placeholder="Scopes, comma-separated (optional)"
+            className="w-full px-2.5 py-1.5 rounded-[9px] text-[11.5px] outline-none" style={field} />
+          {err && <p role="alert" className="text-[11.5px]" style={danger}>{err}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy || !clientId.trim() || (!secret.trim() && !saved)} onClick={() => save(true)}
+              className="px-3 py-1.5 rounded-full text-[11.5px] font-medium disabled:opacity-50" style={primary}>
+              Save and connect
+            </button>
+            <button type="button" disabled={busy || !clientId.trim() || !secret.trim()} onClick={() => save(false)}
+              className="px-3 py-1.5 rounded-full text-[11.5px] font-medium disabled:opacity-50" style={field}>
+              Save only
+            </button>
+            {saved && (
+              <button type="button" onClick={() => { clearComposioAppCredentials(app.slug); setClientId(''); setSecret(''); setScopes(''); toast('Developer app removed', { timeout: 3000 }) }}
+                className="px-3 py-1.5 rounded-full text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function Context7Row() {
   const ui = useUI()
   const [draft, setDraft] = useState('')

@@ -52,7 +52,17 @@ export interface ComposioTool {
   description: string
 }
 
-export type ComposioResult<T> = { ok: true; value: T } | { ok: false; error: string; status: number }
+/** `code` is set when the caller can fix the request, e.g. `needs_app_credentials`. */
+export type ComposioResult<T> = { ok: true; value: T } | { ok: false; error: string; status: number; code?: string }
+
+/** Where Composio receives the provider's OAuth redirect. Register this URL in the provider's app. */
+export const COMPOSIO_OAUTH_CALLBACK = 'https://backend.composio.dev/api/v3/toolkits/auth/callback'
+
+/** The user's own developer app for one toolkit (Spotify and others have no Composio-managed OAuth). */
+export interface AppCredentials { clientId: string; clientSecret: string; scopes?: string }
+
+/** The name Research Engine gives the auth config it owns for a toolkit. Found again on reconnect. */
+const OWN_CONFIG_NAME = (toolkit: string) => `Research Engine · ${toolkit}`
 
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/
 const TOOL_SLUG = /^[A-Z0-9][A-Z0-9_]{1,119}$/
@@ -191,23 +201,62 @@ export async function listAccounts(key: string, userId: string): Promise<Composi
 }
 
 /**
- * Start the OAuth flow for one app. Uses an enabled auth config for the toolkit
- * if the project has one; otherwise it creates a Composio-managed config. Returns
- * the URL the person opens to sign in.
+ * Start the OAuth flow for one app. Order of choice:
+ *  1. The person's own developer app (`appCredentials`): the auth config Research
+ *     Engine owns for this toolkit is created or updated with those credentials.
+ *  2. An enabled auth config already in the project (Composio-managed or custom).
+ *  3. A new Composio-managed auth config.
+ * When none of these works, the result carries `code: 'needs_app_credentials'` so
+ * the app can ask for the person's own client id and secret instead of failing.
  */
 export async function startConnect(
   key: string,
-  input: { toolkit: string; userId: string; callbackUrl: string },
+  input: { toolkit: string; userId: string; callbackUrl: string; appCredentials?: AppCredentials },
 ): Promise<ComposioResult<{ redirectUrl: string; connectedAccountId?: string }>> {
   const found = await call(key, 'GET', `/api/v3.1/auth_configs?${new URLSearchParams({ toolkit_slug: input.toolkit, limit: '20' }).toString()}`)
   if (!found.ok) return found
-  let authConfigId: string | undefined = (found.value?.items ?? []).find((c: any) => c?.status !== 'DISABLED' && c?.is_composio_managed !== false && c?.id)?.id
-  if (!authConfigId) {
-    const created = await call(key, 'POST', '/api/v3.1/auth_configs', { toolkit: { slug: input.toolkit } })
-    if (!created.ok) return created
-    authConfigId = created.value?.auth_config?.id
+  const items: any[] = found.value?.items ?? []
+  const live = items.filter((c) => c?.status !== 'DISABLED' && c?.id)
+  let authConfigId: string | undefined
+
+  if (input.appCredentials) {
+    const name = OWN_CONFIG_NAME(input.toolkit)
+    const credentials: Record<string, string> = {
+      client_id: input.appCredentials.clientId,
+      client_secret: input.appCredentials.clientSecret,
+      oauth_redirect_uri: COMPOSIO_OAUTH_CALLBACK,
+    }
+    if (input.appCredentials.scopes) credentials.scopes = input.appCredentials.scopes
+    const own = live.find((c) => c.name === name)
+    if (own) {
+      const updated = await call(key, 'PATCH', `/api/v3.1/auth_configs/${encodeURIComponent(own.id)}`, { type: 'custom', credentials })
+      if (!updated.ok) return updated
+      authConfigId = own.id
+    } else {
+      const created = await call(key, 'POST', '/api/v3.1/auth_configs', {
+        toolkit: { slug: input.toolkit },
+        auth_config: { type: 'use_custom_auth', auth_scheme: 'OAUTH2', name, credentials },
+      })
+      if (!created.ok) return created
+      authConfigId = created.value?.auth_config?.id
+    }
+  } else {
+    authConfigId = (live.find((c) => c.is_composio_managed !== false) ?? live[0])?.id
+    if (!authConfigId) {
+      const created = await call(key, 'POST', '/api/v3.1/auth_configs', { toolkit: { slug: input.toolkit } })
+      if (!created.ok) {
+        return {
+          ok: false,
+          status: 409,
+          code: 'needs_app_credentials',
+          error: `${input.toolkit} has no sign-in that Composio manages for this project. Add your own ${input.toolkit} developer app, then connect again.`,
+        }
+      }
+      authConfigId = created.value?.auth_config?.id
+    }
   }
   if (!authConfigId) return { ok: false, error: `Composio has no sign-in for ${input.toolkit} that this project can use.`, status: 422 }
+
   const link = await call(key, 'POST', '/api/v3.1/connected_accounts/link', {
     auth_config_id: authConfigId,
     user_id: input.userId,

@@ -15,7 +15,7 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { openInDefaultBrowser } from '../services/browser'
 import {
-  checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, removeAccount, startConnect,
+  checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, removeAccount, startConnect, type AppCredentials,
 } from '../services/composio'
 
 const USER = /^[A-Za-z0-9_.@:-]{1,128}$/
@@ -25,7 +25,20 @@ export function composioRoutes(_rt: Runtime) {
 
   const keyOf = (c: { req: { header: (n: string) => string | undefined } }) => (c.req.header('x-re-composio-key') ?? '').trim()
   const noKey = (c: any) => c.json({ error: 'No Composio key. Add it under Connectors.', needs: 'key' }, 401)
-  const fail = (c: any, r: { error: string; status: number }) => c.json({ error: r.error }, r.status as 400)
+  const fail = (c: any, r: { error: string; status: number; code?: string }) =>
+    c.json(r.code ? { error: r.error, code: r.code } : { error: r.error }, r.status as 400)
+  /** The person's own developer app, sent per request. Strict length and character limits. */
+  const parseAppCredentials = (raw: unknown): AppCredentials | undefined => {
+    if (raw === undefined || raw === null) return undefined
+    if (typeof raw !== 'object') return undefined
+    const o = raw as Record<string, unknown>
+    const clientId = typeof o.clientId === 'string' ? o.clientId.trim() : ''
+    const clientSecret = typeof o.clientSecret === 'string' ? o.clientSecret.trim() : ''
+    const scopes = typeof o.scopes === 'string' ? o.scopes.trim() : ''
+    if (!/^[\x21-\x7e]{4,200}$/.test(clientId) || !/^[\x21-\x7e]{8,300}$/.test(clientSecret)) return undefined
+    if (scopes.length > 500 || /[\x00-\x1f]/.test(scopes)) return undefined
+    return { clientId, clientSecret, ...(scopes ? { scopes } : {}) }
+  }
   const userOf = (raw: unknown): string | null => {
     const v = typeof raw === 'string' ? raw.trim() : ''
     return USER.test(v) ? v : null
@@ -84,7 +97,11 @@ export function composioRoutes(_rt: Runtime) {
     if (!isToolkitSlug(toolkit)) return c.json({ error: 'That app name is not valid.' }, 400)
     if (!user) return c.json({ error: 'A valid user id is needed to connect an account.' }, 400)
     if (!/^https?:\/\//i.test(callbackUrl) || callbackUrl.length > 500) return c.json({ error: 'The return address is not valid.' }, 400)
-    const res = await startConnect(key, { toolkit, userId: user, callbackUrl })
+    const appCredentials = parseAppCredentials(body?.appCredentials)
+    if (body?.appCredentials !== undefined && !appCredentials) {
+      return c.json({ error: 'The app client id and secret are not valid.' }, 400)
+    }
+    const res = await startConnect(key, { toolkit, userId: user, callbackUrl, appCredentials })
     if (!res.ok) return fail(c, res)
     return c.json(res.value)
   })

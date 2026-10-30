@@ -151,6 +151,39 @@ previous release:
    a new account for the app are each noticed, and the Connect button changes
    shape: Connect → Connecting → Connected, or Failed (click to retry).
 
+### Apps that need the person's own developer app (Spotify)
+
+Composio has no managed sign-in for some apps. Spotify is the case that broke
+Connect: an app with no managed sign-in fails with "Composio does not manage
+auth". The flow now handles it:
+
+- `startConnect` (`backend/src/services/composio.ts`) tries, in order: the person's
+  own app when it is sent with the request; an enabled sign-in config already in the
+  project (managed or custom, so a custom config is no longer ignored); a new
+  managed config. If all three fail, the answer is `409` with
+  `code: "needs_app_credentials"`.
+- With an own app, the server creates one auth config named
+  `Research Engine · <toolkit>` (`use_custom_auth`, `OAUTH2`, the credentials, and
+  `oauth_redirect_uri` set to `https://backend.composio.dev/api/v3/toolkits/auth/callback`).
+  On the next connect it PATCHes that same config, so a rotated secret takes effect
+  and no duplicates pile up.
+- The client (`frontend/src/lib/composio/client.ts`) throws `NeedsAppCredentialsError`
+  on that code. The app page then opens `OwnAppPanel`: client ID, client secret
+  (password field), optional comma-separated scopes, and the redirect URI to paste
+  into the provider's developer app. "Save and connect" retries.
+- The secret is stored under `settings.composio.apps[slug]`, encrypted with the vault
+  passphrase when the vault is in use (the same rule as the Composio key). It is sent
+  only with the connect request. The server keeps nothing.
+
+Assumptions: the auth-config body follows Composio's v3 reference
+(`toolkit` plus `auth_config`), and `PATCH` takes `{type, credentials}`. Both are
+covered by `backend/scripts/composio-app-credentials-test.ts` against a stand-in
+fetch. They have not been run against a live Composio project, which would need the
+person's Spotify app.
+
+Tests: `composio-app-credentials-test.ts` (14 checks), `composio-connect-test.ts`
+(6), `connectors-test.mts` (32).
+
 ### Sync, which runs on every screen
 
 `frontend/src/lib/composio/sync.ts` owns the account read that the sidebar count

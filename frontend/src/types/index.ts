@@ -574,7 +574,12 @@ export interface Settings {
    * Composio (connectors for 1000+ apps). `token` is the project key, encrypted
    * like provider keys; `userId` is this machine's id for its connections.
    */
-  composio?: { token?: string; accountUserId?: string }
+  composio?: {
+    token?: string
+    accountUserId?: string
+    /** The person's own developer app per toolkit (e.g. Spotify). The secret is encrypted when the vault is in use. */
+    apps?: Record<string, { clientId: string; clientSecret: string; scopes?: string }>
+  }
   /** Optional Context7 key. Documentation search works without one, at lower limits. */
   context7?: { token?: string }
   /**

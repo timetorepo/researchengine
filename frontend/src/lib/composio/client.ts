@@ -181,14 +181,75 @@ export function isLocalApp(): boolean {
   return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'
 }
 
-export async function startComposioConnect(toolkit: string): Promise<{ redirectUrl: string }> {
+/** Where Composio receives the provider's OAuth redirect. Register this URL in the provider's developer app. */
+export const COMPOSIO_OAUTH_CALLBACK = 'https://backend.composio.dev/api/v3/toolkits/auth/callback'
+
+/** Thrown when Composio has no sign-in for an app: the person must add their own developer app. */
+export class NeedsAppCredentialsError extends Error {
+  readonly code = 'needs_app_credentials'
+}
+
+export interface ComposioAppCredentials { clientId: string; clientSecret: string; scopes?: string }
+
+/** The saved developer app for one toolkit, with the secret decrypted. Undefined when none is saved. */
+export async function savedComposioAppCredentials(slug: string): Promise<ComposioAppCredentials | undefined> {
+  const entry = useStore.getState().settings.composio?.apps?.[slug]
+  if (!entry?.clientId || !entry.clientSecret) return undefined
+  return { clientId: entry.clientId, clientSecret: await usableKey(entry.clientSecret), scopes: entry.scopes || undefined }
+}
+
+/** Save the person's own developer app for one toolkit. Returns an error text when it is not usable. */
+export async function saveComposioAppCredentials(slug: string, input: ComposioAppCredentials): Promise<string | null> {
+  const clientId = input.clientId.trim()
+  const clientSecret = input.clientSecret.trim()
+  const scopes = (input.scopes ?? '').trim()
+  if (!/^[\x21-\x7e]{4,200}$/.test(clientId)) return 'Paste the client ID from the developer app (no spaces).'
+  if (!/^[\x21-\x7e]{8,300}$/.test(clientSecret)) return 'Paste the client secret from the developer app (no spaces).'
+  if (scopes.length > 500 || /[\x00-\x1f]/.test(scopes)) return 'The scope list is too long or has control characters.'
+  const pass = getVaultPassphrase()
+  const secret = pass ? await encryptWithPassphrase(clientSecret, pass) : clientSecret
+  useStore.setState((s) => {
+    const prev = s.settings.composio ?? {}
+    return {
+      settings: {
+        ...s.settings,
+        composio: { ...prev, apps: { ...(prev.apps ?? {}), [slug]: { clientId, clientSecret: secret, ...(scopes ? { scopes } : {}) } } },
+      },
+    }
+  })
+  return null
+}
+
+/** Forget the saved developer app for one toolkit. */
+export function clearComposioAppCredentials(slug: string): void {
+  useStore.setState((s) => {
+    const prev = s.settings.composio ?? {}
+    const apps = { ...(prev.apps ?? {}) }
+    delete apps[slug]
+    return { settings: { ...s.settings, composio: { ...prev, apps } } }
+  })
+}
+
+/**
+ * Start sign-in for one app. A saved developer app for the toolkit is sent with the
+ * request (the server never stores the secret). Throws NeedsAppCredentialsError when
+ * the app has no Composio-managed sign-in and no developer app is saved.
+ */
+export async function startComposioConnect(toolkit: string, appCredentials?: ComposioAppCredentials): Promise<{ redirectUrl: string }> {
   const callbackUrl = `${window.location.origin}/?composio=connected`
+  const own = appCredentials ?? (await savedComposioAppCredentials(toolkit))
   const res = await fetch('/api/composio/connect', {
     method: 'POST',
     headers: await headers({ 'content-type': 'application/json' }),
-    body: JSON.stringify({ toolkit, user: composioUserId(), callbackUrl }),
+    body: JSON.stringify({ toolkit, user: composioUserId(), callbackUrl, ...(own ? { appCredentials: own } : {}) }),
   })
-  if (!res.ok) throw new Error(await readError(res))
+  if (!res.ok) {
+    const body = await res.clone().json().catch(() => ({} as any))
+    if (body?.code === 'needs_app_credentials') {
+      throw new NeedsAppCredentialsError(typeof body.error === 'string' ? body.error : `${toolkit} needs your own developer app.`)
+    }
+    throw new Error(await readError(res))
+  }
   const body = await res.json()
   if (typeof body.redirectUrl !== 'string') throw new Error('Composio did not return a sign-in link.')
   return { redirectUrl: body.redirectUrl }

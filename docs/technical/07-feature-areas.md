@@ -316,7 +316,7 @@ in your default browser, the one that already holds your logins, through
 disconnects, including ones made on Composio's own website, and updates the
 Connected tab.
 
-**Connecting one app** (`ConnectorsSection.tsx`, `ConnectButton`). Each app's button
+**Connecting one app** (`MarketplacePage.tsx`, `ConnectButton`). Each app's button
 keeps one *flight* (`Flight` in the file) and changes shape as it goes:
 `Connect` → `Connecting` (spinner, while the sign-in window is open) →
 `Connected` (check), or `Failed` (an X in a circle). Clicking `Failed` starts again.
@@ -336,9 +336,16 @@ or the network failed; suggests another default browser or checking back later),
 and `opener` (no browser could start; offers to copy the link). A new account for
 the app ends the flight as connected, whichever way it was made.
 
-**The marketplace** is `components/sidebar/ConnectorsSection.tsx`. The Connectors
-page has three tabs: Apps, Built in, and Connected. Connectors are available to
-both the bots and the main chat.
+**The marketplace** is `components/marketplace/MarketplacePage.tsx`, a routed page
+(formerly the Connectors popup). It has the Apps, Built in and Connected segments.
+Each app has its own page with what the AI can do once connected, the tools
+grouped by kind, and a Connect button. Connectors are available to both the bots
+and the main chat.
+
+Some apps have no Composio-managed sign-in (Spotify). For those, Connect asks for
+the person's own developer app: client ID, client secret, and optional scopes. The
+secret is kept encrypted on this device and sent only with the connect request.
+See `15-search-marketplace-crm.md`, *Apps that need the person's own developer app*.
 
 ---
 
