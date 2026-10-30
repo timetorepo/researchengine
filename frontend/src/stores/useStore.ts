@@ -167,6 +167,7 @@ const defaultSettings: Settings = {
   punctuationPauses: true,
   privacyMode: 'private',
   glassMode: 'off',
+  chatsGooey: true,
   flowBoost: true,
   mcpServers: [],
   developerMode: false,

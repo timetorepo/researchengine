@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 48 versions, 1.0.0-release back to 0.10.0.
+ * 49 versions, 1.2.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,49 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.2.0",
+    "tag": "v1.2.0",
+    "name": "Liquid Glass that bends, a Marketplace, a CRM, more search",
+    "date": "2026-10-30",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.2.0",
+    "summary": "Installers: Research.Engine_1.2.0_x64-setup.exe and Research.Engine_1.2.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.2.0 — Liquid Glass that bends, a Marketplace, a CRM, more search",
+        "items": [
+          {
+            "label": "Liquid Glass bends the backdrop.",
+            "text": "Settings → Appearance → Glass surface → Liquid Glass. The chatbox, the Dynamic Island and toasts now refract what is behind their edges with a real lens, not noise. It is off by default. Bending runs in the Chromium-based app and browsers; elsewhere the same glass is a frosted blur, and Settings says which one you have."
+          },
+          {
+            "label": "Gooey Chats switch, with a plain option.",
+            "text": "The All / Research / Coding switch in Chats stretches like liquid by default. Settings → Appearance turns it off, and plain HeroUI tabs take its place with the same selection."
+          },
+          {
+            "label": "Marketplace replaces Connectors.",
+            "text": "Apps have their own pages at #/marketplace/<app>, with a Ready for coding row (GitHub, Vercel, Supabase and more), what the assistant can do once connected, and the tools as an accordion you can filter by kind. Connect works from the browser and the desktop app, and the sidebar count stays current on every screen."
+          },
+          {
+            "label": "A CRM dashboard.",
+            "text": "The CRM page reads your Twenty people and companies live: totals, a 14-day chart, how complete the records are, the newest records, search by name, and a quick add."
+          },
+          {
+            "label": "Two more search engines.",
+            "text": "Firecrawl (the hosted API with a key, or your own open-source core) and Crawl4AI (your own server, reading the top results) join the search ladder. Automatic uses them only when they are set up."
+          },
+          {
+            "label": "Handbook chapter 15.",
+            "text": "docs/technical/15-search-marketplace-crm.md covers the crawlers, the Marketplace and the CRM dashboard."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 1
+    }
+  },
   {
     "version": "1.1.0",
     "tag": "v1.1.0",

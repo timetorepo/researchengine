@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, PinOff, Download, Box, Monitor, ServerCog } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import GooeyNav from '@/components/reactbits/GooeyNav/GooeyNav'
+import { Tabs } from '@heroui/react'
 import { getPropsForTheme } from '@/lib/backgrounds/themeProps'
 import { useStore } from '@/stores/useStore'
 import { download, timeAgo } from '@/lib/utils'
@@ -99,6 +100,7 @@ export function ChatsView() {
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<Kind>('all')
   const isLight = useStore((st) => getPropsForTheme(st.settings.theme).isLight)
+  const chatsGooey = useStore((st) => st.settings.chatsGooey !== false)
   const [removing, setRemoving] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -248,14 +250,31 @@ export function ChatsView() {
             selection stay on the same index. */}
         <div className="flex items-center gap-2 mb-5 max-w-[420px]">
           <div className="flex-1 min-w-0">
-            <GooeyNav
-              theme={isLight ? 'light' : 'dark'}
-              items={tabs.map((t) => ({ label: `${t.label} ${t.n}` }))}
-              activeIndex={Math.max(0, tabs.findIndex((t) => t.id === kind))}
-              onChange={(i: number) => { const t = tabs[i]; if (t) setKind(t.id) }}
-              size="sm"
-              animationTime={450}
-            />
+            {/* Settings → Appearance can turn the gooey pill off; plain HeroUI tabs
+                then do the same job with the same selection. */}
+            {chatsGooey ? (
+              <GooeyNav
+                theme={isLight ? 'light' : 'dark'}
+                items={tabs.map((t) => ({ label: `${t.label} ${t.n}` }))}
+                activeIndex={Math.max(0, tabs.findIndex((t) => t.id === kind))}
+                onChange={(i: number) => { const t = tabs[i]; if (t) setKind(t.id) }}
+                size="sm"
+                animationTime={450}
+              />
+            ) : (
+              <Tabs selectedKey={kind} onSelectionChange={(k) => setKind(k as Kind)} aria-label="Chat kind">
+                <Tabs.ListContainer>
+                  <Tabs.List aria-label="Chat kind">
+                    {tabs.map((t) => (
+                      <Tabs.Tab key={t.id} id={t.id} className="text-[12.5px]">
+                        {`${t.label} ${t.n}`}
+                        <Tabs.Indicator />
+                      </Tabs.Tab>
+                    ))}
+                  </Tabs.List>
+                </Tabs.ListContainer>
+              </Tabs>
+            )}
           </div>
           <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{filtered.length} shown</span>
         </div>

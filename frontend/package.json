@@ -1,7 +1,7 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "bridge-pick-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/bridge-pick-test.mts",
@@ -47,7 +47,8 @@
     "services-test": "tsx scripts/services-test.mts",
     "reactbits-test": "tsx scripts/reactbits-test.mts",
     "perf-storage-test": "tsx --tsconfig tsconfig.json scripts/perf-storage-test.mts",
-    "video-timeline-test": "tsx --tsconfig tsconfig.json scripts/video-timeline-test.mts"
+    "video-timeline-test": "tsx --tsconfig tsconfig.json scripts/video-timeline-test.mts",
+    "glass-lens-test": "tsx scripts/glass-lens-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

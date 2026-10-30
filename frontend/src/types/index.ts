@@ -753,6 +753,8 @@ export interface Settings {
   privacyMode: 'none' | 'private' | 'topsecret'
   /** Chatbox / Dynamic Island surface style. */
   glassMode: 'off' | 'liquid' | 'blur'
+  /** The Chats kind switch (All / Research / Coding): the gooey pill (true, default) or plain HeroUI tabs. */
+  chatsGooey?: boolean
   /** AIFlowEngine speed booster applied to API model output. */
   flowBoost: boolean
   mcpServers: McpServerConfig[]

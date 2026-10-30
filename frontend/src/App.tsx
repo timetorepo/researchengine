@@ -2,7 +2,8 @@ import { WalletWatcher } from '@/components/wallet/WalletWatcher'
 import { ExamGate } from '@/components/exam/Exam'
 import { BugFinder } from '@/components/dev/BugFinder'
 import { ActivityTracker } from '@/components/activity/ActivityTracker'
-import React, { Suspense, useEffect } from 'react'
+import React, { Suspense, useEffect, useMemo } from 'react'
+import { lensMapDataUrl, refractionSupported } from '@/lib/glass/lensMap'
 import { FpsCounter } from '@/components/shared/FpsCounter'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
@@ -204,6 +205,12 @@ function RouteLatch() {
 }
 
 function RoutedApp() {
+  // The refraction lens, computed once. Bending is only switched on where the
+  // map exists and the engine can use it; elsewhere Liquid Glass is a blur.
+  const lensMap = useMemo(() => lensMapDataUrl() ?? '', [])
+  useEffect(() => {
+    document.documentElement.dataset.refract = lensMap && refractionSupported() ? 'on' : 'off'
+  }, [lensMap])
   const starfield = useUI((s) => s.starfield)
   // One subscription for the overlay flags, so toggling any of them re-renders
   // this component (and only mounts the overlay that turned on).
@@ -252,12 +259,13 @@ function RoutedApp() {
 
   return (
     <>
-      {/* Refraction filter used by Liquid Glass (chatbox / island bend effect). */}
+      {/* Refraction for Liquid Glass: a lens map bends what is behind the
+          chatbox, the island and toasts at their edges (lib/glass/lensMap.ts). */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden focusable="false">
         <defs>
-          <filter id="re-glass-bend" x="-20%" y="-20%" width="140%" height="140%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="1" seed="4" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="14" xChannelSelector="R" yChannelSelector="G" />
+          <filter id="re-glass-bend" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+            <feImage href={lensMap} preserveAspectRatio="none" result="lens" />
+            <feDisplacementMap in="SourceGraphic" in2="lens" scale="22" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
       </svg>

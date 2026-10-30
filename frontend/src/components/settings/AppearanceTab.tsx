@@ -405,7 +405,7 @@ export function AppearanceTab() {
           <div className="grid grid-cols-3 gap-2">
             {([
               { id: 'off', name: 'Solid', desc: 'Opaque surface — the classic look.' },
-              { id: 'liquid', name: 'Liquid Glass', desc: 'Refracts what is behind it — text visibly bends through the glass.' },
+              { id: 'liquid', name: 'Liquid Glass', desc: 'Bends what is behind the chatbox, the island and toasts at their edges.' },
               { id: 'blur', name: 'Blur', desc: 'Frosted blur only, no refraction or gloss.' },
             ] as const).map((g) => (
               <button key={g.id} onClick={() => update({ glassMode: g.id })}
@@ -419,6 +419,21 @@ export function AppearanceTab() {
               </button>
             ))}
           </div>
+        </div>
+
+        {settings.glassMode === 'liquid' && (
+          <p className="text-[11.5px] -mt-4 mb-5 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+            {document.documentElement.dataset.refract === 'on'
+              ? 'Bending is on in this window. It runs only on those three small surfaces, so scrolling the chat stays smooth. Turn it off if a slow laptop struggles.'
+              : 'This window cannot bend the backdrop (the engine has no SVG backdrop filters), so Liquid Glass shows a frosted blur here. The Chromium-based app and browsers bend it.'}
+          </p>
+        )}
+
+        {/* The Chats kind switch: gooey by default, plain tabs when turned off. */}
+        <div className="surface p-4">
+          <Switch label="Gooey tab switch in Chats"
+            description="On: the All / Research / Coding switch stretches like liquid between tabs. Off: plain tabs, which read better with a screen reader and cost nothing extra."
+            checked={settings.chatsGooey !== false} onChange={(v) => update({ chatsGooey: v })} />
         </div>
 
         <BubbleSection />

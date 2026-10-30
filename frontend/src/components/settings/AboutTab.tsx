@@ -416,6 +416,7 @@ export function AboutTab() {
       {/* Changelog ----------------------------------------------------- */}
       <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>
+        <p><b>1.2.0: Liquid Glass that bends, a Marketplace, a CRM, more search:</b> Liquid Glass refracts the chatbox, the island and toasts, and is off by default. The Chats switch can be gooey or plain tabs. Apps have their own pages in the Marketplace, the CRM reads Twenty live, and Firecrawl and Crawl4AI join search.</p>
         <p><b>1.1.0: animated backgrounds, a session switcher, built-in services:</b> Sessions open in a card deck from the top bar or with Alt+Shift. Chats has a kind switch, and fourteen ReactBits backgrounds are available. Connectors has a Connected tab that follows connects and disconnects. Library videos take timeline notes, and OpenSEO, VoiceStudio, Twenty and Postiz are built into Settings → Services.</p>
         <p><b>1.0.1: Connect opens in your browser, smoother long chats:</b> Sign-in opens in your default browser. Settings and update notices are alerts, two-factor codes use a six-box input, long chats save in batches, and Delete everything stays deleted.</p>
         <p><b>1.0.0-release: the first full release:</b> Apps connect inside Research Engine from Connectors. Your Composio project key is recognised, and the app list loads.</p>

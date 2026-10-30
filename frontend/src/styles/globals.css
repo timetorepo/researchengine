@@ -1183,7 +1183,9 @@ body {
 /* ============================================================
    Liquid Glass — chatbox + Dynamic Island surface themes.
    Selected via <html data-glass="liquid|blur|off">.
-   "liquid"  = refraction (glass bend) + specular sweep + saturated blur.
+   "liquid"  = a saturated blur, a specular sweep, and, where the engine can
+               use it (<html data-refract="on">, Chromium-based windows), a lens
+               that bends what is behind the edges. Elsewhere it is the blur.
    "blur"    = plain backdrop blur, no bend, no gloss.
    ============================================================ */
 .glass-chat {
@@ -1199,8 +1201,8 @@ body {
 :root[data-glass="liquid"] .glass-chat,
 :root[data-glass="liquid"] .island-glass {
   background: color-mix(in srgb, var(--glass) 62%, transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend);
-  backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend);
+  -webkit-backdrop-filter: blur(16px) saturate(1.7);
+  backdrop-filter: blur(16px) saturate(1.7);
   border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--surface-border));
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 22%, transparent) inset,
@@ -1208,6 +1210,14 @@ body {
     0 16px 48px -20px rgba(0, 0, 0, 0.5);
   position: relative;
 }
+/* Refraction: the same blur, plus the lens. Only where the engine can bend the
+   backdrop; every other engine keeps the plain blur above. */
+:root[data-glass="liquid"][data-refract="on"] .glass-chat,
+:root[data-glass="liquid"][data-refract="on"] .island-glass {
+  -webkit-backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend);
+  backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend);
+}
+
 /* Specular sweep that sells the curved-glass highlight. */
 :root[data-glass="liquid"] .glass-chat::before,
 :root[data-glass="liquid"] .island-glass::before {
@@ -1961,13 +1971,17 @@ body {
   background:
     linear-gradient(115deg, transparent 18%, color-mix(in srgb, #fff 14%, transparent) 38%, color-mix(in srgb, #fff 4%, transparent) 47%, transparent 60%),
     color-mix(in srgb, var(--glass) 62%, transparent) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend) !important;
-  backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(1.7) !important;
+  backdrop-filter: blur(16px) saturate(1.7) !important;
   border-color: color-mix(in srgb, var(--primary) 26%, var(--surface-border)) !important;
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 22%, transparent) inset,
     0 -1px 0 color-mix(in srgb, #000 18%, transparent) inset,
     0 16px 48px -20px rgba(0, 0, 0, 0.5) !important;
+}
+:root[data-glass="liquid"][data-refract="on"] .re-sonner-toast {
+  -webkit-backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend) !important;
+  backdrop-filter: blur(16px) saturate(1.7) url(#re-glass-bend) !important;
 }
 :root[data-glass="blur"] .re-sonner-toast {
   background: color-mix(in srgb, var(--glass) 70%, transparent) !important;
