@@ -24,7 +24,7 @@ import { useUI } from '@/stores/useUI'
 import {
   checkComposio, composioIdentity, composioUserId, disconnectComposio, hasComposioUserId, isActiveAccount,
   isLocalApp, listComposioApps, listComposioTools, openInDefaultBrowser, saveComposioKey, setComposioIdentity,
-  startComposioConnect, type ComposioAccount, type ComposioApp, type ComposioTool, NeedsAppCredentialsError, clearComposioAppCredentials, saveComposioAppCredentials, COMPOSIO_OAUTH_CALLBACK, type ComposioAppCredentials,
+  startComposioConnect, type ComposioAccount, type ComposioApp, type ComposioTool, NeedsAppCredentialsError, clearComposioAppCredentials, saveComposioAppCredentials, COMPOSIO_OAUTH_CALLBACK, type ComposioAppCredentials, composioToolkitAuth, type ComposioAuthField,
 } from '@/lib/composio/client'
 import { syncConnectorAccounts } from '@/lib/composio/sync'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
@@ -73,6 +73,15 @@ const card = { background: 'var(--surface)', border: '1px solid var(--surface-bo
 const danger = { color: 'var(--danger, #e5484d)' } as const
 
 /** A tool's kind, from the verb in its slug (GMAIL_SEND_EMAIL → Create). */
+/**
+ * An app that signs in with a key, token or login, and offers no OAuth. Connect for
+ * these takes the values on the app's page and never opens a sign-in window.
+ */
+export function isKeyApp(app: ComposioApp): boolean {
+  if (app.noAuth || app.authSchemes.length === 0) return false
+  return !app.authSchemes.some((s) => /oauth|dcr/i.test(s))
+}
+
 export function toolKind(slug: string): Exclude<ToolKind, 'All'> {
   const s = slug.toUpperCase()
   if (/(DELETE|REMOVE|ARCHIVE|TRASH|CLEAR|DESTROY)/.test(s)) return 'Delete'
@@ -335,9 +344,30 @@ export function MarketplacePage() {
    * The server is never asked to open a browser when the app runs on another
    * machine: that would open a page on the server, not on the person's screen.
    */
-  const connect = async (app: ComposioApp) => {
+  /** Key-based and no-auth apps: no window. The server answers with `connected`. */
+  const connectDirect = async (app: ComposioApp, fields?: Record<string, string>) => {
+    setError(null)
+    setFlights((prev) => ({ ...prev, [app.slug]: { app, status: 'connecting', since: Date.now(), win: null, link: null } }))
+    lastPollRef.current = 0
+    try {
+      const r = await startComposioConnect(app.slug, { fields })
+      if (r.connected) {
+        await refreshAccounts()
+        succeedFlight(app.slug)
+        toast.success(`${app.name} is connected`, { description: 'The AI can use it in chat and the bots now.', timeout: 6000 })
+        return
+      }
+      finishFlight(app, 'error', 'Composio did not connect the app.')
+    } catch (e: any) {
+      finishFlight(app, 'error', String(e?.message ?? e))
+    }
+  }
+
+  const connect = async (app: ComposioApp, fields?: Record<string, string>) => {
     if (!hasComposioUserId()) { setError('Enter your Composio user id first. Connections are filed under it.'); return }
     if (flightsRef.current[app.slug]?.status === 'connecting') return
+    if (!fields && isKeyApp(app)) { openApp(app.slug); return }
+    if (fields || app.noAuth) { await connectDirect(app, fields); return }
     setError(null)
     const local = isLocalApp()
     const win = local ? null : window.open('about:blank', '_blank')
@@ -346,7 +376,7 @@ export function MarketplacePage() {
 
     let url = ''
     try {
-      url = (await startComposioConnect(app.slug)).redirectUrl
+      url = (await startComposioConnect(app.slug)).redirectUrl ?? ''
     } catch (e: any) {
       win?.close()
       finishFlight(app, e instanceof NeedsAppCredentialsError ? 'needs_credentials' : 'error', String(e?.message ?? e))
@@ -442,6 +472,7 @@ export function MarketplacePage() {
             onBack={backToList}
             onOpen={openApp}
             onConnect={(a) => connect(a)}
+            onConnectFields={(a, f) => connect(a, f)}
             onDisconnect={disconnect}
           />
           {signInLink && <SignInLink link={signInLink} onCopy={copyLink} />}
@@ -707,7 +738,7 @@ function AppCard({ app, isOn, flight, onOpen, onConnect, compact = false }: {
 /** One app's page: what the assistant can do, its tools as an accordion, and Connect. */
 function AppDetail({
   app, loading, error, configured, account, flight, armed, busy, prev, next,
-  onBack, onOpen, onConnect, onDisconnect,
+  onBack, onOpen, onConnect, onConnectFields, onDisconnect,
 }: {
   app: ComposioApp | undefined
   loading: boolean
@@ -722,6 +753,7 @@ function AppDetail({
   onBack: () => void
   onOpen: (slug: string) => void
   onConnect: (app: ComposioApp) => void
+  onConnectFields: (app: ComposioApp, fields: Record<string, string>) => void
   onDisconnect: (acc: ComposioAccount, name: string) => void
 }) {
   const [tools, setTools] = useState<ComposioTool[] | null>(null)
@@ -779,7 +811,9 @@ function AppDetail({
 
   return (
     <div className="space-y-6">
-      <OwnAppPanel app={app} needed={flight?.reason === 'needs_credentials'} onConnect={() => onConnect(app)} />
+      {isKeyApp(app)
+        ? (!isOn && <KeyPanel app={app} flight={flight} onConnect={(f) => onConnectFields(app, f)} />)
+        : <OwnAppPanel app={app} needed={flight?.reason === 'needs_credentials'} onConnect={() => onConnect(app)} />}
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] hover:opacity-80" style={{ color: 'var(--text-2)' }}>
           <ArrowLeft size={14} /> Marketplace
@@ -920,6 +954,65 @@ function AppDetail({
 }
 
 /** Documentation search. On by default with no setup; the key is optional. */
+/**
+ * The values a key-based app asks for (an API key, a token, a region …), read from
+ * Composio's toolkit metadata. They are sent to Composio with the connect request and
+ * are not kept on this device.
+ */
+function KeyPanel({ app, flight, onConnect }: { app: ComposioApp; flight?: Flight; onConnect: (fields: Record<string, string>) => void }) {
+  const [fields, setFields] = useState<ComposioAuthField[] | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [loadErr, setLoadErr] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    composioToolkitAuth(app.slug)
+      .then((a) => {
+        if (!alive) return
+        setFields(a.keyFields.length ? a.keyFields : [{ name: 'generic_api_key', label: 'API key', description: '', secret: true }])
+      })
+      .catch((e: any) => { if (alive) setLoadErr(String(e?.message ?? e)) })
+    return () => { alive = false }
+  }, [app.slug])
+
+  const busy = flight?.status === 'connecting'
+  const ready = !!fields && fields.every((f) => (values[f.name] ?? '').trim())
+  const submit = () => {
+    if (!fields) return
+    const out: Record<string, string> = {}
+    for (const f of fields) out[f.name] = (values[f.name] ?? '').trim()
+    onConnect(out)
+  }
+
+  return (
+    <section className="rounded-[14px] p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} aria-label={`Connect ${app.name} with a key`}>
+      <div className="text-[13px] font-medium" style={{ color: 'var(--text)' }}>Connect {app.name} with a key</div>
+      <p className="text-[11.5px] leading-snug" style={muted}>
+        {app.name} does not use a sign-in window. Enter the key it gives you. The key is sent to Composio, which keeps it on your connected account. Research Engine does not save it on this device.
+      </p>
+      {loadErr && <p role="alert" className="text-[11.5px]" style={danger}>{loadErr}</p>}
+      {!fields && !loadErr && <p className="text-[11.5px]" style={muted}>Loading the fields…</p>}
+      {fields && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {fields.map((f) => (
+            <label key={f.name} className="space-y-1">
+              <span className="text-[11px]" style={muted}>{f.label}</span>
+              <input type={f.secret ? 'password' : 'text'} autoComplete="off" value={values[f.name] ?? ''}
+                onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+                aria-label={f.label} placeholder={f.description || f.label}
+                className="w-full px-2.5 py-1.5 rounded-[9px] text-[11.5px] outline-none" style={field} />
+            </label>
+          ))}
+        </div>
+      )}
+      {flight?.status === 'failed' && flight.message && <p role="alert" className="text-[11.5px]" style={danger}>{flight.message}</p>}
+      <button type="button" disabled={!ready || busy} onClick={submit}
+        className="px-3 py-1.5 rounded-full text-[11.5px] font-medium disabled:opacity-50" style={primary}>
+        {busy ? 'Connecting…' : `Connect ${app.name}`}
+      </button>
+    </section>
+  )
+}
+
 /** Where the person creates a developer app, for toolkits that need one. */
 const APP_PORTALS: Record<string, { label: string; url: string }> = {
   spotify: { label: 'Spotify developer dashboard', url: 'https://developer.spotify.com/dashboard' },

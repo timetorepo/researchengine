@@ -151,9 +151,39 @@ previous release:
    a new account for the app are each noticed, and the Connect button changes
    shape: Connect → Connecting → Connected, or Failed (click to retry).
 
+### How Connect picks a path (and why some apps never opened a window)
+
+Before this change, every app took the OAuth path. The page opened a blank window
+first, then asked Composio for a sign-in link. An app that signs in with a key
+(PostHog, for example) has no OAuth link, so Composio refused, the window closed,
+and the person saw nothing open. That is why apps outside the featured list failed.
+
+`startConnect` now reads each app's sign-in schemes from `GET /api/v3.1/toolkits/{slug}`
+(`auth_config_details[].mode`) and chooses:
+
+- **OAuth offered** (the default, even when a key is also offered): the redirect
+  path described above. A window opens.
+- **API key, bearer or basic only**: no window. The page (`KeyPanel`) asks for the
+  fields Composio lists under `auth_config_details[].fields.connected_account_initiation.required`
+  (for example `generic_api_key` and `region`). The server creates an `API_KEY`
+  auth config with empty credentials, then `POST /api/v3.1/connected_accounts` with
+  `connection.state = {authScheme, val: {…, status: "ACTIVE"}}`. The response is the
+  connection, active at once. Values are sent to Composio and are not saved on the
+  device. A key that is not accepted comes back as an error on the page.
+- **No sign-in**: the connection is created without credentials.
+
+The routes are `POST /api/composio/connect` (accepts `fields`) and
+`GET /api/composio/toolkit-auth?toolkit=` (the scheme and the fields to ask for).
+
+Test: `backend/scripts/composio-key-connect-test.ts` (14 checks against a stand-in
+fetch: missing values are asked for, values reach Composio trimmed, an existing
+config is reused, a non-active result is an error, an app with OAuth keeps the
+redirect path, a no-auth app connects without state). Not run against live Composio:
+that needs a real key for an API-key app.
+
 ### Apps that need the person's own developer app (Spotify)
 
-Composio has no managed sign-in for some apps. Spotify is the case that broke
+Some OAuth apps have no managed sign-in at Composio. Spotify is the case that broke
 Connect: an app with no managed sign-in fails with "Composio does not manage
 auth". The flow now handles it:
 

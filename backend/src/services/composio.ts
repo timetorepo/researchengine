@@ -200,23 +200,77 @@ export async function listAccounts(key: string, userId: string): Promise<Composi
   return { ok: true, value: items }
 }
 
+/** One field a sign-in needs (an API key, a subdomain, …), as Composio names it. */
+export interface KeyField { name: string; label: string; description: string; secret: boolean }
+
+/** How one toolkit signs in, read from Composio's toolkit metadata (not hardcoded). */
+export interface ToolkitAuth {
+  schemes: string[]
+  oauth: boolean
+  noAuth: boolean
+  /** The non-OAuth scheme (API_KEY, BEARER_TOKEN, BASIC …), when the toolkit has one. */
+  keyScheme?: string
+  keyFields: KeyField[]
+}
+
+const OAUTH_RE = /OAUTH|DCR/i
+
+/** The sign-in schemes for one toolkit and the fields a key-based sign-in asks for. */
+export async function toolkitAuth(key: string, slug: string): Promise<ComposioResult<ToolkitAuth>> {
+  const r = await call(key, 'GET', `/api/v3.1/toolkits/${encodeURIComponent(slug)}`)
+  if (!r.ok) return r
+  const details: any[] = Array.isArray(r.value?.auth_config_details) ? r.value.auth_config_details : []
+  const modes = details.map((d) => String(d?.mode ?? '').toUpperCase()).filter(Boolean)
+  const keyDetail = details.find((d) => !OAUTH_RE.test(String(d?.mode ?? '')) && String(d?.mode ?? '').trim() !== '')
+  const required: any[] = keyDetail?.fields?.connected_account_initiation?.required ?? []
+  const keyFields: KeyField[] = required
+    .filter((f) => typeof f?.name === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(f.name))
+    .map((f) => ({
+      name: f.name,
+      label: String(f.displayName ?? f.name).slice(0, 80),
+      description: String(f.description ?? '').slice(0, 240),
+      secret: f.is_secret === true,
+    }))
+  return {
+    ok: true,
+    value: {
+      schemes: modes,
+      oauth: modes.some((m) => OAUTH_RE.test(m)),
+      noAuth: r.value?.no_auth === true,
+      keyScheme: keyDetail ? String(keyDetail.mode).toUpperCase() : undefined,
+      keyFields,
+    },
+  }
+}
+
 /**
- * Start the OAuth flow for one app. Order of choice:
- *  1. The person's own developer app (`appCredentials`): the auth config Research
- *     Engine owns for this toolkit is created or updated with those credentials.
- *  2. An enabled auth config already in the project (Composio-managed or custom).
- *  3. A new Composio-managed auth config.
- * When none of these works, the result carries `code: 'needs_app_credentials'` so
- * the app can ask for the person's own client id and secret instead of failing.
+ * Start sign-in for one app. Which path runs depends on how the app signs in:
+ *  - OAuth (the default when the app offers it): the person's own developer app
+ *    (`appCredentials`), else an existing or managed sign-in config. Returns a
+ *    `redirectUrl` to open. If Composio has no managed OAuth, the result carries
+ *    `code: 'needs_app_credentials'`.
+ *  - API key, bearer or basic (no OAuth offered): the key goes straight to Composio
+ *    in `fields`, and the connection is active at once. No window opens. Without the
+ *    key the result carries `code: 'needs_key'` and the fields to ask for.
+ *  - No sign-in at all: the connection is created without credentials.
  */
 export async function startConnect(
   key: string,
-  input: { toolkit: string; userId: string; callbackUrl: string; appCredentials?: AppCredentials },
-): Promise<ComposioResult<{ redirectUrl: string; connectedAccountId?: string }>> {
+  input: { toolkit: string; userId: string; callbackUrl: string; appCredentials?: AppCredentials; fields?: Record<string, string> },
+): Promise<ComposioResult<{ redirectUrl?: string; connected?: boolean; connectedAccountId?: string }>> {
   const found = await call(key, 'GET', `/api/v3.1/auth_configs?${new URLSearchParams({ toolkit_slug: input.toolkit, limit: '20' }).toString()}`)
   if (!found.ok) return found
   const items: any[] = found.value?.items ?? []
   const live = items.filter((c) => c?.status !== 'DISABLED' && c?.id)
+
+  const meta = await toolkitAuth(key, input.toolkit)
+  if (!meta.ok) return meta
+  const t = meta.value
+  if (!t.oauth && !input.appCredentials && (t.keyScheme || t.noAuth)) {
+    if (t.keyScheme) return connectWithKey(key, input, t, live)
+    return connectWithoutSignIn(key, input, live)
+  }
+
   let authConfigId: string | undefined
 
   if (input.appCredentials) {
@@ -271,6 +325,72 @@ export async function startConnect(
       connectedAccountId: typeof link.value.connected_account_id === 'string' ? link.value.connected_account_id : undefined,
     },
   }
+}
+
+/** API key / bearer / basic: the values are stored by Composio on the connected account. */
+async function connectWithKey(
+  key: string,
+  input: { toolkit: string; userId: string; fields?: Record<string, string> },
+  t: ToolkitAuth,
+  live: any[],
+): Promise<ComposioResult<{ connected: true; connectedAccountId?: string }>> {
+  const scheme = t.keyScheme as string
+  const label = t.keyFields.map((f) => f.label).join(', ') || 'the key'
+  if (!input.fields) {
+    return { ok: false, status: 422, code: 'needs_key', error: `${input.toolkit} signs in with ${scheme.toLowerCase()}. Enter ${label} to connect.` }
+  }
+  const val: Record<string, string> = {}
+  for (const f of t.keyFields) {
+    const v = (input.fields[f.name] ?? '').trim()
+    if (!v) return { ok: false, status: 422, code: 'needs_key', error: `Enter ${f.label} to connect.` }
+    val[f.name] = v
+  }
+  if (t.keyFields.length === 0) {
+    const v = (input.fields.generic_api_key ?? '').trim()
+    if (!v) return { ok: false, status: 422, code: 'needs_key', error: `Enter the key for ${input.toolkit}.` }
+    val.generic_api_key = v
+  }
+
+  let authConfigId = live.find((c) => String(c.auth_scheme ?? '').toUpperCase() === scheme)?.id
+  if (!authConfigId) {
+    const created = await call(key, 'POST', '/api/v3.1/auth_configs', {
+      toolkit: { slug: input.toolkit },
+      auth_config: { type: 'use_custom_auth', auth_scheme: scheme, name: `Research Engine · ${input.toolkit} · ${scheme}`, credentials: {} },
+    })
+    if (!created.ok) return created
+    authConfigId = created.value?.auth_config?.id
+  }
+  if (!authConfigId) return { ok: false, status: 502, error: `Composio did not create a sign-in for ${input.toolkit}.` }
+
+  const acct = await call(key, 'POST', '/api/v3.1/connected_accounts', {
+    auth_config: { id: authConfigId },
+    connection: { user_id: input.userId, state: { authScheme: scheme, val: { ...val, status: 'ACTIVE' } } },
+    validate_credentials: true,
+  })
+  if (!acct.ok) return acct
+  const status = String(acct.value?.status ?? 'ACTIVE').toUpperCase()
+  if (status !== 'ACTIVE') {
+    return { ok: false, status: 502, error: `Composio saved the connection, but it is ${status.toLowerCase()}. Check the key and try again.` }
+  }
+  return { ok: true, value: { connected: true, connectedAccountId: typeof acct.value?.id === 'string' ? acct.value.id : undefined } }
+}
+
+/** No sign-in at all: the connection is created for the person without credentials. */
+async function connectWithoutSignIn(
+  key: string,
+  input: { toolkit: string; userId: string },
+  live: any[],
+): Promise<ComposioResult<{ connected: true; connectedAccountId?: string }>> {
+  let authConfigId = live[0]?.id
+  if (!authConfigId) {
+    const created = await call(key, 'POST', '/api/v3.1/auth_configs', { toolkit: { slug: input.toolkit } })
+    if (!created.ok) return created
+    authConfigId = created.value?.auth_config?.id
+  }
+  if (!authConfigId) return { ok: false, status: 422, error: `${input.toolkit} has no sign-in this project can use.` }
+  const acct = await call(key, 'POST', '/api/v3.1/connected_accounts', { auth_config: { id: authConfigId }, connection: { user_id: input.userId } })
+  if (!acct.ok) return acct
+  return { ok: true, value: { connected: true, connectedAccountId: typeof acct.value?.id === 'string' ? acct.value.id : undefined } }
 }
 
 export async function removeAccount(key: string, accountId: string): Promise<ComposioResult<{ removed: true }>> {

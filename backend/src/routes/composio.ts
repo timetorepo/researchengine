@@ -15,7 +15,7 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { openInDefaultBrowser } from '../services/browser'
 import {
-  checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, removeAccount, startConnect, type AppCredentials,
+  checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, removeAccount, startConnect, toolkitAuth, type AppCredentials,
 } from '../services/composio'
 
 const USER = /^[A-Za-z0-9_.@:-]{1,128}$/
@@ -38,6 +38,17 @@ export function composioRoutes(_rt: Runtime) {
     if (!/^[\x21-\x7e]{4,200}$/.test(clientId) || !/^[\x21-\x7e]{8,300}$/.test(clientSecret)) return undefined
     if (scopes.length > 500 || /[\x00-\x1f]/.test(scopes)) return undefined
     return { clientId, clientSecret, ...(scopes ? { scopes } : {}) }
+  }
+  /** Key-based sign-in values (API key, token, subdomain …), sent per request and never stored here. */
+  const parseFields = (raw: unknown): Record<string, string> | undefined => {
+    if (raw === undefined || raw === null) return undefined
+    if (typeof raw !== 'object' || Array.isArray(raw)) return undefined
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (!/^[A-Za-z0-9_]{1,64}$/.test(k) || typeof v !== 'string' || v.length > 2000) return undefined
+      out[k] = v
+    }
+    return out
   }
   const userOf = (raw: unknown): string | null => {
     const v = typeof raw === 'string' ? raw.trim() : ''
@@ -101,7 +112,9 @@ export function composioRoutes(_rt: Runtime) {
     if (body?.appCredentials !== undefined && !appCredentials) {
       return c.json({ error: 'The app client id and secret are not valid.' }, 400)
     }
-    const res = await startConnect(key, { toolkit, userId: user, callbackUrl, appCredentials })
+    const fields = parseFields(body?.fields)
+    if (body?.fields !== undefined && !fields) return c.json({ error: 'The sign-in values are not valid.' }, 400)
+    const res = await startConnect(key, { toolkit, userId: user, callbackUrl, appCredentials, fields })
     if (!res.ok) return fail(c, res)
     return c.json(res.value)
   })
@@ -112,6 +125,16 @@ export function composioRoutes(_rt: Runtime) {
     const id = c.req.param('id')
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return c.json({ error: 'That account id is not valid.' }, 400)
     const res = await removeAccount(key, id)
+    if (!res.ok) return fail(c, res)
+    return c.json(res.value)
+  })
+
+  r.get('/composio/toolkit-auth', async (c) => {
+    const key = keyOf(c)
+    if (!key) return noKey(c)
+    const toolkit = (c.req.query('toolkit') ?? '').trim()
+    if (!isToolkitSlug(toolkit)) return c.json({ error: 'That app name is not valid.' }, 400)
+    const res = await toolkitAuth(key, toolkit)
     if (!res.ok) return fail(c, res)
     return c.json(res.value)
   })

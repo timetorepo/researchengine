@@ -230,18 +230,53 @@ export function clearComposioAppCredentials(slug: string): void {
   })
 }
 
+/** One value a key-based sign-in asks for (API key, token, region …). */
+export interface ComposioAuthField { name: string; label: string; description: string; secret: boolean }
+
+/** How an app signs in, from Composio's toolkit metadata via our server. */
+export interface ComposioToolkitAuth {
+  schemes: string[]
+  oauth: boolean
+  noAuth: boolean
+  keyScheme?: string
+  keyFields: ComposioAuthField[]
+}
+
+export async function composioToolkitAuth(slug: string): Promise<ComposioToolkitAuth> {
+  const res = await fetch(`/api/composio/toolkit-auth?toolkit=${encodeURIComponent(slug)}`, { headers: await headers() })
+  if (!res.ok) throw new Error(await readError(res))
+  return (await res.json()) as ComposioToolkitAuth
+}
+
+export interface StartConnectOptions {
+  /** The person's own developer app (OAuth apps with no Composio-managed sign-in). */
+  appCredentials?: ComposioAppCredentials
+  /** Values for a key-based sign-in. They go to Composio and are not kept on this device. */
+  fields?: Record<string, string>
+}
+
 /**
- * Start sign-in for one app. A saved developer app for the toolkit is sent with the
- * request (the server never stores the secret). Throws NeedsAppCredentialsError when
- * the app has no Composio-managed sign-in and no developer app is saved.
+ * Start sign-in for one app. OAuth apps return a `redirectUrl` to open. Key-based apps
+ * (no OAuth offered) and apps with no sign-in return `connected: true` at once, with
+ * no window. A saved developer app is sent for OAuth apps. Throws NeedsAppCredentialsError
+ * when an OAuth app has no managed sign-in and no developer app is saved.
  */
-export async function startComposioConnect(toolkit: string, appCredentials?: ComposioAppCredentials): Promise<{ redirectUrl: string }> {
+export async function startComposioConnect(
+  toolkit: string,
+  opts: StartConnectOptions = {},
+): Promise<{ redirectUrl?: string; connected?: boolean }> {
   const callbackUrl = `${window.location.origin}/?composio=connected`
-  const own = appCredentials ?? (await savedComposioAppCredentials(toolkit))
+  const own = opts.appCredentials ?? (await savedComposioAppCredentials(toolkit))
   const res = await fetch('/api/composio/connect', {
     method: 'POST',
     headers: await headers({ 'content-type': 'application/json' }),
-    body: JSON.stringify({ toolkit, user: composioUserId(), callbackUrl, ...(own ? { appCredentials: own } : {}) }),
+    body: JSON.stringify({
+      toolkit,
+      user: composioUserId(),
+      callbackUrl,
+      ...(own ? { appCredentials: own } : {}),
+      ...(opts.fields ? { fields: opts.fields } : {}),
+    }),
   })
   if (!res.ok) {
     const body = await res.clone().json().catch(() => ({} as any))
@@ -251,6 +286,7 @@ export async function startComposioConnect(toolkit: string, appCredentials?: Com
     throw new Error(await readError(res))
   }
   const body = await res.json()
+  if (body.connected === true) return { connected: true }
   if (typeof body.redirectUrl !== 'string') throw new Error('Composio did not return a sign-in link.')
   return { redirectUrl: body.redirectUrl }
 }
