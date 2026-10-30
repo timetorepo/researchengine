@@ -586,6 +586,8 @@ export interface Settings {
     /** The person's own developer app per toolkit (e.g. Spotify). The secret is encrypted when the vault is in use. */
     apps?: Record<string, { clientId: string; clientSecret: string; scopes?: string }>
   }
+  /** Pipedream Connect: the OAuth client, project and environment, as one JSON token. Encrypted when the vault is in use. */
+  pipedream?: { token?: string }
   /** AI council members, as provider:model. Up to four. */
   councilMembers?: string[]
   /** Coding workspace settings. Unset fields keep their defaults. */

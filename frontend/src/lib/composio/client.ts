@@ -12,6 +12,7 @@ import { getVaultPassphrase } from '@/lib/crypto/session'
 import { encryptWithPassphrase } from '@/lib/crypto/vault'
 import { usableKey } from '@/lib/providers/keys'
 import { useStore } from '@/stores/useStore'
+import { newSignInId, signInDoneUrl } from '@/lib/signin/client'
 
 export interface ComposioApp {
   slug: string
@@ -259,6 +260,8 @@ export interface StartConnectOptions {
   appCredentials?: ComposioAppCredentials
   /** Values for a key-based sign-in. They go to Composio and are not kept on this device. */
   fields?: Record<string, string>
+  /** The id the app tracks this attempt under (see lib/signin). Created when omitted. */
+  flightId?: string
 }
 
 /**
@@ -271,7 +274,10 @@ export async function startComposioConnect(
   toolkit: string,
   opts: StartConnectOptions = {},
 ): Promise<{ redirectUrl?: string; connected?: boolean }> {
-  const callbackUrl = `${window.location.origin}/?composio=connected`
+  // Composio sends the person back to our done page, which closes its own window.
+  // It never opens a second ResearchEngine (that was the old root-page callback).
+  const flightId = opts.flightId ?? newSignInId()
+  const callbackUrl = signInDoneUrl(flightId)
   const own = opts.appCredentials ?? (await savedComposioAppCredentials(toolkit))
   const res = await fetch('/api/composio/connect', {
     method: 'POST',
@@ -280,6 +286,7 @@ export async function startComposioConnect(
       toolkit,
       user: composioUserId(),
       callbackUrl,
+      flight: flightId,
       ...(own ? { appCredentials: own } : {}),
       ...(opts.fields ? { fields: opts.fields } : {}),
     }),

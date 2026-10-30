@@ -98,6 +98,7 @@ dialog, so an app has its own address and the browser's back button works.
 | `#/marketplace` | The list: **Ready for coding**, search, categories, all apps |
 | `#/marketplace/:slug` | One app: what the assistant can do, its tools, Connect |
 | `#/marketplace` → **Connected** | Connected services, with disconnect |
+| `#/marketplace` → **Pipedream** | Pipedream Connect: save your OAuth client once, then connect apps from its catalogue |
 | `#/marketplace` → **Built in** | Built-in services and integrations (OpenSEO, VoiceStudio, Twenty, Postiz) |
 
 Code: `frontend/src/components/marketplace/MarketplacePage.tsx`. Both routes
@@ -138,18 +139,43 @@ this endpoint, so the page shows what a tool does, not its fields.
 
 ### Connect, and why it works from both the browser and the desktop app
 
-Connect is `connect(app)` in `MarketplacePage.tsx`, and it is unchanged from the
-previous release:
+Connect is `connect(app)` in `MarketplacePage.tsx`. Every attempt has an id
+(a *flight*), and the server keeps one small record per flight in
+`backend/src/services/signin.ts`. The record holds the sign-in link and a state:
+`open`, `returned`, `closed`, `connected` or `failed`. It holds no key, and it
+expires after 30 minutes.
 
-1. The browser opens a blank tab **synchronously** on the click (a window opened
-   later is blocked). The sign-in link is then set on that tab.
-2. On the desktop app (this machine runs the server), `POST /api/composio/open`
-   starts the default browser, which already holds the person's logins.
-3. If the browser refuses the tab, the link is shown as **Open sign-in**, which
-   the person presses. Nothing is asked to re-enter a key.
-4. A sign-in is followed each second. A closed window, a five-minute timeout and
-   a new account for the app are each noticed, and the Connect button changes
-   shape: Connect → Connecting → Connected, or Failed (click to retry).
+1. The client makes the flight id and sends it with the connect request. The
+   server stores the sign-in link under that id.
+2. **Desktop app** (this machine runs the server): `POST /api/signin/:id/open`
+   starts the default browser on a *launch page* (`/api/signin/:id/launch`). The
+   launch page opens the sign-in in its own window when the person presses the
+   button, and watches that window. When the window closes before the sign-in
+   finished, the launch page reports `closed`.
+3. **Browser**: the blank tab is pointed at the sign-in link directly. The app
+   watches the tab itself as well.
+4. Composio (and Pipedream, which is given the same return address) sends the
+   person to `/api/signin/:id/done`. That page records `returned`, closes its own
+   window and never opens a second copy of ResearchEngine. The window was opened
+   by the app or by the launch page, so the browser allows the close.
+5. Each second the app reads the flight state. A closed window fails the attempt
+   after a two-second grace, with a **Sign-in window closed** toast and a
+   *Start again* action. A sign-in that came back but shows no account within 30
+   seconds fails with its own message. A five-minute timeout does the same. The
+   app reads the accounts every 2.5 seconds; a new account ends the attempt as
+   **Connected**, and the app tells the server `connected`, which closes the
+   launch page's window.
+6. If the browser refuses the blank tab, the link is shown as **Open sign-in**,
+   which the person presses. Nothing is asked to re-enter a key.
+
+Why a server record and not only the window handle: in the default browser the
+app has no handle on the window at all. The launch page is the only thing that
+can see it close, so it reports that to the server.
+
+Limits: the done page closes its window only if the browser allows it (it
+always does for windows the app or the launch page opened). If the person
+opens the sign-in link by hand in another browser, the flight still ends on the
+account check or the timeout.
 
 ### How Connect picks a path (and why some apps never opened a window)
 
@@ -214,6 +240,32 @@ person's Spotify app.
 Tests: `composio-app-credentials-test.ts` (14 checks), `composio-connect-test.ts`
 (6), `connectors-test.mts` (32).
 
+### Pipedream: a second connector provider
+
+Pipedream Connect is a provider next to Composio, in the **Pipedream** tab of the
+Marketplace. The person saves their own Pipedream OAuth client once: client ID,
+client secret, project ID (`proj_…`) and environment (development or production).
+The client secret is encrypted with the vault passphrase when the vault is on,
+like the Composio key.
+
+- **Credentials** travel base64-encoded in one header, `x-re-pipedream`, on each
+  request. The server uses them for that request. It keeps only Pipedream's
+  short-lived access token, in memory, for about an hour.
+- **Catalogue**: `GET /api/pipedream/apps`, searchable. **Accounts**:
+  `GET /api/pipedream/accounts`, one user's connected accounts. **Disconnect**:
+  `DELETE /api/pipedream/accounts/:id` (press twice).
+- **Connect**: `POST /api/pipedream/connect` asks Pipedream for a Connect token
+  for the person's user id, sets the success and error addresses to the done
+  page, and returns the Connect Link with `app=<slug>` added. From there the same
+  flight tracker runs as for Composio.
+- Code: `backend/src/services/pipedream.ts`, `backend/src/routes/pipedream.ts`,
+  `frontend/src/lib/pipedream/client.ts`, `frontend/src/components/marketplace/PipedreamPanel.tsx`.
+
+The endpoints are the documented ones (`api.pipedream.com/v1`). The account list
+shape (`data[].app.name_slug`) and the client-credentials body were written from
+the docs and are covered by a stubbed test only; a live Pipedream project has not
+been tested from the sandbox.
+
 ### MCP servers, and where Composio requests go
 
 Marketplace has four segments: Apps, Connected, Built in and **MCP servers**. The MCP
@@ -228,8 +280,8 @@ See [16 — AI council, local models, generated media and Advanced settings](16-
 and the *connected / disconnected* notices depend on. It runs every ten seconds
 on the Marketplace and every thirty seconds elsewhere, and again when the window
 regains focus. Connections made on Composio's website therefore appear without a
-reload. `consumeComposioReturn()` handles the sign-in window landing back in the
-app: it strips the marker and opens the Marketplace.
+reload. Sign-ins no longer land on the app root. `consumeComposioReturn()` only
+clears the old `?composio=connected` marker from links made before this change.
 
 ### Changes from Connectors
 

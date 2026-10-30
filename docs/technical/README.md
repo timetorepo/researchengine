@@ -27,6 +27,7 @@ Version documented: **1.1.0** (`package.json`, `backend`, `frontend`, `desktop`)
 | 14 | [Known issues](14-known-issues.md) | Check the open gaps and the places where docs and code disagree |
 | 15 | [Search crawlers, Marketplace and CRM](15-search-marketplace-crm.md) | Work on Firecrawl and Crawl4AI search, the Marketplace pages, or the CRM dashboard |
 | 16 | [AI council, local models, generated media and Advanced settings](16-council-local-models-media.md) | Work on council mode, Ollama downloads from Hugging Face, image and audio tools, or the Composio endpoint |
+| 17 | [Rich in-app cards](17-rich-cards.md) | Find every card variant the chat can draw, or add one |
 
 ## Generated references
 

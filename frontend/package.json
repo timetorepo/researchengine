@@ -52,7 +52,9 @@
     "video-timeline-test": "tsx --tsconfig tsconfig.json scripts/video-timeline-test.mts",
     "glass-lens-test": "tsx scripts/glass-lens-test.mts",
     "heroui-css": "node scripts/heroui-v3-css.mjs",
-    "local-council-test": "tsx --tsconfig tsconfig.json scripts/local-council-test.mts"
+    "local-council-test": "tsx --tsconfig tsconfig.json scripts/local-council-test.mts",
+    "cards-doc": "tsx scripts/cards-doc.mts --check",
+    "signin-client-test": "tsx scripts/signin-client-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

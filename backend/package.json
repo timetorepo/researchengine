@@ -7,7 +7,9 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external",
-    "api-json-test": "node scripts/api-json-test.mjs"
+    "api-json-test": "node scripts/api-json-test.mjs",
+    "signin-flights-test": "tsx scripts/signin-flights-test.ts",
+    "pipedream-test": "tsx scripts/pipedream-test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

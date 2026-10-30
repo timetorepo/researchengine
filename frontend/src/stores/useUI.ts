@@ -78,7 +78,7 @@ interface UIState {
    */
   updatePopup: string | null
   /** Which tab of the Marketplace page is showing. */
-  connectorsTab: 'apps' | 'builtin' | 'connected' | 'mcp'
+  connectorsTab: 'apps' | 'builtin' | 'connected' | 'mcp' | 'pipedream'
   /** How many Composio accounts are connected, for the sidebar row. */
   connectorsCount: number
   /**

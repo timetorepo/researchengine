@@ -18,21 +18,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { Accordion, Button, ButtonGroup, Spinner, toast } from '@heroui/react'
-import { ArrowLeft, CheckCircle2, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plug, Search, Unplug, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Check, ChevronLeft, ChevronRight, Loader2, Plug, Search, Unplug, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
   checkComposio, composioIdentity, composioUserId, disconnectComposio, hasComposioUserId, isActiveAccount,
-  isLocalApp, listComposioApps, listComposioTools, openInDefaultBrowser, saveComposioKey, setComposioIdentity,
+  isLocalApp, listComposioApps, listComposioTools, saveComposioKey, setComposioIdentity,
   startComposioConnect, type ComposioAccount, type ComposioApp, type ComposioTool, NeedsAppCredentialsError, clearComposioAppCredentials, saveComposioAppCredentials, COMPOSIO_OAUTH_CALLBACK, type ComposioAppCredentials, composioToolkitAuth, type ComposioAuthField,
 } from '@/lib/composio/client'
 import { syncConnectorAccounts } from '@/lib/composio/sync'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
 import { IntegrationsPanel } from '@/components/settings/IntegrationsTab'
 import { McpSection } from '@/components/marketplace/McpSection'
+import { PipedreamPanel } from '@/components/marketplace/PipedreamPanel'
 import { ServicesPanel } from '@/components/sidebar/ServicesPanel'
 import { ConnectedServices } from '@/components/sidebar/ConnectedServices'
 import { useComposioActivity, type ActivityEvent } from '@/lib/composio/activity'
+import { newSignInId, openSignInInDefaultBrowser, reportSignIn, signInState } from '@/lib/signin/client'
 
 const PAGE = 48
 const CHIPS = 10
@@ -40,6 +42,8 @@ const POLL_MS = 2500
 const WAIT_MS = 5 * 60_000
 /** A sign-in window that closed is given this long to show up as a connected account. */
 const CLOSED_GRACE_MS = 2000
+/** After the provider sends the person back, the new account is expected within this time. */
+const RETURN_GRACE_MS = 30_000
 /** Coding and productivity apps shown first, in this order, when they are in the catalogue. */
 const FEATURED = ['github', 'vercel', 'supabase', 'netlify', 'cloudflare', 'sentry', 'linear', 'notion', 'slack', 'googledrive']
 
@@ -59,12 +63,16 @@ interface Flight {
   link: string | null
   /** The browser refused the tab, so the person presses the link themselves. */
   blocked?: boolean
+  /** Tracks this attempt on the server (lib/signin). */
+  flightId?: string
+  /** When the provider sent the person back to ResearchEngine's done page. */
+  returnedAt?: number
   closedAt?: number
   reason?: 'closed' | 'timeout' | 'error' | 'opener' | 'needs_credentials'
   message?: string
 }
 
-type Tab = 'apps' | 'connected' | 'builtin' | 'mcp'
+type Tab = 'apps' | 'connected' | 'builtin' | 'mcp' | 'pipedream'
 type ToolKind = 'All' | 'Read' | 'Create' | 'Update' | 'Delete' | 'Other'
 
 const muted = { color: 'var(--text-3)' } as const
@@ -164,13 +172,15 @@ export function MarketplacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured, identity?.token, identityUser])
 
-  // Follow every sign-in in progress. Each second: a closed window and a timeout
-  // are noticed at once; the accounts are read every POLL_MS and a new account
-  // for the app ends the flight as connected.
+  // Follow every sign-in in progress. Each second the server's record of the sign-in
+  // window is read (a closed window ends the attempt, in the browser or the default
+  // browser alike), and a closed window or a timeout is noticed at once. The accounts
+  // are read every POLL_MS; a new account for the app ends the flight as connected.
   const connectingKey = Object.values(flights).filter((f) => f.status === 'connecting').map((f) => f.app.slug).join(',')
   useEffect(() => {
     if (!connectingKey) return
     let stopped = false
+    const reading = new Set<string>()
     const id = window.setInterval(async () => {
       if (stopped) return
       const now = Date.now()
@@ -179,18 +189,33 @@ export function MarketplacePage() {
       for (const f of live) {
         if (f.win && f.win.closed && !f.closedAt) patchFlight(f.app.slug, { closedAt: now })
         if (now - f.since > WAIT_MS) finishFlight(f.app, 'timeout')
+        if (f.flightId && !reading.has(f.flightId)) {
+          const flightId = f.flightId
+          reading.add(flightId)
+          void signInState(flightId).then((st) => {
+            reading.delete(flightId)
+            if (stopped) return
+            const cur = flightsRef.current[f.app.slug]
+            if (!cur || cur.status !== 'connecting') return
+            if (st === 'closed' && !cur.closedAt) patchFlight(f.app.slug, { closedAt: Date.now() })
+            if (st === 'returned' && !cur.returnedAt) patchFlight(f.app.slug, { returnedAt: Date.now() })
+            if (st === 'failed') finishFlight(f.app, 'error', 'The sign-in did not finish.')
+          })
+        }
       }
       if (now - lastPollRef.current < POLL_MS) return
       lastPollRef.current = now
-      let acc: ComposioAccount[]
-      try { acc = await refreshAccounts() } catch { return }
+      let acc: ComposioAccount[] | null = null
+      try { acc = await refreshAccounts() } catch { acc = null }
       if (stopped) return
       for (const f of Object.values(flightsRef.current).filter((x) => x.status === 'connecting')) {
-        if (acc.some((a) => isActiveAccount(a) && a.toolkit.toLowerCase() === f.app.slug)) {
+        if (acc?.some((a) => isActiveAccount(a) && a.toolkit.toLowerCase() === f.app.slug)) {
           succeedFlight(f.app.slug)
           f.win?.close()
         } else if (f.closedAt && now - f.closedAt >= CLOSED_GRACE_MS) {
           finishFlight(f.app, 'closed')
+        } else if (f.returnedAt && now - f.returnedAt >= RETURN_GRACE_MS) {
+          finishFlight(f.app, 'error', 'The sign-in finished, but the new connection did not show up. Check the Connected tab in a moment.')
         }
       }
     }, 1000)
@@ -288,6 +313,9 @@ export function MarketplacePage() {
 
   /** The sign-in ended without a connection. Say why, in a HeroUI toast, with the next step. */
   const finishFlight = (app: ComposioApp, reason: NonNullable<Flight['reason']>, message?: string) => {
+    const flightId = flightsRef.current[app.slug]?.flightId
+    // A closed window is already known to the server; every other end is told to it so the window closes.
+    if (flightId && reason !== 'closed') reportSignIn(flightId, 'failed')
     setFlights((prev) => {
       const f = prev[app.slug]
       if (!f || f.status !== 'connecting') return prev
@@ -323,6 +351,8 @@ export function MarketplacePage() {
   }
 
   const succeedFlight = (slug: string) => {
+    const flightId = flightsRef.current[slug]?.flightId
+    if (flightId) reportSignIn(flightId, 'connected')
     setFlights((prev) => (prev[slug] ? { ...prev, [slug]: { ...prev[slug], status: 'connected', win: null } } : prev))
     window.setTimeout(() => {
       setFlights((prev) => {
@@ -372,12 +402,13 @@ export function MarketplacePage() {
     setError(null)
     const local = isLocalApp()
     const win = local ? null : window.open('about:blank', '_blank')
-    setFlights((prev) => ({ ...prev, [app.slug]: { app, status: 'connecting', since: Date.now(), win, link: null } }))
+    const flightId = newSignInId()
+    setFlights((prev) => ({ ...prev, [app.slug]: { app, status: 'connecting', since: Date.now(), win, link: null, flightId } }))
     lastPollRef.current = 0
 
     let url = ''
     try {
-      url = (await startComposioConnect(app.slug)).redirectUrl ?? ''
+      url = (await startComposioConnect(app.slug, { flightId })).redirectUrl ?? ''
     } catch (e: any) {
       win?.close()
       finishFlight(app, e instanceof NeedsAppCredentialsError ? 'needs_credentials' : 'error', String(e?.message ?? e))
@@ -387,8 +418,8 @@ export function MarketplacePage() {
     patchFlight(app.slug, { link: url })
 
     if (local) {
-      const r = await openInDefaultBrowser(url)
-      if (!r.ok) finishFlight(app, 'opener', r.error)
+      // The default browser opens our launch page, which holds the sign-in window and reports when it closes.
+      try { await openSignInInDefaultBrowser(flightId) } catch (e: any) { finishFlight(app, 'opener', String(e?.message ?? e)) }
       return
     }
     if (win && !win.closed) {
@@ -447,7 +478,7 @@ export function MarketplacePage() {
   const openApp = (s: string) => navigate(`/marketplace/${encodeURIComponent(s)}`)
   const backToList = () => navigate('/marketplace')
 
-  const tabs: [Tab, string][] = [['apps', 'Apps'], ['connected', 'Connected'], ['builtin', 'Built in'], ['mcp', 'MCP servers']]
+  const tabs: [Tab, string][] = [['apps', 'Apps'], ['connected', 'Connected'], ['pipedream', 'Pipedream'], ['builtin', 'Built in'], ['mcp', 'MCP servers']]
 
   // ------------------------------------------------------------------ one app
   if (slug) {
@@ -511,6 +542,8 @@ export function MarketplacePage() {
 
         {tab === 'mcp' ? (
           <McpSection />
+        ) : tab === 'pipedream' ? (
+          <PipedreamPanel />
         ) : tab === 'connected' ? (
           <ConnectedServices
             accounts={connectedList}
@@ -1053,16 +1086,20 @@ function OwnAppPanel({ app, needed, onConnect }: { app: ComposioApp; needed: boo
 
   return (
     <section className="rounded-[14px] p-4 space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} aria-label={`Your own ${app.name} app`}>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-        className="w-full flex items-center gap-2 text-left">
-        <span className="flex-1 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
-          {needed ? `${app.name} needs your own developer app` : `Use your own ${app.name} developer app`}
-          {saved && <span className="ml-2 text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>Saved</span>}
-        </span>
-        <ChevronDown size={15} className="transition-transform" style={{ transform: open ? 'rotate(180deg)' : 'none', color: 'var(--text-3)' }} />
-      </button>
-      {open && (
-        <div className="space-y-3">
+      <Accordion expandedKeys={open ? new Set(['own-app']) : new Set<string>()}
+        onExpandedChange={(keys) => setOpen(keys.has('own-app'))}>
+        <Accordion.Item id="own-app" className="border-0">
+          <Accordion.Heading>
+            <Accordion.Trigger className="flex w-full items-center gap-2 py-0 text-left">
+              <span className="flex-1 text-[13px] font-medium" style={{ color: 'var(--text)' }}>
+                {needed ? `${app.name} needs your own developer app` : `Use your own ${app.name} developer app`}
+                {saved && <span className="ml-2 text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>Saved</span>}
+              </span>
+              <Accordion.Indicator style={{ color: 'var(--text-3)' }} />
+            </Accordion.Trigger>
+          </Accordion.Heading>
+          <Accordion.Panel>
+            <Accordion.Body className="space-y-3 px-0 pt-3 pb-0">
           <ol className="text-[11.5px] leading-snug list-decimal pl-4 space-y-1" style={muted}>
             <li>
               Create an app in the {portal ? <a href={portal.url} target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--primary)' }}>{portal.label}</a> : `${app.name} developer portal`}.
@@ -1098,8 +1135,10 @@ function OwnAppPanel({ app, needed, onConnect }: { app: ComposioApp; needed: boo
               </button>
             )}
           </div>
-        </div>
-      )}
+            </Accordion.Body>
+          </Accordion.Panel>
+        </Accordion.Item>
+      </Accordion>
     </section>
   )
 }

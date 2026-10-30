@@ -4,7 +4,7 @@
 //   POST   /api/composio/open              open a sign-in link in the default browser
 //   GET    /api/composio/apps              every app Composio supports
 //   GET    /api/composio/accounts          the apps this user has connected
-//   POST   /api/composio/connect           start sign-in for one app → redirectUrl
+//   POST   /api/composio/connect           start sign-in for one app → redirectUrl (+ flight id, see signin.ts)
 //   DELETE /api/composio/accounts/:id      disconnect one account
 //   GET    /api/composio/tools             tools of one app (to pick an action)
 //   POST   /api/composio/execute           run one tool on a connected account
@@ -14,6 +14,7 @@
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { openInDefaultBrowser } from '../services/browser'
+import { SIGNIN_ID, startSignIn } from '../services/signin'
 import {
   checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, normalizeComposioBase, removeAccount,
   runWithComposioBase, startConnect, toolkitAuth, type AppCredentials,
@@ -122,8 +123,16 @@ export function composioRoutes(_rt: Runtime) {
     }
     const fields = parseFields(body?.fields)
     if (body?.fields !== undefined && !fields) return c.json({ error: 'The sign-in values are not valid.' }, 400)
+    const flightId = typeof body?.flight === 'string' ? body.flight.trim() : ''
+    if (flightId && !SIGNIN_ID.test(flightId)) return c.json({ error: 'That sign-in id is not valid.' }, 400)
     const res = await startConnect(key, { toolkit, userId: user, callbackUrl, appCredentials, fields })
     if (!res.ok) return fail(c, res)
+    // The sign-in window is tracked under the app's flight id (see routes/signin.ts).
+    if (flightId && typeof res.value.redirectUrl === 'string') {
+      if (!startSignIn(flightId, 'composio', res.value.redirectUrl)) {
+        return c.json({ error: 'Composio returned a sign-in link that cannot be tracked.' }, 502)
+      }
+    }
     return c.json(res.value)
   })
 
