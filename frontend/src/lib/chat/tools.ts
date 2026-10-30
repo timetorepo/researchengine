@@ -25,6 +25,11 @@ export interface ToolContext {
    * what keeps two agents running at once from writing the same file.
    */
   agent?: string
+  /**
+   * Called once per finished tool call with what the card needs: the text the
+   * model got, and the structured data when the tool had it. Drives the result cards.
+   */
+  onResult?: (r: { tool: string; args: Record<string, unknown>; text: string; data?: unknown; ok: boolean }) => void
 }
 
 /** The scope suffix every IDE call carries: `&agent=<id>` or nothing. */
@@ -293,7 +298,7 @@ export const TOOLS: ToolDef[] = [
       },
       required: ['tool'],
     },
-    run: async (args) => {
+    run: async (args, ctx) => {
       const { runComposioTool } = await import('@/lib/composio/client')
       let input: Record<string, unknown> = {}
       const raw = args?.arguments
@@ -303,6 +308,8 @@ export const TOOLS: ToolDef[] = [
         input = raw as Record<string, unknown>
       }
       const res = await runComposioTool(String(args?.tool ?? ''), input)
+      // The structured result goes to the card; the model gets the clipped text.
+      if (res.ok) (ctx as any)?.__setData?.(res.data ?? null)
       return res.ok ? JSON.stringify(res.data ?? null).slice(0, 12_000) : `The action failed: ${res.error}`
     },
   },
@@ -1120,7 +1127,8 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
   let args: any = call.arguments
   if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = { input: args } } }
   args = args ?? {}
-  const fullCtx = { ...ctx, __toolCallId: call.id } as any
+  let structured: unknown = undefined
+  const fullCtx = { ...ctx, __toolCallId: call.id, __setData: (d: unknown) => { structured = d } } as any
   try {
     if (def.name === 'ide_run_command') trace(`run: ${String(args.command ?? '').slice(0, 60)}`, 'confirm')
     else if (def.name === 'run_ui_test') trace(`UI test: ${String(args.name ?? 'flow')}`.slice(0, 60), 'ok')
@@ -1147,11 +1155,14 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else trace(def.name, 'ok')
     const result = await def.run(args, fullCtx)
     const blocked = /^BLOCKED/.test(result)
+    ctx.onResult?.({ tool: def.name, args, text: result, data: structured, ok: !blocked && !/^(The action failed|Tool \S+ failed|Unknown tool)/.test(result) })
     if (def.name === 'ide_run_command') trace(`ran: ${String(args.command ?? '').slice(0, 60)}`, blocked ? 'blocked' : 'ok')
     return result
   } catch (e: any) {
     trace(def.name, 'error')
-    return `Tool ${def.name} failed: ${String(e?.message ?? e)}`
+    const text = `Tool ${def.name} failed: ${String(e?.message ?? e)}`
+    ctx.onResult?.({ tool: def.name, args, text, ok: false })
+    return text
   }
 }
 

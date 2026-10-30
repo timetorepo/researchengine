@@ -314,6 +314,26 @@ in your default browser, the one that already holds your logins, through
 disconnects, including ones made on Composio's own website, and updates the
 Connected tab.
 
+**Connecting one app** (`ConnectorsSection.tsx`, `ConnectButton`). Each app's button
+keeps one *flight* (`Flight` in the file) and changes shape as it goes:
+`Connect` → `Connecting` (spinner, while the sign-in window is open) →
+`Connected` (check), or `Failed` (an X in a circle). Clicking `Failed` starts again.
+Where the sign-in opens depends on where the app runs:
+
+- **Desktop app.** The server runs on this computer, so `POST /api/composio/open`
+  starts the default browser here. The server waits for the opener's exit code, so
+  a missing browser is reported as a failure, not a success.
+- **Browser tab.** The tab is opened on the click (a window opened later is blocked).
+  If the browser still blocks it, the button shows *Open sign-in* for the person to
+  press. The server is never asked to open a page when it runs on another machine.
+
+A flight ends in one of four ways, each with a HeroUI toast that says which:
+`closed` (the sign-in window was closed before the account appeared; offers a
+new link), `timeout` (five minutes passed; offers a new link), `error` (Composio
+or the network failed; suggests another default browser or checking back later),
+and `opener` (no browser could start; offers to copy the link). A new account for
+the app ends the flight as connected, whichever way it was made.
+
 **The marketplace** is `components/sidebar/ConnectorsSection.tsx`. The Connectors
 page has three tabs: Apps, Built in, and Connected. Connectors are available to
 both the bots and the main chat.

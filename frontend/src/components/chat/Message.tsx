@@ -19,6 +19,7 @@ import { StreamingText } from './StreamingText'
 import { ReplicateTimeline } from './ReplicateTimeline'
 import { ThinkingPhases } from './ThinkingPhases'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
+import { ResultCards } from '@/components/cards/ResultCards'
 import { TooltipCardStrip } from '@/components/ui/aceternity/TooltipCard'
 import { AlphaChip, handOffToAlpha } from '@/components/alpha/RemoverAlpha'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
@@ -367,6 +368,8 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                 : <Markdown content={stripMarkers(msg.content)} sources={msg.sources} />)
             )}
             {msg.humanizeError && <HumanizeError message={msg.humanizeError} onRetry={() => void runHumanize()} />}
+            {/* One rich card per tool call: results, never raw output. */}
+            <ResultCards cards={msg.toolCards} />
           </>
         )}
 

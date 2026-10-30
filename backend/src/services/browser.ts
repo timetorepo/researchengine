@@ -20,7 +20,20 @@ export function openInDefaultBrowser(url: string): Promise<{ ok: true } | { ok: 
       resolve({ ok: false, error: `No browser could be started (${String(e?.message ?? e)}).` })
       return
     }
-    child.once('error', (e) => resolve({ ok: false, error: `No browser could be started (${e.message}).` }))
-    child.once('spawn', () => { child.unref(); resolve({ ok: true }) })
+    // A missing opener fails with 'error'. An opener that starts but finds no
+    // browser (xdg-open does this) exits non-zero, so wait briefly for its exit
+    // code instead of reporting success for a link nobody opened.
+    let settled = false
+    const finish = (r: { ok: true } | { ok: false; error: string }) => { if (!settled) { settled = true; resolve(r) } }
+    child.once('error', (e) => finish({ ok: false, error: `No browser could be started (${e.message}).` }))
+    child.once('exit', (code) => {
+      finish(code === 0 || code === null
+        ? { ok: true }
+        : { ok: false, error: `The system could not open a browser (exit code ${code}).` })
+    })
+    child.once('spawn', () => {
+      const t = setTimeout(() => { child.unref(); finish({ ok: true }) }, 2500)
+      child.once('exit', () => clearTimeout(t))
+    })
   })
 }

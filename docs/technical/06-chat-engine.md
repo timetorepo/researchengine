@@ -186,6 +186,29 @@ Two rules apply to all tools:
 - **Parallel agents get their own copy.** When `ToolContext.agentId` is set, file
   and command tools work inside that agent's worktree, not the shared folder.
 
+### Result cards
+
+A tool call never shows its raw output. `runChat` calls `buildCardPayload`
+(`lib/cards/build.ts`) for each finished call, and the message keeps the result as
+a `CardPayload` in `toolCards` (at most 12 per answer). `ResultCards`
+(`components/cards/ResultCards.tsx`) draws each one. The payload stores at most six
+items and six fields, clipped to 160 characters, with https links only. Keys that
+look like secrets (token, key, password, auth, cookie, session) are never read.
+
+The card for a call comes from `lib/cards/catalog.ts`, which holds 277 cards: 35
+connected apps with seven kinds of action each (search, list, read, create, send,
+update, delete), which is 245, plus 32 for the app's own tools. A connected-app action is
+matched by its name prefix and verb: `SPOTIFY_SEARCH_TRACKS` is `spotify.search`, and
+`MICROSOFT_TEAMS_SEND_MESSAGE` is `microsoft_teams.send`. The verb is checked before
+the noun, so `SLACK_UPDATE_MESSAGE` is an update. The extractor (`lib/cards/extract.ts`)
+reads likely keys in order (for example `tracks.items`, `album.images.0.url`) because
+each app's shape differs. Field names are heuristic: they are not yet checked against
+each app's live responses.
+
+The system prompt tells the model that results are cards, so the answer summarises
+them and does not paste data. `scripts/cards-test.mts` checks the catalog, routing,
+secret handling and clipping.
+
 Bots use a different, text-based grammar (`lib/bots/logic.ts`), described in
 [feature areas](07-feature-areas.md#bots). It is not the tool-call API.
 

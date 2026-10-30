@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Toaster as SonnerToaster, toast as sonner } from 'sonner'
+import { Toast } from '@heroui/react'
 import { CheckCircle2, Info, AlertTriangle, XCircle } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -70,6 +71,10 @@ export function AppToaster() {
   }, [])
 
   return (
+    <>
+    {/* HeroUI toasts (connector sign-in results). They share the host so they
+        are on screen wherever the person is, including the lock and onboarding. */}
+    <Toast.Provider placement="top end" />
     <SonnerToaster
       // Top-right matches the old position, offset below the 48px top bar so a
       // toast never covers the model picker.
@@ -104,5 +109,6 @@ export function AppToaster() {
         ['--width' as string]: '320px',
       }}
     />
+    </>
   )
 }

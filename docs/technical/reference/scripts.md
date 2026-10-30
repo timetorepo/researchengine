@@ -65,6 +65,7 @@
 | `bots-collab-test` | `tsx scripts/bots-collab-test.mts` |
 | `ecc-roles-test` | `tsx scripts/ecc-roles-test.mts` |
 | `connectors-test` | `tsx scripts/connectors-test.mts` |
+| `cards-test` | `tsx --tsconfig tsconfig.json scripts/cards-test.mts` |
 | `bots-ui-test` | `tsx --tsconfig tsconfig.json scripts/bots-ui-test.mts` |
 | `context-budget-test` | `tsx --tsconfig tsconfig.json scripts/context-budget-test.mts` |
 | `composio-identity-test` | `tsx --tsconfig tsconfig.json scripts/composio-identity-test.mts` |

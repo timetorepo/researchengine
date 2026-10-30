@@ -90,6 +90,8 @@ export interface ChatMessage {
   }
   /** Tool activity for this answer (shown as chips above the text). */
   toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
+  /** One rich card per tool call, drawn from its catalog entry. Raw tool output is never kept. */
+  toolCards?: import('@/lib/cards/types').CardPayload[]
   /** AI-generated questionnaire awaiting the user's answers. */
   questionnaire?: Questionnaire
   /**

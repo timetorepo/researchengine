@@ -16,7 +16,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/modal'
-import { Check, Loader2, Plug, Search, Unplug } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { CheckCircle2, Check, Loader2, Plug, Search, Unplug, X } from 'lucide-react'
+import { Spinner, toast } from '@heroui/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
@@ -35,9 +37,29 @@ const PAGE = 48
 const CHIPS = 10
 const POLL_MS = 2500
 const WAIT_MS = 5 * 60_000
-/** The name the sign-in window is opened with; the return page uses it to close itself. */
+/** A sign-in window that closed is given this long to show up as a connected account. */
+const CLOSED_GRACE_MS = 2000
 
-interface Waiting { slug: string; name: string; since: number }
+/**
+ * One sign-in in progress for one app.
+ * connecting → the sign-in window is open (or the link is waiting to be opened);
+ * connected  → the account showed up, shown briefly;
+ * failed     → why it stopped: 'closed' window, 'timeout', 'error' or 'opener'.
+ */
+interface Flight {
+  app: ComposioApp
+  status: 'connecting' | 'connected' | 'failed'
+  since: number
+  /** The tab that holds the sign-in page (browser only). */
+  win: Window | null
+  /** The sign-in link, kept so it can be opened or copied by hand. */
+  link: string | null
+  /** The browser refused the tab, so the person presses the link themselves. */
+  blocked?: boolean
+  closedAt?: number
+  reason?: 'closed' | 'timeout' | 'error' | 'opener'
+  message?: string
+}
 
 const muted = { color: 'var(--text-3)' } as const
 const field = { background: 'var(--elevated)', border: '1px solid var(--surface-border)' } as const
@@ -57,7 +79,12 @@ export function ConnectorsMarketplace() {
   const [shown, setShown] = useState(PAGE)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [waiting, setWaiting] = useState<Waiting | null>(null)
+  /** Sign-ins in progress, by app slug. */
+  const [flights, setFlights] = useState<Record<string, Flight>>({})
+  const flightsRef = useRef(flights)
+  flightsRef.current = flights
+  const connectRef = useRef<(app: ComposioApp) => void>(() => {})
+  const lastPollRef = useRef(0)
   /** A sign-in page the person opens by hand, when no browser could be started for them. */
   const [signInLink, setSignInLink] = useState<{ name: string; url: string } | null>(null)
   const [keyDraft, setKeyDraft] = useState('')
@@ -137,28 +164,40 @@ export function ConnectorsMarketplace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, configured, identity?.token, identity?.accountUserId])
 
-  // Waiting for a sign-in window: poll the accounts until the app shows up, the
-  // window is closed, or a few minutes pass.
+  // Follow every sign-in in progress. Each second: a closed window and a timeout
+  // are noticed at once; the accounts are read every POLL_MS and a new account
+  // for the app ends the flight as connected.
+  const connectingKey = Object.values(flights).filter((f) => f.status === 'connecting').map((f) => f.app.slug).join(',')
   useEffect(() => {
-    if (!waiting) return
+    if (!connectingKey) return
     let stopped = false
-    const tick = async () => {
+    const id = window.setInterval(async () => {
       if (stopped) return
-      const timedOut = Date.now() - waiting.since > WAIT_MS
-      let done = false
-      try {
-        const acc = await refreshAccounts()
-        done = acc.some((a) => isActiveAccount(a) && a.toolkit.toLowerCase() === waiting.slug)
-      } catch { /* try again on the next tick */ }
-      if (stopped) return
-      if (done || timedOut) {
-        setWaiting(null)
-        // The change itself is announced by refreshAccounts (see the activity log).
+      const now = Date.now()
+      const live = Object.values(flightsRef.current).filter((f) => f.status === 'connecting')
+      if (!live.length) return
+      for (const f of live) {
+        if (f.win && f.win.closed && !f.closedAt) patchFlight(f.app.slug, { closedAt: now })
+        if (now - f.since > WAIT_MS) finishFlight(f.app, 'timeout')
       }
-    }
-    const id = window.setInterval(() => { void tick() }, POLL_MS)
+      if (now - lastPollRef.current < POLL_MS) return
+      lastPollRef.current = now
+      let acc: ComposioAccount[]
+      try { acc = await refreshAccounts() } catch { return }
+      if (stopped) return
+      for (const f of Object.values(flightsRef.current).filter((x) => x.status === 'connecting')) {
+        if (acc.some((a) => isActiveAccount(a) && a.toolkit.toLowerCase() === f.app.slug)) {
+          succeedFlight(f.app.slug)
+          f.win?.close()
+        } else if (f.closedAt && now - f.closedAt >= CLOSED_GRACE_MS) {
+          finishFlight(f.app, 'closed')
+        }
+      }
+    }, 1000)
     return () => { stopped = true; window.clearInterval(id) }
-  }, [waiting, refreshAccounts])
+    // The effect restarts only when the set of sign-ins in progress changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectingKey, refreshAccounts])
 
   // The sign-in window lands back here with ?composio=connected. Close it so the
   // person returns to the dialog they started from.
@@ -223,7 +262,7 @@ export function ConnectorsMarketplace() {
     await saveComposioKey('')
     setApps(null)
     setAccounts([])
-    setWaiting(null)
+    setFlights({})
     setError(null)
     useUI.setState({ connectorsCount: 0 })
   }
@@ -237,30 +276,6 @@ export function ConnectorsMarketplace() {
     useUI.getState().toast('Composio user id saved', undefined, 'success')
   }
 
-  /**
-   * Send the person to the sign-in page in their own default browser. If the server
-   * cannot start one, try a plain new tab; if that is blocked too, show a link to press.
-   */
-  /**
-   * Put the person on the sign-in page. A browser tab takes the link in the tab
-   * that was opened on the click. The desktop app asks its local server to start
-   * the default browser on this machine. The link stays visible either way.
-   */
-  const openSignIn = async (url: string, name: string, pending: Window | null): Promise<{ opened: boolean; reason: string }> => {
-    setSignInLink({ name, url })
-    if (pending && !pending.closed) {
-      try {
-        pending.opener = null
-        pending.location.href = url
-        return { opened: true, reason: '' }
-      } catch { /* the tab was refused; try the default browser */ }
-    }
-    const r = await openInDefaultBrowser(url)
-    pending?.close()
-    if (r.ok) return { opened: true, reason: '' }
-    return { opened: false, reason: r.error }
-  }
-
   const copyLink = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url)
@@ -270,25 +285,110 @@ export function ConnectorsMarketplace() {
     }
   }
 
+  const patchFlight = (slug: string, patch: Partial<Flight>) => {
+    setFlights((prev) => (prev[slug] ? { ...prev, [slug]: { ...prev[slug], ...patch } } : prev))
+  }
+
+  /** The sign-in ended without a connection. Say why, in a HeroUI toast, with the next step. */
+  const finishFlight = (app: ComposioApp, reason: NonNullable<Flight['reason']>, message?: string) => {
+    setFlights((prev) => {
+      const f = prev[app.slug]
+      if (!f || f.status !== 'connecting') return prev
+      return { ...prev, [app.slug]: { ...f, status: 'failed', reason, message, win: null } }
+    })
+    const retry = () => connectRef.current(app)
+    if (reason === 'closed') {
+      toast.danger('Sign-in window closed', {
+        description: `${app.name} is not connected yet. Start again with a new sign-in link.`,
+        actionProps: { children: 'New sign-in link', onPress: retry },
+        timeout: 9000,
+      })
+    } else if (reason === 'timeout') {
+      toast.warning('Sign-in did not finish', {
+        description: 'It took longer than five minutes. Start again with a new link, or check back later: this list updates by itself when it is done.',
+        actionProps: { children: 'New sign-in link', onPress: retry },
+        timeout: 10000,
+      })
+    } else if (reason === 'opener') {
+      const link = flightsRef.current[app.slug]?.link
+      toast.danger('Could not open your browser', {
+        description: 'No default browser could be started on this computer. Copy the sign-in link and open it in the browser you are signed in to.',
+        actionProps: { children: 'Copy link', onPress: () => { if (link) void copyLink(link) } },
+        timeout: 12000,
+      })
+    } else {
+      toast.danger(`Could not connect ${app.name}`, {
+        description: `${message ?? 'Composio did not return a sign-in link.'} If your browser blocked the window, try another default browser, or check back later.`,
+        actionProps: { children: 'Try again', onPress: retry },
+        timeout: 12000,
+      })
+    }
+  }
+
+  const succeedFlight = (slug: string) => {
+    setFlights((prev) => (prev[slug] ? { ...prev, [slug]: { ...prev[slug], status: 'connected', win: null } } : prev))
+    window.setTimeout(() => {
+      setFlights((prev) => {
+        if (prev[slug]?.status !== 'connected') return prev
+        const next = { ...prev }
+        delete next[slug]
+        return next
+      })
+    }, 1800)
+  }
+
+  /**
+   * Start one sign-in. The app's own connection link is what matters, so it is
+   * opened in one of these ways, and only one:
+   *  - Desktop app (this machine runs the server): the default browser on this
+   *    computer, which already holds the person's logins.
+   *  - Browser tab: a tab opened on the click (a click is allowed to open a
+   *    window; a window opened later is blocked). If the browser still refuses,
+   *    the link is shown with an "Open sign-in" button, which the person presses.
+   * The server is never asked to open a browser when the app runs on another
+   * machine: that would open a page on the server, not on the person's screen.
+   */
   const connect = async (app: ComposioApp) => {
     if (!hasComposioUserId()) { setError('Enter your Composio user id first. Connections are filed under it.'); return }
-    setBusy(app.slug)
+    if (flightsRef.current[app.slug]?.status === 'connecting') return
     setError(null)
-    setSignInLink(null)
-    // In a browser tab, open the tab now, while the click still counts as a user
-    // gesture. A tab opened after the request returns is blocked.
-    const pending = isLocalApp() ? null : window.open('about:blank', '_blank')
+    const local = isLocalApp()
+    const win = local ? null : window.open('about:blank', '_blank')
+    setFlights((prev) => ({ ...prev, [app.slug]: { app, status: 'connecting', since: Date.now(), win, link: null } }))
+    lastPollRef.current = 0
+
+    let url = ''
     try {
-      const { redirectUrl } = await startComposioConnect(app.slug)
-      const result = await openSignIn(redirectUrl, app.name, pending)
-      setWaiting({ slug: app.slug, name: app.name, since: Date.now() })
-      if (result.opened) useUI.getState().toast(`Sign in to ${app.name}`, 'Finish in your browser. This list updates by itself.', 'info')
-      else setError(`${result.reason} Use the sign-in link below; this list updates when you finish.`)
+      url = (await startComposioConnect(app.slug)).redirectUrl
     } catch (e: any) {
-      pending?.close()
-      setError(String(e?.message ?? e))
-    } finally { setBusy(null) }
+      win?.close()
+      finishFlight(app, 'error', String(e?.message ?? e))
+      return
+    }
+    if (!url) { win?.close(); finishFlight(app, 'error'); return }
+    patchFlight(app.slug, { link: url })
+
+    if (local) {
+      const r = await openInDefaultBrowser(url)
+      if (!r.ok) finishFlight(app, 'opener', r.error)
+      return
+    }
+    if (win && !win.closed) {
+      try {
+        win.opener = null
+        win.location.href = url
+        return
+      } catch { /* the tab was refused; fall through to the button */ }
+    }
+    win?.close()
+    patchFlight(app.slug, { win: null, blocked: true })
+    setSignInLink({ name: app.name, url })
+    toast.warning('Sign-in window was blocked', {
+      description: `Your browser stopped the ${app.name} sign-in window. Press “Open sign-in” on the button to continue.`,
+      timeout: 9000,
+    })
   }
+  connectRef.current = (app) => { void connect(app) }
 
   const disconnect = async (acc: ComposioAccount, name: string) => {
     if (armed !== acc.id) { setArmed(acc.id); return }
@@ -545,7 +645,7 @@ export function ConnectorsMarketplace() {
               <ul className="grid grid-cols-2 md:grid-cols-3 gap-2" aria-label="Supported apps">
                 {filtered.slice(0, shown).map((app) => {
                   const isOn = connected.has(app.slug)
-                  const isWaiting = waiting?.slug === app.slug
+                  const flight = flights[app.slug]
                   return (
                     <li key={app.slug} className="flex flex-col gap-1.5 p-2.5 rounded-[12px] min-w-0 transition-colors hover:bg-[var(--surface)]"
                       style={field}>
@@ -558,17 +658,22 @@ export function ConnectorsMarketplace() {
                       {app.description && (
                         <span className="text-[10.5px] leading-snug line-clamp-2" style={muted}>{app.description}</span>
                       )}
-                      <div className="mt-auto pt-0.5">
+                      <div className="mt-auto pt-0.5 flex flex-col items-start gap-1">
                         {isOn ? (
                           <span className="text-[11px] inline-flex items-center gap-1" style={{ color: 'var(--text-2)' }}><Check size={11} aria-hidden /> Connected</span>
-                        ) : isWaiting ? (
-                          <span className="text-[11px] inline-flex items-center gap-1" style={muted}><Loader2 size={11} className="animate-spin" /> Waiting for sign-in</span>
                         ) : (
-                          <button type="button" onClick={() => connect(app)} disabled={busy === app.slug || !hasComposioUserId()}
-                            className="px-2.5 py-1 rounded-full text-[11px] font-medium inline-flex items-center gap-1 transition-transform active:scale-95"
-                            style={primary}>
-                            {busy === app.slug && <Loader2 size={11} className="animate-spin" />} Connect
-                          </button>
+                          <ConnectButton
+                            flight={flight}
+                            disabled={!hasComposioUserId()}
+                            onConnect={() => connect(app)}
+                          />
+                        )}
+                        {flight?.status === 'connecting' && flight.blocked && flight.link && (
+                          <a href={flight.link} target="_blank" rel="noopener noreferrer"
+                            className="mt-1 text-[11px] underline underline-offset-2 inline-flex items-center gap-1"
+                            style={{ color: 'var(--primary)' }}>
+                            Open sign-in
+                          </a>
                         )}
                       </div>
                     </li>
@@ -640,5 +745,53 @@ function Context7Row() {
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * The Connect button, which changes shape as the sign-in moves on:
+ *  Connect → Connecting (spinner) → Connected (check), or → Failed (X in a circle).
+ * Clicking Failed starts again.
+ */
+function ConnectButton({ flight, disabled, onConnect }: { flight?: Flight; disabled: boolean; onConnect: () => void }) {
+  const status = flight?.status ?? 'idle'
+  const idle = status === 'idle'
+  const failed = status === 'failed'
+  const color = failed ? 'var(--danger)' : status === 'connected' ? 'var(--success)' : undefined
+  return (
+    <motion.button
+      layout
+      type="button"
+      aria-live="polite"
+      disabled={disabled || status === 'connecting' || status === 'connected'}
+      onClick={() => { if (idle || failed) onConnect() }}
+      title={failed ? (flight?.message ?? 'Try again') : undefined}
+      className="px-2.5 py-1 rounded-full text-[11px] font-medium inline-flex items-center gap-1.5 transition-transform active:scale-95 disabled:cursor-default disabled:active:scale-100"
+      style={idle ? primary : { background: 'var(--elevated)', border: `1px solid ${color ?? 'var(--surface-border)'}`, color: color ?? 'var(--text-2)' }}
+    >
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={status}
+          layout
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.85 }}
+          transition={{ duration: 0.16 }}
+          className="inline-flex items-center gap-1.5"
+        >
+          {idle && 'Connect'}
+          {status === 'connecting' && <><Spinner size="sm" aria-label="Connecting" /> Connecting</>}
+          {status === 'connected' && <><CheckCircle2 size={13} strokeWidth={2} aria-hidden /> Connected</>}
+          {failed && (
+            <>
+              <span className="w-[15px] h-[15px] rounded-full border flex items-center justify-center shrink-0" style={{ borderColor: 'var(--danger)' }} aria-hidden>
+                <X size={9} strokeWidth={2.6} />
+              </span>
+              Failed
+            </>
+          )}
+        </motion.span>
+      </AnimatePresence>
+    </motion.button>
   )
 }

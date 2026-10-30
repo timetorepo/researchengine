@@ -29,6 +29,7 @@ import { auditCitations } from '@/lib/rag/audit'
 import { usableKey } from '@/lib/providers/keys'
 import { useUI } from '@/stores/useUI'
 import type { ChatMessage, Source } from '@/types'
+import { buildCardPayload } from '@/lib/cards/build'
 
 export interface RunOptions {
   chatId: string
@@ -490,7 +491,17 @@ export async function runChat(opts: RunOptions): Promise<void> {
       if (shieldedSystem.findings.length) recordScan(`system context → ${providerMeta!.name}`, shieldedSystem.findings)
 
       // ---- tool-calling loop (questionnaire, connectors, search, IDE, MCP) ----
-      const toolCtx: ToolContext = { chatId, asstId, project: opts.project, projectTree: opts.projectTree, agent: opts.agent }
+      const toolCtx: ToolContext = {
+        chatId, asstId, project: opts.project, projectTree: opts.projectTree, agent: opts.agent,
+        // Each finished tool call becomes one card on the answer. The card keeps a
+        // small structured summary, never the raw output.
+        onResult: (r) => {
+          const card = buildCardPayload({ tool: r.tool, args: r.args, text: r.text, data: r.data, ok: r.ok })
+          if (!card) return
+          const msg = useStore.getState().chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === asstId)
+          useStore.getState().updateMessage(chatId, asstId, { toolCards: [...(msg?.toolCards ?? []), card].slice(-12) })
+        },
+      }
       const specs = toolSpecs(toolCtx)
       const toolsAllowed = kind === 'openai' || kind === 'gemini' || kind === 'anthropic'
       const MAX_TOOL_ROUNDS = 4
@@ -564,7 +575,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (settings.freeRouting && isFailoverWorthy(status, text) && triedModels.length < 3) {
       const next = pickFreeModel(freeCandidatesNow(), triedModels)
       if (next) {
-        useStore.getState().updateMessage(chatId, asstId, { content: '', error: undefined, toolTrace: [] })
+        useStore.getState().updateMessage(chatId, asstId, { content: '', error: undefined, toolTrace: [], toolCards: [] })
         triedModels.push(next.ref)
         store.logConnection(`free://${next.provider}`, `Free routing → ${next.providerName} (${next.why})`, 0, 'ok')
         void runChat({ ...opts, modelOverride: next.ref })
