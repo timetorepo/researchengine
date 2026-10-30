@@ -407,7 +407,7 @@ export function AboutTab() {
         <p>
           Research Engine routes to many AI providers and is not affiliated with, endorsed by, or connected to any of them unless they say so.
           Provider names appear as plain text to identify whose answer you are reading; our features keep their own names: Sessions, Personas,
-          the Effort ladder, Chain of thought, Skills and MCP Servers. Coming from another product: conversations are Sessions (press your
+          the Effort ladder, Chain of thought, Skills and the MCP servers in Marketplace. Coming from another product: conversations are Sessions (press your
           switcher key, default Alt+Shift), GPTs and custom instructions are Personas, agent mode is the Coding workspace, and reasoning effort
           is the effort pill in the composer.
         </p>

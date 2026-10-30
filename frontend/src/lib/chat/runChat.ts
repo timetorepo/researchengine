@@ -18,6 +18,7 @@ import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
 import { packText } from '@/lib/skills/packs'
 import { freeCandidates, isFailoverWorthy, pickFreeModel, type FreeCandidate } from '@/lib/providers/free'
 import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
+import { councilBlock, councilMembers, runCouncilMember } from './council'
 import { CODING_RULES } from '@/lib/ide/coding-rules'
 import { isBuildIntent, pipelinePrompt } from '@/lib/design/directives'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
@@ -36,7 +37,7 @@ export interface RunOptions {
   /** Which work mode's system prompt applies. Inferred when omitted. */
   workMode?: WorkMode
   prompt: string
-  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
+  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean; council?: boolean }
   modelOverride?: string
   overrideHistory?: ChatMessage[]
   /** Vision: images attached to this prompt. */
@@ -511,6 +512,34 @@ export async function runChat(opts: RunOptions): Promise<void> {
         const msg = useStore.getState().chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === asstId)
         useStore.getState().updateMessage(chatId, asstId, { toolTrace: [...(msg?.toolTrace ?? []), { tool: label, label, status }] })
       }
+      // ---- AI council (per message): other models draft, the chair writes the answer ----
+      let chairSystem = shieldedSystem.text
+      if (mode.council) {
+        const members = councilMembers(settings)
+        if (members.length === 0) {
+          useStore.getState().updateMessage(chatId, asstId, {
+            council: [{ model: '', label: 'Council', text: '', ok: false, error: 'Council is on, but no members are chosen. Pick up to four in Settings → Models.' }],
+          })
+        } else {
+          trace(`council · ${members.length} model${members.length === 1 ? '' : 's'}`, 'ok')
+          const drafts = await Promise.all(members.map((id) => runCouncilMember(id, wire, shieldedSystem.text, settings, controller.signal)))
+          useStore.getState().updateMessage(chatId, asstId, {
+            council: drafts.map((d) => ({ model: d.model, label: d.label, text: d.text, ok: d.ok, error: d.error })),
+          })
+          // Every member's tokens count toward this answer, so the cost is never hidden.
+          for (const d of drafts) {
+            usagePrompt += d.promptTokens
+            usageCompletion += d.completionTokens
+            if (d.reported) usageReported = true
+          }
+          const block = councilBlock(drafts)
+          if (block) {
+            const shieldedBlock = shieldOutbound(block)
+            if (shieldedBlock.findings.length) recordScan('council drafts', shieldedBlock.findings)
+            chairSystem = `${chairSystem}${shieldedBlock.text}`
+          }
+        }
+      }
       for (;;) {
         round++
         const res = await streamToCallback({
@@ -518,7 +547,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
           baseUrl: pconf?.baseUrl || undefined,
           // Our own patience for this provider, in seconds, set by the user.
           timeoutMs: (settings.providerTimeouts?.[providerId] ?? 45) * 1000,
-          system: shieldedSystem.text,
+          system: chairSystem,
           messages: round > 1 ? compactToolRounds(current) : current,
           temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
           maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),

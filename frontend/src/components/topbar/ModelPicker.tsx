@@ -1,7 +1,7 @@
 import { Switch } from '@/components/ui/heroui/Switch'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlignJustify, Check, ChevronDown, Trophy, EyeOff, Filter, Loader2, Plus, RefreshCw, RotateCcw, Search, Settings2, Waves } from 'lucide-react'
+import { AlignJustify, Check, ChevronDown, Cpu, Trophy, EyeOff, Filter, Loader2, Plus, RefreshCw, RotateCcw, Search, Settings2, Waves } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { RankingsView } from './RankingsView'
 import { useUI } from '@/stores/useUI'
@@ -143,6 +143,8 @@ export function ModelPicker() {
   const setTier = (ref: string, tier: 'free' | 'paid') => patchSettings({ modelTiers: { ...tiers, [ref]: tier } })
 
   const openProviders = () => { setOpen(false); ui.openSettings('providers') }
+  /** Local models live under Settings → Models: search, check the fit, download into Ollama. */
+  const openLocalModels = () => { setOpen(false); ui.openSettings('models') }
   const refresh = async () => { setRefreshing(true); try { await refreshAllModels() } finally { setRefreshing(false) } }
 
   const freeCount = selection.counts.free
@@ -393,6 +395,11 @@ export function ModelPicker() {
                 className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px] hover:bg-[var(--surface)]"
                 style={{ color: 'var(--primary)' }}>
                 <Settings2 size={14} /> Manage providers…
+              </button>
+              <button onClick={openLocalModels}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px] hover:bg-[var(--surface)]"
+                style={{ color: 'var(--primary)' }}>
+                <Cpu size={14} /> Download a local model…
               </button>
               {hasAnyModels && (
                 <div className="flex items-center gap-2 px-2.5 py-2 rounded-[10px] text-[12.5px]" style={{ color: 'var(--text-2)' }}

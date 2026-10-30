@@ -76,9 +76,9 @@ export function ChatView() {
     prevLen.current = msgCount
   }, [msgCount, atBottom])
 
-  const send = (prompt: string, opts: { search?: boolean; quality?: boolean; replicate?: boolean; attachments?: any[]; contextRefs?: any[] } = {}) => {
+  const send = (prompt: string, opts: { search?: boolean; quality?: boolean; replicate?: boolean; council?: boolean; attachments?: any[]; contextRefs?: any[] } = {}) => {
     if (!id || !prompt.trim()) return
-    const mode = { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined, replicate: opts.replicate || undefined }
+    const mode = { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined, replicate: opts.replicate || undefined, council: opts.council || undefined }
     const extra = { attachments: opts.attachments, contextRefs: opts.contextRefs }
     // While an answer is still streaming, queue the question instead of
     // dropping it — it runs automatically when the current one finishes.

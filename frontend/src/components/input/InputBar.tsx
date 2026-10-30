@@ -2,7 +2,7 @@ import { EffortSlider } from './EffortSlider'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, Hammer, ListOrdered, ImagePlus, Plug, X, SlidersHorizontal, Calculator, BookOpen, Mic, FolderOpen, HardDrive, Mail, CalendarDays, Github, StickyNote, Hash, Gauge } from 'lucide-react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, Hammer, ListOrdered, ImagePlus, Plug, X, SlidersHorizontal, Calculator, BookOpen, Mic, FolderOpen, HardDrive, Mail, CalendarDays, Github, StickyNote, Hash, Gauge, Users } from 'lucide-react'
 import { VoiceBeam } from 'voice-glow'
 import VoicePill from '@/components/ui/reactbits/micro/VoicePill'
 import { useDictation } from '@/hooks/useDictation'
@@ -26,7 +26,7 @@ export interface ContextRef {
   title: string
 }
 export interface SendOpts {
-  search?: boolean; quality?: boolean; replicate?: boolean
+  search?: boolean; quality?: boolean; replicate?: boolean; council?: boolean
   attachments?: { type: 'image'; name: string; dataUrl: string }[]
   contextRefs?: ContextRef[]
 }
@@ -149,6 +149,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [search, setSearch] = useState(false)
   const [quality, setQuality] = useState(false)
   const [replicate, setReplicate] = useState(false)
+  const [council, setCouncil] = useState(false)
   const [picker, setPicker] = useState<'skill' | 'source' | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
   // Where the open trigger word sits in the text, so a pick replaces only that word.
@@ -225,7 +226,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     setPickerAt({ start: t.start, end: t.end })
   }
 
-  const doSend = (opts: { search?: boolean; quality?: boolean; replicate?: boolean } = {}) => {
+  const doSend = (opts: { search?: boolean; quality?: boolean; replicate?: boolean; council?: boolean } = {}) => {
     const raw = text.trim()
     // No streaming guard here: ChatView decides — while streaming, prompts
     // are queued and run automatically when the current answer finishes.
@@ -246,6 +247,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     setTimeout(() => setSent(false), 400)
     onSend(raw, {
       search: search || quality || opts.search, quality: quality || opts.quality, replicate: replicate || opts.replicate,
+      council: council || opts.council,
       attachments: imgs.length ? imgs.map((f) => ({ type: 'image' as const, name: f.name, dataUrl: f.dataUrl })) : undefined,
       contextRefs: refs.length ? refs : undefined,
     })
@@ -294,6 +296,12 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
       desc: 'New Tech — a staged replication plan for a paper.',
       toggle: () => setReplicate(!replicate),
       title: 'New Tech — staged replication research plan',
+    },
+    {
+      id: 'council', label: 'Council', icon: Users, active: council,
+      desc: 'Several models answer, then one combines them. Members are set in Settings → Models.',
+      toggle: () => setCouncil(!council),
+      title: 'AI council: several models answer, one combines them',
     },
   ]
 

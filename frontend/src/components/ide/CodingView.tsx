@@ -20,7 +20,7 @@ import { FrameworksPanel } from './FrameworksPanel'
 import { useDownloadNotices } from '@/hooks/useDownloadNotices'
 import { IDECommandPalette, ideActions, type PaletteAction } from './IDECommandPalette'
 import { useAgents, subscribeActivity, wireAgentActivity } from '@/lib/ide/agents'
-import type { IdeActivity } from '@/lib/chat/tools'
+import { commandTimeoutMs, type IdeActivity } from '@/lib/chat/tools'
 import { CodeEditor } from './CodeEditor'
 import { FileGlyph } from '@/lib/ide/fileIcons'
 import type { ProjectInfo, TreeNode, OpenFile } from './types'
@@ -1366,7 +1366,7 @@ function TerminalPanel({ project }: { project: string }) {
     try {
       const res = await fetch('/api/ide/exec', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ project, command, confirmed }),
+        body: JSON.stringify({ project, command, confirmed, timeoutMs: commandTimeoutMs() }),
       })
       const j = await res.json()
       if (j.blocked) { setLines((l) => [...l, { kind: 'err', text: `BLOCKED: ${j.reason}` }]); return }

@@ -9,6 +9,7 @@ import { designSession, captureStore, formatSnapshot, formatFindings, formatCont
 import { ensurePreviewServer, previewStatus, stopPreview } from '@/lib/ide/preview'
 import { runUiTest } from '@/lib/ide/tests'
 import { serviceReady, permittedVoice } from '@/lib/services/config'
+import { MEDIA_TOOLS } from './media-tools'
 
 export interface ToolCall { id: string; name: string; arguments: Record<string, unknown> | string }
 
@@ -66,7 +67,7 @@ function emitActivity(a: Omit<IdeActivity, 'at'>) {
   window.dispatchEvent(new CustomEvent('re:agent-activity', { detail: { ...a, at: Date.now() } }))
 }
 
-interface ToolDef {
+export interface ToolDef {
   name: string
   description: string
   parameters: Record<string, unknown>
@@ -679,7 +680,7 @@ export const TOOLS: ToolDef[] = [
       // for anything mutating) — then we ask the human.
       let res = await fetch('/api/ide/exec', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ project: ctx.project, command, agent: ctx.agent }),
+        body: JSON.stringify({ project: ctx.project, command, agent: ctx.agent, timeoutMs: commandTimeoutMs() }),
       })
       let out: any = await res.json()
       if (out.blocked) return `BLOCKED by safety rules: ${out.reason}`
@@ -689,7 +690,7 @@ export const TOOLS: ToolDef[] = [
         if (!approved) return 'The user declined to run this command. Ask how they want to proceed instead.'
         res = await fetch('/api/ide/exec', {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ project: ctx.project, command, confirmed: true, agent: ctx.agent }),
+          body: JSON.stringify({ project: ctx.project, command, confirmed: true, agent: ctx.agent, timeoutMs: commandTimeoutMs() }),
         })
         out = await res.json()
       }
@@ -1111,6 +1112,9 @@ export const TOOLS: ToolDef[] = [
   },
 ]
 
+// Image and audio output (see media-tools.ts). Offered only when the model and provider can use them.
+TOOLS.push(...MEDIA_TOOLS)
+
 /** OpenAI-style tool specs for the provider payload. */
 export function toolSpecs(ctx: ToolContext): { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }[] {
   return TOOLS
@@ -1148,6 +1152,8 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else if (def.name === 'docs_search') trace(`docs: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
     else if (def.name.startsWith('composio')) trace(`${def.name === 'composio_run' ? 'run' : 'connectors'} ${String(args.tool ?? args.app ?? '')}`.slice(0, 60), 'ok')
     else if (def.name.startsWith('connector')) trace(`${def.name === 'connector_search' ? 'search' : 'read'} ${String(args.box ?? args.query ?? '')}`.slice(0, 60), 'ok')
+    else if (def.name === 'generate_image') trace(`image: ${String(args.prompt ?? '').slice(0, 44)}`, 'ok')
+    else if (def.name === 'generate_audio') trace('spoken clip', 'ok')
     else if (def.name === 'web_search') trace(`web search: ${String(args.query ?? '').slice(0, 50)}`, 'ok')
     else if (def.name === 'library_search') trace(`library search: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
     else if (def.name === 'library_read') trace(`reading ${String(args.url ?? '').replace(/^https?:\/\//, '').slice(0, 44)}`, 'ok')
@@ -1167,6 +1173,12 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
 }
 
 /** MCP servers + tools rendered into the system prompt so the model knows what it can call. */
+/** The Coding setting for one command's time limit, in ms. Unset means the server default. */
+export function commandTimeoutMs(): number | undefined {
+  const sec = useStore.getState().settings.coding?.commandTimeoutSec
+  return typeof sec === 'number' && sec > 0 ? Math.round(sec * 1000) : undefined
+}
+
 export function mcpContextBlock(): string {
   const servers = useStore.getState().settings.mcpServers.filter((s) => s.enabled)
   if (!servers.length) return ''

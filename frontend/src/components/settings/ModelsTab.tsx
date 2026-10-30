@@ -4,6 +4,8 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { MASTERS, MASTER_VERSION } from '@/lib/prompts/masters'
 import { saveNotice } from '@/stores/useNotices'
+import { LocalModelsPanel } from './LocalModelsPanel'
+import { CouncilPanel } from './CouncilPanel'
 
 export function ModelsTab() {
   const settings = useStore((s) => s.settings)
@@ -21,6 +23,9 @@ export function ModelsTab() {
       <p className="text-[13px] mb-5" style={{ color: 'var(--text-2)' }}>
         Defaults for the currently selected model: <code className="font-mono text-[12px] px-1.5 py-0.5 rounded" style={{ background: 'var(--elevated)' }}>{model}</code>
       </p>
+
+      <LocalModelsPanel />
+      <CouncilPanel />
 
       <div className="space-y-6">
         <Slider label="Temperature" value={d.temperature} min={0} max={2} step={0.1} onChange={(v) => update({ temperature: v })}

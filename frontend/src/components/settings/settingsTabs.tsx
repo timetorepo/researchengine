@@ -13,7 +13,6 @@ import { SkillsTab } from './SkillsTab'
 import { AgentsTab } from './AgentsTab'
 import { DataTab } from './DataTab'
 import { ShortcutsTab } from './ShortcutsTab'
-import { McpPanel } from '@/components/ide/McpPanel'
 import { AboutTab } from './AboutTab'
 import { PerformanceTab } from './PerformanceTab'
 import { DeveloperTab } from './DeveloperTab'
@@ -39,9 +38,8 @@ export const TABS = [
   { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'skills', label: 'Skills', icon: Wand2 },
-  { id: 'mcp', label: 'MCP Servers', icon: Store },
   { id: 'personas', label: 'Personas', icon: BookMarked },
-  { id: 'coding', label: 'Coding & MCP', icon: Code },
+  { id: 'coding', label: 'Coding', icon: Code },
   { id: 'agents', label: 'Agents', icon: Users },
   { id: 'data', label: 'Data', icon: Database },
   { id: 'security', label: 'Security', icon: ShieldCheck },
@@ -51,30 +49,6 @@ export const TABS = [
 ]
 
 const PersonasTab = lazy(() => import('./PersonasTab').then((m) => ({ default: m.PersonasTab })))
-
-/** The MCP panel was built for the coding view's tokens; map them onto Settings. */
-const MCP_TOKENS = {
-  '--ide-accent': 'var(--primary)',
-  '--ide-accent-ink': '#fff',
-  '--ide-text': 'var(--text)',
-  '--ide-dim': 'var(--text-2)',
-  '--ide-faint': 'var(--text-3)',
-  '--ide-hover': 'var(--elevated)',
-  '--ide-border': 'var(--surface-border)',
-  '--ide-warn': 'var(--warning)',
-} as any
-
-export function McpTab() {
-  return (
-    <div className="h-full flex flex-col" style={MCP_TOKENS}>
-      <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>MCP Servers</h2>
-      <p className="text-[13px] mb-3" style={{ color: 'var(--text-2)' }}>
-        Tool servers for the agent, in coding sessions and in chats. Install from the catalog with one click, test the connection, and the model gets the tools on its next turn.
-      </p>
-      <div className="flex-1 min-h-0 surface overflow-hidden"><McpPanel /></div>
-    </div>
-  )
-}
 
 export function renderTab(tab: string): React.ReactNode {
   switch (tab) {
@@ -91,7 +65,6 @@ export function renderTab(tab: string): React.ReactNode {
     case 'flow': return <FlowTab />
     case 'performance': return <PerformanceTab />
     case 'skills': return <SkillsTab />
-    case 'mcp': return <McpTab />
     case 'personas': return <Suspense fallback={null}><PersonasTab /></Suspense>
     case 'coding': return <CodingTab />
     case 'agents': return <AgentsTab />

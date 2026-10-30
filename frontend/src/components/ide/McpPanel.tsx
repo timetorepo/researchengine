@@ -1,5 +1,5 @@
 /**
- * MCP tool servers, shared by the coding workspace and Settings → MCP Servers.
+ * MCP tool servers, shared by the coding workspace and Marketplace → MCP servers.
  * Chats get the same servers: the chat tool loop reads settings.mcpServers.
  *
  * Three ways in: a short list of servers worth having (one click), the open

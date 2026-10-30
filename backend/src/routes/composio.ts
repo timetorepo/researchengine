@@ -15,13 +15,21 @@ import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import { openInDefaultBrowser } from '../services/browser'
 import {
-  checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, removeAccount, startConnect, toolkitAuth, type AppCredentials,
+  checkKey, executeTool, isToolSlug, isToolkitSlug, listAccounts, listApps, listTools, normalizeComposioBase, removeAccount,
+  runWithComposioBase, startConnect, toolkitAuth, type AppCredentials,
 } from '../services/composio'
 
 const USER = /^[A-Za-z0-9_.@:-]{1,128}$/
 
 export function composioRoutes(_rt: Runtime) {
   const r = new Hono()
+
+  // Advanced settings can point Connect at a self-hosted gateway. Empty means hosted.
+  r.use('*', async (c, next) => {
+    const base = normalizeComposioBase(c.req.header('x-re-composio-base') ?? '')
+    if (!base.ok) return c.json({ error: base.error }, 400)
+    await runWithComposioBase(base.value, next)
+  })
 
   const keyOf = (c: { req: { header: (n: string) => string | undefined } }) => (c.req.header('x-re-composio-key') ?? '').trim()
   const noKey = (c: any) => c.json({ error: 'No Composio key. Add it under Connectors.', needs: 'key' }, 401)

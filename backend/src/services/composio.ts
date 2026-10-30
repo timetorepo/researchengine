@@ -19,9 +19,41 @@
  *   POST /api/v3.1/tools/execute/:slug      run a tool on an account
  */
 import { createHash } from 'node:crypto'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { BoundedMap } from './boundedMap'
 
 export const COMPOSIO_BASE = 'https://backend.composio.dev'
+
+/**
+ * The API endpoint for one request. Hosted by default; Advanced settings can point
+ * it at a self-hosted gateway. It travels per request (AsyncLocalStorage), so every
+ * call site below keeps using the same helpers.
+ */
+const baseStore = new AsyncLocalStorage<string>()
+export function composioBase(): string {
+  return baseStore.getStore() ?? COMPOSIO_BASE
+}
+export function runWithComposioBase<T>(base: string, fn: () => Promise<T>): Promise<T> {
+  return baseStore.run(base, fn)
+}
+
+/**
+ * Accepts an https endpoint, or http only for this machine (localhost, 127.0.0.1,
+ * [::1]). No credentials, query or fragment. An empty value means the hosted API.
+ */
+export function normalizeComposioBase(raw: string): { ok: true; value: string } | { ok: false; error: string } {
+  const text = raw.trim()
+  if (!text) return { ok: true, value: COMPOSIO_BASE }
+  if (text.length > 300) return { ok: false, error: 'The Composio endpoint is too long.' }
+  let u: URL
+  try { u = new URL(text) } catch { return { ok: false, error: 'The Composio endpoint must be a full URL, such as https://composio.example.com.' } }
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname)
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) {
+    return { ok: false, error: 'The Composio endpoint must use https. Plain http is allowed only for localhost.' }
+  }
+  if (u.username || u.password || u.search || u.hash) return { ok: false, error: 'The Composio endpoint must not contain credentials, a query or a fragment.' }
+  return { ok: true, value: `${u.origin}${u.pathname.replace(/\/+$/, '')}` }
+}
 const TIMEOUT_MS = 20_000
 const CATALOG_TTL_MS = 5 * 60_000
 const MAX_CATALOG_PAGES = 10
@@ -72,7 +104,8 @@ export function isToolSlug(v: string): boolean { return TOOL_SLUG.test(v) }
 
 /** A short fingerprint of the key, for cache keys only. */
 export function keyFingerprint(key: string): string {
-  return createHash('sha256').update(key).digest('hex').slice(0, 16)
+  // The endpoint is part of the cache identity: the same key may be valid on one server only.
+  return createHash('sha256').update(`${composioBase()}\n${key}`).digest('hex').slice(0, 16)
 }
 
 /**
@@ -91,7 +124,7 @@ const NOT_ACCEPTED =
 async function send(key: string, header: string, method: string, path: string, body?: unknown): Promise<ComposioResult<any>> {
   let res: Response
   try {
-    res = await fetch(`${COMPOSIO_BASE}${path}`, {
+    res = await fetch(`${composioBase()}${path}`, {
       method,
       headers: {
         [header]: key,

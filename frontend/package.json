@@ -51,7 +51,8 @@
     "perf-storage-test": "tsx --tsconfig tsconfig.json scripts/perf-storage-test.mts",
     "video-timeline-test": "tsx --tsconfig tsconfig.json scripts/video-timeline-test.mts",
     "glass-lens-test": "tsx scripts/glass-lens-test.mts",
-    "heroui-css": "node scripts/heroui-v3-css.mjs"
+    "heroui-css": "node scripts/heroui-v3-css.mjs",
+    "local-council-test": "tsx --tsconfig tsconfig.json scripts/local-council-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

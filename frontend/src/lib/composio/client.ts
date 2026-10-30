@@ -92,9 +92,15 @@ export async function saveComposioKey(raw: string): Promise<void> {
   })
 }
 
+/** Advanced settings: a self-hosted endpoint, sent per request. Empty means the hosted API. */
+function endpointHeader(): Record<string, string> {
+  const endpoint = useStore.getState().settings.composio?.endpoint?.trim()
+  return endpoint ? { 'x-re-composio-base': endpoint } : {}
+}
+
 async function headers(extra: Record<string, string> = {}): Promise<Record<string, string>> {
   const key = await composioKey()
-  return key ? { 'x-re-composio-key': key, ...extra } : { ...extra }
+  return key ? { 'x-re-composio-key': key, ...endpointHeader(), ...extra } : { ...endpointHeader(), ...extra }
 }
 
 async function readError(res: Response): Promise<string> {
@@ -117,7 +123,7 @@ export async function checkComposio(): Promise<{ configured: boolean; ok: boolea
   }
   if (!key) return { configured: true, ok: false, error: 'The saved Composio key could not be read. Paste it again.' }
   try {
-    const res = await fetch('/api/composio/status', { headers: { 'x-re-composio-key': key } })
+    const res = await fetch('/api/composio/status', { headers: { 'x-re-composio-key': key, ...endpointHeader() } })
     const body = await res.json().catch(() => null as any)
     if (!body || typeof body.ok !== 'boolean') {
       return { configured: true, ok: false, error: `The local server answered ${res.status} without a result. Restart the app and try again.` }

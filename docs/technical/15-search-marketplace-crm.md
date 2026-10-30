@@ -214,6 +214,14 @@ person's Spotify app.
 Tests: `composio-app-credentials-test.ts` (14 checks), `composio-connect-test.ts`
 (6), `connectors-test.mts` (32).
 
+### MCP servers, and where Composio requests go
+
+Marketplace has four segments: Apps, Connected, Built in and **MCP servers**. The MCP
+segment is the panel that used to live in Settings (`McpSection.tsx`); it needs no
+Composio key. Composio requests can go to a self-hosted gateway instead of the hosted
+API, from **Settings → Integrations → Advanced**. The hosted API is the recommendation.
+See [16 — AI council, local models, generated media and Advanced settings](16-council-local-models-media.md).
+
 ### Sync, which runs on every screen
 
 `frontend/src/lib/composio/sync.ts` owns the account read that the sidebar count

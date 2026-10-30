@@ -31,10 +31,12 @@
 | Script | Command |
 |---|---|
 | `bridge-pick-test` | `node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/bridge-pick-test.mts` |
+| `prebuild` | `node scripts/heroui-v3-css.mjs` |
 | `build` | `vite build` |
 | `changelog` | `node scripts/build-changelog.mjs` |
 | `design-browse-test` | `node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/design-browse-test.mts` |
 | `design-test` | `tsx scripts/design-test.mts` |
+| `predev` | `node scripts/heroui-v3-css.mjs` |
 | `dev` | `vite` |
 | `fork-test` | `tsx --tsconfig tsconfig.json scripts/fork-test.mts` |
 | `ide-chrome-test` | `tsx --tsconfig tsconfig.json scripts/ide-chrome-test.mts` |
@@ -74,6 +76,9 @@
 | `reactbits-test` | `tsx scripts/reactbits-test.mts` |
 | `perf-storage-test` | `tsx --tsconfig tsconfig.json scripts/perf-storage-test.mts` |
 | `video-timeline-test` | `tsx --tsconfig tsconfig.json scripts/video-timeline-test.mts` |
+| `glass-lens-test` | `tsx scripts/glass-lens-test.mts` |
+| `heroui-css` | `node scripts/heroui-v3-css.mjs` |
+| `local-council-test` | `tsx --tsconfig tsconfig.json scripts/local-council-test.mts` |
 
 ## backend (`backend/package.json`)
 

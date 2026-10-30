@@ -29,6 +29,7 @@ import {
 import { syncConnectorAccounts } from '@/lib/composio/sync'
 import { context7Configured, saveContext7Key } from '@/lib/context7/client'
 import { IntegrationsPanel } from '@/components/settings/IntegrationsTab'
+import { McpSection } from '@/components/marketplace/McpSection'
 import { ServicesPanel } from '@/components/sidebar/ServicesPanel'
 import { ConnectedServices } from '@/components/sidebar/ConnectedServices'
 import { useComposioActivity, type ActivityEvent } from '@/lib/composio/activity'
@@ -63,7 +64,7 @@ interface Flight {
   message?: string
 }
 
-type Tab = 'apps' | 'connected' | 'builtin'
+type Tab = 'apps' | 'connected' | 'builtin' | 'mcp'
 type ToolKind = 'All' | 'Read' | 'Create' | 'Update' | 'Delete' | 'Other'
 
 const muted = { color: 'var(--text-3)' } as const
@@ -446,7 +447,7 @@ export function MarketplacePage() {
   const openApp = (s: string) => navigate(`/marketplace/${encodeURIComponent(s)}`)
   const backToList = () => navigate('/marketplace')
 
-  const tabs: [Tab, string][] = [['apps', 'Apps'], ['connected', 'Connected'], ['builtin', 'Built in']]
+  const tabs: [Tab, string][] = [['apps', 'Apps'], ['connected', 'Connected'], ['builtin', 'Built in'], ['mcp', 'MCP servers']]
 
   // ------------------------------------------------------------------ one app
   if (slug) {
@@ -508,7 +509,9 @@ export function MarketplacePage() {
 
         {error && <p role="alert" className="text-[12px] leading-snug" style={danger}>{error}</p>}
 
-        {tab === 'connected' ? (
+        {tab === 'mcp' ? (
+          <McpSection />
+        ) : tab === 'connected' ? (
           <ConnectedServices
             accounts={connectedList}
             events={changes}

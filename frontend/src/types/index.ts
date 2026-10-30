@@ -58,7 +58,11 @@ export interface ChatMessage {
   sources?: Source[]
   flow?: FlowStats
   bookmarked?: boolean
-  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
+  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean; council?: boolean }
+  /** AI council drafts, when council mode ran for this answer. */
+  council?: { model: string; label: string; text: string; ok: boolean; error?: string }[]
+  /** Images and audio the model generated through a tool, shown under the answer. */
+  media?: { kind: 'image' | 'audio'; src: string; alt: string }[]
   followUps?: string[]
   error?: string
   agentAttribution?: { name: string; color: string }[]
@@ -577,8 +581,17 @@ export interface Settings {
   composio?: {
     token?: string
     accountUserId?: string
+    /** Advanced: a self-hosted Composio endpoint. Empty (the default) means the hosted API, which we recommend. */
+    endpoint?: string
     /** The person's own developer app per toolkit (e.g. Spotify). The secret is encrypted when the vault is in use. */
     apps?: Record<string, { clientId: string; clientSecret: string; scopes?: string }>
+  }
+  /** AI council members, as provider:model. Up to four. */
+  councilMembers?: string[]
+  /** Coding workspace settings. Unset fields keep their defaults. */
+  coding?: {
+    /** How long one terminal command may run, in seconds (10–300). Default 60. */
+    commandTimeoutSec?: number
   }
   /** Optional Context7 key. Documentation search works without one, at lower limits. */
   context7?: { token?: string }

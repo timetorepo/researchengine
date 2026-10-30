@@ -6,6 +6,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { IntegrationAccounts } from './IntegrationAccounts'
 import { IntegrationTutorial } from './IntegrationTutorial'
+import { AdvancedSection } from './AdvancedSection'
 import { GraduationCap } from 'lucide-react'
 import { timeAgo, fmt } from '@/lib/utils'
 import type { DocumentRecord } from '@/types'
@@ -358,6 +359,8 @@ export function IntegrationsPanel() {
           </div>
         ))}
       </div>
+
+      <AdvancedSection />
     </div>
   )
 }
