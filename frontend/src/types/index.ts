@@ -512,8 +512,12 @@ export interface Settings {
    * SearXNG → DuckDuckGo), which is why it is the default: search works before
    * anything is configured.
    */
-  searchBackend: 'auto' | 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg'
+  searchBackend: 'auto' | 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg' | 'firecrawl' | 'crawl4ai'
   searxngUrl: string
+  /** Firecrawl Open Source Core, self-hosted (e.g. http://localhost:3002). Empty = not used. */
+  firecrawlUrl?: string
+  /** Crawl4AI server (e.g. http://localhost:11235). Empty = not used. */
+  crawl4aiUrl?: string
   searchRegion: string
   /**
    * Search finds an engine by itself: your instance, then a local one, then the
@@ -528,6 +532,8 @@ export interface Settings {
     brave?: string
     serper?: string
     tavily?: string
+    /** Firecrawl hosted API key. The hosted API is usually a little better than the open-source core. */
+    firecrawl?: string
   }
   /** Which engine actually answered last — shown next to the results. */
   searchLastEngine?: string

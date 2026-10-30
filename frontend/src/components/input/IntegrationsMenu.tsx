@@ -1,3 +1,4 @@
+import { openMarketplace } from '@/lib/composio/sync'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check, ChevronRight, Github, HardDrive, Loader2, Mail, Calendar, Settings2, GraduationCap,
@@ -94,7 +95,7 @@ export function IntegrationsMenu({
   }, [query, settings.integrations])
 
   const openSettings = useCallback(() => {
-    useUI.getState().set({ connectorsOpen: true, connectorsTab: 'builtin' })
+    useUI.getState().set({ connectorsTab: 'builtin' }); openMarketplace()
     onClose()
   }, [onClose])
 

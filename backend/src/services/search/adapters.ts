@@ -21,6 +21,103 @@ export interface SearchKeys {
   brave?: string
   serper?: string
   tavily?: string
+  firecrawl?: string
+}
+
+/**
+ * Where a self-hosted crawler listens. Only http(s) is accepted: the value came
+ * from the request or the environment, and must not become a file or other scheme.
+ */
+export function crawlerBase(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null
+    return u.toString().replace(/\/$/, '')
+  } catch { return null }
+}
+
+/** The hosted Firecrawl API when a key is set; otherwise the self-hosted Open Source Core URL. */
+export const FIRECRAWL_HOSTED = 'https://api.firecrawl.dev'
+
+/**
+ * Firecrawl search (`POST /v2/search`). The hosted API needs a key; the
+ * open-source core is the same API served from your own machine, with no key.
+ * Results come back under `data.web` (v2) or `data` (v1): both are read.
+ */
+export async function searchFirecrawl(q: string, opts: { key?: string; base?: string | null }, timeoutMs = DEFAULT_TIMEOUT): Promise<SearchResult[]> {
+  const base = opts.key ? FIRECRAWL_HOSTED : crawlerBase(opts.base)
+  if (!base) throw new Error('Firecrawl needs an API key, or the address of a self-hosted Firecrawl.')
+  const res = await fetch(`${base}/v2/search`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(opts.key ? { authorization: `Bearer ${opts.key}` } : {}),
+    },
+    body: JSON.stringify({ query: q, limit: 8, sources: [{ type: 'web' }] }),
+    signal: withTimeout(timeoutMs),
+  })
+  if (!res.ok) throw new Error(`Firecrawl responded ${res.status}`)
+  const json: any = await res.json().catch(() => ({}))
+  const rows: any[] = Array.isArray(json?.data?.web) ? json.data.web : Array.isArray(json?.data) ? json.data : []
+  const out: SearchResult[] = []
+  for (const r of rows) {
+    const url = typeof r?.url === 'string' ? r.url : ''
+    if (!/^https?:\/\//.test(url)) continue
+    out.push({
+      title: String(r.title ?? url).slice(0, 200),
+      url,
+      snippet: String(r.description ?? r.snippet ?? '').slice(0, 400),
+      domain: hostOf(url),
+    })
+    if (out.length >= 8) break
+  }
+  if (!out.length) throw new Error('Firecrawl returned no results')
+  return out
+}
+
+/**
+ * Crawl4AI does not search: it reads pages. So it takes the top URLs from a
+ * search seed (SearXNG, then DuckDuckGo) and asks the crawler for each page's
+ * text, which becomes the snippet. Self-hosted: `docker run -p 11235:11235 unclecode/crawl4ai`.
+ */
+export async function searchCrawl4ai(q: string, opts: { base?: string | null; token?: string; own?: string | null }, timeoutMs = DEFAULT_TIMEOUT): Promise<SearchResult[]> {
+  const base = crawlerBase(opts.base)
+  if (!base) throw new Error('Crawl4AI needs the address of your Crawl4AI server.')
+  let seeds: SearchResult[] = []
+  try { seeds = (await searchSearxngAuto(q, { own: opts.own ?? null, timeouts: 2, timeoutMs })).results } catch { /* try DuckDuckGo */ }
+  if (!seeds.length) seeds = await searchDdg(q, timeoutMs)
+  const urls = seeds.map((s) => s.url).filter((u) => /^https?:\/\//.test(u)).slice(0, 3)
+  if (!urls.length) throw new Error('Crawl4AI had no pages to read for this query.')
+  const res = await fetch(`${base}/crawl`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
+    },
+    body: JSON.stringify({
+      urls,
+      crawler_config: { type: 'CrawlerRunConfig', params: { cache_mode: 'bypass' } },
+    }),
+    signal: withTimeout(Math.max(timeoutMs, 20_000)),
+  })
+  if (!res.ok) throw new Error(`Crawl4AI responded ${res.status}`)
+  const json: any = await res.json().catch(() => ({}))
+  const rows: any[] = Array.isArray(json?.results) ? json.results : json?.result ? [json.result] : []
+  const out: SearchResult[] = []
+  for (const r of rows) {
+    if (r?.success === false || typeof r?.url !== 'string') continue
+    const md = typeof r.markdown === 'string' ? r.markdown : (r.markdown?.raw_markdown ?? r.markdown?.fit_markdown ?? '')
+    const seed = seeds.find((s) => s.url === r.url)
+    out.push({
+      title: String(r.metadata?.title ?? seed?.title ?? r.url).slice(0, 200),
+      url: r.url,
+      snippet: String(r.metadata?.description ?? md).replace(/\s+/g, ' ').trim().slice(0, 400),
+      domain: hostOf(r.url),
+    })
+  }
+  if (!out.length) throw new Error('Crawl4AI could not read the pages.')
+  return out
 }
 
 /** Our own patience for any single outbound search request, ms. */
@@ -194,7 +291,8 @@ export function searchDemo(q: string): SearchResult[] {
 export async function searchStatus(keys: SearchKeys, own?: string | null): Promise<{
   searxng: { url: string; reachable: boolean; instance?: string }[]
   ddg: boolean
-  keys: { brave: boolean; serper: boolean; tavily: boolean }
+  keys: { brave: boolean; serper: boolean; tavily: boolean; firecrawl: boolean }
+  crawlers: { firecrawl: { hosted: boolean; selfHosted: boolean }; crawl4ai: { configured: boolean; reachable: boolean } }
 }> {
   const instances = [...(own ? [own] : []), 'http://localhost:8080', ...PUBLIC_SEARXNG]
   const probes = await Promise.all(instances.map(async (url) => {
@@ -216,6 +314,12 @@ export async function searchStatus(keys: SearchKeys, own?: string | null): Promi
     })
     ddg = res.ok
   } catch { ddg = false }
+  const fcSelf = crawlerBase(process.env.FIRECRAWL_URL)
+  const c4 = crawlerBase(process.env.CRAWL4AI_URL)
+  let c4Reachable = false
+  if (c4) {
+    try { c4Reachable = (await fetch(`${c4}/health`, { signal: withTimeout(3000) })).ok } catch { c4Reachable = false }
+  }
   return {
     searxng: probes,
     ddg,
@@ -223,6 +327,11 @@ export async function searchStatus(keys: SearchKeys, own?: string | null): Promi
       brave: !!(keys.brave || process.env.BRAVE_API_KEY),
       serper: !!(keys.serper || process.env.SERPER_API_KEY),
       tavily: !!(keys.tavily || process.env.TAVILY_API_KEY),
+      firecrawl: !!(keys.firecrawl || process.env.FIRECRAWL_API_KEY),
+    },
+    crawlers: {
+      firecrawl: { hosted: !!(keys.firecrawl || process.env.FIRECRAWL_API_KEY), selfHosted: !!fcSelf },
+      crawl4ai: { configured: !!c4, reachable: c4Reachable },
     },
   }
 }

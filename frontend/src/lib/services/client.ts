@@ -8,10 +8,10 @@ import { serviceHeaders, serviceReady, openseoProject, permittedVoice, recordCon
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string }
 
 const NOT_SET_UP: Record<ServiceName, string> = {
-  openseo: 'OpenSEO is not set up. Add its key under Connectors → Built in → OpenSEO.',
-  voicestudio: 'VoiceStudio is not set up. Start VoiceStudio on this machine, or add its address and key under Connectors → Built in → VoiceStudio.',
-  twenty: 'Twenty is not set up. Add its key under Connectors → Built in → Twenty CRM.',
-  postiz: 'Postiz is not set up. Add its key under Connectors → Built in → Postiz.',
+  openseo: 'OpenSEO is not set up. Add its key under Marketplace → Built in → OpenSEO.',
+  voicestudio: 'VoiceStudio is not set up. Start VoiceStudio on this machine, or add its address and key under Marketplace → Built in → VoiceStudio.',
+  twenty: 'Twenty is not set up. Add its key under Marketplace → Built in → Twenty CRM.',
+  postiz: 'Postiz is not set up. Add its key under Marketplace → Built in → Postiz.',
 }
 
 async function call<T>(name: ServiceName, path: string, init: { method?: 'GET' | 'POST'; body?: unknown; form?: FormData } = {}): Promise<Result<T>> {
@@ -48,6 +48,17 @@ export type CrmRecord =
 
 export const crmSearch = (kind: CrmSearchKind, query: string) =>
   call<{ records: { id: string; name: string; detail: string }[] }>('twenty', '/crm/search', { body: { kind, query } })
+
+export interface CrmOverviewKind {
+  total: number
+  recent: { id: string; name: string; detail: string; createdAt: string }[]
+  last14: number[]
+  coverage: { sample: number; email: number; jobTitle: number; company: number; domain: number }
+}
+
+/** Totals, newest records and a 14-day count for the CRM page. */
+export const crmOverview = () =>
+  call<{ people: CrmOverviewKind; companies: CrmOverviewKind }>('twenty', '/crm/overview', { body: {} })
 
 export const crmCreate = (record: CrmRecord) =>
   call<{ id: string; kind: string }>('twenty', '/crm/create', { body: { record } })

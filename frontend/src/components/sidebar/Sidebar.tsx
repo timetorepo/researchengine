@@ -20,7 +20,8 @@ import { prefetchRoute, routePathOf, navigateNow } from '@/lib/routes/registry'
 import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_DWELL_EXPANDED_MS } from './ChatsFlyout'
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
-import { Bot as BotIcon, CalendarDays, Plug } from 'lucide-react'
+import { Bot as BotIcon, Briefcase, CalendarDays, Store } from 'lucide-react'
+import { openMarketplace } from '@/lib/composio/sync'
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -34,6 +35,7 @@ const NAV = [
   { to: '/compare', label: 'Compare', icon: Swords },
   { to: '/workflows', label: 'Workflows', icon: WorkflowIcon },
   { to: '/bots', label: 'Bots', icon: BotIcon },
+  { to: '/crm', label: 'CRM', icon: Briefcase },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/flood', label: 'Agent Flood', icon: Users },
   { to: '/alpha', label: 'removerAlpha', icon: ScanText },
@@ -135,8 +137,8 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
               </DockItem>
             )
           })}
-          <DockItem index={NAV.length + 2} label="Connectors" onClick={() => useUI.getState().set({ connectorsOpen: true })}>
-            <Plug size={18} strokeWidth={1.5} />
+          <DockItem index={NAV.length + 2} label="Marketplace" onClick={() => openMarketplace()}>
+            <Store size={18} strokeWidth={1.5} />
           </DockItem>
           <DockSpacer />
           <DockDivider />
@@ -177,9 +179,9 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             ))}
           </nav>
 
-          {/* Connectors: one row; the marketplace of every Composio app opens from it. */}
+          {/* Marketplace: one row; the apps page opens from it. */}
           <div className="px-3 mt-2 pt-2" style={{ borderTop: '1px solid var(--surface-border)' }}>
-            <ConnectorsRow onBefore={closeMobile} />
+            <MarketplaceRow onBefore={closeMobile} />
           </div>
         </>
       )}
@@ -243,19 +245,18 @@ interface RowProps {
   onBefore: () => void
 }
 
-/** The Connectors entry in the nav column. It opens the marketplace dialog. */
-function ConnectorsRow({ onBefore }: { onBefore: () => void }) {
+/** The Marketplace entry in the nav column. It opens the marketplace page. */
+function MarketplaceRow({ onBefore }: { onBefore: () => void }) {
   const count = useUI((s) => s.connectorsCount)
   return (
     <button
       type="button"
-      onClick={() => { onBefore(); useUI.getState().set({ connectorsOpen: true }) }}
+      onClick={() => { onBefore(); openMarketplace() }}
       className={rowClass}
       style={{ color: 'var(--text-2)' }}
-      aria-haspopup="dialog"
     >
-      <Plug size={17} strokeWidth={1.5} />
-      <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">Connectors</span>
+      <Store size={17} strokeWidth={1.5} />
+      <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">Marketplace</span>
       {count > 0 && <span className="text-[10.5px] tabular-nums" style={{ color: 'var(--text-3)' }}>{count} connected</span>}
       <ChevronRight size={14} aria-hidden className="re-nav-arrow ml-auto shrink-0 opacity-30 group-hover:opacity-80 transition-all duration-200" />
     </button>

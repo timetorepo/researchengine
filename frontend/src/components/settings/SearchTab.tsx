@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Check, KeyRound, Loader2, Search as SearchIcon, Server, Terminal, X, Zap } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import LatticeLoader from '@/components/ui/reactbits/micro/LatticeLoader'
+import { InlineAlert } from '@/components/ui/heroui/InlineAlert'
 
 /**
  * Settings → Search.
@@ -16,7 +17,7 @@ import LatticeLoader from '@/components/ui/reactbits/micro/LatticeLoader'
  * environment variables, no restart.
  */
 
-type EngineId = 'auto' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg'
+type EngineId = 'auto' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg' | 'firecrawl' | 'crawl4ai'
 
 const ENGINES: { id: EngineId; name: string; desc: string; needsKey?: boolean }[] = [
   { id: 'auto', name: 'Automatic (recommended)', desc: 'Your SearXNG → a public SearXNG → DuckDuckGo. Keyless, nothing to set up.' },
@@ -25,6 +26,8 @@ const ENGINES: { id: EngineId; name: string; desc: string; needsKey?: boolean }[
   { id: 'serper', name: 'Serper', desc: 'Google results through Serper. Paste a key below.', needsKey: true },
   { id: 'tavily', name: 'Tavily', desc: 'Search built for LLMs, returns clean extracts.', needsKey: true },
   { id: 'ddg', name: 'DuckDuckGo', desc: 'Keyless HTML endpoint. Rate-limited but always there.' },
+  { id: 'firecrawl', name: 'Firecrawl', desc: 'Search with clean page text. Hosted with a key, or your own Open Source Core.' },
+  { id: 'crawl4ai', name: 'Crawl4AI', desc: 'Reads the top pages with your own Crawl4AI server. Nothing is sent to a third party.' },
 ]
 
 const REGIONS = ['us', 'gb', 'de', 'fr', 'jp', 'au', 'ca', 'in']
@@ -32,7 +35,8 @@ const REGIONS = ['us', 'gb', 'de', 'fr', 'jp', 'au', 'ca', 'in']
 interface Status {
   searxng?: { url: string; reachable: boolean }[]
   ddg?: boolean
-  keys?: { brave: boolean; serper: boolean; tavily: boolean }
+  keys?: { brave: boolean; serper: boolean; tavily: boolean; firecrawl?: boolean }
+  crawlers?: { firecrawl?: { hosted: boolean; selfHosted: boolean }; crawl4ai?: { configured: boolean; reachable: boolean } }
 }
 
 export function SearchTab() {
@@ -45,9 +49,9 @@ export function SearchTab() {
   const [test, setTest] = useState<{ state: 'idle' | 'running' | 'done' | 'error'; engine?: string; first?: string; error?: string }>({ state: 'idle' })
 
   const keys = settings.searchKeys ?? {}
-  const setKey = (id: 'brave' | 'serper' | 'tavily', value: string) =>
+  const setKey = (id: 'brave' | 'serper' | 'tavily' | 'firecrawl', value: string) =>
     update({ searchKeys: { ...keys, [id]: value.trim() } })
-  const clearKey = (id: 'brave' | 'serper' | 'tavily') => {
+  const clearKey = (id: 'brave' | 'serper' | 'tavily' | 'firecrawl') => {
     const next = { ...keys }
     delete next[id]
     update({ searchKeys: next })
@@ -129,6 +133,16 @@ export function SearchTab() {
         )}
       </div>
 
+      {/* Crawlers, in plain words: what they are for, and where they live. */}
+      <InlineAlert status="accent" title="Firecrawl: hosted or your own" className="mb-3">
+        The hosted Firecrawl API, with a key, is usually a little better than the open-source core you run yourself:
+        it is kept up to date and handles more sites. Connect Firecrawl in the Marketplace, and the key is saved here.{' '}
+        <button type="button" onClick={() => { window.location.hash = '#/marketplace/firecrawl' }}
+          className="underline underline-offset-2 font-medium" style={{ color: 'var(--primary)' }}>
+          Connect Firecrawl in the Marketplace
+        </button>
+      </InlineAlert>
+
       <div className="space-y-2 mb-6">
         {ENGINES.map((b) => {
           const active = (settings.searchBackend ?? 'auto') === b.id
@@ -148,6 +162,50 @@ export function SearchTab() {
           )
         })}
       </div>
+
+      {settings.searchBackend === 'firecrawl' && (
+        <div className="surface p-3.5 mb-5 space-y-2" style={{ borderRadius: 'var(--radius-card)' }}>
+          <label className="block">
+            <span className="text-[12.5px] font-medium mb-1 block">Self-hosted Firecrawl address (optional)</span>
+            <input value={settings.firecrawlUrl ?? ''} onChange={(e) => update({ firecrawlUrl: e.target.value.trim() })}
+              placeholder="http://localhost:3002" aria-label="Self-hosted Firecrawl address"
+              className="w-full px-3 py-2 rounded-[10px] outline-none text-[13px] font-mono"
+              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
+          </label>
+          <p className="text-[11.5px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
+            Run the open-source core on this machine. The API is open to anyone who can reach it, so keep it on a trusted network:
+          </p>
+          <code className="block font-mono text-[11px] px-2.5 py-1.5 rounded-[8px] whitespace-pre-wrap"
+            style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+{`git clone https://github.com/firecrawl/firecrawl
+cd firecrawl && cp .env.example .env
+docker compose up -d   # API on http://localhost:3002`}
+          </code>
+          <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+            The hosted key is used first when one is saved below. Status: {status?.crawlers?.firecrawl?.selfHosted ? 'your server answers' : status?.crawlers?.firecrawl?.hosted ? 'a hosted key is saved' : 'not set up yet'}.
+          </p>
+        </div>
+      )}
+
+      {settings.searchBackend === 'crawl4ai' && (
+        <div className="surface p-3.5 mb-5 space-y-2" style={{ borderRadius: 'var(--radius-card)' }}>
+          <label className="block">
+            <span className="text-[12.5px] font-medium mb-1 block">Crawl4AI server address</span>
+            <input value={settings.crawl4aiUrl ?? ''} onChange={(e) => update({ crawl4aiUrl: e.target.value.trim() })}
+              placeholder="http://localhost:11235" aria-label="Crawl4AI server address"
+              className="w-full px-3 py-2 rounded-[10px] outline-none text-[13px] font-mono"
+              style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
+          </label>
+          <code className="block font-mono text-[11px] px-2.5 py-1.5 rounded-[8px]"
+            style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+            docker run -d -p 11235:11235 --name crawl4ai --shm-size=1g unclecode/crawl4ai:latest
+          </code>
+          <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+            Crawl4AI reads pages rather than searching, so it takes the top results from SearXNG or DuckDuckGo and reads them.
+            Status: {status?.crawlers?.crawl4ai?.reachable ? 'answering' : status?.crawlers?.crawl4ai?.configured ? 'configured, not answering' : 'not set up yet'}.
+          </p>
+        </div>
+      )}
 
       {(settings.searchBackend ?? 'auto') !== 'auto' && (
         <label className="block mb-5">
@@ -172,9 +230,9 @@ export function SearchTab() {
           Paste a key and it is used immediately, on this machine, sent with the search request. Nothing needs to be
           set on the server and there is no restart.
         </p>
-        {(['brave', 'serper', 'tavily'] as const).map((id) => (
+        {(['brave', 'serper', 'tavily', 'firecrawl'] as const).map((id) => (
           <label key={id} className="flex items-center gap-2 mb-2">
-            <span className="text-[12px] w-16 capitalize" style={{ color: 'var(--text-2)' }}>{id}</span>
+            <span className="text-[12px] w-16 capitalize" style={{ color: 'var(--text-2)' }}>{id === 'firecrawl' ? 'Firecrawl' : id}</span>
             <input
               type="password" value={keys[id] ?? ''} onChange={(e) => setKey(id, e.target.value)}
               placeholder={status?.keys?.[id] ? 'in use (env or this field)' : 'paste key'}

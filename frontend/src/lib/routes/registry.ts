@@ -35,6 +35,8 @@ const ROUTES: { test: (path: string) => boolean; load: Loader }[] = [
   { test: (p) => p === '/chat' || p.startsWith('/chat/'), load: () => import('@/components/chat/ChatView') },
   { test: (p) => p.startsWith('/settings'), load: () => import('@/components/settings/SettingsView') },
   { test: (p) => p.startsWith('/flood'), load: () => import('@/components/agents/FloodView') },
+  { test: (p) => p.startsWith('/marketplace'), load: () => import('@/components/marketplace/MarketplacePage') },
+  { test: (p) => p.startsWith('/crm'), load: () => import('@/components/crm/CrmPage') },
   { test: (p) => p.startsWith('/quiz'), load: () => import('@/components/quiz/QuizHub') },
   { test: (p) => p.startsWith('/articles/'), load: () => import('@/components/articles/ArticleEditor') },
   { test: (p) => p.startsWith('/articles'), load: () => import('@/components/articles/ArticlesView') },

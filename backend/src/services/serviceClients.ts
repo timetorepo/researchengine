@@ -220,6 +220,72 @@ export async function crmSearch(f: Fetcher, opts: { base: string; key?: string; 
   }
 }
 
+export interface CrmOverview {
+  people: CrmOverviewKind
+  companies: CrmOverviewKind
+}
+
+export interface CrmOverviewKind {
+  /** Records Twenty reports in total (falls back to the rows fetched). */
+  total: number
+  /** The newest eight, by creation time. */
+  recent: { id: string; name: string; detail: string; createdAt: string }[]
+  /** New records per day for the last 14 days, oldest first. Counted from the latest rows fetched. */
+  last14: number[]
+  /** How many of the latest rows have each field filled in (the sample is the rows fetched). */
+  coverage: { sample: number; email: number; jobTitle: number; company: number; domain: number }
+}
+
+/**
+ * The CRM dashboard: totals, the newest records, and a 14-day count of new
+ * records. Reads the latest 60 rows of each kind, so the counts describe that
+ * window, which the page says.
+ */
+export async function crmOverview(f: Fetcher, opts: { base: string; key?: string }): Promise<Outcome<CrmOverview>> {
+  const one = async (kind: 'people' | 'companies'): Promise<Outcome<CrmOverviewKind>> => {
+    const url = new URL(`${opts.base}/rest/${kind}`)
+    url.searchParams.set('limit', '60')
+    const res = await send(f, url.toString(), { headers: crmHeaders(opts.key) }, 'Twenty')
+    if (isFailure(res)) return fail(res.status, res.error)
+    if (res.status === 401 || res.status === 403) return fail(401, 'Twenty did not accept the key. Check the key under Marketplace.')
+    if (!res.ok) return fail(502, `Twenty answered ${res.status}.`)
+    const body: any = await readJson(res).catch(() => ({}))
+    const rows: any[] = Array.isArray(body?.data?.[kind]) ? body.data[kind] : []
+    const total = Number(body?.totalCount ?? body?.pageInfo?.totalCount) || rows.length
+    const all = rows.map((r) => ({
+      id: String(r.id ?? ''),
+      name: kind === 'people' ? `${r.name?.firstName ?? ''} ${r.name?.lastName ?? ''}`.trim() : String(r.name ?? ''),
+      detail: kind === 'people'
+        ? String(r.jobTitle || r.company?.name || r.emails?.primaryEmail || '')
+        : String(r.domainName?.primaryLinkUrl ?? ''),
+      createdAt: String(r.createdAt ?? ''),
+    })).filter((r) => r.id && r.name)
+    const now = Date.now()
+    const last14 = Array.from({ length: 14 }, () => 0)
+    for (const r of all) {
+      const t = Date.parse(r.createdAt)
+      if (!Number.isFinite(t)) continue
+      const days = Math.floor((now - t) / 86_400_000)
+      if (days >= 0 && days < 14) last14[13 - days] += 1
+    }
+    const recent = [...all].sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0)).slice(0, 8)
+    const has = (v: unknown) => typeof v === 'string' ? v.trim().length > 0 : !!v
+    const coverage = {
+      sample: rows.length,
+      email: rows.filter((r) => has(r.emails?.primaryEmail)).length,
+      jobTitle: rows.filter((r) => has(r.jobTitle)).length,
+      company: rows.filter((r) => has(r.companyId) || has(r.company)).length,
+      domain: rows.filter((r) => has(r.domainName?.primaryLinkUrl)).length,
+    }
+    return { ok: true, data: { total, recent, last14, coverage } }
+  }
+  const people = await one('people')
+  if (!people.ok) return people
+  const companies = await one('companies')
+  if (!companies.ok) return companies
+  return { ok: true, data: { people: people.data, companies: companies.data } }
+}
+
 export interface CrmCreate {
   kind: CrmKind
   /** person: first + last + email; company: name + domain; note: title + body */

@@ -31,6 +31,8 @@ const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((
 import { startBotScheduler } from '@/lib/bots/runner'
 const CalendarView = React.lazy(() => import('@/components/calendar/CalendarView').then((m) => ({ default: m.CalendarView })))
 const BotsView = React.lazy(() => import('@/components/bots/BotsView').then((m) => ({ default: m.BotsView })))
+const MarketplacePage = React.lazy(() => import('@/components/marketplace/MarketplacePage').then((m) => ({ default: m.MarketplacePage })))
+const CrmPage = React.lazy(() => import('@/components/crm/CrmPage').then((m) => ({ default: m.CrmPage })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 const RemoverAlpha = React.lazy(() => import('@/components/alpha/RemoverAlpha').then((m) => ({ default: m.RemoverAlpha })))
 const FeedbackView = React.lazy(() => import('@/components/feedback/FeedbackView').then((m) => ({ default: m.FeedbackView })))
@@ -54,7 +56,7 @@ const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/Diagnost
 import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
 import { AppContextMenu } from '@/components/shared/AppContextMenu'
 import { UpdateModal } from '@/components/updates/UpdateModal'
-import { ConnectorsMarketplace } from '@/components/sidebar/ConnectorsSection'
+import { startConnectorSync, consumeComposioReturn, openMarketplace } from '@/lib/composio/sync'
 import { ArtifactPanel } from '@/components/chat/ArtifactPanel'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { LockScreen } from '@/components/vault/LockScreen'
@@ -107,6 +109,9 @@ export default function App() {
   const notFound = useUI((s) => s.notFound)
   useRoutePreload()
   useEffect(() => { startBotScheduler() }, [])
+  // Connected-app count and notices run on every screen. A sign-in window that
+  // lands back here returns the person to the Marketplace.
+  useEffect(() => { if (consumeComposioReturn()) openMarketplace(); return startConnectorSync() }, [])
 
   // Navigation is wrapped in the View Transitions API where the browser has it:
   // the shell stays put, the page cross-fades, the nav marker travels.
@@ -282,6 +287,9 @@ function RoutedApp() {
           <Route path="/workflows" element={<WorkflowsList />} />
           <Route path="/calendar" element={<CalendarView />} />
           <Route path="/bots" element={<BotsView />} />
+          <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/marketplace/:slug" element={<MarketplacePage />} />
+          <Route path="/crm" element={<CrmPage />} />
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/code" element={<CodingView />} />
           <Route path="/chats" element={<ChatsView />} />
@@ -300,7 +308,6 @@ function RoutedApp() {
       {/* The new-release popup lives outside the router on purpose — a version
           announcement should be able to reach the user on any page. */}
       <UpdateModal />
-      <ConnectorsMarketplace />
       <ArtifactPanel />
       <ScrollProgress />
       {/* Each overlay mounts only once its own flag is on, so the chunk is

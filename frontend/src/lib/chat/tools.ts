@@ -256,14 +256,14 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'composio_apps',
-    description: 'List the apps the user has CONNECTED through Composio (Gmail, Slack, GitHub, Notion, Linear and any other app they signed into under Connectors). Call this first to see what is available. If the app a person asks about is not listed, say so and tell them to connect it under Connectors; do not guess.',
+    description: 'List the apps the user has CONNECTED through Composio (Gmail, Slack, GitHub, Notion, Linear and any other app they signed into in the Marketplace). Call this first to see what is available. If the app a person asks about is not listed, say so and tell them to connect it in the Marketplace; do not guess.',
     parameters: { type: 'object', properties: {}, required: [] },
     run: async () => {
       const { composioConfigured, listComposioAccounts, isActiveAccount } = await import('@/lib/composio/client')
-      if (!composioConfigured()) return 'Composio is not set up. Add the project key under Connectors in the sidebar.'
+      if (!composioConfigured()) return 'Composio is not set up. Add the project key in the Marketplace, in the sidebar.'
       try {
         const active = (await listComposioAccounts()).filter(isActiveAccount)
-        return active.length ? JSON.stringify({ connected: active.map((a) => ({ app: a.toolkit, alias: a.alias ?? null })) }) : 'No apps are connected yet. Connect one under Connectors in the sidebar.'
+        return active.length ? JSON.stringify({ connected: active.map((a) => ({ app: a.toolkit, alias: a.alias ?? null })) }) : 'No apps are connected yet. Connect one in the Marketplace, in the sidebar.'
       } catch (e: any) {
         return `Could not list connected apps: ${String(e?.message ?? e)}`
       }
@@ -1123,7 +1123,7 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
   const def = TOOLS.find((t) => t.name === call.name)
   if (!def) return `Unknown tool: ${call.name}`
   if (def.needsProject && !ctx.project) return 'This tool needs an open project in Coding mode.'
-  if (def.when && !def.when()) return `${def.name} is not set up. Add it under Connectors → Built in.`
+  if (def.when && !def.when()) return `${def.name} is not set up. Add it under Marketplace → Built in.`
   let args: any = call.arguments
   if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = { input: args } } }
   args = args ?? {}

@@ -50,7 +50,7 @@ frontend/
 | Folder | Purpose |
 |---|---|
 | `layout/` | `Shell` (the window frame), `BackgroundLayer` (the global animated background) |
-| `sidebar/` | Navigation, chat history, the connectors marketplace, the privacy panel |
+| `sidebar/` | Navigation, chat history, the Marketplace link, the privacy panel |
 | `topbar/` | The top bar: model picker, resource meter, update badge, session switch button |
 | `home/` | The landing screen: the composer, quick actions, recent items |
 | `chat/` | The conversation view: messages, markdown, sources, the artifact panel, thinking display |

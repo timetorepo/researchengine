@@ -118,7 +118,7 @@ async function runToolCall(call: ToolCall, trace: string[], sources: Source[]): 
   }
   if (call.kind === 'apps') {
     trace.push('Checked connected apps')
-    if (!composioConfigured()) return 'Composio is not set up. The person can add the project key under Connectors in the sidebar.'
+    if (!composioConfigured()) return 'Composio is not set up. The person can add the project key in the Marketplace, in the sidebar.'
     try {
       const active = (await listComposioAccounts()).filter(isActiveAccount)
       return active.length ? `Connected apps: ${active.map((a) => a.toolkit).join(', ')}.` : 'No apps are connected yet.'
@@ -137,7 +137,7 @@ async function runToolCall(call: ToolCall, trace: string[], sources: Source[]): 
     }
   }
   if (call.kind === 'seo_domain' || call.kind === 'seo_keywords') {
-    if (!serviceReady('openseo')) return 'OpenSEO is not set up. The person can add its key under Connectors → Built in.'
+    if (!serviceReady('openseo')) return 'OpenSEO is not set up. The person can add its key under Marketplace → Built in.'
     const svc = await import('@/lib/services/client')
     if (call.kind === 'seo_domain') {
       trace.push(`SEO overview for ${call.domain}`)
@@ -149,7 +149,7 @@ async function runToolCall(call: ToolCall, trace: string[], sources: Source[]): 
     return res.ok ? clip(`Keyword ideas (OpenSEO):\n${JSON.stringify(res.data.result)}`, LIMITS.toolResultChars) : `The keyword research failed: ${res.error}`
   }
   if (call.kind === 'crm_find' || call.kind === 'crm_add') {
-    if (!serviceReady('twenty')) return 'Twenty CRM is not set up. The person can add its key under Connectors → Built in.'
+    if (!serviceReady('twenty')) return 'Twenty CRM is not set up. The person can add its key under Marketplace → Built in.'
     const svc = await import('@/lib/services/client')
     if (call.kind === 'crm_find') {
       trace.push(`CRM search “${call.query}”`)
@@ -164,7 +164,7 @@ async function runToolCall(call: ToolCall, trace: string[], sources: Source[]): 
     return res.ok ? `Added to the CRM (id ${res.data.id}).` : `The CRM could not add it: ${res.error}`
   }
   if (call.kind === 'social_channels' || call.kind === 'social_draft') {
-    if (!serviceReady('postiz')) return 'Postiz is not set up. The person can add its key under Connectors → Built in.'
+    if (!serviceReady('postiz')) return 'Postiz is not set up. The person can add its key under Marketplace → Built in.'
     const svc = await import('@/lib/services/client')
     if (call.kind === 'social_channels') {
       trace.push('Listed social channels')

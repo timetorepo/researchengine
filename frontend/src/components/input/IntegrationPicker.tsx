@@ -19,7 +19,7 @@ export const INTEGRATION_META: Record<string, { name: string; icon: any; hue: nu
 export function IntegrationPicker({ query, onPick, onClose: _onClose }: { query: string; onPick: (label: string) => void; onClose: () => void }) {
   const integrations = useStore((s) => s.integrations)
   const documents = useStore((s) => s.documents)
-  // Apps the person has connected in Connectors (Composio), one entry per app.
+  // Apps the person has connected in the Marketplace (Composio), one entry per app.
   const [apps, setApps] = useState<string[]>([])
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function IntegrationPicker({ query, onPick, onClose: _onClose }: { query:
         const slugs = [...new Set(accs.filter(isActiveAccount).map((a) => a.toolkit.toLowerCase()))]
         setApps(slugs)
       })
-      .catch(() => { /* Connectors shows the error; the picker just lists nothing */ })
+      .catch(() => { /* the Marketplace shows the error; the picker just lists nothing */ })
     return () => { alive = false }
   }, [])
 
@@ -62,7 +62,7 @@ export function IntegrationPicker({ query, onPick, onClose: _onClose }: { query:
     >
       {items.length === 0 ? (
         <div className="px-3 py-4 text-[12.5px] text-center" style={{ color: 'var(--text-3)' }}>
-          No connected sources yet. Connect apps in Connectors in the sidebar, or upload documents in Read &amp; Quiz.
+          No connected sources yet. Connect apps in the Marketplace in the sidebar, or upload documents in Read &amp; Quiz.
         </div>
       ) : items.map((it) => (
         <button key={it.label} onClick={() => onPick(it.label)}

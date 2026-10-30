@@ -85,8 +85,10 @@ the same route outlet.
 ### Sidebar
 
 `components/sidebar/` holds the navigation, the chat history grouped by date, the
-connectors marketplace (`ConnectorsSection.tsx`), the privacy panel and the
-collapsed-state rail. When collapsed, each button keeps a full hit area and the
+privacy panel and the collapsed-state rail. The Marketplace
+(`components/marketplace/MarketplacePage.tsx`, routes `/marketplace` and
+`/marketplace/:slug`) and the CRM page (`components/crm/CrmPage.tsx`, route
+`/crm`) are routed pages; see [chapter 15](15-search-marketplace-crm.md). When collapsed, each button keeps a full hit area and the
 rail does not overlap the content.
 
 ### Top bar

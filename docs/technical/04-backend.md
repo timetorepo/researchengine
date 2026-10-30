@@ -164,9 +164,12 @@ the one place that interprets them. The request carries the key and the model;
 ### Search ladder
 
 `services/search/adapters.ts` tries engines in order and says which one answered:
-the user's own engine if configured, then a keyless SearXNG (yours or a public
-instance), then keyless DuckDuckGo, then a demo answer. Keys the user pasted in
-Settings travel with the request and are not stored.
+a configured Firecrawl (hosted with a key, or your own open-source core), then a
+configured Crawl4AI (which reads the top results from another engine), then the
+user's own SearXNG, a keyless SearXNG (a public instance), keyless DuckDuckGo,
+and a demo answer. An engine that is not configured is never called. Keys and
+addresses the user set in Settings travel with the request and are not stored.
+See [chapter 15](15-search-marketplace-crm.md#1-search-firecrawl-and-crawl4ai).
 
 ### Coding runner
 

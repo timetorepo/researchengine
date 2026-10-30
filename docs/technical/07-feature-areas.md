@@ -300,6 +300,8 @@ your own model.
 ## Connectors
 
 Connectors are accounts the AI can read through tool calls. There are two families.
+The Composio apps are connected in the Marketplace, one page per app; see
+[chapter 15](15-search-marketplace-crm.md#2-marketplace).
 
 **Local connectors** (`backend/src/routes/connectors.ts`). Local Files, Drive, Mail
 and Calendar. Each item is stored as JSON under `<data-dir>/connectors`. The AI

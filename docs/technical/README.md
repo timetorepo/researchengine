@@ -25,6 +25,7 @@ Version documented: **1.1.0** (`package.json`, `backend`, `frontend`, `desktop`)
 | 12 | [Testing](12-testing.md) | Run and extend the test suite |
 | 13 | [Contributing](13-contributing.md) | Add a route, a provider, a background, a tool, or a component |
 | 14 | [Known issues](14-known-issues.md) | Check the open gaps and the places where docs and code disagree |
+| 15 | [Search crawlers, Marketplace and CRM](15-search-marketplace-crm.md) | Work on Firecrawl and Crawl4AI search, the Marketplace pages, or the CRM dashboard |
 
 ## Generated references
 

@@ -1,5 +1,5 @@
 /**
- * Built-in services for the chat and the bots, shown in Connectors → Built in:
+ * Built-in services for the chat and the bots, shown in Marketplace → Built in:
  *
  *   OpenSEO      SEO overviews and keyword ideas (MIT)
  *   VoiceStudio  speech in a voice, and voice cloning with the speaker's permission (AGPL-3.0)

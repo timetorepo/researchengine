@@ -4,6 +4,7 @@
 //   POST /api/services/seo/keywords      OpenSEO: keyword research
 //   POST /api/services/crm/search        Twenty: find people or companies
 //   POST /api/services/crm/create        Twenty: create a person, company or note
+//   POST /api/services/crm/overview      Twenty: totals, newest records, 14-day counts
 //   POST /api/services/social/channels   Postiz: connected channels
 //   POST /api/services/social/draft      Postiz: save a draft (never publishes)
 //   GET  /api/services/voice/voices      VoiceStudio: voices it can speak with
@@ -15,7 +16,7 @@
 import { Hono } from 'hono'
 import type { Runtime } from '../runtime'
 import {
-  crmCreate, crmSearch, openseoDomain, openseoKeywords, parseBase, postizChannels, postizDraft,
+  crmCreate, crmOverview, crmSearch, openseoDomain, openseoKeywords, parseBase, postizChannels, postizDraft,
   voiceClone, voiceList, voiceSpeak, type CrmCreate, type CrmKind, type Fetcher,
 } from '../services/serviceClients'
 
@@ -70,6 +71,12 @@ export function serviceRoutes(_rt: Runtime, fetcher: Fetcher = (i, init) => fetc
     const body = await json(c); if (!body) return c.json({ error: 'Send a JSON object.' }, 400)
     const kind = body.kind === 'companies' ? 'companies' : 'people'
     const res = await crmSearch(fetcher, { base: t.base, key: t.key, query: str(body.query, 200), kind })
+    return res.ok ? c.json(res.data) : c.json({ error: res.error }, res.status as 400)
+  })
+
+  r.post('/services/crm/overview', async (c) => {
+    const t = target(c, 'crm'); if (!t.ok) return c.json({ error: t.error }, 400)
+    const res = await crmOverview(fetcher, { base: t.base, key: t.key })
     return res.ok ? c.json(res.data) : c.json({ error: res.error }, res.status as 400)
   })
 

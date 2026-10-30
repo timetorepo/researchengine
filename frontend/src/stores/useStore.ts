@@ -114,6 +114,8 @@ const defaultSettings: Settings = {
   customSystemPrompts: {},
   searchBackend: 'auto',
   searxngUrl: 'http://localhost:8080',
+  firecrawlUrl: '',
+  crawl4aiUrl: '',
   searchRegion: 'us',
   searchAuto: true,
   searchKeys: {},

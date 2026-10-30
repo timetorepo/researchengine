@@ -303,7 +303,7 @@ function ConnectorDataPanel() {
 }
 
 /** The built-in integrations: accounts, the local workspace, and the connection log.
- *  Lives in the Connectors marketplace ("Built in" tab). */
+ *  Lives in the Marketplace ("Built in" tab). */
 export function IntegrationsPanel() {
   const integrations = useStore((s) => s.integrations)
   const log = useStore((s) => s.connectionLog)

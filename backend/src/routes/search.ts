@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import {
   searchSearxngAuto, searchBrave, searchSerper, searchTavily, searchDdg, searchDemo, searchStatus,
+  searchFirecrawl, searchCrawl4ai, crawlerBase,
   type SearchKeys, type SearchResult,
 } from '../services/search/adapters'
 import { prepareRag, type RagHit } from '../services/rag'
@@ -21,6 +22,7 @@ function keysFrom(c: any): SearchKeys {
       brave: typeof parsed?.brave === 'string' ? parsed.brave : undefined,
       serper: typeof parsed?.serper === 'string' ? parsed.serper : undefined,
       tavily: typeof parsed?.tavily === 'string' ? parsed.tavily : undefined,
+      firecrawl: typeof parsed?.firecrawl === 'string' ? parsed.firecrawl.slice(0, 300) : undefined,
     }
   } catch { return {} }
 }
@@ -51,6 +53,11 @@ searchRoutes.get('/', async (c) => {
   const patience = Number(c.req.query('timeout')) || undefined
   const requested = (c.req.query('backend') ?? process.env.SEARCH_BACKEND ?? 'auto').toLowerCase()
   const engineTimeout = patience ? Math.min(60_000, patience * 1000) : undefined
+  // Self-hosted crawlers: an address typed in Settings wins over the server's environment.
+  const firecrawlBase = crawlerBase(c.req.query('firecrawl')) ?? crawlerBase(process.env.FIRECRAWL_URL)
+  const crawl4aiBase = crawlerBase(c.req.query('crawl4ai')) ?? crawlerBase(process.env.CRAWL4AI_URL)
+  const crawl4aiToken = process.env.CRAWL4AI_API_TOKEN
+  const firecrawlReady = !!(keys.firecrawl || firecrawlBase)
 
   const attempts: { engine: string; error?: string }[] = []
   const note = (engine: string, error?: string) => attempts.push({ engine, ...(error ? { error } : {}) })
@@ -62,6 +69,8 @@ searchRoutes.get('/', async (c) => {
         case 'serper': return { results: await searchSerper(q, keys.serper, engineTimeout), label: 'serper' }
         case 'tavily': return { results: await searchTavily(q, keys.tavily, engineTimeout), label: 'tavily' }
         case 'ddg': return { results: await searchDdg(q, engineTimeout), label: 'ddg' }
+        case 'firecrawl': return { results: await searchFirecrawl(q, { key: keys.firecrawl, base: firecrawlBase }, engineTimeout), label: keys.firecrawl ? 'firecrawl:hosted' : 'firecrawl:self-hosted' }
+        case 'crawl4ai': return { results: await searchCrawl4ai(q, { base: crawl4aiBase, token: crawl4aiToken, own }, engineTimeout), label: 'crawl4ai' }
         case 'searxng': {
           const { results, instance } = await searchSearxngAuto(q, { own, timeouts: 3, timeoutMs: engineTimeout })
           return { results, label: `searxng:${instance}` }
@@ -81,17 +90,30 @@ searchRoutes.get('/', async (c) => {
     if (hit?.results.length) return c.json({ backend: hit.label, attempts, results: hit.results })
   }
 
-  // 2) keyless SearXNG (this is also the `auto` first choice)
+  // 2) auto: a crawler the person has set up goes first (Firecrawl, then Crawl4AI).
+  //    They are only used when configured, so nothing is sent to them by surprise.
+  if (requested === 'auto') {
+    if (firecrawlReady) {
+      const fc = await tryEngine('firecrawl')
+      if (fc?.results.length) return c.json({ backend: fc.label, attempts, results: fc.results })
+    }
+    if (crawl4aiBase) {
+      const c4 = await tryEngine('crawl4ai')
+      if (c4?.results.length) return c.json({ backend: c4.label, attempts, results: c4.results })
+    }
+  }
+
+  // 3) keyless SearXNG (this is also the `auto` first choice)
   const sx = await tryEngine('searxng')
   if (sx?.results.length) return c.json({ backend: sx.label, attempts, results: sx.results })
 
-  // 3) keyless DuckDuckGo
+  // 4) keyless DuckDuckGo
   if (requested !== 'ddg') {
     const ddg = await tryEngine('ddg')
     if (ddg?.results.length) return c.json({ backend: 'ddg', attempts, results: ddg.results })
   }
 
-  // 4) labelled placeholders — never an empty panel pretending to be a search
+  // 5) labelled placeholders — never an empty panel pretending to be a search
   return c.json({ backend: 'demo', attempts, results: searchDemo(q) })
 })
 
