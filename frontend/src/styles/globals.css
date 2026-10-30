@@ -1,4 +1,17 @@
 @import "tailwindcss";
+
+/*
+ * HeroUI v3 (@heroui/react 3.x, used by Accordion, ButtonGroup, Button, Tabs,
+ * Switch, InputOTP, Alert …) renders slot classes from @heroui/styles. Those
+ * files were never imported, which is why v3 components showed as bare text.
+ * The generated file (scripts/heroui-v3-css.mjs) carries the variables, the
+ * components and the utilities, with the colour names renamed to `hui-*` so
+ * they cannot collide with this app's own --color-* names. Its layers sit
+ * below the app's unlayered CSS. The token map further down points the v3
+ * names at this app's palette.
+ */
+@import "tw-animate-css";
+@import "./heroui-v3.generated.css";
 /*
  ---break---
  */
@@ -23,6 +36,43 @@
    Tailwind v4 `@source inline` so only Modal and Tabs are paid for. */
 @source inline("!rounded-none absolute active:bg-default-200 after:absolute after:bottom-0 after:h-[2px] after:opacity-0 after:w-[80%] appearance-none backdrop-blur-md backdrop-opacity-disabled backdrop-saturate-150 bg-background bg-content1 bg-danger bg-danger/20 bg-default bg-default-100 bg-default/40 bg-foreground bg-foreground/10 bg-image bg-overlay/30 bg-overlay/50 bg-primary bg-primary/20 bg-secondary bg-secondary/20 bg-stripe-gradient-danger bg-stripe-gradient-default bg-stripe-gradient-primary bg-stripe-gradient-secondary bg-stripe-gradient-success bg-stripe-gradient-warning bg-success bg-success/20 bg-transparent bg-warning bg-warning/20 bg-white block blur border-danger border-default border-default-200 border-foreground border-medium border-primary border-secondary border-success border-w border-warning bordered bottom-0 bottom-center box-border cursor cursor-pointer danger dark:bg-default dark:bg-transparent dark:text-danger-500 dark:text-success dark:text-warning data-[animated=true]:duration-250 data-[animated=true]:ease-out data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-30 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 data-[focus-visible=true]:z-10 data-[hover-unselected=true]:opacity-disabled data-[inert=true]:hidden data-[initialized=true]:visible data-[selected=true]:after:bg-danger data-[selected=true]:after:bg-foreground data-[selected=true]:after:bg-primary data-[selected=true]:after:bg-secondary data-[selected=true]:after:bg-success data-[selected=true]:after:bg-warning data-[selected=true]:after:opacity-100 data-[selected=true]:bg-danger data-[selected=true]:bg-default data-[selected=true]:bg-primary data-[selected=true]:bg-secondary data-[selected=true]:bg-success data-[selected=true]:bg-warning data-[selected=true]:text-danger-foreground data-[selected=true]:text-default-foreground data-[selected=true]:text-primary-foreground data-[selected=true]:text-secondary-foreground data-[selected=true]:text-success-foreground data-[selected=true]:text-warning-foreground default disabled divider end-1 fade-out fixed flex flex-1 flex-col flex-col-reverse flex-initial flex-nowrap flex-row flex-row-reverse font-semibold font-size function gap-2 gap-3 group group-data-[selected=true]:text-danger group-data-[selected=true]:text-danger-foreground group-data-[selected=true]:text-default-foreground group-data-[selected=true]:text-foreground group-data-[selected=true]:text-primary group-data-[selected=true]:text-primary-foreground group-data-[selected=true]:text-secondary group-data-[selected=true]:text-secondary-foreground group-data-[selected=true]:text-success group-data-[selected=true]:text-success-foreground group-data-[selected=true]:text-warning group-data-[selected=true]:text-warning-foreground h-(--visual-viewport-height) h-[100dvh] h-[2px] h-7 h-8 h-9 h-fit h-screen hidden hover:bg-default-100 infinite inherit inline-flex inset-0 invisible items-center items-end items-start justify-center justify-end large left lg light line-height linear max-h-[calc(100%_-_8rem)] max-w-2xl max-w-3xl max-w-4xl max-w-5xl max-w-full max-w-lg max-w-md max-w-sm max-w-xl max-w-xs md medium min-h-[100dvh] mx-0 mx-1 my-0 my-1 my-16 none normal object opacity-disabled opaque outline-solid outline-transparent overflow-x-auto overflow-x-scroll overflow-y-auto overflow-y-hidden p-1 p-2 pointer-events-none primary px-1 px-3 px-6 py-0 py-1 py-2 py-3 py-4 relative rotate rounded-full rounded-large rounded-medium rounded-none rounded-small scrollbar-hide scrollbar-width secondary select-none shadow-danger/40 shadow-default/50 shadow-foreground/40 shadow-large shadow-lg shadow-medium shadow-none shadow-primary/40 shadow-secondary/40 shadow-small shadow-success/40 shadow-warning/40 shadow-xs sm sm:items-center sm:items-end sm:items-start sm:mx-0 sm:mx-6 sm:my-0 sm:my-16 small solid strict stroke success tab tabList tailwind-variants tap-highlight-transparent text-background text-danger text-danger-600 text-danger-foreground text-default-500 text-default-700 text-default-foreground text-foreground text-foreground-500 text-inherit text-large text-medium text-primary text-primary-600 text-primary-foreground text-secondary text-secondary-600 text-secondary-foreground text-small text-success text-success-700 text-success-foreground text-tiny text-warning text-warning-700 text-warning-foreground tiny top-1 top-center translate(140%) transparent underlined use var(--heroui-font-size-large) var(--heroui-font-size-medium) var(--heroui-font-size-small) var(--heroui-font-size-tiny) var(--heroui-line-height-large) var(--heroui-line-height-medium) var(--heroui-line-height-small) var(--heroui-line-height-tiny) w-[80%] w-full w-screen warning whitespace-nowrap z-0 z-10 z-50");
 /* @heroui-classes:end */
+
+/* ============================================================
+   HeroUI v3 TOKEN MAP — points the v3 component tokens at this app's
+   palette, so Accordion, ButtonGroup, Button, Tabs, Switch and InputOTP
+   match the Research Engine look in every theme (they read the same
+   --primary/--elevated/--text variables the rest of the UI uses).
+   ============================================================ */
+:root {
+  --accent: var(--primary);
+  --accent-foreground: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--primary) 88%, black);
+  --accent-soft: color-mix(in oklab, var(--primary) 14%, transparent);
+  --accent-soft-hover: color-mix(in oklab, var(--primary) 22%, transparent);
+  --accent-soft-foreground: var(--primary);
+  --focus: var(--primary);
+  --field-focus: var(--primary);
+  --field-border: var(--surface-border);
+  --field-border-hover: var(--text-3);
+  --field-border-focus: var(--primary);
+  --field-foreground: var(--text);
+  --default: var(--elevated);
+  --default-hover: color-mix(in oklab, var(--text) 8%, var(--elevated));
+  --default-foreground: var(--text);
+  --default-soft: var(--surface);
+  --default-soft-foreground: var(--text-2);
+  --background: var(--bg);
+  --foreground: var(--text);
+  --overlay: var(--elevated);
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --danger-soft-hover: color-mix(in oklab, var(--danger) 22%, transparent);
+  --danger-soft-foreground: var(--danger);
+  --success-soft: color-mix(in oklab, var(--success) 14%, transparent);
+  --success-soft-foreground: var(--success);
+  --warning-soft: color-mix(in oklab, var(--warning) 14%, transparent);
+  --warning-soft-foreground: var(--warning);
+  --radius: 12px;
+}
 
 /* ============================================================
    RESEARCH ENGINE — DESIGN TOKENS
