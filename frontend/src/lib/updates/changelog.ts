@@ -53,7 +53,7 @@ export const CHANGELOG: Release[] = [
     "name": "Sign-in tracking, Pipedream, council and local models",
     "date": "2026-10-30",
     "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.3.0",
-    "summary": "Installers are listed in downloads/INSTALLERS.sha256 once the desktop build finishes.",
+    "summary": "Installers: Research.Engine_1.3.0_x64-setup.exe and Research.Engine_1.3.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
     "sections": [
       {
         "title": "1.3.0 — Sign-in tracking, Pipedream, council and local models",

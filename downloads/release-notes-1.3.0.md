@@ -14,6 +14,9 @@ Not tested live yet: Hugging Face search, a real Ollama download, the self-hoste
 
 Installers:
 
-- The installers and their sha256 digests are added after the desktop build finishes. They will be in `downloads/INSTALLERS.sha256`.
+- `Research.Engine_1.3.0_x64-setup.exe`, sha256 `a8539a28d93b24edc6087e3c2f1c8985e3c853778dbd456426cc355bcdea99d6`
+- `Research.Engine_1.3.0_amd64.deb`, sha256 `ab44e5fa71dfcc1a5ab708888b8c2dd5b723accb492219b19743659f99b4095c`
+
+Digests are also in `downloads/INSTALLERS.sha256`.
 
 Upgrade: nothing to migrate. Saved bots, chats, projects and settings are kept. Council mode and local models are off until you set them up.
