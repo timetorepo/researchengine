@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 49 versions, 1.2.0 back to 0.10.0.
+ * 50 versions, 1.3.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,53 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.3.0",
+    "tag": "v1.3.0",
+    "name": "Sign-in tracking, Pipedream, council and local models",
+    "date": "2026-10-30",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.3.0",
+    "summary": "Installers are listed in downloads/INSTALLERS.sha256 once the desktop build finishes.",
+    "sections": [
+      {
+        "title": "1.3.0 — Sign-in tracking, Pipedream, council and local models",
+        "items": [
+          {
+            "label": "Closing a sign-in window fails the connect.",
+            "text": "Press Connect, close the window, and Research Engine says the sign-in window closed, with a button to start again. This works in the browser and in the desktop app."
+          },
+          {
+            "label": "A finished sign-in closes its own window.",
+            "text": "When Composio or Pipedream sends you back, the window closes and the connection shows up in Connected. Research Engine no longer opens a second copy of itself."
+          },
+          {
+            "label": "Pipedream, next to Composio.",
+            "text": "Marketplace → Pipedream. Save your OAuth client, project ID and environment once; they are encrypted with your vault passphrase when the vault is on."
+          },
+          {
+            "label": "Council mode.",
+            "text": "Ask up to four models the same question, and one answer weighs their drafts. If one model fails, the others still answer."
+          },
+          {
+            "label": "Local models from Hugging Face.",
+            "text": "Official, Abliterated and Optimized categories, a fit check for your computer, and a link to each model's page."
+          },
+          {
+            "label": "Advanced: a self-hosted Composio endpoint.",
+            "text": "For a gateway you run yourself. Most people should keep the hosted API."
+          },
+          {
+            "label": "Settings → Coding",
+            "text": "replaces Coding & MCP, with a command time limit. MCP servers moved into Marketplace."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 7,
+      "sections": 1
+    }
+  },
   {
     "version": "1.2.0",
     "tag": "v1.2.0",
