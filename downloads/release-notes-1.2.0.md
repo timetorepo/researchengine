@@ -7,6 +7,11 @@
 - **Two more search engines.** Firecrawl (the hosted API with a key, or your own open-source core) and Crawl4AI (your own server) join the search ladder. Automatic uses them only when they are set up.
 - **Handbook chapter 15.** `docs/technical/15-search-marketplace-crm.md` covers the crawlers, the Marketplace and the CRM.
 
-Installers: `Research.Engine_1.2.0_x64-setup.exe` and `Research.Engine_1.2.0_amd64.deb`. Digests are in `downloads/INSTALLERS.sha256`, once the release build has finished.
+Installers:
+
+- `Research.Engine_1.2.0_x64-setup.exe`, sha256 `29394736fe12d4bc05d6c7fd77a89536c870b70b0b40a440236fb002ea460dd1`
+- `Research.Engine_1.2.0_amd64.deb`, sha256 `1bea516c236f86045f4d8b457f572a5a2598fbe08fd127ec7c501fd4d6866547`
+
+Digests are also in `downloads/INSTALLERS.sha256`.
 
 Upgrade: nothing to migrate. Saved bots, chats, projects and settings are kept. Liquid Glass stays off until you turn it on.
