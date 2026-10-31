@@ -161,8 +161,8 @@ export function signinRoutes() {
     return c.html(donePage())
   })
 
-  // The provider's error address. It only ever means the attempt failed, so the flight
-  // moves to 'failed' with a reason the app can explain. A late error after success is refused.
+  // The provider's error address: the flight moves to 'failed' with a reason the app can
+  // explain. A late error after a success is refused by moveSignIn.
   r.get('/signin/:id/error', (c) => {
     const id = c.req.param('id')
     if (SIGNIN_ID.test(id)) moveSignIn(id, 'failed', Date.now(), 'provider_error')

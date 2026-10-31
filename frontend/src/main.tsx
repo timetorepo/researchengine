@@ -28,6 +28,7 @@ import { installKeyboardNav } from '@/lib/a11y/keynav'
 // The active profile is mirrored to <html data-perf> for the eco blur cap.
 startPerformanceSync()
 
+// Arrow keys turn focus rings on; a pointer turns them off again.
 installKeyboardNav()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

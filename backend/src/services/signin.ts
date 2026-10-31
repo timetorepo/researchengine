@@ -19,7 +19,7 @@ export interface SignInFlight {
   target: string
   state: SignInState
   updatedAt: number
-  /** Why the attempt failed, when the provider said so (for example 'provider_error'). */
+  /** Why the attempt failed, when the provider said so. */
   reason?: SignInReason
 }
 
