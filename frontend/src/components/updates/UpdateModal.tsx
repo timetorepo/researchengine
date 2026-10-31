@@ -26,6 +26,7 @@ import { useUI } from '@/stores/useUI'
 import { useUpdates, formatBytes, phaseLabel } from '@/lib/updates/client'
 import { useRunningVersion } from '@/lib/appVersion'
 import { ReleaseNotes } from '@/components/updates/ReleaseNotes'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@heroui/react'
 
 const KINDS = {
   portable: { label: 'portable install', action: 'Download & install' },
@@ -42,6 +43,29 @@ function publishedWhen(iso: string): string {
   if (days === 1) return 'yesterday'
   if (days < 30) return `${days} days ago`
   return new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+/** One status card: a HeroUI Card with a tinted tone, used for ready / done / failed. */
+function UpdateCard({ tone, icon, title, children }: {
+  tone: 'primary' | 'success' | 'danger'
+  icon: React.ReactNode
+  title: string
+  children: React.ReactNode
+}) {
+  const color = `var(--${tone})`
+  return (
+    <Card
+      variant="secondary"
+      className="mb-4 gap-1 p-4 text-[12.5px]"
+      style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color: 'var(--text-2)' }}
+    >
+      <CardHeader className="flex-row items-center gap-2 p-0">
+        <span className="shrink-0" style={{ color }}>{icon}</span>
+        <CardTitle className="text-[12.5px] font-semibold" style={{ color: 'var(--text)' }}>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0 pl-6">{children}</CardContent>
+    </Card>
+  )
 }
 
 export function UpdateModal() {
@@ -143,10 +167,15 @@ export function UpdateModal() {
         </ModalHeader>
 
         <ModalBody>
+          {pending && (
+            <UpdateCard tone="primary" icon={<RefreshCw size={14} />} title={`Version ${pending.to} is ready`}>
+              Restart when you are ready to run it.
+            </UpdateCard>
+          )}
           {/* The install engine's own words, whichever kind of build this is. */}
           {running && progress && (
-            <div className="mb-4">
-              <div className="flex items-center gap-2 text-[12.5px] mb-1.5">
+            <Card variant="secondary" className="mb-4 p-4 gap-2">
+              <div className="flex items-center gap-2 text-[12.5px]">
                 <Loader2 size={13} className="animate-spin" style={{ color: 'var(--primary)' }} />
                 <span>{progress.message || phaseLabel(progress.phase)}</span>
                 {progress.total > 0 && (
@@ -159,29 +188,22 @@ export function UpdateModal() {
                 <div className="h-full rounded-full transition-[width] duration-300"
                   style={{ width: `${Math.max(3, progress.pct)}%`, background: 'var(--primary)' }} />
               </div>
-            </div>
+            </Card>
           )}
 
           {notice && (
-            <div className="flex items-start gap-2 p-3 rounded-[12px] mb-4 text-[12.5px]"
-              style={{ background: 'color-mix(in srgb, var(--success) 12%, transparent)', color: 'var(--text-2)' }}>
-              <Check size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--success)' }} />
-              <div>{notice}</div>
-            </div>
+            <UpdateCard tone="success" icon={<Check size={14} />} title="Done">
+              {notice}
+            </UpdateCard>
           )}
 
           {failure && (
-            <div className="flex items-start gap-2 p-3 rounded-[12px] mb-4 text-[12.5px]"
-              style={{ background: 'color-mix(in srgb, var(--danger) 12%, transparent)', color: 'var(--text-2)' }}>
-              <TriangleAlert size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--danger)' }} />
-              <div>
-                <b style={{ color: 'var(--text)' }}>Could not download or install.</b>
-                <div className="mt-0.5">{failure}</div>
-                <div className="mt-1" style={{ color: 'var(--text-3)' }}>
-                  Nothing was changed. Settings → Updates can also install an archive you already have.
-                </div>
+            <UpdateCard tone="danger" icon={<TriangleAlert size={14} />} title="Could not download or install.">
+              <div>{failure}</div>
+              <div className="mt-1" style={{ color: 'var(--text-3)' }}>
+                Nothing was changed. Settings → Updates can also install an archive you already have.
               </div>
-            </div>
+            </UpdateCard>
           )}
 
           {checking && !check && (
@@ -199,33 +221,34 @@ export function UpdateModal() {
           {check?.available && (
             <>
               {/* Release notes, inline — no trip to a private repo's web page. */}
-              <div className="flex items-center gap-2 mb-2">
-                <ArrowDownToLine size={14} strokeWidth={1.7} style={{ color: 'var(--primary)' }} />
-                <span className="text-[12.5px] font-semibold">What's new in {latest}</span>
-                {meta && <span className="ml-auto text-[11px] truncate" style={{ color: 'var(--text-3)' }}>{meta}</span>}
-              </div>
-              <div
-                className="rounded-[12px] p-3.5 text-[12.5px] leading-relaxed max-h-[240px] overflow-y-auto pane-scroll"
-                style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}
-              >
-                <ReleaseNotes notes={notes} />
-              </div>
-
-              {kind === 'checkout' && (
-                <div className="mt-3 flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 rounded-[10px] text-[11.5px] truncate"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
-                    {gitCommand}
-                  </code>
-                  <Button variant="flat" onClick={() => {
-                    void navigator.clipboard.writeText(gitCommand)
-                    setCopied(true)
-                    window.setTimeout(() => setCopied(false), 1500)
-                  }}>
-                    {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copied' : 'Copy'}
-                  </Button>
-                </div>
-              )}
+              <Card variant="secondary" className="gap-0 p-0 overflow-hidden">
+                <CardHeader className="flex-row items-center gap-2 px-4 pt-3.5 pb-2">
+                  <ArrowDownToLine size={14} strokeWidth={1.7} style={{ color: 'var(--primary)' }} />
+                  <CardTitle className="text-[12.5px] font-semibold">What's new in {latest}</CardTitle>
+                  {meta && <CardDescription className="ml-auto text-[11px] truncate">{meta}</CardDescription>}
+                </CardHeader>
+                <CardContent
+                  className="px-4 pb-4 text-[12.5px] leading-relaxed max-h-[240px] overflow-y-auto pane-scroll"
+                  style={{ color: 'var(--text-2)' }}
+                >
+                  <ReleaseNotes notes={notes} />
+                </CardContent>
+                {kind === 'checkout' && (
+                  <CardFooter className="flex-row items-center gap-2 px-4 pb-3.5 pt-0">
+                    <code className="flex-1 px-3 py-2 rounded-[10px] text-[11.5px] truncate"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
+                      {gitCommand}
+                    </code>
+                    <Button variant="flat" onClick={() => {
+                      void navigator.clipboard.writeText(gitCommand)
+                      setCopied(true)
+                      window.setTimeout(() => setCopied(false), 1500)
+                    }}>
+                      {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copied' : 'Copy'}
+                    </Button>
+                  </CardFooter>
+                )}
+              </Card>
             </>
           )}
         </ModalBody>

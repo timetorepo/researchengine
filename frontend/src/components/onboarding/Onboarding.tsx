@@ -2,36 +2,28 @@ import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
-  Layers, LayoutGrid, Gift, Send,
+  Layers, LayoutGrid, Gift, Send, AtSign, Dices,
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { THEMES, applyTheme } from '@/lib/themes/meta'
 import { Button } from '@/components/ui/heroui/Button'
 import { Input } from '@/components/ui/heroui/Input'
+import { HandleReel } from '@/components/ui/spaceui/handle-reel'
+import { normalizeHandle } from '@/lib/profile'
 import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
 // SmoothUI (shadcn registry, github.com/educlopez/smoothui) — installed under
 // src/components/smoothui and used for real here: the promises build in the
 // centre, the repo stars count up, the connection test prints into a terminal,
 // the demo contents open out of a folder.
-import KineticCenterBuild from '@/components/smoothui/kinetic-center-build'
-import TypewriterText from '@/components/smoothui/typewriter-text'
 import StaggerFromEdges from '@/components/smoothui/stagger-from-edges'
 import MacTerminal, { type TerminalLine } from '@/components/smoothui/mac-terminal'
 import FolderReveal from '@/components/smoothui/folder-reveal'
-import GitHubStarsAnimation from '@/components/smoothui/github-stars-animation'
-// React Bits reimplementations, each on the step it was asked for. Provenance is
-// honest: reactbits.dev is not reachable from here, so these are written against
-// the documented behaviour, not vendored copies (the barrel says so).
-import { TearTicket } from '@/components/ui/reactbits/micro/TearTicket'
-import { StarBorder } from '@/components/ui/reactbits/micro/StarBorder'
-import { CrystalizedBall } from '@/components/ui/reactbits/micro/CrystalizedBall'
-import { InfiniteSpiral } from '@/components/ui/reactbits/micro/InfiniteSpiral'
-import { MaskedHeading } from '@/components/ui/reactbits/micro/MaskedHeading'
-import { FlowingMenu } from '@/components/ui/reactbits/micro/FlowingMenu'
+// React Bits, vendored from the published source (see the provenance line in
+// each file under components/ui/reactbits/micro), each on the step it was asked for.
+import { Welcome } from '@/components/onboarding/Welcome'
 // R16 — the rest of the Aceternity set, each on the step it was picked for.
 // Provenance and digests: frontend/scripts/aceternity-sources.json.
-import { ColourfulText } from '@/components/ui/aceternity/ColourfulText'
 import { ContainerTextFlip } from '@/components/ui/aceternity/ContainerTextFlip'
 // The canvas reveal brings three.js with it (~880 kB, its own chunk). The
 // modes step is the second screen of a first run, so it is loaded when that
@@ -76,6 +68,7 @@ interface StepMeta {
 
 const STEPS: StepMeta[] = [
   { label: 'Welcome', cta: false },
+  { label: 'Handle', cta: true },
   { label: 'Privacy', cta: true },
   { label: 'Modes', cta: true },
   { label: 'Features', cta: true },
@@ -86,7 +79,30 @@ const STEPS: StepMeta[] = [
   { label: "You're set", cta: false },
 ]
 
+// Onboarding type. Bricolage Grotesque for display, Plus Jakarta Sans for the
+// tagline and the handle, Poppins for the chips and the step list, Inter for
+// body copy. All four are bundled with @fontsource, so nothing is fetched.
+const DISPLAY = "'Bricolage Grotesque', 'Inter', var(--font-ui), sans-serif"
+const GEOMETRIC = "'Plus Jakarta Sans', 'Inter', var(--font-ui), sans-serif"
+const POPPINS = "'Poppins', 'Inter', var(--font-ui), sans-serif"
+const INTER = "'Inter', var(--font-ui), sans-serif"
+
+const ROLL_ADJECTIVES = ['quiet', 'velvet', 'cosmic', 'sleepy', 'neon', 'mellow', 'lucky', 'tiny', 'electric', 'misty', 'bold', 'candid', 'amber', 'rapid', 'lunar', 'pixel']
+const ROLL_NOUNS = ['otter', 'falcon', 'atlas', 'comet', 'ember', 'heron', 'lynx', 'maple', 'orbit', 'pebble', 'quill', 'raven', 'sprout', 'tangle', 'wren', 'zephyr']
+/** Random handles for the reel's other rows. None of them is the user's handle. */
+function makeRollPool(count = 28): string[] {
+  const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)]
+  const out = new Set<string>()
+  while (out.size < count) {
+    const digits = Math.random() < 0.5 ? String(10 + Math.floor(Math.random() * 90)) : ''
+    out.add(`${pick(ROLL_ADJECTIVES)}-${pick(ROLL_NOUNS)}${digits}`)
+  }
+  return [...out]
+}
+
 const LAST = STEPS.length - 1
+/** The "Setting up" step is found by label, so inserting a step never breaks it. */
+const SETUP_STEP = STEPS.findIndex((s) => s.label === 'Setting up')
 
 /** Suggestions for the first run, written the way a person asks, not prompts. */
 const FIRST_QUESTIONS = [
@@ -99,6 +115,16 @@ export function Onboarding() {
   const settings = useStore((s) => s.settings)
   const ui = useUI()
   const [step, setStep] = useState(0)
+  const [name, setName] = useState(() => (settings.profile?.name && settings.profile.name !== 'Researcher' ? settings.profile.name : ''))
+  const [handle, setHandle] = useState(() => settings.profile?.handle ?? '')
+  const [handleTouched, setHandleTouched] = useState(false)
+  // The reel's other rows. Roll deals a new set and spins the reel again.
+  const [rollPool, setRollPool] = useState<string[]>(() => makeRollPool())
+  const [rollTick, setRollTick] = useState(0)
+  const rollHandles = () => {
+    setRollPool(makeRollPool())
+    setRollTick((t) => t + 1)
+  }
 
   const [theme, setTheme] = useState<ThemeId>(settings.theme)
   const [provider, setProvider] = useState<string>('openai')
@@ -168,7 +194,7 @@ export function Onboarding() {
   }
 
   useEffect(() => {
-    if (step !== 7 || setupStarted.current) return
+    if (step !== SETUP_STEP || setupStarted.current) return
     setupStarted.current = true
     void runSetup()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,6 +240,10 @@ export function Onboarding() {
         .catch(() => { /* user can pick a model from the picker later */ })
     }
     patch.onboarded = true
+    const cleanName = name.trim()
+    const cleanHandle = normalizeHandle(handle) || normalizeHandle(cleanName) || settings.profile?.handle || 'researcher'
+    patch.profile = { ...settings.profile, name: cleanName || settings.profile?.name || 'Researcher', handle: cleanHandle }
+    patch.profileName = patch.profile.name
     useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
     applyTheme(theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: settings.reduceMotion })
     ui.toast('Welcome to Research Engine', apiKey ? 'Your key is encrypted and stored locally.' : 'Running on the local demo model — add a key anytime.', 'success')
@@ -297,89 +327,54 @@ export function Onboarding() {
   }
 
   const isCarousel = STEPS[step].label === 'Features'
+  // The wizard steps that take input get the side rails. Welcome, the carousel and the
+  // closing steps keep their full-width layout.
+  const railed = step > 0 && step < 7 && STEPS[step].cta && !isCarousel
 
   const body = [
-    /* 0 — Welcome */
-    <div key="s0" className="text-center max-w-[520px] mx-auto">
-      <div className="relative inline-flex items-center justify-center mb-6">
-        {/* A faceted crystal behind the mark — decorative, and it holds still
-            under reduced motion. */}
-        <div className="absolute -inset-6 opacity-60">
-          <CrystalizedBall size={104} />
+    // 0 — Welcome: a scrolling page. The tear ticket at its end is the only way on.
+    <Welcome key="s0" onTear={next} />,
+
+    /* 1 — Handle. The handle rolls in with HandleReel. Roll re-deals the other
+          names at random and lands on the one the user picked. */
+    <div key="s-handle" className="max-w-[560px] mx-auto">
+      <StepHeader icon={AtSign} title="Pick your name and handle" sub="The handle is how this app writes you. It stays on this device and you can change it later in Settings." />
+      <div className="mt-6 grid gap-5">
+        <Input
+          label="Your name"
+          value={name}
+          placeholder="Ada Lovelace"
+          autoFocus
+          onChange={(v) => {
+            setName(v)
+            if (!handleTouched) setHandle(normalizeHandle(v))
+          }}
+        />
+        <div className="surface p-5 text-center overflow-hidden">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[12px]" style={{ color: 'var(--text-3)', fontFamily: INTER }}>Your handle</span>
+            <Button size="sm" variant="ghost" color="default" onClick={rollHandles} startContent={<Dices size={13} />}>Roll</Button>
+          </div>
+          <div style={{ fontFamily: GEOMETRIC }}>
+            <HandleReel
+              finalName={handle || 'researcher'}
+              names={rollPool}
+              trigger={rollTick}
+              prefix="@"
+              textClassName="text-[22px] font-semibold whitespace-nowrap"
+              className="max-w-full overflow-hidden"
+              editable
+              onNameChange={(n) => {
+                setHandleTouched(true)
+                setHandle(normalizeHandle(n))
+              }}
+            />
+          </div>
         </div>
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', damping: 20, stiffness: 260 }}
-          className="relative inline-flex items-center justify-center w-16 h-16 rounded-[20px]"
-          style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-          <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-            <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-            <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-          </svg>
-        </motion.div>
-      </div>
-      <h1 className="text-[30px] font-bold leading-tight" style={{ letterSpacing: '-0.03em' }}>Research Engine</h1>
-      {/* Aceternity's Colourful Text, on the one line that should be colourful:
-          the letters of "AI Research" step through the ramp on a beat, and
-          reduce-motion gets the sentence once, in colour, holding still. */}
-      <h2 className="mt-2.5 text-[17px] font-semibold" style={{ letterSpacing: '-0.02em', color: 'var(--text-2)' }}>
-        The swiss knife of <ColourfulText text="AI Research" />.
-      </h2>
-      {/* the three promises build word-by-word in the centre, hold, then hand over */}
-      <KineticCenterBuild
-        phrases={[
-          'Perplexity-level answers.',
-          'Zero data leaves your device.',
-          'Only the calls you aim leave.',
-        ]}
-        interval={2400}
-        className="text-[15.5px] mt-3.5 min-h-[48px] max-w-[460px] mx-auto leading-relaxed"
-      />
-      <div className="flex flex-wrap justify-center gap-2 mt-5">
-        {['Local-first', 'BYOK providers', 'Master Prompts', 'New Tech mode', 'Learn', 'Agent Flood'].map((t, i) => (
-          <motion.span key={t} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.08 }}
-            className="px-3 py-1 rounded-full text-[11.5px]"
-            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
-            {t}
-          </motion.span>
-        ))}
-      </div>
-      {/* real star count from the GitHub API; renders nothing at all when the
-          machine is offline, so no invented numbers on an offline-first app */}
-      <div className="mt-6 flex justify-center">
-        <GitHubStarsAnimation owner="timetorepo" repo="researchengine" maxAvatars={5} />
-      </div>
-      <div className="mt-2 h-[16px] text-[11.5px] font-mono" style={{ color: 'var(--text-3)' }}>
-        <TypewriterText speed={34}>local-first · bring your own key · works offline</TypewriterText>
-      </div>
-      {/* The first-run heading wipes on with a travelling mask. */}
-      <div className="mt-5 text-[13px]" style={{ color: 'var(--text-2)' }}>
-        <MaskedHeading text="Pick where to start" speed={4} />
-      </div>
-      <div className="mt-2 flex justify-center">
-        <FlowingMenu items={[
-          { id: 'research', label: 'Research', onClick: next },
-          { id: 'learn', label: 'Learn', onClick: next },
-          { id: 'code', label: 'Build', onClick: next },
-        ]} />
-      </div>
-      <div className="mt-6 flex justify-center">
-        {/* StarBorder is the requested frame for the get-started button: a border
-            traced by travelling stars rather than a static outline. */}
-        <StarBorder onClick={next} className="w-52 h-12">
-          Get started <ArrowRight size={15} />
-        </StarBorder>
-      </div>
-      {/* A tear-off ticket as a second, more playful way into the app: drag the
-          stub down to open Research Engine. The same action as the button, but
-          it earns a moment of attention on a first run. */}
-      <div className="mt-5 max-w-[300px] mx-auto">
-        <TearTicket title="Research Engine" body="Your local-first AI workspace." cta="Tear to open" onTear={next} />
-      </div>
-      <div className="mt-4 flex justify-center opacity-70">
-        <InfiniteSpiral size={56} />
       </div>
     </div>,
 
-    /* 1 — Privacy */
+    /* 2 — Privacy */
     <div key="s1" className="max-w-[560px] mx-auto">
       <StepHeader icon={ShieldCheck} title="Your privacy, enforced by architecture" sub="Not a promise — a design constraint. There is no server to leak from." />
       <div className="space-y-2 mb-6">
@@ -654,7 +649,7 @@ export function Onboarding() {
         style={{ background: 'color-mix(in srgb, var(--success) 16%, transparent)' }}>
         <Check size={26} style={{ color: 'var(--success)' }} />
       </motion.div>
-      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em' }}>You're set</h2>
+      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em', fontFamily: DISPLAY }}>You're set</h2>
       <p className="text-[13.5px] mt-2 leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Theme: <b>{THEMES.find((t) => t.id === theme)?.name}</b> ·
         Model: <b>{apiKey ? PROVIDERS.find((p) => p.id === provider)?.name : 'Local demo'}</b>
@@ -723,17 +718,17 @@ export function Onboarding() {
     <div className="fixed inset-0 z-[70]">
     <AuroraBackground className="h-full w-full">
       <div className="h-full flex flex-col">
-        {/* progress */}
+        {/* progress. On the welcome page the dots only show progress; the ticket moves on. */}
         <div className="flex items-center justify-center gap-1.5 pt-8">
           {STEPS.map((s, i) => (
-            <button key={s.label} onClick={() => setStep(i)} aria-label={`Step ${i + 1}: ${s.label}`} title={s.label}
-              className="h-1.5 rounded-full transition-all"
+            <button key={s.label} onClick={() => setStep(i)} disabled={step === 0} aria-label={`Step ${i + 1}: ${s.label}`} title={s.label}
+              className="h-1.5 rounded-full transition-all disabled:cursor-default"
               style={{ width: i === step ? 28 : 8, background: i <= step ? 'var(--primary)' : 'var(--elevated)' }} />
           ))}
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 overscroll-contain">
-          <div className="min-h-full flex items-center justify-center">
+          <div className={step === 0 ? 'min-h-full' : 'min-h-full flex items-center justify-center'}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
@@ -742,14 +737,60 @@ export function Onboarding() {
                 transition={{ duration: 0.28, ease: 'easeInOut' }}
                 className="w-full py-8"
               >
-                {body[step]}
+                {railed ? (
+                  // The form sits in the middle of a page: the steps are a
+                  // contents list on the left, and a note on the right.
+                  <div className="w-full max-w-[1000px] mx-auto grid gap-8 lg:grid-cols-[190px_minmax(0,1fr)_190px] items-start">
+                    <nav aria-label="Onboarding steps" className="hidden lg:block sticky top-4 pt-2">
+                      <div className="text-[10.5px] uppercase tracking-wider mb-3" style={{ color: 'var(--text-3)', fontFamily: POPPINS }}>On this page</div>
+                      <ol className="space-y-1">
+                        {STEPS.slice(1, 7).map((s, i) => {
+                          const idx = i + 1
+                          const current = idx === step
+                          return (
+                            <li key={s.label}>
+                              <button
+                                onClick={() => setStep(idx)}
+                                aria-current={current ? 'step' : undefined}
+                                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-left text-[13px] transition-colors"
+                                style={{
+                                  fontFamily: POPPINS,
+                                  fontWeight: current ? 600 : 400,
+                                  color: current ? 'var(--text-1)' : 'var(--text-3)',
+                                  background: current ? 'var(--elevated)' : 'transparent',
+                                }}
+                              >
+                                <span className="text-[11px] tabular-nums" style={{ color: current ? 'var(--primary)' : 'var(--text-3)' }}>
+                                  {String(idx).padStart(2, '0')}
+                                </span>
+                                {s.label}
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ol>
+                    </nav>
+                    <div className="min-w-0">{body[step]}</div>
+                    <aside className="hidden lg:block sticky top-4 pt-2">
+                      <div className="rounded-[14px] p-4" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+                        <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-3)', fontFamily: POPPINS }}>
+                          Step {step} of {STEPS.slice(1, 7).length}
+                        </div>
+                        <div className="text-[15px] font-semibold" style={{ fontFamily: DISPLAY }}>{STEPS[step].label}</div>
+                        <p className="text-[12px] mt-2 leading-relaxed" style={{ color: 'var(--text-3)', fontFamily: INTER }}>
+                          Continue moves you on, and Back returns to the step before. Any step on the left can be opened directly.
+                        </p>
+                      </div>
+                    </aside>
+                  </div>
+                ) : body[step]}
               </motion.div>
             </AnimatePresence>
           </div>
         </div>
 
         {/* footer nav */}
-        <div className="flex items-center justify-between px-8 pb-8 max-w-[720px] mx-auto w-full">
+        <div className="flex items-center justify-between px-8 pb-8 max-w-[1000px] mx-auto w-full">
           {step > 0 && step < LAST ? (
             <Button variant="ghost" color="default" size="sm" onClick={back} startContent={<ArrowLeft size={13} />}>Back</Button>
           ) : <span />}
@@ -797,7 +838,7 @@ function StepHeader({ icon: Icon, title, sub }: { icon: any; title: string; sub:
         <span className="w-8 h-8 rounded-[10px] flex items-center justify-center" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
           <Icon size={15} strokeWidth={1.8} />
         </span>
-        <h2 className="text-[20px] font-semibold" style={{ letterSpacing: '-0.02em' }}>{title}</h2>
+        <h2 className="text-[20px] font-semibold" style={{ letterSpacing: '-0.02em', fontFamily: DISPLAY }}>{title}</h2>
       </div>
       <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>{sub}</p>
     </div>

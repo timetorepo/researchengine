@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 37 versions, 0.45.0 back to 0.10.0.
+ * 50 versions, 1.3.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,704 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.3.0",
+    "tag": "v1.3.0",
+    "name": "Sign-in tracking, Pipedream, council and local models",
+    "date": "2026-10-30",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.3.0",
+    "summary": "Installers: Research.Engine_1.3.0_x64-setup.exe and Research.Engine_1.3.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.3.0 — Sign-in tracking, Pipedream, council and local models",
+        "items": [
+          {
+            "label": "Closing a sign-in window fails the connect.",
+            "text": "Press Connect, close the window, and Research Engine says the sign-in window closed, with a button to start again. This works in the browser and in the desktop app."
+          },
+          {
+            "label": "A finished sign-in closes its own window.",
+            "text": "When Composio or Pipedream sends you back, the window closes and the connection shows up in Connected. Research Engine no longer opens a second copy of itself."
+          },
+          {
+            "label": "Pipedream, next to Composio.",
+            "text": "Marketplace → Pipedream. Save your OAuth client, project ID and environment once; they are encrypted with your vault passphrase when the vault is on."
+          },
+          {
+            "label": "Council mode.",
+            "text": "Ask up to four models the same question, and one answer weighs their drafts. If one model fails, the others still answer."
+          },
+          {
+            "label": "Local models from Hugging Face.",
+            "text": "Official, Abliterated and Optimized categories, a fit check for your computer, and a link to each model's page."
+          },
+          {
+            "label": "Advanced: a self-hosted Composio endpoint.",
+            "text": "For a gateway you run yourself. Most people should keep the hosted API."
+          },
+          {
+            "label": "Settings → Coding",
+            "text": "replaces Coding & MCP, with a command time limit. MCP servers moved into Marketplace."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 7,
+      "sections": 1
+    }
+  },
+  {
+    "version": "1.2.0",
+    "tag": "v1.2.0",
+    "name": "Liquid Glass that bends, a Marketplace, a CRM, more search",
+    "date": "2026-10-30",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.2.0",
+    "summary": "Installers: Research.Engine_1.2.0_x64-setup.exe and Research.Engine_1.2.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.2.0 — Liquid Glass that bends, a Marketplace, a CRM, more search",
+        "items": [
+          {
+            "label": "Liquid Glass bends the backdrop.",
+            "text": "Settings → Appearance → Glass surface → Liquid Glass. The chatbox, the Dynamic Island and toasts now refract what is behind their edges with a real lens, not noise. It is off by default. Bending runs in the Chromium-based app and browsers; elsewhere the same glass is a frosted blur, and Settings says which one you have."
+          },
+          {
+            "label": "Gooey Chats switch, with a plain option.",
+            "text": "The All / Research / Coding switch in Chats stretches like liquid by default. Settings → Appearance turns it off, and plain HeroUI tabs take its place with the same selection."
+          },
+          {
+            "label": "Marketplace replaces Connectors.",
+            "text": "Apps have their own pages at #/marketplace/<app>, with a Ready for coding row (GitHub, Vercel, Supabase and more), what the assistant can do once connected, and the tools as an accordion you can filter by kind. Connect works from the browser and the desktop app, and the sidebar count stays current on every screen."
+          },
+          {
+            "label": "A CRM dashboard.",
+            "text": "The CRM page reads your Twenty people and companies live: totals, a 14-day chart, how complete the records are, the newest records, search by name, and a quick add."
+          },
+          {
+            "label": "Two more search engines.",
+            "text": "Firecrawl (the hosted API with a key, or your own open-source core) and Crawl4AI (your own server, reading the top results) join the search ladder. Automatic uses them only when they are set up."
+          },
+          {
+            "label": "Handbook chapter 15.",
+            "text": "docs/technical/15-search-marketplace-crm.md covers the crawlers, the Marketplace and the CRM dashboard."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 1
+    }
+  },
+  {
+    "version": "1.1.0",
+    "tag": "v1.1.0",
+    "name": "Animated backgrounds, a session switcher, built-in services",
+    "date": "2026-10-24",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.1.0",
+    "summary": "Installers: Research.Engine_1.1.0_x64-setup.exe and Research.Engine_1.1.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.1.0 — Animated backgrounds, a session switcher, built-in services",
+        "items": [
+          {
+            "label": "Session switcher.",
+            "text": "Recent sessions open as a card deck from the top bar, or with your switcher key (Alt+Shift by default)."
+          },
+          {
+            "label": "Fourteen ReactBits backgrounds.",
+            "text": "ReactBits backgrounds such as Silk, Galaxy, Prism and Plasma are available in Settings → Appearance, and they cover chats and home."
+          },
+          {
+            "label": "Chats kind switch.",
+            "text": "The Chats page filters by kind with an animated switch."
+          },
+          {
+            "label": "Connected tab follows your accounts.",
+            "text": "Connectors lists your connected services, lets you disconnect them, and updates when a connect or disconnect happens on Composio's website."
+          },
+          {
+            "label": "Library videos take timeline notes.",
+            "text": "Add a note at a moment in a saved video, written by you or by the AI."
+          },
+          {
+            "label": "Built-in services.",
+            "text": "OpenSEO, VoiceStudio, Twenty and Postiz are set up under Settings → Services. OpenWhispr supplies dictation. Postiz only creates drafts, so nothing is published or scheduled by the agent."
+          }
+        ]
+      }
+    ],
+    "counts": { "items": 6, "sections": 1 }
+  },
+  {
+    "version": "1.0.1",
+    "tag": "v1.0.1",
+    "name": "Connect opens in your browser, smoother long chats",
+    "date": "2026-10-24",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.0.1",
+    "summary": "Installers: Research.Engine_1.0.1_x64-setup.exe and Research.Engine_1.0.1_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.0.1 — Connect opens in your browser, smoother long chats",
+        "items": [
+          {
+            "label": "Connect opens sign-in in your browser.",
+            "text": "Press Connect on an app and Composio's sign-in opens in your default browser, the one where you are already signed in. If it cannot open, a link appears to click."
+          },
+          {
+            "label": "Notices are alerts.",
+            "text": "Saved settings and new update notices show as alerts at the top of Settings, and a ready update has its own alert in the update window."
+          },
+          {
+            "label": "Two-factor codes use a six-box input.",
+            "text": "Authenticator setup, turning it off and unlocking the vault all use the same code boxes."
+          },
+          {
+            "label": "Delete everything stays deleted.",
+            "text": "A save that was still pending could write chats back after a wipe. Saves now stop at the wipe."
+          },
+          {
+            "label": "Smoother long chats.",
+            "text": "Chat history is saved at most every 400 ms, instead of on every streamed token, so long answers stay fluid. Pending changes are saved when the window is hidden or closed."
+          },
+          {
+            "label": "Server caches stay bounded.",
+            "text": "Link previews and robots.txt checks keep a fixed number of entries, so a long session does not grow the server without limit."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 1
+    }
+  },
+  {
+    "version": "1.0.0-release",
+    "tag": "v1.0.0-release",
+    "name": "the first full release: Composio connects inside the app",
+    "date": "2026-10-24",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.0.0-release",
+    "summary": "Installers: Research.Engine_1.0.0-release_x64-setup.exe and Research.Engine_1.0.0-release_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.0.0-release — the first full release: Composio connects inside the app",
+        "items": [
+          {
+            "label": "Apps connect inside Research Engine.",
+            "text": "Press Connect on an app in Connectors. Composio's sign-in opens in a small window, and the app shows it as connected when you finish. Disconnect from the same list."
+          },
+          {
+            "label": "Your Composio key is recognised.",
+            "text": "The project key (ak_…) works wherever it was created. A Connect consumer key (ck_…) is named as the wrong key, with where to find the right one."
+          },
+          {
+            "label": "The app list loads.",
+            "text": "Live apps are no longer hidden by a field that Composio sends as an object. The catalog loads in one request, and checking the key warms it up."
+          },
+          {
+            "label": "One Composio identity.",
+            "text": "Save your Composio user id in Connectors. Connections are filed under it. The Automatic identity is gone."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 4,
+      "sections": 1
+    }
+  },
+  {
+    "version": "0.54.0",
+    "tag": "v0.54.0",
+    "name": "one Composio identity, artifacts, live bot replies",
+    "date": "2026-10-23",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.54.0",
+    "summary": "Installers: Research.Engine_0.54.0_x64-setup.exe and Research.Engine_0.54.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.54.0 — one Composio identity, artifacts, live bot replies",
+        "items": [
+          {
+            "label": "Connectors uses your Composio user id.",
+            "text": "The Automatic identity is gone. Save your Composio user id in Connectors, and the apps you connect are filed under it. Connect stays off until an id is saved, and the card says why."
+          },
+          {
+            "label": "Code opens as an artifact.",
+            "text": "Code blocks with three or more lines have an Artifact button. It opens a side panel with the code and, for HTML, SVG, JavaScript and React, a live preview served from this machine. The preview runs in a sandbox with no access to the app."
+          },
+          {
+            "label": "Bot replies stream in.",
+            "text": "One-to-one bot replies and group-room replies appear as they are written. Tool lines stay hidden until the answer is ready."
+          },
+          {
+            "label": "Chain of thought streams and folds.",
+            "text": "The thinking section streams while the model thinks, folds once when the answer starts, and the answer is what you read next."
+          },
+          {
+            "label": "Source chips show the site's icon.",
+            "text": "Each source shows its site's favicon, fetched as soon as the answer arrives."
+          },
+          {
+            "label": "/ and @ work anywhere in the message.",
+            "text": "Type them at the caret, not only at the start. @ lists the apps you connected in Connectors too."
+          },
+          {
+            "label": "ChatGPT, Gemini and Claude Markdown render properly.",
+            "text": "ChatGPT's \\[ \\] and \\( \\) math, Gemini's [cite: n] markers and Claude's cite tags are turned into the forms the chat already shows, and ChatGPT's citation tokens are dropped or linked."
+          },
+          {
+            "label": "The expanded sidebar header no longer crowds.",
+            "text": "The logo gives up room first, so the notification bell and the collapse button keep their size and their clicks."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 8,
+      "sections": 1
+    }
+  },
+  {
+    "version": "0.53.0",
+    "tag": "v0.53.0",
+    "name": "a connectors marketplace, built-in integrations in one place",
+    "date": "2026-10-23",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.53.0",
+    "summary": "Installers: Research.Engine_0.53.0_x64-setup.exe and Research.Engine_0.53.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.53.0 — a connectors marketplace, built-in integrations in one place",
+        "items": [
+          {
+            "label": "Connectors is a marketplace.",
+            "text": "One row in the sidebar opens every app Composio supports, with search and categories. Connect an app from there: Composio's sign-in opens in a small window, and the list updates when it is done."
+          },
+          {
+            "label": "Built-in integrations moved into Connectors.",
+            "text": "Files, Google Drive, Gmail, Google Calendar, GitHub, Notion and Slack now sit under the Built in tab, with the step-by-step tutorial and the connection log. Settings has no Integrations tab any more, and the composer's plug menu opens Connectors."
+          },
+          {
+            "label": "The Composio key is pasted once.",
+            "text": "It is entered in the marketplace and stays on this device, encrypted when the vault is on."
+          },
+          {
+            "label": "The sidebar no longer stacks sections on top of each other.",
+            "text": "Connectors is a single row, so nothing overlaps the nav items or Settings on shorter windows."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 4,
+      "sections": 1
+    }
+  },
+  {
+    "version": "0.52.0",
+    "tag": "v0.52.0",
+    "name": "a calmer first run, connectors, documentation lookup, long sessions",
+    "date": "2026-10-23",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.52.0",
+    "summary": "Installers: Research.Engine_0.52.0_x64-setup.exe and Research.Engine_0.52.0_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.52.0 — a calmer first run, connectors, documentation lookup, long sessions",
+        "items": [
+          {
+            "label": "The first screen is a page you scroll.",
+            "text": "Welcome reads as a site: a hero, three promises, the three ways to work, and a close. The tear ticket at the end is the only way on, so reading the page never starts setup by accident."
+          },
+          {
+            "label": "Connectors in the sidebar.",
+            "text": "Every app Composio supports is listed, with search and category chips. Connect an app there. Choose Automatic (one id made on this device) or My Composio account (your own Composio user id, so connections you made there show up here)."
+          },
+          {
+            "label": "Bots and the chat share connectors.",
+            "text": "Both can use connected apps. A bot can also read current documentation with a DOCS line."
+          },
+          {
+            "label": "Documentation lookup, built in.",
+            "text": "The chat and the bots can look up current docs and code examples through Context7. It works with no setup; an optional key in Connectors raises the limits."
+          },
+          {
+            "label": "Roles by plain name.",
+            "text": "You pick Researcher, Workflow, Builder and so on. The app chooses the matching members of the ECC library (71 roles in 8 families) from your request and your custom instructions."
+          },
+          {
+            "label": "Streaming words reveal smoothly.",
+            "text": "The live part of an answer fades in word by word with SpaceUI's blur reveal. Paragraphs that have finished are rendered as formatted text. Reduced motion shows the answer at once."
+          },
+          {
+            "label": "Long sessions stay fast.",
+            "text": "Each part sent to the model has a limit. Old tool output is shortened, the newest turns are kept whole, and a note says when something was left out."
+          },
+          {
+            "label": "Storage that does not break.",
+            "text": "When browser storage is full, the oldest chat detail is trimmed and a notice says what was trimmed, instead of the app failing to save."
+          },
+          {
+            "label": "A daily token budget.",
+            "text": "Real provider tokens are counted per day across chat, bots and agents. New requests stop at the limit you set in Settings → AIFlowEngine (default 2M, or no limit). The on-device engine is never counted."
+          },
+          {
+            "label": "The sidebar and the bots chat behave.",
+            "text": "The collapsed sidebar keeps every button reachable. The bots conversation scrolls on its own instead of pinning to the last message."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 10,
+      "sections": 1
+    }
+  },
+  {
+    "version": "0.51.1",
+    "tag": "v0.51.1",
+    "name": "answers that keep streaming, correct citations, sliding tabs",
+    "date": "2026-10-18",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.51.1",
+    "summary": "Installers: Research.Engine_0.51.1_x64-setup.exe and Research.Engine_0.51.1_amd64.deb. Digests are in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "0.51.1 — answers that keep streaming, correct citations, sliding tabs",
+        "items": [
+          {
+            "label": "Answers no longer stop mid-stream.",
+            "text": "With Raw stream (Settings → Flow → Off), only the first words appeared until the answer finished. Every word now shows as it arrives."
+          },
+          {
+            "label": "Background tabs keep streaming.",
+            "text": "The answer used to freeze while the tab was hidden and resume when you came back. It now keeps going."
+          },
+          {
+            "label": "Stalls are reported.",
+            "text": "If a provider goes quiet mid-answer, the chat says so and keeps the text received so far, instead of waiting forever or ending silently. Reasoning output counts as activity, so a model that is still thinking is not cut off."
+          },
+          {
+            "label": "Errors mid-answer are shown.",
+            "text": "A provider error after the answer has started is shown in the chat instead of being dropped."
+          },
+          {
+            "label": "Last words are kept.",
+            "text": "The final part of a reply is no longer lost when the provider ends the stream without a closing newline."
+          },
+          {
+            "label": "Citations are checked properly.",
+            "text": "The citation check missed invented numbers inside groups such as [1, 99, 2], and could drop a real source from [99, 1, 2]. Every number is now checked. A stopped answer is checked too."
+          },
+          {
+            "label": "Inline sources link to their pages.",
+            "text": "[1] in an answer opens source 1. Code is left alone."
+          },
+          {
+            "label": "Bots tabs slide.",
+            "text": "The active tab in Bots has a pill that slides between tabs. Reduced motion turns the slide off."
+          },
+          {
+            "label": "Smoother hover and dialogs.",
+            "text": "Scrollbar, file-tree and welcome rows, humanized text, and the video player fade and slide in and out instead of snapping."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 9,
+      "sections": 1
+    }
+  },
+  {
+    "version": "0.51.0-beta.1",
+    "tag": "v0.51.0-beta.1",
+    "name": "beta: group chats for bots, project handoff, web steps with sources, and ECC roles.",
+    "date": "2026-10-18",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.51.0-beta.1",
+    "summary": "Bots can search and read the web, show every step they took, meet in group chats, and hand a project to a teammate with a written brief. Sixteen ECC skills and eight ECC agent roles are built in.",
+    "sections": [
+      {
+        "title": "Bots on the web",
+        "items": [
+          {
+            "label": "Search and read.",
+            "text": "A bot with web access can search and open pages. Search goes to SearXNG: run your own with Docker and paste its address in Bots → Settings. Pages are read directly, or through a headless browser container you run for JavaScript-heavy sites."
+          },
+          {
+            "label": "Every step is shown.",
+            "text": "A reply lists the searches and page reads it made under “How it answered”, and the pages it used are listed as sources."
+          }
+        ]
+      },
+      {
+        "title": "Group chats and handoff",
+        "items": [
+          {
+            "label": "Bots in a group.",
+            "text": "Put two to six bots in a group chat. The first member answers your message, and a bot calls the next teammate with @Name. A round stops after six bot turns, when nobody is called, or when a bot passes."
+          },
+          {
+            "label": "Projects change hands.",
+            "text": "A project has a brief and a log. Its owner hands it to another bot with a written brief, and the log keeps every owner and the handoff."
+          }
+        ]
+      },
+      {
+        "title": "Faces, roles and control",
+        "items": [
+          {
+            "label": "Faces.",
+            "text": "Each bot has one of eighteen drawn faces from bot-avatars (MIT), chosen in its Setup tab."
+          },
+          {
+            "label": "ECC roles.",
+            "text": "Sixteen skills and eight agent roles from affaan-m/ecc (MIT) are built in. A bot can start from a role, and its working method is added to its instructions."
+          },
+          {
+            "label": "Pause and move.",
+            "text": "One switch pauses every routine, and chats keep working. Export every bot, group and project to one file, and import it without overwriting what is already here."
+          }
+        ]
+      },
+      {
+        "title": "Upgrade and internals",
+        "items": [
+          {
+            "label": "Existing bots kept.",
+            "text": "Bots, threads, memories and routines from earlier versions are kept as they are. The store moves to version 2 with empty groups and projects."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 8,
+      "sections": 4
+    }
+  },
+  {
+    "version": "0.50.0-beta.1",
+    "tag": "v0.50.0-beta.1",
+    "name": "beta: animated backgrounds, study rewards, a video library, and on-device meeting notes.",
+    "date": "2026-10-18",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.50.0-beta.1",
+    "summary": "Two animated backgrounds, XP and badges for real study, a Learn demo that runs offline, YouTube videos in the Library, and meeting notes made on your device.",
+    "sections": [
+      {
+        "title": "Look and feel",
+        "items": [
+          { "label": "Two animated backgrounds.", "text": "Settings → Appearance adds an animated gradient and an etched-accretion shader for chats and the home tab. They are local implementations; the gradient follows a published 21st.dev source and the etched shader is written here." }
+        ]
+      },
+      {
+        "title": "Study and rewards",
+        "items": [
+          { "label": "Activity streak.", "text": "The home tab shows a streak. A day counts after five active minutes in quiz, coding, reading, chat, articles, workflows or flood. Idle time does not count, and merely opening the app does not either." },
+          { "label": "XP and badges.", "text": "One XP per active minute. Badges for focus sessions of 25 and 60 minutes, and for streaks of 3, 7, 14, 30 and 100 days." },
+          { "label": "Learn demo.", "text": "Learn has a demo lesson that runs on this computer with no document and no network, so you can see the step-by-step flow first." }
+        ]
+      },
+      {
+        "title": "Library and meetings",
+        "items": [
+          { "label": "Videos.", "text": "Library → Videos saves a YouTube link and plays it inside the app." },
+          { "label": "Meetings.", "text": "Library → Meetings records or imports audio and transcribes it on this device with Whisper. The first use downloads the model. There are no speaker labels and it does not join calls." }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 3
+    }
+  },
+  {
+    "version": "0.49.0-beta.1",
+    "tag": "v0.49.0-beta.1",
+    "name": "beta: an authenticator for your keys, two folder looks, and Exam in Learn.",
+    "date": "2026-10-16",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.49.0-beta.1",
+    "summary": "Unlock your key vault with an authenticator app, pick the glass or the classic folder on the shelf, and find Exam under Learn.",
+    "sections": [
+      {
+        "title": "Keys and access",
+        "items": [
+          { "label": "Authenticator lock.", "text": "Settings → Security turns on a six-digit code for the key vault. Scan the QR code, or type the key by hand. Works with Google Authenticator, Stratum, Aegis and 1Password." },
+          { "label": "Two steps to unlock.", "text": "With the lock on, unlocking the vault needs your passphrase and the current code. Five wrong codes make it wait 30 seconds." }
+        ]
+      },
+      {
+        "title": "Smaller changes",
+        "items": [
+          { "label": "Two folder looks.", "text": "The Library shelf shows the classic blue folder or a frosted-glass folder. Pick one above the shelf; it is remembered." },
+          { "label": "Exam moved.", "text": "Exam is now under Learn, next to Study, Techniques, Path and Videos." },
+          { "label": "README.", "text": "Covers the exam, the bug finder (Alt+Shift+B in developer mode), the backup before each update, and the authenticator's limits." }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 5,
+      "sections": 2
+    }
+  },
+  {
+    "version": "0.48.0-beta.1",
+    "tag": "v0.48.0-beta.1",
+    "name": "beta: the Tauri desktop app, exam mode, a bug finder, and safe updates.",
+    "date": "2026-10-15",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.48.0-beta.1",
+    "summary": "The desktop app is a Tauri build again, updates keep a copy of your library first, and there are new tools for practice exams and bug reports.",
+    "sections": [
+      {
+        "title": "Updates that keep your data",
+        "items": [
+          { "label": "Backup first.", "text": "Before any update starts, a copy of the database and settings is saved in your data folder under backups/. The newest five are kept. If the copy cannot be made, the update does not start." },
+          { "label": "Same install.", "text": "Earlier desktop installs update in place. Your library, chats and projects stay in the data folder, outside the program." }
+        ]
+      },
+      {
+        "title": "Added",
+        "items": [
+          { "label": "Exam mode.", "text": "Settings → Exam runs a practice civics test for 12 countries. While it runs, ResearchEngine is locked. This locks the app only, not other programs." },
+          { "label": "Bug finder.", "text": "In developer mode, Alt+Shift+B lets you pick an element and writes a bug report, with an optional screenshot you attach." },
+          { "label": "Composio.", "text": "A Composio Connect preset in the MCP custom-server form." },
+          { "label": "Components.", "text": "A handle step in onboarding, a timeline for the AI's activity, scroll-reveal text in About, and tabs in the Library and the IDE." }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 2
+    }
+  },
+  {
+    "version": "0.47.0-beta.2",
+    "tag": "v0.47.0-beta.2",
+    "name": "beta: wallet with customisable cards, AI welcome, and the desktop build.",
+    "date": "2026-10-11",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.47.0-beta.2",
+    "summary": "A wallet of cards you earn and customise, a welcome for the AI-product themes, a stacked session switcher, and optional resource and FPS displays.",
+    "sections": [
+      {
+        "title": "A wallet, with cards you earn and customise",
+        "items": [
+          { "text": "Cards are earned: the first quiz, and three hours of active use. Each earned card plays a short reveal once." },
+          { "text": "Any card can be customised: its name, details, colours, a picture behind it, and a typeface you upload (TTF, OTF, WOFF or WOFF2, up to 1 MB). Shuffle colours picks a palette and keeps the text readable." }
+        ]
+      },
+      {
+        "title": "Smaller changes",
+        "items": [
+          { "label": "AI welcome.", "text": "Claude, ChatGPT, Gemini and Perplexity greet you on the home screen. Turn it off from the banner or in Appearance." },
+          { "label": "Session switcher.", "text": "Sessions stack as a deck, with the selected one on top." },
+          { "label": "Resources.", "text": "The resource meter and the FPS counter are off by default. Turn them on in Performance." },
+          { "label": "Articles.", "text": "Articles have a description and a cover picture." }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 6,
+      "sections": 2
+    }
+  },
+  {
+    "version": "0.46.0",
+    "tag": "v0.46.0-beta.1",
+    "name": "beta: work modes, effort slider, a leaner Design Studio, and Learn tabs.",
+    "date": "2026-10-11",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v0.46.0-beta.1",
+    "summary": "Work modes with their own system prompts, a ChatGPT-style effort slider, a leaner Design Studio, the Learn tabs, and the desktop shell built by CI.",
+    "sections": [
+      {
+        "title": "Work modes, with their own system prompts",
+        "items": [
+          {
+            "text": "Research, Coding, Design and Math each carry a short, specific system brief on top of the master prompt. Research adds nothing, so its prompt is unchanged."
+          },
+          {
+            "text": "The mode is inferred from where the request comes from: Design Studio is Design, the Math toggle is Math, a request inside a project is Coding, and everything else is Research. A caller can name a mode explicitly."
+          },
+          {
+            "text": "Briefs stay short on purpose, because some models have much smaller context windows than others."
+          }
+        ]
+      },
+      {
+        "title": "Thinking-effort slider in the prompt bar",
+        "items": [
+          {
+            "text": "The effort control is now a ChatGPT-style slider: a hairline track with a dot per step, a white thumb, and the step labels under it. The steps are each provider's own, so Medium, High and Max are the ones that provider offers."
+          },
+          {
+            "text": "Drag anywhere on the track, or use the arrow keys, Home and End."
+          }
+        ]
+      },
+      {
+        "title": "Design Studio, simplified",
+        "items": [
+          {
+            "text": "Removed the Board, Brief, Components, Inspiration and Prototype panels. Their jobs now belong to the mode prompts and the assistant."
+          },
+          {
+            "text": "Removed the Full Throttle pipeline. Its four stages (Research, Premium, Design, Prototype) pointed at those panels, so it could not run without them. It is in the git history if you want it back."
+          },
+          {
+            "text": "Ship stays. The panel files are still in the repository for the scripts that import them."
+          }
+        ]
+      },
+      {
+        "title": "Learn",
+        "items": [
+          {
+            "text": "Learn is now four tabs: Study, Techniques, Path and Videos."
+          },
+          {
+            "text": "Techniques: Active Recall with spaced repetition, Feynman explanations graded by your model, and dual coding with a picture description."
+          },
+          {
+            "text": "Path: a step-by-step course built from a document, only when you press Generate. It falls back to on-device questions and says so."
+          },
+          {
+            "text": "Videos: YouTube results for what you are studying now, playable inline."
+          }
+        ]
+      },
+      {
+        "title": "Themes and marks",
+        "items": [
+          {
+            "text": "A Gemini theme joins Claude and ChatGPT. Claude's and Gemini's composers now take those products' shape, not just their colours."
+          },
+          {
+            "text": "Anthropic, Gemini, NVIDIA, Ollama, Mistral, Perplexity and LM Studio use their official marks. OpenAI, Groq and Together keep their earlier marks."
+          }
+        ]
+      },
+      {
+        "title": "Onboarding and About",
+        "items": [
+          {
+            "text": "The welcome step has a circuit-board explainer of how a question moves through the app."
+          },
+          {
+            "text": "The developer card on About sits in a Spotlight Card."
+          }
+        ]
+      },
+      {
+        "title": "Desktop",
+        "items": [
+          {
+            "text": "The Tauri shell is built by CI on this tag, for Windows (NSIS) and Linux. The build environment for this release could not compile Rust, so the installers come from the tag build and are checked there."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 17,
+      "sections": 7
+    }
+  },
   {
     "version": "0.45.0",
     "tag": "v0.45.0-beta.1",

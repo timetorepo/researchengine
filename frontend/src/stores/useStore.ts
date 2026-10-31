@@ -1,15 +1,26 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import { DEFAULT_PROFILE, migrateProfile } from '@/lib/profile'
 import { nanoid } from 'nanoid'
 import type {
-  Article, Chat, ChatMessage, Citation, ConnectionLogEntry, DocumentRecord, FlowStats, IntegrationState, KnowledgeCard, QuizRecord, Settings, Skill, SkillSecurity, Source, Space, Squad, Task,
+  Article, Chat, ChatMessage, Citation, ConnectionLogEntry, DocumentRecord, FlowStats, IntegrationState, KnowledgeCard, LearnPath, LearnProgress, QuizRecord, Settings, Skill, SkillSecurity, Source, Space, SpacedCard, Squad, Task,
 } from '@/types'
 import type { Workflow, WorkflowRunRecord } from '@/lib/workflows/types'
 import { builtinSkills } from '@/lib/skills/builtins'
+import type { WalletState } from '@/lib/wallet/types'
 import { builtinSquads } from '@/lib/agents/squads'
-import { scopedStorage } from '@/lib/security/lock'
+import { localDay } from '@/lib/usage/day'
 import { DEFAULT_BUBBLES } from '@/lib/chat/bubbles'
+import { createDeferredJsonStorage } from '@/lib/storage/deferredJson'
+import { activeNamespace, scopedStorage, writeNamespaced } from '@/lib/security/lock'
+
+/** The main store's persistence: scoped per user, written at most every 400 ms. */
+const deferredMainStorage = createDeferredJsonStorage({
+  namespace: activeNamespace,
+  read: (name) => scopedStorage.getItem(name),
+  write: writeNamespaced,
+  remove: (ns, name) => localStorage.removeItem(`${ns}:${name}`),
+})
 
 export const AGENT_COLORS = ['#6C8EEF', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#22D3EE', '#F472B6']
 
@@ -27,11 +38,16 @@ interface StoreState {
    */
   skillSecurity: Record<string, SkillSecurity>
   articles: Article[]
+  /** Cards earned in the app, and the custom ones you made. */
+  wallet: WalletState
   spaces: Space[]
   citations: Citation[]
   knowledge: KnowledgeCard[]
   documents: DocumentRecord[]
   quizzes: QuizRecord[]
+  learnPaths: LearnPath[]
+  learnProgress: LearnProgress
+  spacedCards: SpacedCard[]
   squads: Squad[]
   workflows: Workflow[]
   workflowRuns: WorkflowRunRecord[]
@@ -62,6 +78,10 @@ interface StoreState {
   logConnection: (endpoint: string, purpose: string, bytes: number, status?: 'ok' | 'error' | 'local') => void
   addTokensSaved: (n: number) => void
   addTokensUsed: (n: number) => void
+  dailyUsage: { day: string; tokens: number }
+  /** Tokens per local day, YYYY-MM-DD, for the last year. Feeds Settings → Usage. */
+  usageByDay: Record<string, number>
+  addDailyTokens: (n: number) => void
   resetAll: () => void
 
   // tasks (shared by Research and Coding)
@@ -90,11 +110,14 @@ const defaultSettings: Settings = {
   reduceMotion: false,
   flowEnabled: true,
   flowMode: 'balanced',
+  dailyTokenBudget: 2_000_000,
   defaultModel: '',
   modelDefaults: {},
   customSystemPrompts: {},
   searchBackend: 'auto',
   searxngUrl: 'http://localhost:8080',
+  firecrawlUrl: '',
+  crawl4aiUrl: '',
   searchRegion: 'us',
   searchAuto: true,
   searchKeys: {},
@@ -146,6 +169,7 @@ const defaultSettings: Settings = {
   punctuationPauses: true,
   privacyMode: 'private',
   glassMode: 'off',
+  chatsGooey: true,
   flowBoost: true,
   mcpServers: [],
   developerMode: false,
@@ -155,6 +179,17 @@ const initialSpaces: Space[] = [
   { id: 'sp-general', name: 'General', icon: 'compass', color: '#6C8EEF' },
 ]
 
+/** Keep one year of daily totals, so storage stays small and the chart has a fixed range. */
+const USAGE_DAYS = 366
+export function pruneUsage(map: Record<string, number>, today: string): Record<string, number> {
+  const cutoff = new Date(`${today}T00:00:00`)
+  cutoff.setDate(cutoff.getDate() - USAGE_DAYS)
+  const floor = cutoff.toLocaleDateString('en-CA')
+  const out: Record<string, number> = {}
+  for (const [day, n] of Object.entries(map)) if (day >= floor) out[day] = n
+  return out
+}
+
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
@@ -163,11 +198,15 @@ export const useStore = create<StoreState>()(
       skills: builtinSkills,
       skillSecurity: {},
       articles: [],
+      wallet: { usageMs: 0, earned: [], cards: [] },
       spaces: initialSpaces,
       citations: [],
       knowledge: [],
       documents: [],
       quizzes: [],
+      learnPaths: [],
+      learnProgress: { xp: 0, streak: 0, lessons: {} },
+      spacedCards: [],
       squads: builtinSquads,
       workflows: [],
       workflowRuns: [],
@@ -298,6 +337,17 @@ export const useStore = create<StoreState>()(
       }),
 
       addTokensUsed: (n) => set((s) => ({ tokensUsedSession: s.tokensUsedSession + Math.max(0, Math.round(n)) })),
+      dailyUsage: { day: '', tokens: 0 },
+      usageByDay: {},
+      addDailyTokens: (n) => set((s) => {
+        const day = localDay()
+        const base = s.dailyUsage.day === day ? s.dailyUsage.tokens : 0
+        const add = Math.max(0, Math.round(n))
+        return {
+          dailyUsage: { day, tokens: base + add },
+          usageByDay: pruneUsage({ ...s.usageByDay, [day]: (s.usageByDay[day] ?? 0) + add }, day),
+        }
+      }),
       addTokensSaved: (n) => set((s) => ({
         tokensSavedSession: s.tokensSavedSession + n,
         tokensSavedLifetime: s.tokensSavedLifetime + n,
@@ -316,7 +366,7 @@ export const useStore = create<StoreState>()(
 
       resetAll: () => set({
         chats: [], activeChatId: null, articles: [], citations: [], knowledge: [],
-        documents: [], quizzes: [], connectionLog: [], workflows: [], workflowRuns: [],
+        documents: [], quizzes: [], learnPaths: [], learnProgress: { xp: 0, streak: 0, lessons: {} }, spacedCards: [], connectionLog: [], workflows: [], workflowRuns: [],
         tokensSavedSession: 0, tokensUsedSession: 0, tokensSavedLifetime: 0, totalRequests: 0,
         skills: builtinSkills, squads: builtinSquads, spaces: initialSpaces, integrations: {},
       }),
@@ -326,14 +376,18 @@ export const useStore = create<StoreState>()(
       // Scoped to whoever unlocked the app: the main user's state and a guest's
       // state are different data in different namespaces, so a guest session
       // cannot read the main user's chats and the main user can read a guest's.
-      storage: createJSONStorage(() => scopedStorage),
+      // Batched: a streamed answer would otherwise re-serialise every chat per token.
+      storage: deferredMainStorage as any,
       partialize: (s) => ({
-        chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces,
+        chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces, wallet: s.wallet,
         citations: s.citations, knowledge: s.knowledge, documents: s.documents,
-        quizzes: s.quizzes, squads: s.squads, integrations: s.integrations,
+        quizzes: s.quizzes, learnPaths: s.learnPaths, learnProgress: s.learnProgress, spacedCards: s.spacedCards,
+        squads: s.squads, integrations: s.integrations,
         workflows: s.workflows,
         settings: s.settings, tokensSavedLifetime: s.tokensSavedLifetime,
         totalRequests: s.totalRequests,
+        dailyUsage: s.dailyUsage,
+        usageByDay: s.usageByDay,
       }),
       // Deep-merge persisted state over fresh defaults so settings fields added
       // in newer versions (themeFavorites, masterPromptOverrides, …) are never

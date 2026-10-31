@@ -11,6 +11,9 @@ import { staticHandler } from './static'
 import { appRoot, installKind, sourceVersion, webBuild } from './build-info'
 import { updateRoutes } from './routes/update'
 import { linkRoutes } from './routes/link'
+import { calendarRoutes } from './routes/calendar'
+import { botWebRoutes } from './routes/botweb'
+import { artifactRoutes } from './routes/artifacts'
 import { bootUpdateCheck, handleFatalWithPending, rollbackAndRestart, scheduleHealthy } from './update/boot'
 import { EXIT_RESTART } from './update/service'
 
@@ -38,12 +41,19 @@ async function main() {
   const { jevRoutes } = await import('./routes/jev')
   const { dataRoutes } = await import('./routes/data')
   const { searchRoutes } = await import('./routes/search')
+  const { learnRoutes } = await import('./routes/learn')
   const { sandboxRoutes } = await import('./routes/sandbox')
   const { personaRoutes } = await import('./routes/personas')
   const { chatRoutes } = await import('./routes/chat')
   const { documentRoutes } = await import('./routes/documents')
   const { ollamaRoutes } = await import('./routes/ollama')
   const { integrationRoutes } = await import('./routes/integrations')
+  const { composioRoutes } = await import('./routes/composio')
+  const { signinRoutes } = await import('./routes/signin')
+  const { pipedreamRoutes } = await import('./routes/pipedream')
+  const { harnessRoutes } = await import('./routes/harness')
+  const { context7Routes } = await import('./routes/context7')
+  const { serviceRoutes } = await import('./routes/services')
   const { resourceRoutes } = await import('./routes/resources')
   const { fsRoutes } = await import('./routes/fs')
   const { providerRoutes } = await import('./routes/providers')
@@ -72,6 +82,7 @@ async function main() {
   app.route('/api', connectorRoutes(rt))
   app.route('/api', mcpRoutes())
   app.route('/api/search', searchRoutes)
+  app.route('/api/learn', learnRoutes)
   app.route('/api/sandbox', sandboxRoutes)
   app.route('/api/personas', personaRoutes)
   const { voiceRoutes } = await import('./routes/voice')
@@ -80,11 +91,20 @@ async function main() {
   app.route('/api/documents', documentRoutes)
   app.route('/api/ollama', ollamaRoutes)
   app.route('/api/integrations', integrationRoutes(rt))
+  app.route('/api', composioRoutes(rt))
+  app.route('/api', signinRoutes())
+  app.route('/api', pipedreamRoutes(rt))
+  app.route('/api', harnessRoutes(rt))
+  app.route('/api', context7Routes(rt))
+  app.route('/api', serviceRoutes(rt))
+  app.route('/api', artifactRoutes(rt))
   app.route('/api', providerRoutes)
   // The updater. Everything it can touch is guarded inside update/service.ts.
   app.route('/api', updateRoutes(rt))
   app.route('/api', linkRoutes)
   app.route('/api/feedback', feedbackRoutes)
+  app.route('/api/calendar', calendarRoutes)
+  app.route('/api/bots/web', botWebRoutes)
   app.route('/api/library', libraryRoutes)
   app.route('/api/proxy', proxyRoutes)
   app.route('/api/skills', skillsRoutes)

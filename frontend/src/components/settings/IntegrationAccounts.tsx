@@ -7,6 +7,7 @@ import { INTEGRATIONS, FIELD_LABELS, type IntegrationId } from '@/lib/integratio
 import { integrationSummary, probeIntegration, saveCreds } from '@/lib/integrations/client'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import { saveNotice } from '@/stores/useNotices'
 
 const ICONS: Record<string, React.ComponentType<{ size?: number | string; strokeWidth?: number | string }>> = {
   files: FolderOpen, drive: HardDrive, gmail: Mail, gcal: Calendar, github: Github, notion: StickyNote, slack: Hash,
@@ -93,7 +94,7 @@ function AccountForm({ id, connected, account }: { id: IntegrationId; connected:
       await saveCreds(id, values)
       setValues({})
       if (!andTest) {
-        toast(`${def.name} saved`, 'The credential is stored in this browser’s vault.', 'success')
+        saveNotice(`${def.name} saved`, 'The credential is stored in this browser’s vault.')
         return
       }
       const out = await probeIntegration(id)

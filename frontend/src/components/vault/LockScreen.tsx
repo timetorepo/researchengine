@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Lock, Delete, Loader2, ShieldAlert, LogOut } from 'lucide-react'
+import CodeSlots from '@/components/ui/reactbits/micro/CodeSlots'
 import {
   roleForPin, writeLockSession, wipeEverything, removeLockConfig,
   normalisePin, type LockRole,
@@ -130,29 +131,31 @@ export function LockScreen() {
           </div>
         </div>
 
-        {/* The dots say how long the code is, never what is in it. */}
-        <div className="flex justify-center gap-2.5 mb-5" aria-hidden>
-          {Array.from({ length: Math.max(4, pin.length) }).map((_, i) => (
-            <span key={i} className="w-2.5 h-2.5 rounded-full"
-              style={{ background: i < pin.length ? 'var(--primary)' : 'var(--surface-border)' }} />
-          ))}
+        {/* React Bits Code Slots is the code input. Digits are masked, so the
+            screen shows how long the code is and never what is in it. The
+            length follows what has been typed (6 slots minimum, 12 at most),
+            and the keypad below writes into the same value. */}
+        <div className="flex justify-center mb-5" onKeyDown={(e) => { if (e.key === 'Enter') void submit(pin) }}>
+          <CodeSlots
+            length={Math.min(12, Math.max(6, pin.length))}
+            value={pin}
+            mask
+            caret={!busy}
+            disabled={busy}
+            autoFocus
+            status={err ? 'error' : 'idle'}
+            onChange={(v) => { setErr(''); setPin(v.slice(0, 12)) }}
+            accentColor="var(--primary)"
+            inkColor="var(--text-1)"
+            slotColor="var(--surface)"
+            digitColor="var(--bg)"
+            dangerColor="var(--danger)"
+            slotSize={34}
+            gap={6}
+            radius={9}
+            ariaLabel="Access code"
+          />
         </div>
-
-        <label className="sr-only" htmlFor="re-lock-code">Access code</label>
-        <input
-          id="re-lock-code"
-          autoFocus
-          type="password"
-          inputMode="numeric"
-          autoComplete="off"
-          value={pin}
-          disabled={busy}
-          onChange={(e) => setPin(e.target.value.slice(0, 12))}
-          onKeyDown={(e) => { if (e.key === 'Enter') void submit(pin) }}
-          className="w-full px-3.5 py-2.5 rounded-[12px] outline-none text-center text-[15px] tracking-[0.3em] mb-3"
-          style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }}
-          placeholder="••••"
-        />
 
         <AnimatePresence>
           {err && (

@@ -40,11 +40,14 @@ export function SkillImport({ open, onClose }: { open: boolean; onClose: () => v
   const [scan, setScan] = useState<{ scanner: string; scannerNote?: string; install?: string; verdict: SkillSecurity } | null>(null)
   const [info, setInfo] = useState<ScannerInfo | null>(null)
   const [override, setOverride] = useState(false)
+  const [githubUrl, setGithubUrl] = useState('')
+  const [githubBusy, setGithubBusy] = useState(false)
+  const [githubError, setGithubError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
-    setFiles([]); setPaste(''); setName(''); setScan(null); setOverride(false)
+    setFiles([]); setPaste(''); setName(''); setScan(null); setOverride(false); setGithubUrl(''); setGithubError('')
     void fetch('/api/skills/scanner').then((r) => r.json()).then(setInfo).catch(() => setInfo(null))
   }, [open])
 
@@ -64,6 +67,30 @@ export function SkillImport({ open, onClose }: { open: boolean; onClose: () => v
     setFiles((prev) => [...prev, ...next].slice(0, MAX_FILES))
     if (!name && next[0]) setName(guessName(next[0]))
     setScan(null)
+  }
+
+  /** Read a skill folder from a GitHub link. The files land in the same list as uploads, then get scanned. */
+  const importGithub = async () => {
+    const link = githubUrl.trim()
+    if (!link) return
+    setGithubBusy(true)
+    setGithubError('')
+    try {
+      const res = await fetch('/api/skills/github', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: link }),
+      })
+      const body = await res.json().catch(() => ({} as any))
+      if (!res.ok) throw new Error(typeof body?.error === 'string' ? body.error : `GitHub answered ${res.status}.`)
+      const got: { path: string; text: string }[] = Array.isArray(body.files) ? body.files : []
+      setFiles(got.slice(0, MAX_FILES))
+      if (!name && got[0]) setName(guessName(got[0]))
+      setScan(null)
+      setPaste('')
+    } catch (e: any) {
+      setGithubError(String(e?.message ?? e))
+    } finally {
+      setGithubBusy(false)
+    }
   }
 
   const runScan = async () => {
@@ -137,7 +164,26 @@ export function SkillImport({ open, onClose }: { open: boolean; onClose: () => v
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* what you are importing */}
             <div>
-              <label className="block text-[11.5px] mb-1.5" style={{ color: 'var(--text-3)' }}>Paste a skill (SKILL.md and friends)</label>
+              <label className="block text-[11.5px] mb-1.5" style={{ color: 'var(--text-3)' }}>From GitHub</label>
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/owner/repo/tree/main/skill-folder"
+                  aria-label="GitHub folder link"
+                  className="flex-1 min-w-0 rounded-[12px] px-3 py-2 text-[12px] outline-none"
+                  style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}
+                />
+                <Button size="sm" variant="ghost" onClick={importGithub} disabled={githubBusy || !githubUrl.trim()}
+                  startContent={githubBusy ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}>
+                  Read folder
+                </Button>
+              </div>
+              {githubError && <p role="alert" className="text-[11.5px] mb-2" style={{ color: 'var(--danger)' }}>{githubError}</p>}
+              <p className="text-[11px] mb-3" style={{ color: 'var(--text-3)' }}>
+                Public folders are read through the GitHub API. The files are scanned before anything is saved.
+              </p>
+              <label className="block text-[11.5px] mb-1.5" style={{ color: 'var(--text-3)' }}>Or paste a skill (SKILL.md and friends)</label>
               <textarea
                 value={paste}
                 onChange={(e) => { setPaste(e.target.value); setScan(null) }}

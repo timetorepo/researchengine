@@ -311,6 +311,9 @@ chatRoutes.post('/', async (c) => {
         if (done) break
         await stream.write(td.decode(value, { stream: true }))
       }
+      // Flush a multi-byte character split across the final chunk.
+      const tail = td.decode()
+      if (tail) await stream.write(tail)
     } catch { /* client went away — upstream already aborted via signal */ }
   })
 })

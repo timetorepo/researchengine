@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
-import { HardDrive, Mail, Calendar, Github, StickyNote, BookMarked, FolderOpen } from 'lucide-react'
+import { HardDrive, Mail, Calendar, Github, StickyNote, BookMarked, FolderOpen, Plug } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { fuzzy } from '@/lib/utils'
+import { composioConfigured, isActiveAccount, listComposioAccounts } from '@/lib/composio/client'
 
 export const INTEGRATION_META: Record<string, { name: string; icon: any; hue: number }> = {
   drive: { name: 'Google Drive', icon: HardDrive, hue: 45 },
@@ -15,10 +16,24 @@ export const INTEGRATION_META: Record<string, { name: string; icon: any; hue: nu
   files: { name: 'Local files', icon: FolderOpen, hue: 150 },
 }
 
-export function IntegrationPicker({ query, onPick, onClose }: { query: string; onPick: (label: string) => void; onClose: () => void }) {
+export function IntegrationPicker({ query, onPick, onClose: _onClose }: { query: string; onPick: (label: string) => void; onClose: () => void }) {
   const integrations = useStore((s) => s.integrations)
   const documents = useStore((s) => s.documents)
-  const ui = useUI()
+  // Apps the person has connected in the Marketplace (Composio), one entry per app.
+  const [apps, setApps] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!composioConfigured()) return
+    let alive = true
+    listComposioAccounts()
+      .then((accs) => {
+        if (!alive) return
+        const slugs = [...new Set(accs.filter(isActiveAccount).map((a) => a.toolkit.toLowerCase()))]
+        setApps(slugs)
+      })
+      .catch(() => { /* the Marketplace shows the error; the picker just lists nothing */ })
+    return () => { alive = false }
+  }, [])
 
   const connected = Object.entries(integrations).filter(([, v]) => v.connected)
   const items = useMemo(() => {
@@ -27,11 +42,15 @@ export function IntegrationPicker({ query, onPick, onClose }: { query: string; o
       const meta = INTEGRATION_META[id]
       if (meta && fuzzy(query, meta.name)) list.push({ label: meta.name.toLowerCase().replace(/\s/g, '-'), sub: meta.name, icon: meta.icon, hue: meta.hue })
     }
+    for (const slug of apps) {
+      const name = slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      if (fuzzy(query, name) || fuzzy(query, slug)) list.push({ label: slug, sub: name, icon: Plug, hue: 200 })
+    }
     for (const d of documents) {
       if (fuzzy(query, d.name)) list.push({ label: `doc:${d.name}`, sub: `Document · ${d.name}`, icon: FolderOpen, hue: 150 })
     }
-    return list.slice(0, 8)
-  }, [connected, documents, query])
+    return list.slice(0, 10)
+  }, [connected, apps, documents, query])
 
   return (
     <motion.div
@@ -43,7 +62,7 @@ export function IntegrationPicker({ query, onPick, onClose }: { query: string; o
     >
       {items.length === 0 ? (
         <div className="px-3 py-4 text-[12.5px] text-center" style={{ color: 'var(--text-3)' }}>
-          No connected sources yet. Connect integrations in Settings, or upload documents in Read &amp; Quiz.
+          No connected sources yet. Connect apps in the Marketplace in the sidebar, or upload documents in Read &amp; Quiz.
         </div>
       ) : items.map((it) => (
         <button key={it.label} onClick={() => onPick(it.label)}

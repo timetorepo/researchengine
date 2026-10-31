@@ -8,6 +8,7 @@ import { usableKey } from '@/lib/providers/keys'
 import { estimateTokens } from '@/lib/flow/pruner'
 import { useStore } from '@/stores/useStore'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
+import { assertBudget, recordTokens } from '@/lib/usage/guard'
 
 export interface GenerateRequest {
   system: string
@@ -47,6 +48,7 @@ export async function generateText(req: GenerateRequest): Promise<GenerateResult
   if (shieldedSystem.findings.length) recordScan(`generation system → ${meta?.name ?? 'provider'}`, shieldedSystem.findings)
 
   if (useReal) {
+    assertBudget()
     useStore.getState().logConnection(meta!.baseUrl, `${meta!.name} · ${model}`, estimateTokens(req.prompt) * 4)
     let text = ''
     const res = await streamToCallback({
@@ -61,6 +63,7 @@ export async function generateText(req: GenerateRequest): Promise<GenerateResult
       text += chunk
       req.onChunk?.(chunk)
     })
+    recordTokens(res.promptEstimate + res.completionTokens)
     return {
       text,
       promptTokens: res.promptEstimate,

@@ -8,9 +8,12 @@ import { download, timeAgo, fuzzy } from '@/lib/utils'
 import { Select } from '@/components/ui/watermelon/Select'
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/modal'
 import { Button } from '@/components/ui/heroui/Button'
-import { Folder, FlaskConical, BookOpen, Code2, GraduationCap, Briefcase } from 'lucide-react'
+import { Folder, FlaskConical, BookOpen, Code2, GraduationCap, Briefcase, PlayCircle, Mic } from 'lucide-react'
+import { LibraryVideos } from './LibraryVideos'
+import { MeetingsPanel } from '@/components/meetings/MeetingsPanel'
 import { LibrarySearch } from './LibrarySearch'
 import { useScrollKeeper } from '@/hooks/useScrollKeeper'
+import { AppleMailTabs } from '@/components/ui/skecher/apple-mail-tabs'
 
 /** The palette spaces are drawn from. Also the swatch row in the dialog. */
 const SPACE_COLORS = ['#6C8EEF', '#A78BFA', '#34D399', '#FBBF24', '#F87171', '#22D3EE', '#F472B6']
@@ -25,7 +28,7 @@ const SPACE_ICONS: { id: SpaceIconId; Icon: typeof Layers }[] = [
   { id: 'work', Icon: Briefcase },
 ]
 
-type Tab = 'search' | 'citations' | 'knowledge' | 'spaces'
+type Tab = 'search' | 'citations' | 'knowledge' | 'spaces' | 'videos' | 'meetings'
 
 export function LibraryView() {
   // Search is the front door now: one gooey field at the top of the Library,
@@ -48,20 +51,27 @@ export function LibraryView() {
         <h1 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Library</h1>
         <p className="text-[12.5px] mb-5" style={{ color: 'var(--text-2)' }}>Everything your research collects, organized.</p>
 
-        <div className="flex flex-wrap gap-1.5 mb-6">
-          {([['search', 'Search', Search], ['citations', 'Citations', BookMarked], ['knowledge', 'Knowledge cards', Lightbulb], ['spaces', 'Spaces', Layers]] as const).map(([id, label, Icon]) => (
-            <button key={id} onClick={() => setTab(id)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12.5px]"
-              style={{ background: tab === id ? 'var(--elevated)' : 'transparent', border: '1px solid var(--surface-border)', color: tab === id ? 'var(--text)' : 'var(--text-3)' }}>
-              <Icon size={13} /> {label}
-            </button>
-          ))}
-        </div>
+        <AppleMailTabs<Tab>
+          aria-label="Library sections"
+          className="mb-6"
+          value={tab}
+          onValueChange={setTab}
+          tabs={[
+            { value: 'search', label: 'Search', icon: Search },
+            { value: 'citations', label: 'Citations', icon: BookMarked },
+            { value: 'knowledge', label: 'Knowledge cards', icon: Lightbulb },
+            { value: 'spaces', label: 'Spaces', icon: Layers },
+            { value: 'videos', label: 'Videos', icon: PlayCircle },
+            { value: 'meetings', label: 'Meetings', icon: Mic },
+          ]}
+        />
 
         {tab === 'search' && <LibrarySearch query={q} onQuery={setQ} folder={folder} onFolder={setFolder} />}
         {tab === 'citations' && <Citations q={q} onQuery={setQ} />}
         {tab === 'knowledge' && <Knowledge q={q} onQuery={setQ} />}
         {tab === 'spaces' && <Spaces />}
+        {tab === 'videos' && <LibraryVideos />}
+        {tab === 'meetings' && <MeetingsPanel />}
       </div>
     </div>
   )

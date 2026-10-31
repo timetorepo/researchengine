@@ -41,11 +41,14 @@ export async function webSearch(query: string, count = 6): Promise<SearchOutcome
     const own = settings.searxngUrl && !/^https?:\/\/(localhost|127\.0\.0\.1):8080/.test(settings.searxngUrl)
       ? `&searxng=${encodeURIComponent(settings.searxngUrl)}`
       : ''
+    // Self-hosted crawlers the person set up. Their addresses travel with the request.
+    const fc = settings.firecrawlUrl ? `&firecrawl=${encodeURIComponent(settings.firecrawlUrl)}` : ''
+    const c4 = settings.crawl4aiUrl ? `&crawl4ai=${encodeURIComponent(settings.crawl4aiUrl)}` : ''
     const patience = Math.max(3, Number(settings.providerTimeouts?.search ?? 20)) * 1000
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), patience)
     const res = await fetch(
-      `/api/search?q=${encodeURIComponent(query)}&backend=${encodeURIComponent(backend)}${own}${offline}`,
+      `/api/search?q=${encodeURIComponent(query)}&backend=${encodeURIComponent(backend)}${own}${fc}${c4}${offline}`,
       {
         signal: ctrl.signal,
         // Keys typed in the UI travel with the request; the server keeps none.

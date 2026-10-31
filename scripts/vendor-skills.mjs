@@ -11,6 +11,7 @@
  *   node scripts/vendor-skills.mjs                 # fetch every pack over HTTPS
  *   node scripts/vendor-skills.mjs --from <dir>    # read packs from a local checkout
  *   node scripts/vendor-skills.mjs --list          # show the manifest, fetch nothing
+ *   node scripts/vendor-skills.mjs --only seo,tdd-workflow   # refresh just these packs
  *
  * `--from <dir>` expects `<dir>/<pack id>/<file>` and is the offline twin of the
  * network path: useful behind a proxy that Node's trust store does not know
@@ -141,6 +142,40 @@ const STRIX_SKILLS = [
 ]
 const STRIX_MANIFEST = STRIX_SKILLS.map((id) => ({ ...STRIX_PACK, id, files: ['SKILL.md'] }))
 
+/**
+ * ECC, the agent harness of affaan-m/ecc (MIT). Sixteen of its skills, vendored
+ * at one pinned commit so a re-run cannot drift. They join the same catalog as
+ * every other pack and ride along in chat exactly the same way. The agent roles
+ * from ECC are vendored by scripts/vendor-ecc-agents.mjs.
+ */
+const ECC_REF = '76aaa77df6adc5b889e689007bf99b9a4f74af34'
+const ECC_PACK = {
+  repo: 'affaan-m/ecc',
+  ref: ECC_REF,
+  path: 'skills',
+  license: 'MIT',
+  credit: 'Affaan Mustafa — Everything Claude Code (ECC), agent harness skills',
+}
+const ECC_SKILLS = [
+  'architecture-decision-records',
+  'api-design',
+  'article-writing',
+  'coding-standards',
+  'content-engine',
+  'deep-research',
+  'documentation-lookup',
+  'eval-harness',
+  'git-workflow',
+  'market-research',
+  'prompt-optimizer',
+  'search-first',
+  'security-review',
+  'seo',
+  'tdd-workflow',
+  'verification-loop',
+]
+const ECC_MANIFEST = ECC_SKILLS.map((id) => ({ ...ECC_PACK, id, files: ['SKILL.md'] }))
+
 const args = process.argv.slice(2)
 const flag = (name) => {
   const i = args.indexOf(name)
@@ -178,7 +213,7 @@ const serialize = (packs) =>
   `export const SKILL_PACKS: SkillPack[] = ${JSON.stringify(packs, null, 1)}\n`
 
 if (listOnly) {
-  for (const p of MANIFEST) console.log(`${p.id.padEnd(24)} ${p.repo}  ${p.license}`)
+  for (const p of [...MANIFEST, ...STRIX_MANIFEST, ...ECC_MANIFEST]) console.log(`${p.id.padEnd(24)} ${p.repo}  ${p.license}`)
   process.exit(0)
 }
 
@@ -205,7 +240,15 @@ if (existing.length === 0 && existsSync(catalogPath) && readFileSync(catalogPath
 }
 const byId = new Map(existing.map((p) => [p.id, p]))
 
-for (const pack of [...MANIFEST, ...STRIX_MANIFEST]) {
+// `--only a,b` refreshes just those packs and leaves every other entry as it is.
+const onlyIds = (() => { const i = args.indexOf('--only'); return i >= 0 ? new Set(String(args[i + 1] ?? '').split(',').map((x) => x.trim()).filter(Boolean)) : null })()
+const selected = [...MANIFEST, ...STRIX_MANIFEST, ...ECC_MANIFEST].filter((p) => !onlyIds || onlyIds.has(p.id))
+if (onlyIds && selected.length !== onlyIds.size) {
+  console.error(`unknown pack id in --only: ${[...onlyIds].filter((id) => !selected.some((p) => p.id === id)).join(', ')}`)
+  process.exit(1)
+}
+
+for (const pack of selected) {
   const dir = join(outRoot, pack.id)
   mkdirSync(dir, { recursive: true })
   const files = []

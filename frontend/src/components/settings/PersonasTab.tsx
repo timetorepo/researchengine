@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ROLE_FAMILIES, familyById } from '@/lib/ecc/roles'
 import { BookMarked, Download, RefreshCw, Search } from 'lucide-react'
 import { PERSONAS_MANIFEST } from '@/content/personas/manifest'
 import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
@@ -23,6 +24,7 @@ export function PersonasTab() {
   const [mirror, setMirror] = useState<{ present: boolean; count: number } | null>(null)
   const [syncing, setSyncing] = useState(false)
   const defaultPersonaId = useStore((s) => s.settings.defaultPersonaId ?? '')
+  const defaultRoleId = useStore((s) => s.settings.defaultRoleId ?? '')
   const ui = useUI()
 
   const refreshMirror = () =>
@@ -146,6 +148,19 @@ export function PersonasTab() {
           ))}
         </select>
         <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>coding chats use {CODING_PERSONA_SLUG} unless a chat picks another</span>
+      </div>
+
+      <div className="flex items-center gap-2 mt-3 text-[11.5px] flex-wrap" style={{ color: 'var(--text-2)' }}>
+        <span>Default role for new chats:</span>
+        <select value={defaultRoleId}
+          onChange={(e) => useStore.setState((s) => ({ settings: { ...s.settings, defaultRoleId: e.target.value || undefined } }))}
+          aria-label="Default role for new chats"
+          className="px-2 py-1 rounded-lg text-[11px] outline-none"
+          style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }}>
+          <option value="">none</option>
+          {ROLE_FAMILIES.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+        <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>{familyById(defaultRoleId)?.blurb ?? 'Picks the ECC methods that fit each question.'}</span>
       </div>
 
       {openSlug !== null && (

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { ScrollRevealText } from '@/components/ui/skecher/scroll-reveal-text'
 import {
   Github, ShieldCheck, ExternalLink, Sparkles, RefreshCw, CheckCircle2, Heart, Scale,
   Layers, Component, AlertTriangle, Eraser, ClipboardList, Copy,
@@ -10,8 +11,10 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Button } from '@/components/ui/heroui/Button'
 import { ProfileCard } from '@/components/ui/watermelon/ProfileCard'
+import SpotlightCard from '@/components/ui/reactbits/micro/SpotlightCard'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { BUNDLE_BUILD, runningVersion, useRunningVersion } from '@/lib/appVersion'
+import { saveNotice, updateNotice } from '@/stores/useNotices'
 
 /**
  * Injected by Vite from package.json, so it never drifts from the shipped build.
@@ -130,9 +133,45 @@ const UI_LIBRARIES: { name: string; href: string; author?: string; used: string 
   { name: 'Watermelon UI', href: 'https://ui.watermelon.sh', used: 'Expandable profile card, shuffled pinned list (tasks), and the select used across settings and the quiz' },
   { name: 'Cult UI', href: 'https://www.cult-ui.com', used: 'Timer anatomy (compound icon/display/progress) and the magnified dock behaviour in the collapsed sidebar' },
   { name: 'Number Flow', href: 'https://number-flow.barvian.me', author: 'Max Barvian', used: 'The per-digit roll behind every animated number' },
+  { name: 'ReactBits', href: 'https://github.com/DavidHDev/react-bits', author: 'David Haz', used: 'The GooeyNav kind switch, the CardSwap session switcher and the animated backgrounds (Silk, Galaxy, Liquid Chrome, Floating Lines and more). Licence: MIT + Commons Clause, so the code may not be sold on its own.' },
 ]
 
 const RUNTIME_LIBRARIES = ['React', 'Vite', 'Tailwind CSS', 'Framer Motion', 'Zustand', 'Lucide', 'KaTeX', 'react-markdown', 'JSZip']
+
+const CREDITS: { name: string; by: string; license: string; role: string; url: string }[] = [
+  { name: 'OpenWhispr', by: 'OpenWhispr', license: 'MIT', role: 'Voice dictation in the composer, with a self-hosted model or your own provider key.', url: 'https://github.com/OpenWhispr/openwhispr' },
+  { name: 'OpenSEO', by: 'Every App', license: 'MIT', role: 'SEO data for the chat and the bots: site overviews and keyword ideas.', url: 'https://github.com/every-app/open-seo' },
+  { name: 'VoiceStudio', by: 'Palash Debnath', license: 'AGPL-3.0', role: 'Speech in a voice, and voice cloning that needs the speaker’s permission.', url: 'https://github.com/debpalash/VoiceStudio' },
+  { name: 'Twenty', by: 'Twenty', license: 'AGPL-3.0, with Enterprise files', role: 'The CRM the agent can search and add people, companies and notes to.', url: 'https://github.com/twentyhq/twenty' },
+  { name: 'Postiz', by: 'Gitroom', license: 'AGPL-3.0', role: 'Social drafts on your channels. Publishing stays in Postiz.', url: 'https://github.com/gitroomhq/postiz-app' },
+]
+
+function CreditsCard() {
+  return (
+    <section className="mb-4 p-4 rounded-[18px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} aria-labelledby="about-credits">
+      <h3 id="about-credits" className="text-[13px] font-semibold mb-1" style={{ color: 'var(--text-1)' }}>Built with</h3>
+      <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
+        These projects do real work in this app. Each is open source; the licence is the one its project publishes.
+      </p>
+      <ul className="space-y-2">
+        {CREDITS.map((c) => (
+          <li key={c.name} className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <button type="button" onClick={() => window.open(c.url, '_blank', 'noreferrer')}
+                  className="text-[12.5px] font-medium underline underline-offset-2" style={{ color: 'var(--text-1)' }}>
+                  {c.name}
+                </button>
+                <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>by {c.by} · {c.license}</span>
+              </div>
+              <p className="text-[11.5px] leading-snug" style={{ color: 'var(--text-2)' }}>{c.role}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
 
 export function AboutTab() {
   const ui = useUI()
@@ -153,10 +192,10 @@ export function AboutTab() {
       if (!res.ok || j.error) throw new Error(j.error ?? `HTTP ${res.status}`)
       const tag = j.latest ? `v${j.latest}` : null
       if (j.available) {
-        ui.toast('Update available', `${tag} is out — you are on v${version}.`, 'success')
+        updateNotice('Update available', `${tag} is out — you are on v${version}.`)
         ui.openSettings('updates')
       } else if (tag) {
-        ui.toast('Up to date', `You are running the latest release (v${j.current}).`, 'success')
+        saveNotice('Up to date', `You are running the latest release (v${j.current}).`)
       } else {
         ui.toast('Could not check', 'GitHub did not return a release.', 'danger')
       }
@@ -180,6 +219,8 @@ export function AboutTab() {
           </p>
         </div>
       </div>
+
+      <RevealIntro />
 
       {/* Stale self-hosted build? ------------------------------------ */}
       <StaleBuildCard />
@@ -217,11 +258,20 @@ export function AboutTab() {
         />
         <span className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>hover for who that is</span>
       </div>
+      {/* Credits: the open-source projects this app builds on, and what each does here. */}
+      <CreditsCard />
+
       {/* The maker, as the same expandable card the user's own profile uses —
           expand it for the long version. */}
+      {/* reactbits' Spotlight Card frames the developer block: a light that
+          follows the pointer across the card. */}
+      <SpotlightCard
+        className="mb-4 rounded-[18px]"
+        spotlightColor="rgba(255,255,255,0.12)"
+        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}
+      >
       <ProfileCard
         tone="maker"
-        className="mb-4"
         name="dnishh"
         handle="timetorepo/researchengine"
         bio="One-person project. No company behind it, no funding, no roadmap dictated by an investor."
@@ -240,6 +290,7 @@ export function AboutTab() {
           </a>
         )}
       />
+      </SpotlightCard>
       <div className="surface p-4 mb-4">
         <div className="flex items-start gap-3">
           <Heart size={17} className="shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
@@ -356,7 +407,7 @@ export function AboutTab() {
         <p>
           Research Engine routes to many AI providers and is not affiliated with, endorsed by, or connected to any of them unless they say so.
           Provider names appear as plain text to identify whose answer you are reading; our features keep their own names: Sessions, Personas,
-          the Effort ladder, Chain of thought, Skills and MCP Servers. Coming from another product: conversations are Sessions (press your
+          the Effort ladder, Chain of thought, Skills and the MCP servers in Marketplace. Coming from another product: conversations are Sessions (press your
           switcher key, default Alt+Shift), GPTs and custom instructions are Personas, agent mode is the Coding workspace, and reasoning effort
           is the effort pill in the composer.
         </p>
@@ -365,6 +416,20 @@ export function AboutTab() {
       {/* Changelog ----------------------------------------------------- */}
       <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>
+        <p><b>1.3.0: sign-in tracking, Pipedream, council and local models:</b> A connect that is abandoned, or whose sign-in window is closed, now says so. A finished sign-in closes its own window. Pipedream sits beside Composio in the Marketplace. Council mode and Hugging Face downloads for local models are in Settings.</p>
+        <p><b>1.2.0: Liquid Glass that bends, a Marketplace, a CRM, more search:</b> Liquid Glass refracts the chatbox, the island and toasts, and is off by default. The Chats switch can be gooey or plain tabs. Apps have their own pages in the Marketplace, the CRM reads Twenty live, and Firecrawl and Crawl4AI join search.</p>
+        <p><b>1.1.0: animated backgrounds, a session switcher, built-in services:</b> Sessions open in a card deck from the top bar or with Alt+Shift. Chats has a kind switch, and fourteen ReactBits backgrounds are available. Connectors has a Connected tab that follows connects and disconnects. Library videos take timeline notes, and OpenSEO, VoiceStudio, Twenty and Postiz are built into Settings → Services.</p>
+        <p><b>1.0.1: Connect opens in your browser, smoother long chats:</b> Sign-in opens in your default browser. Settings and update notices are alerts, two-factor codes use a six-box input, long chats save in batches, and Delete everything stays deleted.</p>
+        <p><b>1.0.0-release: the first full release:</b> Apps connect inside Research Engine from Connectors. Your Composio project key is recognised, and the app list loads.</p>
+        <p><b>0.54.0: one Composio identity, artifacts, live bot replies:</b> Connectors files your connections under the Composio user id you save; the Automatic id is gone. Code opens as an artifact with a live preview, bot replies stream in, and ChatGPT, Gemini and Claude Markdown render properly.</p>
+        <p><b>0.53.0: a connectors marketplace, built-in integrations in one place:</b> Connectors is one row in the sidebar. It opens every app Composio supports, and you connect an app from there. Files, Drive, Gmail, Calendar, GitHub, Notion and Slack now sit under its Built in tab. Settings has no Integrations tab any more.</p>
+        <p><b>0.52.0: a calmer first run, connectors, documentation lookup, long sessions:</b> The welcome is a page you scroll, and only the tear ticket moves on. Connectors lists every app Composio supports, with Automatic or your own Composio account. The chat and the bots can look up current documentation (Context7, no setup needed). You pick a plain role such as Researcher or Workflow, and the matching ECC members are chosen from your request. Long sessions stay fast: history and tool output are capped, storage trims instead of failing, and an optional daily token budget stops runaway spend.</p>
+        <p><b>0.51.1: answers that keep streaming, correct citations, sliding tabs:</b> Answers no longer stop mid-stream: with Raw stream (Settings → Flow → Off) every word shows as it arrives, and the answer keeps going while the tab is in the background. If a provider goes quiet mid-answer, the chat says so and keeps the text received so far. Errors that arrive after an answer has started are shown, and the last words of a reply are no longer lost. The citation check now looks at every number in a group such as [1, 99, 2], and [n] markers link to their source. The active tab in Bots slides between tabs, and hover states and the video player animate instead of snapping.</p>
+        <p><b>0.51.0-beta.1: group chats for bots, project handoff, web steps with sources, and ECC roles:</b> A bot with web access can search (through SearXNG, which you can run yourself) and open pages, and every step it took is shown under its reply with its sources. Bots can meet in group chats of up to six, where a bot calls on the next teammate with @Name. A project has a brief and a log, and its owner can hand it to another bot with a written brief. Each bot has one of eighteen faces from bot-avatars. Sixteen ECC skills and eight ECC agent roles (affaan-m/ecc, MIT) are built in, and a bot can start from a role. One switch pauses every routine, and all bots, groups and projects can be exported to one file and imported again without overwriting anything.</p>
+        <p><b>0.50.0-beta.1: animated backgrounds, study rewards, a video library, and on-device meeting notes:</b> Settings → Appearance has two animated backgrounds for chats and the home tab. The home tab shows a streak and XP, earned by five active minutes of quiz, coding, reading, chat, articles, workflows or flood, not by opening the app. Learn has a demo lesson that runs on this computer. Library has a Videos tab for YouTube links and a Meetings tab that transcribes audio on this device with Whisper; the first use downloads the model, and there are no speaker labels or call joining. These features were built and type-checked, and the builds pass, but they have not yet been tried in a browser.</p>
+        <p><b>0.49.0-beta.1: an authenticator for your keys, folders you can choose, and Exam in Learn:</b> Settings → Security has an authenticator lock for the key vault. Turn it on with a QR code, or type the key by hand; unlocking the vault then takes your passphrase and a 6-digit code from an app such as Google Authenticator, Stratum or Aegis. The Library shelf has two folder looks, the blue SmoothUI folder and a frosted-glass folder, and it remembers your choice. Exam mode moved from Settings to Learn, so it sits with the other study tools. The README now covers the exam, the bug finder, the backup before an update, and the authenticator, with its limits stated.</p>
+        <p><b>0.48.0-beta.1: the Tauri desktop app, exam mode, a bug finder, and safe updates:</b> Before an update starts, a copy of your database and settings is saved in your data folder under backups/, and the newest five are kept. If the copy cannot be made, the update does not start. Earlier desktop installs update in place, and your library, chats and projects stay in the data folder. Settings → Exam runs a practice civics test for 12 countries and locks ResearchEngine while it runs (it does not lock other programs). In developer mode, Alt+Shift+B picks an element and writes a bug report, with an optional screenshot. There is a Composio Connect preset in the MCP form, and new components for onboarding, the AI timeline and the tabs.</p>
+        <p><b>0.47.0-beta.2: a wallet, card customisation, and the desktop build:</b> Cards arrive as you use the app: the first quiz, and three hours of active use. Every card can be customised with a name, details, colours or a picture, and a typeface you upload (TTF, OTF, WOFF or WOFF2, up to 1 MB). Shuffle colours picks a palette and keeps the text readable. The AI-product themes (Claude, ChatGPT, Gemini and Perplexity) greet you on the home screen, with a toggle to turn it off. The session switcher stacks sessions as a deck. The resource meter and the FPS counter are off by default, and you can turn either on in Performance. The skill-creator skill is built in, and articles have a description and a cover picture. The desktop installers are built by CI from this tag.</p>
         <p><b>0.45.0-beta.1: a decision provider, the rest of React Bits, and an interface that thinks out loud and ships:</b> <b>Jev, a decision model, not a chat model:</b> TypeSafe AI's System One model is a provider of its own kind — it takes a state and typed questions and returns answers with calibrated probabilities, a choice from options you named, a score on a ladder, or a yes/no, and it cannot leave the schema. There is a Settings tab for it, and it also runs through OpenRouter as typesafe/jev-1.13 (the decision model) and typesafe/jev-router (a model router). <b>The rest of the React Bits set, written here and used:</b> every remaining micro component — bell toggle, call chip, comet dial, jelly radio, refine frame, slide commit, tear ticket, swipe row, crystalized ball, star border, infinite spiral, masked heading, flowing menu and pattern waves — is a reimplementation against the documented behaviour rather than a vendored copy; reactbits.dev is not reachable from this environment, and a provenance header that lies is worse than none. Each is wired into a surface: the agent indicator on the top bar, the update-notify switch, the agent command timings, the font-scale and density controls, the image-generating frame, a drag-to-confirm commit, the welcome screen, and the home and chat backgrounds. <b>Full Throttle runs the six design directives as one:</b> research, premium, design, prototype, sweep and ship, in order, blocking only what a missing input actually blocks. <b>The chain of thought shows as the phases it went through:</b> reading, planning, reasoning, doubting, deciding, verifying and answering, split by what the model was actually doing. <b>And:</b> every system prompt in one sorted, named list; Strix in the coding workspace; Learn (Read and Quiz renamed, with named techniques and levels); Claude and ChatGPT themes and a Replicate gradient; and Snaffy, a router over the models you already have.</p>
         <p><b>0.44.0-beta.1: sessions that run side by side, the effort each model documents, and a coding dock that shows what changed:</b> <b>Alt+Shift opens your sessions:</b> a switcher of cards moves between chats, and every chat streams on its own. A session can run in its own Docker container or VM when a task needs isolation. <b>Effort per provider:</b> the Claude levels from Anthropic's effort guide and the ChatGPT ladder from Instant to Max, with the chain of thought shown when a model exposes it. <b>Bring your chats:</b> ChatGPT and Claude exports import as sessions, read in your browser. <b>MCP and personas in one place:</b> Settings and the coding panel share one server list with a 7,729 server catalog, and the prompts that shape a model voice ship in the app. <b>Changes like a source client:</b> stage, diff, revert and commit from the coding dock.</p>
         <p><b>0.43.0-beta.1: the Perplexity round. Answers now ride a real retrieval-augmented pipeline, the model picker grows two ranking boards, and the home screen stops dropping frames:</b> <b>Quality mode runs deep multi-step research:</b> the query is parsed into an intent, split into up to three subqueries, searched in parallel, and fused into one numbered context block before the model writes a single word, with page bodies raced against a read deadline. <b>What other answer engines get wrong, fixed:</b> a citation audit strips every [n] marker outside the retrieved source set before the answer reaches you, and tells you when it removed any; sources carry trust tiers (primary, trusted, web) that drive both ranking and the answer; where sources disagree the answer says so instead of blending them; and weak grounding is disclosed rather than bluffed. <b>A dead search ladder can never fake an answer:</b> demo placeholders are not part of the pipeline at all. <b>Rankings, two boards:</b> the World board ranks live OpenRouter models, free first and then context per blended dollar, with a reason on every row; the Yours board ranks your own connection log by calls, success rate and recency, grouped per provider and model; both say plainly they are value rankings, not arena scores. <b>Faster, on fewer tokens:</b> the fused context is capped at 3200 characters, planning is deterministic so deep research adds zero extra LLM calls, and the pipeline reports its own stats. <b>The home screen keeps its frames:</b> spotlight cards write two CSS variables instead of re-rendering React per mousemove, and the aurora and the revolving text pause on a hidden tab or under reduced motion, resuming on their own.</p>
@@ -484,6 +549,37 @@ function DiagnosticsCard() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The about page's opening lines reveal as you scroll. The reveal listens to the
+ * settings pane (its nearest scrolling ancestor), not the window, so it is found
+ * on mount and the reveal is only rendered once it is known.
+ */
+function RevealIntro() {
+  const anchor = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLElement | null>(null)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let el: HTMLElement | null = anchor.current?.parentElement ?? null
+    while (el && !/(auto|scroll)/.test(getComputedStyle(el).overflowY)) el = el.parentElement
+    scroller.current = el
+    setReady(true)
+  }, [])
+  return (
+    <div ref={anchor} className="mb-6">
+      {ready && (
+        <ScrollRevealText
+          scrollContainerRef={scroller}
+          lines={[
+            'Your research stays on this machine.',
+            'Bring your own key, and only the calls you aim leave.',
+            'No account, no server to leak from.',
+          ]}
+        />
+      )}
     </div>
   )
 }

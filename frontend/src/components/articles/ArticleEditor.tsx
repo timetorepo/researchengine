@@ -1,3 +1,5 @@
+import { ButtonGroup } from '@/components/ui/uiarc/button-group/button-group'
+import { ActionButton } from '@/components/ui/uiarc/action-button/action-button'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
@@ -190,12 +192,51 @@ export function ArticleEditor() {
           <button onClick={() => navigate('/articles')} className="p-1.5 rounded-lg hover:bg-[var(--elevated)]" aria-label="Back"><ArrowLeft size={15} /></button>
           <input value={article.title} onChange={(e) => update(() => ({ title: e.target.value }))}
             className="flex-1 bg-transparent outline-none text-[17px] font-semibold min-w-0" style={{ letterSpacing: '-0.02em' }} />
-          <button onClick={() => setView('read')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
-            <Eye size={12} /> Read
-          </button>
-          <button onClick={exportMd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
-            <Download size={12} /> .md
-          </button>
+          <ButtonGroup
+            label="Document actions"
+            size="sm"
+            items={[
+              { id: 'read', label: 'Read', icon: <Eye size={12} />, onSelect: () => setView('read') },
+              { id: 'export', label: '.md', icon: <Download size={12} />, onSelect: exportMd },
+            ]}
+          />
+          <ActionButton
+            label="Save"
+            pendingLabel="Saving"
+            successLabel="Saved"
+            className="px-3 py-1.5 rounded-full text-[12px] font-medium"
+            style={{ background: 'var(--primary)', color: '#fff' }}
+            onAction={async () => { update(() => ({})) }}
+          />
+        </div>
+
+        {/* The preview card: a picture and a summary, both optional. */}
+        <div className="mb-6 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+          <textarea
+            value={article.description ?? ''}
+            onChange={(e) => update(() => ({ description: e.target.value.slice(0, 240) }))}
+            placeholder="A short description for the preview card (optional)"
+            rows={2}
+            className="w-full resize-none rounded-[12px] px-3 py-2 text-[13px] outline-none"
+            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }}
+          />
+          <div className="flex items-center gap-2">
+            {article.coverImage && <img src={article.coverImage} alt="" className="h-12 w-20 rounded-[8px] object-cover" />}
+            <label className="cursor-pointer rounded-full px-3 py-1.5 text-[12px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>
+              {article.coverImage ? 'Change picture' : 'Add picture'}
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (!f || f.size > 2 * 1024 * 1024) return
+                const r = new FileReader()
+                r.onload = () => update(() => ({ coverImage: String(r.result) }))
+                r.readAsDataURL(f)
+              }} />
+            </label>
+            {article.coverImage && (
+              <button onClick={() => update(() => ({ coverImage: undefined }))} className="text-[12px]" style={{ color: 'var(--text-3)' }}>Remove</button>
+            )}
+          </div>
         </div>
 
         <AnimatePresence initial={false}>

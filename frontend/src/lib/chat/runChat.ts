@@ -1,5 +1,7 @@
 // The send pipeline: classify → prune → shape prompt → call provider (or
 // local demo) → stream → record Flow transparency stats.
+import { inferWorkMode, type WorkMode } from '@/lib/prompts/workModes'
+import { familyById, roleText } from '@/lib/ecc/roles'
 import { nanoid } from 'nanoid'
 import type { IntegrationId } from '@/lib/integrations/registry'
 import { useStore } from '@/stores/useStore'
@@ -8,13 +10,19 @@ import { runReplicate } from './replicate'
 import { perfCaps } from '@/lib/system/performance'
 import { createFlowRun, shapeConfigFrom } from '@/lib/flow/engine'
 import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
+import { LIMITS, clip, compactToolRounds } from '@/lib/context/budget'
+import { assertBudget, recordTokens } from '@/lib/usage/guard'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
 import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
 import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
 import { packText } from '@/lib/skills/packs'
 import { freeCandidates, isFailoverWorthy, pickFreeModel, type FreeCandidate } from '@/lib/providers/free'
 import { toolSpecs, executeTool, mcpContextBlock, type ToolContext } from './tools'
+import { councilBlock, councilMembers, runCouncilMember } from './council'
 import { CODING_RULES } from '@/lib/ide/coding-rules'
+import { CODEX_FLOW, PROJECT_INSTRUCTIONS_FILE, loadProjectInstructions } from '@/lib/ide/codex-flow'
+import { UI_CARD_PROMPT } from '@/lib/uicards/spec'
+import { APP_KNOWLEDGE } from '@/lib/prompts/app-knowledge'
 import { isBuildIntent, pipelinePrompt } from '@/lib/design/directives'
 import { shieldOutbound, recordScan } from '@/lib/privacy/shield'
 import { providerById } from '@/lib/providers/registry'
@@ -25,11 +33,14 @@ import { auditCitations } from '@/lib/rag/audit'
 import { usableKey } from '@/lib/providers/keys'
 import { useUI } from '@/stores/useUI'
 import type { ChatMessage, Source } from '@/types'
+import { buildCardPayload } from '@/lib/cards/build'
 
 export interface RunOptions {
   chatId: string
+  /** Which work mode's system prompt applies. Inferred when omitted. */
+  workMode?: WorkMode
   prompt: string
-  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
+  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean; council?: boolean }
   modelOverride?: string
   overrideHistory?: ChatMessage[]
   /** Vision: images attached to this prompt. */
@@ -201,7 +212,8 @@ export async function runChat(opts: RunOptions): Promise<void> {
   const pruned = pruneContext(history, settings.flowMode, flowEnabled)
 
   const cls = classifyQuery(prompt)
-  const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality, flow: settings.flowEnabled }, settings.masterPromptOverrides)
+  const workMode = inferWorkMode({ design: opts.design, math: mode.math, project: opts.project, explicit: opts.workMode })
+  const sysBase = shapeSystemPrompt(cls, { math: mode.math, quality: mode.quality, flow: settings.flowEnabled, workMode }, settings.masterPromptOverrides)
   const customSys = settings.customSystemPrompts[mode.math ? 'math' : 'default']
   let system = customSys ? `${customSys}\n\n${sysBase}` : sysBase
   // Persona overlay: a vendored system prompt picked per chat (or as the
@@ -214,14 +226,29 @@ export async function runChat(opts: RunOptions): Promise<void> {
       if (pt) system = `# Persona (follow its voice and rules where they do not conflict with the user)\n${pt.slice(0, 8000)}\n\n${system}`
     }
   }
+  // ECC role: the default role's ECC members are picked for this question and the
+  // custom instructions, and their method is added below the base prompt.
+  {
+    const family = familyById(settings.defaultRoleId ?? '')
+    if (family) {
+      const { text } = await roleText(family, prompt, customSys ?? '')
+      if (text) system = `${system}\n\n# Role (apply its method where it fits the question)\n${clip(text, LIMITS.roleText)}`
+    }
+  }
   // Attached skill packs ride below the base prompt, capped per pack.
   if ((liveChat.skillPacks ?? []).length) {
     const texts = await Promise.all(liveChat.skillPacks!.slice(0, 3).map((id) => packText(id)))
-    const joined = texts.filter(Boolean).join('\n\n---\n\n')
+    const joined = clip(texts.filter(Boolean).join('\n\n---\n\n'), LIMITS.skillPacks)
     if (joined) system = `${system}\n\n# Attached skill packs (apply their rules while answering)\n${joined}`
   }
   // The model can hand work back to the app: markers the UI turns into chips.
-  system += `\n\n# App actions\nYou may open parts of the app for the user by emitting one marker on its own line:\n[RE:open:quiz] opens Learn\n[RE:open:read|<url>] opens a source in the reader\n[RE:open:coding] opens the coding workspace\n[RE:open:chats] opens the sessions list\nUse them only when the user would benefit, at most two per answer.`
+  // What the model knows about the app itself: its sections, its in-app markers, the
+  // coding tools, council, and connector sign-in. See lib/prompts/app-knowledge.ts.
+  system += `\n\n${APP_KNOWLEDGE}`
+
+  // Interactive cards: the model may add one ui-card block when an answer is
+  // clearer as something to explore. Plain JSON, rendered safely (lib/uicards).
+  system += `\n\n${UI_CARD_PROMPT}`
 
   // ---- real web search sources, through the RAG pipeline ----
   // Privacy Shield: in Top Secret mode nothing reaches for the web — prepareRag
@@ -253,7 +280,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
       const thinNote = rag.stats.thin
         ? ' Grounding is thin — few sources or none fully read — so say plainly where the answer rests on your own knowledge rather than the sources.'
         : ''
-      system += `\n\n${rag.context}\n\nGrounding rules: answer the user's question completely — several sentences at minimum, never just a list of links. Cite inline with [n] markers, using ONLY numbers 1–${ragSourceCount} that appear above; prefer primary and trusted sources over web-tier ones, and say which tier a claim leans on when it matters. Where sources disagree, say so instead of blending them into one confident sentence. Attribute each factual claim to a source; never state as retrieved fact anything the sources do not contain.${thinNote}`
+      system += `\n\n${clip(rag.context, LIMITS.retrieved)}\n\nGrounding rules: answer the user's question completely — several sentences at minimum, never just a list of links. Cite inline with [n] markers, using ONLY numbers 1–${ragSourceCount} that appear above; prefer primary and trusted sources over web-tier ones, and say which tier a claim leans on when it matters. Where sources disagree, say so instead of blending them into one confident sentence. Attribute each factual claim to a source; never state as retrieved fact anything the sources do not contain.${thinNote}`
       useUI.setState({ island: { kind: 'streaming', tokens: 0 } })
     } else {
       const outcome = await webSearch(prompt, perfCaps().searchResults)
@@ -289,8 +316,15 @@ export async function runChat(opts: RunOptions): Promise<void> {
     // codebase and one that confidently invents things. Loaded from the module
     // so the skill picker and this prompt can never drift apart.
     system += `\n\n${CODING_RULES}`
+    system += `\n\n${CODEX_FLOW}`
+    // The project's own instructions (AGENTS.md), when it has them: the user's
+    // rules for this codebase, read fresh on every turn so an edit takes effect at once.
+    const instructions = await loadProjectInstructions(opts.project)
+    if (instructions) {
+      system += `\n\n# Project instructions (${PROJECT_INSTRUCTIONS_FILE}, written by the user; follow them)\n${shieldOutbound(instructions).text}`
+    }
     if (opts.projectTree) {
-      const tree = shieldOutbound(opts.projectTree.slice(0, 4000))
+      const tree = shieldOutbound(clip(opts.projectTree, LIMITS.projectTree))
       if (tree.findings.length) recordScan('coding project tree', tree.findings)
       system += `\nProject files:\n${tree.text}`
     }
@@ -310,7 +344,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     system += `\n\nIf the user asks for code rather than an explanation — build me an app, write a script, make a website, fix this project, refactor that — call the start_coding_mode tool FIRST with a short project name and one line for the user, then do the work inside the coding workspace it opens. Do not ask permission to switch, and do not try to write files from a research chat: the file tools only exist there. Explaining code, answering questions about code, and reviewing a snippet do NOT need the switch.`
   }
   if (opts.preamble) system += `\n\n${opts.preamble}`
-  system += mcpContextBlock()
+  system += clip(mcpContextBlock(), LIMITS.mcpBlock)
   system += `\n\nIf you need the user's preferences or decisions (for example what to fix or refine in a project), call the ask_user tool with 2-5 focused questions instead of guessing.`
 
   // ---- connector references attached from the chatbox picker ----
@@ -343,7 +377,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (parts.length) {
       // Attached connector data is user content heading outbound — run it
       // through the Privacy Shield so secrets are redacted per the active mode.
-      const joined = shieldOutbound(parts.join('\n\n'))
+      const joined = shieldOutbound(clip(parts.join('\n\n'), LIMITS.connectorRefs))
       if (joined.findings.length) recordScan(`connector attachments (${opts.contextRefs!.length})`, joined.findings)
       system += `\n\nThe user attached these connector items to the message — use them directly:\n\n${joined.text}`
     }
@@ -469,11 +503,22 @@ export async function runChat(opts: RunOptions): Promise<void> {
       // Shield the assembled system context as a final boundary. This covers
       // generated search/MCP/project context that may not have passed through
       // an earlier content-specific path.
+      assertBudget()
       const shieldedSystem = shieldOutbound(system)
       if (shieldedSystem.findings.length) recordScan(`system context → ${providerMeta!.name}`, shieldedSystem.findings)
 
       // ---- tool-calling loop (questionnaire, connectors, search, IDE, MCP) ----
-      const toolCtx: ToolContext = { chatId, asstId, project: opts.project, projectTree: opts.projectTree, agent: opts.agent }
+      const toolCtx: ToolContext = {
+        chatId, asstId, project: opts.project, projectTree: opts.projectTree, agent: opts.agent,
+        // Each finished tool call becomes one card on the answer. The card keeps a
+        // small structured summary, never the raw output.
+        onResult: (r) => {
+          const card = buildCardPayload({ tool: r.tool, args: r.args, text: r.text, data: r.data, ok: r.ok })
+          if (!card) return
+          const msg = useStore.getState().chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === asstId)
+          useStore.getState().updateMessage(chatId, asstId, { toolCards: [...(msg?.toolCards ?? []), card].slice(-12) })
+        },
+      }
       const specs = toolSpecs(toolCtx)
       const toolsAllowed = kind === 'openai' || kind === 'gemini' || kind === 'anthropic'
       const MAX_TOOL_ROUNDS = 4
@@ -483,6 +528,34 @@ export async function runChat(opts: RunOptions): Promise<void> {
         const msg = useStore.getState().chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === asstId)
         useStore.getState().updateMessage(chatId, asstId, { toolTrace: [...(msg?.toolTrace ?? []), { tool: label, label, status }] })
       }
+      // ---- AI council (per message): other models draft, the chair writes the answer ----
+      let chairSystem = shieldedSystem.text
+      if (mode.council) {
+        const members = councilMembers(settings)
+        if (members.length === 0) {
+          useStore.getState().updateMessage(chatId, asstId, {
+            council: [{ model: '', label: 'Council', text: '', ok: false, error: 'Council is on, but no members are chosen. Pick up to four in Settings → Models.' }],
+          })
+        } else {
+          trace(`council · ${members.length} model${members.length === 1 ? '' : 's'}`, 'ok')
+          const drafts = await Promise.all(members.map((id) => runCouncilMember(id, wire, shieldedSystem.text, settings, controller.signal)))
+          useStore.getState().updateMessage(chatId, asstId, {
+            council: drafts.map((d) => ({ model: d.model, label: d.label, text: d.text, ok: d.ok, error: d.error, role: d.role })),
+          })
+          // Every member's tokens count toward this answer, so the cost is never hidden.
+          for (const d of drafts) {
+            usagePrompt += d.promptTokens
+            usageCompletion += d.completionTokens
+            if (d.reported) usageReported = true
+          }
+          const block = councilBlock(drafts)
+          if (block) {
+            const shieldedBlock = shieldOutbound(block)
+            if (shieldedBlock.findings.length) recordScan('council drafts', shieldedBlock.findings)
+            chairSystem = `${chairSystem}${shieldedBlock.text}`
+          }
+        }
+      }
       for (;;) {
         round++
         const res = await streamToCallback({
@@ -490,8 +563,8 @@ export async function runChat(opts: RunOptions): Promise<void> {
           baseUrl: pconf?.baseUrl || undefined,
           // Our own patience for this provider, in seconds, set by the user.
           timeoutMs: (settings.providerTimeouts?.[providerId] ?? 45) * 1000,
-          system: shieldedSystem.text,
-          messages: current,
+          system: chairSystem,
+          messages: round > 1 ? compactToolRounds(current) : current,
           temperature: settings.modelDefaults[model]?.temperature ?? (mode.math ? 0.2 : 0.7),
           maxTokens: Math.min(settings.modelDefaults[model]?.maxTokens ?? lengthHint(cls).maxTokens, 4000),
           signal: controller.signal,
@@ -512,7 +585,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
           const result = await executeTool({ id: tc.id, name: tc.name, arguments: tc.arguments }, toolCtx, trace)
           // Tool output re-enters the outbound conversation on the next round
           // (a file read could surface a .env secret) — shield it too.
-          const shielded = shieldOutbound(result)
+          const shielded = shieldOutbound(clip(result, LIMITS.toolResultChars))
           if (shielded.findings.length) recordScan(`tool result · ${tc.name}`, shielded.findings)
           current.push({ role: 'tool', toolCallId: tc.id, name: tc.name, content: shielded.text })
         }
@@ -547,7 +620,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (settings.freeRouting && isFailoverWorthy(status, text) && triedModels.length < 3) {
       const next = pickFreeModel(freeCandidatesNow(), triedModels)
       if (next) {
-        useStore.getState().updateMessage(chatId, asstId, { content: '', error: undefined, toolTrace: [] })
+        useStore.getState().updateMessage(chatId, asstId, { content: '', error: undefined, toolTrace: [], toolCards: [] })
         triedModels.push(next.ref)
         store.logConnection(`free://${next.provider}`, `Free routing → ${next.providerName} (${next.why})`, 0, 'ok')
         void runChat({ ...opts, modelOverride: next.ref })
@@ -583,13 +656,15 @@ function finish(
 ) {
   // The citation audit: any [n] the model wrote outside the retrieved set is
   // invented by definition, and it is stripped before the answer is shown.
+  // A stopped answer passes no text here, so audit what was already rendered.
+  const store = useStore.getState()
+  if (!text && ctx.aborted) text = store.chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === msgId)?.content ?? ''
   if (text && ctx.ragSourceCount && ctx.ragSourceCount > 0) {
     const audit = auditCitations(text, ctx.ragSourceCount)
     if (audit.removed > 0) {
       text = audit.text + `\n\n> _${audit.removed} invented citation marker${audit.removed === 1 ? '' : 's'} removed — none of the ${ctx.ragSourceCount} retrieved sources carried ${audit.removed === 1 ? 'it' : 'them'}._`
     }
   }
-  const store = useStore.getState()
   const settings = store.settings
 
   const savedTokens = Math.max(0, ctx.pruned.originalTokens - ctx.pruned.prunedTokens)
@@ -607,6 +682,7 @@ function finish(
   }
   usage.total = usage.prompt + usage.completion
   if (usage.total > 0) store.addTokensUsed(usage.total)
+  if (usage.total > 0 && !ctx.usedDemo) recordTokens(usage.total)
 
   const followUps = DEMO_FOLLOW_UPS
     .sort(() => Math.random() - 0.5)

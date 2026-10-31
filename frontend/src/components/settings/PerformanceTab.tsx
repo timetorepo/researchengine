@@ -120,6 +120,21 @@ export function PerformanceTab() {
         </div>
       </div>
 
+      {/* Display toggles. Both are off by default; each one stops its work when off. */}
+      <h3 className="text-[13px] font-semibold mb-2">Display</h3>
+      <div className="surface p-4 mb-6 flex flex-wrap items-center gap-3 text-[12.5px]" style={{ color: 'var(--text-2)' }}>
+        <span className="flex-1 min-w-[12rem]">Resource meter in the top bar (CPU and memory).</span>
+        <Button variant={settings.showResourceMeter === true ? 'solid' : 'flat'} size="sm" onClick={() => set({ showResourceMeter: !(settings.showResourceMeter === true) })}>
+          {settings.showResourceMeter === true ? 'Hide resource meter' : 'Show resource meter'}
+        </Button>
+      </div>
+      <div className="surface p-4 mb-6 flex flex-wrap items-center gap-3 text-[12.5px]" style={{ color: 'var(--text-2)' }}>
+        <span className="flex-1 min-w-[12rem]">FPS counter over the app (frames per second, live).</span>
+        <Button variant={settings.showFps === true ? 'solid' : 'flat'} size="sm" onClick={() => set({ showFps: !(settings.showFps === true) })}>
+          {settings.showFps === true ? 'Hide FPS counter' : 'Show FPS counter'}
+        </Button>
+      </div>
+
       {/* Live resource panel */}
       <h3 className="text-[13px] font-semibold mb-2 flex items-center gap-1.5">
         <Cpu size={13} style={{ color: 'var(--primary)' }} /> Live resources

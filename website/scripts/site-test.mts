@@ -18,11 +18,27 @@
  *   • the vendored files still match the digests recorded when they were
  *     vendored, and Netlify is configured to build this directory.
  */
+import { register } from 'node:module'
 import { JSDOM } from 'jsdom'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// tsx cannot load CSS, and the vendored CSS-module components import theirs.
+// The harness only needs the class names to exist; the real stylesheets are
+// compiled by the Vite build, which is what ships.
+register(
+  'data:text/javascript,' +
+    encodeURIComponent(
+      `export async function load(url, context, next) {
+         if (url.endsWith('.css')) return { format: 'module', shortCircuit: true,
+           source: 'export default new Proxy({}, { get: (_, k) => (k === "__esModule" ? false : String(k)) });' }
+         return next(url, context)
+       }`,
+    ),
+  import.meta.url,
+)
 
 const here = dirname(fileURLToPath(import.meta.url))
 const siteDir = resolve(here, '..')
@@ -282,9 +298,9 @@ async function main() {
   // (d) inline testimonials → the quotes, verbatim
   const voices = page.querySelector('#voices')
   const names = all(voices, 'button').map((b: any) => text(b))
-  check('all three names are in the sentence', ['raziqq', 'sahwiizzx', 'nail'].every((n) => names.includes(n)), names.join(', '))
-  const raziqq = all(voices, 'button').find((b: any) => text(b) === 'raziqq')
-  click(raziqq)
+  check('all three names are in the sentence', ['lyk41', 'sahwiizzx', 'muhammadnailskndr'].every((n) => names.includes(n)), names.join(', '))
+  const lyk = all(voices, 'button').find((b: any) => text(b) === 'lyk41')
+  click(lyk)
   await wait(420)
   const quoteShown = await waitFor(() => /thats cool ash/.test(text(win.document.body)), 3000)
   check('a name opens that person\'s own words', quoteShown, text(win.document.body).slice(0, 200))
@@ -293,6 +309,13 @@ async function main() {
     readFileSync(join(siteDir, 'src/data/testimonials.ts'), 'utf8').includes('THATS SO COOL') &&
       readFileSync(join(siteDir, 'src/data/testimonials.ts'), 'utf8').includes('ouuuuuuu this fire'),
   )
+  const igLinks = all(voices, 'a[href^="https://www.instagram.com/"]').map((a: any) => a.getAttribute('href'))
+  check(
+    'each Instagram-named person links to their profile',
+    ['https://www.instagram.com/lyk41/', 'https://www.instagram.com/muhammadnailskndr/'].every((h) => igLinks.includes(h)),
+    igLinks.join(', '),
+  )
+  check('the profile links open in a new tab, safely', all(voices, 'a[href^="https://www.instagram.com/"]').every((a: any) => a.target === '_blank' && /noopener/.test(a.rel)))
 
   // (e) mac terminal → the backend, typing real output
   const terminal = page.querySelector('#backend')
@@ -583,16 +606,18 @@ async function main() {
   console.log('\n[4] The download, built from this repository')
   const download = page.querySelector('#download')
   const installerLinks = all(download, 'a[href*="/releases/download/"]')
-  check('every installer button points at this version, on GitHub', installerLinks.length >= 3, `${installerLinks.length}`)
+  check('every installer button points at this version, on GitHub', installerLinks.length >= 2, `${installerLinks.length}`)
   check(
     'and at the exact asset names this release publishes',
     installerLinks.every((a: any) => a.getAttribute('href').includes(`/v${version}/`)),
     installerLinks.map((a: any) => a.getAttribute('href')).join('\n      '),
   )
-  check('Windows, Debian and AppImage are all offered', ['setup.exe', '.deb', 'AppImage'].every((k) => text(download).includes(k) || installerLinks.some((a: any) => a.getAttribute('href').includes(k))))
+  // v0.46.0-beta.1 ships the Windows installer and the Debian package; the AppImage is not part of it.
+  check('Windows and Debian are offered', ['setup.exe', '.deb'].every((k) => installerLinks.some((a: any) => a.getAttribute('href').includes(k))))
 
   const portableLinks = all(download, 'a[href^="/downloads/"]')
-  check('the portable builds are served by this site itself', portableLinks.length === 2, String(portableLinks.length))
+  const portablesOnDisk = readdirSync(join(repoDir, 'downloads')).filter((f) => f.includes(`-${version}-`) && /\.(zip|tar\.gz)$/.test(f))
+  check('the portable builds are served by this site itself, for the versions that have them', portableLinks.length === portablesOnDisk.length, `${portableLinks.length} linked, ${portablesOnDisk.length} on disk`)
   const sums = readFileSync(join(repoDir, 'downloads', 'SHA256SUMS'), 'utf8')
   check(
     'and their digests are the ones the repository publishes',
@@ -675,9 +700,14 @@ async function main() {
   // every vendored file is either used by a section or by another vendored file
   const sourceText = sourcesText
   const unused = sources.items.filter((item: any) => {
+    // A CSS module is used by the component that imports it, which is checked itself.
+    if (item.file.endsWith('.css')) return false
     const spec = item.file.replace(/^src\//, '@/').replace(/\/index\.tsx$/, '').replace(/\.tsx$/, '')
     const asFolder = item.file.replace(/^src\//, '@/')
-    return !sourceText.includes(spec) && !sourceText.includes(asFolder)
+    const base = item.file.split('/').pop().replace(/\.(tsx|ts)$/, '').replace(/\/index$/, '')
+    // Vendored components may import their siblings by a relative path.
+    const relative = new RegExp(`from\\s+['"][^'"]*/${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`)
+    return !sourceText.includes(spec) && !sourceText.includes(asFolder) && !relative.test(sourceText)
   })
   check('every vendored component is imported by the page', unused.length === 0, unused.map((u: any) => u.id).join(', '))
 

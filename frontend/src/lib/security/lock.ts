@@ -224,11 +224,36 @@ export const scopedStorage = {
     return localStorage.getItem(`${activeNamespace()}:${name}`)
   },
   setItem(name: string, value: string): void {
-    localStorage.setItem(`${activeNamespace()}:${name}`, value)
+    writeNamespaced(activeNamespace(), name, value)
   },
   removeItem(name: string): void {
     localStorage.removeItem(`${activeNamespace()}:${name}`)
   },
+}
+
+/**
+ * Writes one value under an explicit namespace. The store batches its writes
+ * (see lib/storage/deferredJson.ts) and must land each write in the namespace
+ * that was active when the change happened, not whichever is active when the
+ * batch flushes.
+ */
+export function writeNamespaced(ns: string, name: string, value: string): void {
+    const key = `${ns}:${name}`
+    try {
+      localStorage.setItem(key, value)
+    } catch (err) {
+      // Browser storage is about 5 MB. A long session can fill it; without this
+      // the store update throws and the app can break. Trim the oldest detail
+      // and retry, and tell the user what was trimmed.
+      if (!isQuotaError(err)) throw err
+      const trimmed = trimForQuota(value)
+      try {
+        localStorage.setItem(key, trimmed.value)
+        notifyStorageTrimmed(trimmed.note)
+      } catch {
+        notifyStorageTrimmed('Browser storage is full. Newer changes stay in memory until you export or clear older chats.')
+      }
+    }
 }
 
 /**
@@ -274,6 +299,8 @@ export interface WipeReport {
  * it and nowhere else.
  */
 export async function wipeEverything(): Promise<WipeReport> {
+  // Nothing batched may write back after this point (see deferredJson.ts).
+  freezePendingWrites()
   const before = localStorage.length + sessionStorage.length
   const keys = readNamespaceKeys(MAIN_NAMESPACE).length + readNamespaceKeys(GUEST_NAMESPACE).length
 
@@ -346,3 +373,12 @@ export function pinWarning(pin: string): string | null {
   if (p.length <= 4) return 'Four characters is short. Six or more holds up better.'
   return null
 }
+
+import { isQuotaError, trimForQuota } from './quota'
+import { freezePendingWrites } from '@/lib/storage/deferredJson'
+
+const STORAGE_EVENT = 'storage-trimmed'
+function notifyStorageTrimmed(note: string) {
+  try { window.dispatchEvent(new CustomEvent(STORAGE_EVENT, { detail: note })) } catch { /* no window */ }
+}
+export const STORAGE_TRIMMED_EVENT = STORAGE_EVENT

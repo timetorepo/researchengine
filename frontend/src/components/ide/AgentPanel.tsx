@@ -5,6 +5,7 @@ import {
   Sparkles, X, Square, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye,
   Plus, Send, CornerDownLeft, Bug, Hammer, Check, Search, Cpu, ChevronUp, Globe,
 } from 'lucide-react'
+import { REVIEW_PREAMBLE } from '@/lib/ide/codex-flow'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { useStore } from '@/stores/useStore'
 import { runChat, isStreamingChat, enqueuePrompt, stopStream } from '@/lib/chat/runChat'
@@ -60,6 +61,13 @@ export const INTENTS = [
     icon: Wand2,
     hint: 'Polish what exists: clarity, UX, structure, performance',
     preamble: 'INTENT: REFINE. The user wants existing code or UI made better without changing intended behaviour. Look for unclear naming, duplicated logic, awkward layout, weak hierarchy, missing states, and needless complexity. Make focused improvements, keep the diff reviewable, and list what you changed and why. Do not rewrite working code just because you would have written it differently.',
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    icon: Search,
+    hint: 'Read-only critique with path:line findings',
+    preamble: REVIEW_PREAMBLE,
   },
 ] as const
 

@@ -3,6 +3,4 @@
 User-agent: *
 Allow: /
 
-# There is nothing to disallow, and no sitemap yet: the site has no domain of
-# its own until it is pointed at one, and a sitemap full of guesses would be
-# worse than none.
+Sitemap: https://researchengine.app/sitemap.xml

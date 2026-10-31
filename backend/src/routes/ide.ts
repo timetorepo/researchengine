@@ -22,6 +22,9 @@ import { checkUrl, checkHash, getVtKey, setVtKey } from '../services/virustotal'
 import { createHash } from 'node:crypto'
 
 const EXEC_TIMEOUT_MS = 60_000
+/** The Coding settings let a person raise the limit for slow builds, up to five minutes. */
+const EXEC_TIMEOUT_MAX_MS = 300_000
+const EXEC_TIMEOUT_MIN_MS = 10_000
 const OUTPUT_CAP = 200_000
 const IMPORT_CAP = 24 * 1024 * 1024
 
@@ -507,7 +510,10 @@ export function ideRoutes(rt: Runtime) {
     // notification, and the agent is told to say the VirusTotal status out loud.
     const downloadish = /\b(git\s+clone|curl|wget|npm\s+(i|install|add)|pnpm\s+(i|install|add)|yarn\s+add|bun\s+(i|install|add)|pip3?\s+install|npx\s+create|npx\s+degit|brew\s+install)\b/.test(command)
 
-    const timeout = Math.min(body.timeoutMs ?? EXEC_TIMEOUT_MS, EXEC_TIMEOUT_MS)
+    const requested = Number(body.timeoutMs)
+    const timeout = Number.isFinite(requested) && requested > 0
+      ? Math.min(Math.max(requested, EXEC_TIMEOUT_MIN_MS), EXEC_TIMEOUT_MAX_MS)
+      : EXEC_TIMEOUT_MS
     const t0 = Date.now()
     const out = await new Promise<{ exit: number | null; stdout: string; stderr: string; timedOut: boolean }>((res) => {
       const child = spawn('/bin/sh', ['-c', command], { cwd: dir, env: scrubbedEnv(), timeout })

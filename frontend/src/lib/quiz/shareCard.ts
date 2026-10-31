@@ -267,14 +267,12 @@ export function drawShareCard(
   const gradeW = ctx.measureText(gradeText).width
   const chipW = gradeW + 40
   const chipX = W - M - chipW
-  if (opts.style === 'liquid' || opts.style === 'image') {
-    glassPanel(ctx, chipX, y, chipW, 44, 22, panelLight)
-  } else {
-    roundRect(ctx, chipX, y, chipW, 44, 22)
-    ctx.fillStyle = rgba(g.tone, 0.20)
-    ctx.fill()
-  }
-  ctx.fillStyle = opts.style === 'gradient' || opts.style === 'solid' ? ink : g.tone
+  // A solid pill in the grade's own colour, with the text picked to read on it.
+  // (The old tinted chip put yellow text on pale glass, which was unreadable.)
+  roundRect(ctx, chipX, y, chipW, 44, 22)
+  ctx.fillStyle = g.tone
+  ctx.fill()
+  ctx.fillStyle = readableOn(g.tone)
   ctx.fillText(gradeText, chipX + 20, y + 31)
   ctx.fillStyle = dark ? 'rgba(255,255,255,0.28)' : rgba(ink, 0.22)
   ctx.fillRect(M, y + 62, W - M * 2, 1)
@@ -283,19 +281,26 @@ export function drawShareCard(
   /* ---- score block ---- */
   const star = dark ? 'rgba(255,255,255,0.20)' : rgba(ink, 0.18)
   const pctText = `${data.pct}%`
+  // Geometry: the ring's inside must be wider than the number, and nothing may
+  // sit under the ring's stroke. Ring outer edge = RR + LW/2 from its centre.
+  const RR = 150, LW = 22
+  const cy = y + 176                       // ring centre
+  const blockH = 456                       // ring (+stroke) + caption + breathing room
   ctx.textAlign = 'center'
   if (opts.style === 'liquid' || opts.style === 'image') {
-    glassPanel(ctx, M, y - 20, W - M * 2, 380, 40, panelLight)
+    glassPanel(ctx, M, y - 24, W - M * 2, blockH, 40, panelLight)
   }
-  scoreRing(ctx, W / 2, y + 150, 128, data.pct, star, dark ? '#FFFFFF' : mix(opts.from, '#FFFFFF', 0.35))
+  scoreRing(ctx, W / 2, cy, RR, data.pct, star, dark ? '#FFFFFF' : mix(opts.from, '#FFFFFF', 0.35))
+  ctx.lineWidth = LW
   ctx.fillStyle = ink
-  ctx.font = FONT(800, 150)
-  ctx.fillText(pctText, W / 2, y + 205)
+  ctx.font = FONT(800, 104)
+  // Vertically centre the figures on the ring: cap height is roughly 0.72 of the size.
+  ctx.fillText(pctText, W / 2, cy + 104 * 0.36)
   ctx.font = FONT(500, 30)
   ctx.fillStyle = inkSoft
-  ctx.fillText(`${data.correct} of ${data.total} correct`, W / 2, y + 268)
+  ctx.fillText(`${data.correct} of ${data.total} correct`, W / 2, cy + RR + LW / 2 + 52)
   ctx.textAlign = 'left'
-  y += (opts.style === 'liquid' || opts.style === 'image') ? 400 : 356
+  y += blockH + 16
 
   /* ---- stat cells ---- */
   const cells: { k: string; v: string }[] = []

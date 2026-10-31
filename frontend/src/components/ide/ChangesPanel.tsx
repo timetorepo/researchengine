@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, GitCommitHorizontal, RefreshCw, Undo2 } from 'lucide-react'
-import { SlideCommit } from '@/components/ui/reactbits/micro/SlideCommit'
+import SlideCommit from '@/components/ui/reactbits/micro/SlideCommit'
 
 /**
  * The changes rail: what is changed and what is staged, a line-numbered diff
@@ -221,9 +221,9 @@ export function ChangesPanel({ project }: { project: string }) {
           </div>
           <SlideCommit
             label="Slide to commit"
-            confirmLabel="Committed"
+            doneLabel="Committed"
             disabled={busy}
-            onCommit={() => void commit()}
+            onConfirm={() => void commit()}
           />
         </div>
       )}

@@ -1,9 +1,46 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Trash2 } from 'lucide-react'
 import type { Source } from '@/types'
 // SmoothUI's AISources — the collapsed index for the same list the cards show.
 import AISources from '@/components/smoothui/ai-sources'
+
+/** The site's icon, from the same favicon service the backend uses for sources. */
+export function faviconSrc(url: string): string {
+  try {
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(url).hostname)}&sz=64`
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * The site's icon, asked for as soon as the sources are known (not when the card
+ * scrolls into view). If the icon cannot be loaded, the numbered badge stays, so
+ * a source always has a mark.
+ */
+function SourceIcon({ url, index, hue, size = 16 }: { url: string; index: number; hue: number; size?: number }) {
+  const src = faviconSrc(url)
+  const [failed, setFailed] = useState(false)
+  const badge = (
+    <span className="flex items-center justify-center rounded-[5px] text-[9px] font-bold text-white shrink-0"
+      style={{ width: size, height: size, background: `hsl(${hue} 60% 45%)` }}>{index + 1}</span>
+  )
+  if (!src || failed) return badge
+  return (
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      loading="eager"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="rounded-[5px] shrink-0 bg-white/90 object-contain"
+      style={{ width: size, height: size }}
+    />
+  )
+}
 
 export function SourceStrip({ sources, hoverId, onHover, onDelete }: {
   sources: Source[]
@@ -11,12 +48,17 @@ export function SourceStrip({ sources, hoverId, onHover, onDelete }: {
   onHover: (id: string | null) => void
   onDelete?: (id: string) => void
 }) {
-  /** The number badge, reused as the favicon in the index so the two views
-   *  are obviously the same sources. */
-  const mark = (s: Source, i: number) => (
-    <span className="flex h-4 w-4 items-center justify-center rounded-[5px] text-[9px] font-bold text-white"
-      style={{ background: `hsl(${s.faviconHue} 60% 45%)` }}>{i + 1}</span>
-  )
+  // Start the icon downloads now. The strip is drawn with the badge first, and each
+  // icon replaces it as soon as it has arrived.
+  useEffect(() => {
+    for (const s of sources) {
+      const src = faviconSrc(s.url)
+      if (src) { const img = new Image(); img.src = src }
+    }
+  }, [sources])
+
+  /** The icon in the collapsed index: the site's favicon, numbered when it is missing. */
+  const mark = (s: Source, i: number) => <SourceIcon url={s.url} index={i} hue={s.faviconHue} size={16} />
 
   return (
     <div className="mb-1">
@@ -51,10 +93,7 @@ export function SourceStrip({ sources, hoverId, onHover, onDelete }: {
             }}
           >
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-4 h-4 rounded-[5px] text-[9px] font-bold flex items-center justify-center shrink-0"
-                style={{ background: `hsl(${s.faviconHue} 60% 45%)`, color: '#fff' }}>
-                {i + 1}
-              </span>
+              <SourceIcon url={s.url} index={i} hue={s.faviconHue} size={16} />
               <span className="text-[10.5px] truncate" style={{ color: 'var(--text-3)' }}>{s.domain}</span>
             </div>
             <div className="text-[12px] font-medium leading-snug line-clamp-2" style={{ color: 'var(--text)' }}>{s.title}</div>

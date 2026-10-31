@@ -79,3 +79,72 @@ carries an `origin` marker recording the repository, the revision and the
 licence.
 
 Research Engine itself is MIT. See `LICENSE` at the repository root.
+
+## Components from Untitled UI React (MIT)
+
+`frontend/src/components/ui/untitledui/carousel-base.tsx` is the carousel from
+the open-source Untitled UI React set, Copyright (c) 2025 Untitled UI, MIT
+licence, taken from `components/application/carousel/carousel-base.tsx` at
+https://github.com/untitleduico/react. Only its import of the class-name helper
+was changed (`frontend/src/lib/cx.ts` carries the same merge behaviour). It
+depends on `embla-carousel-react` (MIT).
+
+The Untitled UI `video-player`, `calendar` and `metrics` blocks are not in that
+open-source repository, and the Untitled UI CLI that would fetch them could not
+be reached from the build environment. None of their code is in this repository.
+
+## Agent roles and skills from ECC (MIT)
+
+Source: affaan-m/ecc (Everything Claude Code), pinned at commit 76aaa77df6adc5b889e689007bf99b9a4f74af34.
+Copyright (c) 2026 Affaan Mustafa, MIT licence. Vendored: sixteen skills (`frontend/src/content/skills/upstream/`,
+catalogued in `catalog.ts`) and all 71 agent roles (`frontend/src/content/ecc/agents.ts`, metadata in `meta.ts`). Refreshed by
+`scripts/vendor-skills.mjs --only …` and `scripts/vendor-ecc-agents.mjs`. The text is upstream's, unchanged except
+for a length cap on the agent roles, which is marked in the text.
+
+## bot-avatars (MIT)
+
+Source: Libraries.dev by Jakub Antalik (https://libraries.dev/bots), npm package `bot-avatars` 0.2.2, MIT licence.
+Used for the drawn faces of Bots.
+
+
+## Agent harness design, from DeepSeek Harness and Cordis (MIT)
+
+The agent harness in `backend/src/harness/` follows the architecture of
+DeepSeek Harness: a plugin kernel in which every capability is a plugin that
+claims a stable service key, boot profiles that choose which plugins stack, an
+append-only session log, and a minimal tool set.
+
+- **DeepSeek Harness**, https://github.com/deepseek-ai/deepseek-harness,
+  Copyright (c) 2026 DeepSeek, MIT licence.
+- **Cordis**, the plugin kernel it is built on, by Shigma,
+  https://github.com/shigma/cordis (vendored by DeepSeek Harness under
+  `vendor/cordis`), Copyright (c) 2021-present Shigma, MIT licence.
+
+The kernel in `backend/src/harness/kernel.ts` is an independent, smaller
+TypeScript implementation of the ideas above. It does not copy Cordis's source.
+The DeepSeek Harness MIT licence text is reproduced below, as its copyright
+notice requires.
+
+```
+MIT License
+
+Copyright (c) 2026 DeepSeek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

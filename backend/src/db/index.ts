@@ -3,6 +3,7 @@
 //   2. node:sqlite — built into Node 22.5+ / 20.19+, zero native modules,
 //      which keeps portable builds persistent on Windows/macOS/Linux alike
 //   3. in-memory store, so the backend still runs everywhere else
+import { rmSync } from 'node:fs'
 import * as schema from './schema'
 
 const MIGRATION = `
@@ -165,6 +166,23 @@ export const db = {
 
 function safeJson<T>(text: string, fallback: T): T {
   try { return JSON.parse(text) as T } catch { return fallback }
+}
+
+/**
+ * A consistent copy of the database, written to `target` with SQLite's own
+ * `VACUUM INTO` (it reads through the WAL, so the copy includes every committed
+ * write even while the server is running). The in-memory fallback has no file,
+ * so it reports that instead of pretending to have saved anything.
+ */
+export function snapshotDatabase(target: string): { ok: boolean; engine: string; error?: string } {
+  if (!sqlite) return { ok: false, engine: 'memory', error: 'the library is in memory only, so there is no database file to copy' }
+  try {
+    rmSync(target, { force: true })
+    sqlite.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`)
+    return { ok: true, engine }
+  } catch (e) {
+    return { ok: false, engine, error: (e as Error).message }
+  }
 }
 
 export function dbStats() {

@@ -19,7 +19,7 @@ import { useId, useState } from "react";
 import type { AIState } from "../ai-core";
 import AILoader from "../ai-loader";
 import AIPromptInput from "../ai-prompt-input";
-import { RefineFrame } from "@/components/ui/reactbits/micro/RefineFrame";
+import RefineFrame from "@/components/ui/reactbits/micro/RefineFrame";
 
 /* -------------------------------------------------------------------------- */
 /* Motion + layout constants                                                  */
@@ -235,7 +235,7 @@ const EmptyTile = ({
   // frame with a refining sweep, which says "an image is coming" rather than
   // "the app is busy". The shimmer it replaces said the same thing less clearly.
   if (isQueued) {
-    return <RefineFrame label="Generating" />;
+    return <RefineFrame status="generating" labels={{ generating: "Generating" }} />;
   }
   return (
     <div

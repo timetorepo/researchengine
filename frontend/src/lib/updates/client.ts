@@ -277,13 +277,25 @@ export function useUpdates(options: { autoCheck?: boolean } = {}) {
     return () => window.clearInterval(id)
   }, [status?.progress?.phase, busy, refreshStatus])
 
-  // One quiet check when the app opens (unless the user turned it off).
+  // One quiet check when the app opens (unless the user turned it off). When the
+  // person also chose "download on launch", a newer release is downloaded and verified
+  // here, but only for the portable build, where the same download path the button
+  // uses ends at "Restart now". Nothing is installed or restarted without a press.
   const checkedOnce = useRef(false)
   useEffect(() => {
     if (checkedOnce.current || options.autoCheck === false) return
     checkedOnce.current = true
-    const id = window.setTimeout(() => { void runCheck(false) }, 2500)
+    const id = window.setTimeout(async () => {
+      const next = await runCheck(false)
+      if (!next?.available) return
+      if (useStore.getState().settings.updates?.autoDownload !== true) return
+      const s = await refreshStatus()
+      if (!s || s.pending || !s.canSelfUpdate || s.kind !== 'portable') return
+      if (['downloading', 'verifying', 'extracting', 'swapping'].includes(s.progress?.phase ?? '')) return
+      await install()
+    }, 2500)
     return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.autoCheck, runCheck])
 
   /** Restart into the version that is already on disk (then reload the page). */

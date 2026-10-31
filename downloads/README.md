@@ -4,22 +4,22 @@ Ready-to-run builds ship inside the source archive itself (release-asset
 uploads are not available from every build environment). Both archives are
 pure-JS portable builds: the only requirement on your machine is Node.js.
 
-Prefer an installer? **0.44.0-beta.1** also ships the **Tauri desktop app** — Windows
+Prefer an installer? **1.1.0** also ships the **Tauri desktop app** — Windows
 gets a per-user `setup.exe` (no Node, no Electron, WebView2 fetched
-automatically) and Linux a `.deb`/`.AppImage`. There is no macOS build. CI builds them from
-this tag and attaches them to the release you are reading:
+automatically) and Linux a `.deb`. There is no macOS build and no AppImage in this
+release. CI builds them from this tag and attaches them to the release:
 
 | Installer | Platform | Size |
 |---|---|---|
-| `Research.Engine_0.44.0-beta.1_x64-setup.exe` | Windows 10/11 x64 (per-user) | built by CI from this tag |
-| `Research.Engine_0.44.0-beta.1_amd64.deb` | Debian/Ubuntu x64 | built by CI from this tag |
-| `Research.Engine_0.44.0-beta.1_amd64.AppImage` | any x64 Linux | built by CI from this tag |
+| `Research.Engine_1.1.0_x64-setup.exe` | Windows 10/11 x64 (per-user) | 61.8 MB |
+| `Research.Engine_1.1.0_amd64.deb` | Debian/Ubuntu x64 | 76.9 MB |
 
-Their hashes are recorded in `INSTALLERS.sha256` in this folder, and every one
-of them is **GitHub's own sha256 digest for the uploaded asset**, read back from
-the release API (`digest` on the asset), not a hash of a local build folder that
-could have drifted. A freshly built
-installer is never claimed here before it exists.
+Their hashes are recorded in `INSTALLERS.sha256` in this folder. For releases up
+to 1.0.1 every one of them is **GitHub's own sha256 digest for the uploaded asset**,
+read back from the release API (`digest` on the asset). For 1.1.0 the release API
+returned no digest for either asset, so those two hashes are the ones the release
+workflow printed when it built and attached them. They are not read back from the
+release. A freshly built installer is never claimed here before it exists.
 
 See `desktop/README.md` for how the shell boots the local server, and
 `.github/workflows/desktop.yml` for the build.

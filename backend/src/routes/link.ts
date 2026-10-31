@@ -20,6 +20,7 @@
  * preview must not become a way to read a machine's own network.
  */
 import { Hono } from 'hono'
+import { BoundedMap } from '../services/boundedMap'
 
 export const linkRoutes = new Hono()
 
@@ -47,8 +48,8 @@ interface Preview {
   reason?: string
 }
 
-const cache = new Map<string, Preview>()
-const robotsCache = new Map<string, { allow: string[]; disallow: string[]; at: number }>()
+const cache = new BoundedMap<string, Preview>(300)
+const robotsCache = new BoundedMap<string, { allow: string[]; disallow: string[]; at: number }>(300)
 
 /** Refuse anything that is not a public http(s) address. */
 function parseTarget(raw: string): URL | null {

@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/heroui/Button'
 import { smoothCaretProps } from '@/components/input/SmoothText'
 import HoldButton from '@/components/ui/reactbits/micro/HoldButton'
-import { BellToggle } from '@/components/ui/reactbits/micro/BellToggle'
+import BellToggle from '@/components/ui/reactbits/micro/BellToggle'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -16,6 +16,7 @@ import { useRunningVersion } from '@/lib/appVersion'
 import { ChangelogPanel } from '@/components/settings/ChangelogPanel'
 import { CHANGELOG } from '@/lib/updates/changelog'
 import { History } from 'lucide-react'
+import { saveNotice, updateNotice, warnNotice } from '@/stores/useNotices'
 
 /**
  * Settings → Updates.
@@ -36,6 +37,7 @@ export function UpdatesTab() {
   const version = useRunningVersion()
   const update = (patch: any) => useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
   const autoCheck = settings.updates?.autoCheck !== false
+  const autoDownload = settings.updates?.autoDownload === true
   const { status, check, error, notice, busy, refreshStatus, runCheck, install, installFromFile, restart, setError } =
     useUpdates({ autoCheck: false })
   const [checking, setChecking] = useState(false)
@@ -73,8 +75,8 @@ export function UpdatesTab() {
     const result = await runCheck(true)
     setChecking(false)
     setJustChecked(true)
-    if (result?.available) toast('Update available', `${result.latest} is out — you are on ${result.current}.`, 'success')
-    else if (result) toast('Up to date', `You are running the newest release (${result.current}).`, 'success')
+    if (result?.available) updateNotice('Update available', `${result.latest} is out — you are on ${result.current}.`)
+    else if (result) saveNotice('Up to date', `You are running the newest release (${result.current}).`)
   }
 
   const doInstall = async () => {
@@ -103,7 +105,7 @@ export function UpdatesTab() {
       const res = await fetch('/api/update/rollback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body?.error ?? 'rollback failed')
-      toast('Rolled back', 'The previous version is on disk again — restart to run it.', 'success')
+      warnNotice('Rolled back', 'The previous version is on disk again — restart to run it.')
       await refreshStatus()
     } catch (e: any) {
       setError(String(e?.message ?? e))
@@ -409,7 +411,7 @@ export function UpdatesTab() {
             </div>
           </div>
           <BellToggle
-            on={autoCheck}
+            pressed={autoCheck}
             onChange={(v) => update({ updates: { ...(settings.updates ?? {}), autoCheck: v } })}
             label="Notify me of updates"
           />
@@ -418,8 +420,19 @@ export function UpdatesTab() {
           checked={autoCheck}
           onChange={(v) => update({ updates: { ...(settings.updates ?? {}), autoCheck: v } })}
           label="Check quietly when the app opens"
-          description="One request to GitHub. Nothing is ever downloaded or installed without you pressing the button."
+          description="One request to GitHub when the app opens."
         />
+        <div className="mt-3">
+          <Switch
+            checked={autoDownload}
+            disabled={!autoCheck}
+            onChange={(v) => update({ updates: { ...(settings.updates ?? {}), autoDownload: v } })}
+            label="Download updates on launch"
+            description={kind === 'portable'
+              ? 'When a newer release is found on launch, it is downloaded and verified in the background. It is installed only when you press Restart now.'
+              : 'Only for the portable build. The desktop app and source checkouts keep the download button.'}
+          />
+        </div>
         {!canSelfUpdate && kind === 'checkout' && (
           <p className="text-[11.5px] mt-3" style={{ color: 'var(--text-3)' }}>
             In a source checkout the updater still tells you when something newer exists. Run the packaged build

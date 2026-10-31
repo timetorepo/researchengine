@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import { openMarketplace } from '@/lib/composio/sync'
 import { fuzzy } from '@/lib/utils'
 
 type Kind = 'Command' | 'Chat' | 'Article' | 'Document' | 'Quiz' | 'Space' | 'Skill' | 'Integration' | 'Workflow' | 'Recent'
@@ -97,7 +98,7 @@ export function CommandPalette() {
     }))
     const intItems: Item[] = Object.entries(integrations).map(([k, v]) => ({
       id: `int-${k}`, label: `Integration — ${k}`, sub: v.connected ? 'Connected' : 'Not connected', icon: Plug, kind: 'Integration',
-      run: () => { ui.set({ settingsOpen: true, settingsTab: 'integrations' }); navigate('/settings') }, score: 0,
+      run: () => { ui.set({ connectorsTab: 'builtin' }); openMarketplace() }, score: 0,
     }))
     const workflowItems: Item[] = workflows.map((w) => ({
       id: `wf-${w.id}`, label: w.name, sub: `${w.nodes.length} nodes`, icon: WorkflowIcon, kind: 'Workflow',
