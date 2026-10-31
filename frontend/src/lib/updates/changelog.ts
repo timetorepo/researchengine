@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 50 versions, 1.3.0 back to 0.10.0.
+ * 51 versions, 1.4.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,69 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.4.0",
+    "tag": "v1.4.0",
+    "name": "Interactive answers, a coding task loop, an agent harness, usage and council roles",
+    "date": "2026-10-31",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.4.0",
+    "summary": "Installers are built by the release workflow; their digests follow in downloads/INSTALLERS.sha256.",
+    "sections": [
+      {
+        "title": "1.4.0 — Interactive answers, a coding task loop, an agent harness, usage and council roles",
+        "items": [
+          {
+            "label": "Interactive answer cards",
+            "text": "An answer can include a card you can explore. Cards are checked and clipped, never run scripts, and only link to https addresses."
+          },
+          {
+            "label": "Coding task loop",
+            "text": "In a coding project the assistant works in small steps, with a read-only Review intent. Each new project starts with an AGENTS.md file for your own rules."
+          },
+          {
+            "label": "Agent harness (a subset)",
+            "text": "A plugin kernel with tools, a session log with fork and search, a model client and an agent loop, behind /api/harness. A reimplemented subset of DeepSeek Harness; MIT notices are kept."
+          },
+          {
+            "label": "Clearer connector failures",
+            "text": "When Pipedream cannot sign you in, the message says why, and apps that need your own OAuth client are named as such."
+          },
+          {
+            "label": "Download updates on launch",
+            "text": "Settings → Updates: a newer portable release is downloaded and verified on launch. It installs only when you press Restart now."
+          },
+          {
+            "label": "A shorter Settings rail",
+            "text": "Tabs are grouped, and the rarely used ones sit behind one Advanced toggle. Tab names are unchanged."
+          },
+          {
+            "label": "The assistant knows the app",
+            "text": "It knows the settings sections, its in-app actions, the coding tools, council and connector sign-in, and it does not invent controls."
+          },
+          {
+            "label": "Skills from GitHub",
+            "text": "Paste a GitHub folder link in Settings → Skills. The files are scanned before anything is saved."
+          },
+          {
+            "label": "Council roles",
+            "text": "Each member can be a Researcher, a Critic or a Drafter, and the chair weighs the drafts by role."
+          },
+          {
+            "label": "Usage page",
+            "text": "Settings → Usage shows tokens per day for the last year as a column chart."
+          },
+          {
+            "label": "Fixes",
+            "text": "A failed-connect message is no longer hidden under the top bar. Accordion separators are grey. Focus rings show only while you browse with arrow keys."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 11,
+      "sections": 1
+    }
+  },
   {
     "version": "1.3.0",
     "tag": "v1.3.0",

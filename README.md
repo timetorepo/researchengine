@@ -7,7 +7,7 @@
 
 **Search, read, study, write, code and design, with every page, note, quiz and draft staying on your machine.**
 
-[![Release](https://img.shields.io/badge/release-v1.3.0-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v1.4.0-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#your-work-stays-yours)
@@ -47,6 +47,7 @@ You do not need to be technical. For real AI answers you need one thing: an acco
 
 The last few releases, newest first. Full notes are on the [releases page](https://github.com/timetorepo/researchengine/releases).
 
+- **1.4.0: Interactive answers, a coding task loop, an agent harness, usage and council roles.** Answers can include cards you can explore. Coding projects start with an AGENTS.md file and a read-only Review intent. An agent harness (a subset of DeepSeek Harness) sits behind /api/harness. Settings is grouped, has a Usage page, and can download updates on launch.
 - **1.3.0: Connectors get a sign-in tracker, Pipedream, and council mode.** Closing a sign-in window now fails the connect with a clear message, on the desktop app too, and a finished sign-in closes its own window instead of opening a second copy of Research Engine. Pipedream is a second connector provider next to Composio. Council mode asks up to four models and writes one answer, and local models can be downloaded from Hugging Face.
 - **1.2.0: Liquid Glass that bends, a Marketplace, a CRM, and more search.** Liquid Glass refracts the chatbox, the Dynamic Island and toasts. It is off by default, in Settings → Appearance. Connecting apps moved to the Marketplace, where each app has its own page with its tools. A CRM page reads your Twenty records, and Firecrawl and Crawl4AI join search. Chats has a gooey switch you can turn into plain tabs.
 - **1.1.0: animated backgrounds, a session switcher, and built-in services.** The session switcher is a card deck you open from the top bar or with Alt+Shift. Chats has a new kind switch, and fourteen ReactBits backgrounds sit behind every screen. Connectors has a Connected tab that follows connects and disconnects, and Library videos take timeline notes from you or the AI. OpenSEO, VoiceStudio, Twenty and Postiz are built in under Settings → Services, and OpenWhispr supplies dictation. Postiz only creates drafts, so nothing is published from the agent. The technical handbook is in `docs/technical/`.

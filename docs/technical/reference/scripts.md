@@ -84,6 +84,7 @@
 | `local-council-test` | `tsx --tsconfig tsconfig.json scripts/local-council-test.mts` |
 | `cards-doc` | `tsx scripts/cards-doc.mts --check` |
 | `signin-client-test` | `tsx scripts/signin-client-test.mts` |
+| `dot-stat-test` | `tsx --tsconfig tsconfig.json scripts/dot-stat-test.mts` |
 
 ## backend (`backend/package.json`)
 
@@ -96,6 +97,8 @@
 | `signin-flights-test` | `tsx scripts/signin-flights-test.ts` |
 | `pipedream-test` | `tsx scripts/pipedream-test.ts` |
 | `harness-test` | `tsx scripts/harness-test.ts` |
+| `github-skill-test` | `tsx scripts/github-skill-test.ts` |
+| `signin-error-test` | `tsx scripts/signin-error-test.ts` |
 
 ## desktop (`desktop/package.json`)
 
