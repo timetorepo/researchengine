@@ -137,7 +137,7 @@ export function HomeScreen() {
             slot width instead of being clipped, and the line scales down rather
             than wrapping (which used to shove the composer south). */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.base, ease: EASE_OUT }}>
-          <PaintedBackdrop src="/art/home-hero.jpg" webp="/art/home-hero.webp" focus="50% 60%" strength={0.7}
+          <PaintedBackdrop src="/art/home-hero.jpg" focus="50% 62%" strength={1}
             className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center">
             <RevolvingText
               items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}

@@ -157,3 +157,12 @@ Copied into `frontend/src/components/ui/paceui/` and `frontend/src/components/ui
 | --- | --- | --- |
 | Pace UI: text-fall-button, spring-button, fillable-button, scramble-text, tilt-card, liquid-glass, dot-loader, ai-token-counter, reveal-on-scroll, layered-stack | https://github.com/paceui/paceui (Copyright (c) 2026 Denish Navadiya) | MIT |
 | easeUI: tool-approval, diff-view, reasoning-disclosure, tool-chip, agent-loading-states, pixel-loader, morphing-search, number-ticker, gradient-text, hold-to-confirm (plus progress and ease tokens) | https://github.com/rjcuff/easeui (Copyright (c) 2026 Ryan Cuff, portions Copyright (c) 2026 Saurabh Chauhan) | MIT |
+
+## Painted backdrop artwork
+
+Both paintings are public-domain works, found on Wikimedia Commons. They are not AI-generated.
+
+| File | Work | Source | Licence |
+| --- | --- | --- | --- |
+| `frontend/public/art/home-hero.jpg` | Joseph Wright of Derby (1734–1797), *A Philosopher Giving a Lecture on the Orrery* (1766) | https://commons.wikimedia.org/wiki/File:Joseph_Wright_of_Derby_-_Philosopher_giving_a_lecture_on_the_orrery_-_Google_Art_Project.jpg | Public domain |
+| `frontend/public/art/codersa-backdrop.jpg` | Georges de La Tour (1593–1652), *Saint Joseph the Carpenter* (c. 1642) | https://commons.wikimedia.org/wiki/Category:Joseph_the_Carpenter_by_Georges_de_La_Tour | Public domain |
