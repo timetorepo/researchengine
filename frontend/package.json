@@ -57,7 +57,8 @@
     "heroui-css": "node scripts/heroui-v3-css.mjs",
     "local-council-test": "tsx --tsconfig tsconfig.json scripts/local-council-test.mts",
     "cards-doc": "tsx scripts/cards-doc.mts --check",
-    "signin-client-test": "tsx scripts/signin-client-test.mts"
+    "signin-client-test": "tsx scripts/signin-client-test.mts",
+    "dot-stat-test": "tsx --tsconfig tsconfig.json scripts/dot-stat-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
