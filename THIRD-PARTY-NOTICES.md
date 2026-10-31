@@ -160,9 +160,9 @@ Copied into `frontend/src/components/ui/paceui/` and `frontend/src/components/ui
 
 ## Painted backdrop artwork
 
-Both paintings are public-domain works, found on Wikimedia Commons. They are not AI-generated.
+Both paintings are public-domain landscapes from Wikimedia Commons and its linked collections. They are not AI-generated.
 
 | File | Work | Source | Licence |
 | --- | --- | --- | --- |
-| `frontend/public/art/home-hero.jpg` | Joseph Wright of Derby (1734–1797), *A Philosopher Giving a Lecture on the Orrery* (1766) | https://commons.wikimedia.org/wiki/File:Joseph_Wright_of_Derby_-_Philosopher_giving_a_lecture_on_the_orrery_-_Google_Art_Project.jpg | Public domain |
-| `frontend/public/art/codersa-backdrop.jpg` | Georges de La Tour (1593–1652), *Saint Joseph the Carpenter* (c. 1642) | https://commons.wikimedia.org/wiki/Category:Joseph_the_Carpenter_by_Georges_de_La_Tour | Public domain |
+| `frontend/public/art/home-hero.jpg` | Thomas Cole (1801–1848), *The Oxbow* (1836), Metropolitan Museum of Art | https://artincontext.org/the-oxbow-by-thomas-cole/ (image of the public-domain painting) | Public domain |
+| `frontend/public/art/codersa-backdrop.jpg` | Frederic Edwin Church (1826–1900), *Twilight in the Wilderness* (1860), Cleveland Museum of Art | https://en.wikipedia.org/wiki/Frederic_Edwin_Church | Public domain |

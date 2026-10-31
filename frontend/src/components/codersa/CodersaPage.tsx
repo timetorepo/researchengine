@@ -119,7 +119,7 @@ export function CodersaPage() {
           {isNew && c.items.length === 0 ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="mx-auto max-w-[620px] px-6 pt-[9vh] pb-8 text-center">
-                <PaintedBackdrop src="/art/codersa-backdrop.jpg" focus="50% 40%" strength={0.95}
+                <PaintedBackdrop src="/art/codersa-backdrop.jpg" focus="50% 45%" strength={0.9}
                   className="px-6 pt-8 pb-7">
                   <div className="flex justify-center mb-5"><CodersaMascot state={mascot} size={96} /></div>
                   <h1 className="text-[26px] font-semibold tracking-tight">What should we build?</h1>
