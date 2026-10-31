@@ -1,5 +1,6 @@
 import React, { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, GitFork, Loader2, ShieldAlert, AlertTriangle, Terminal } from 'lucide-react'
+import { ToolChip } from '@/components/ui/easeui/tool-chip'
+import { Check, ChevronDown, ChevronRight, GitFork, AlertTriangle, Terminal } from 'lucide-react'
 import { Markdown } from '@/components/chat/Markdown'
 import { clipOutput, summarizeArgs, type Item, type ToolItem } from '@/lib/codersa/timeline'
 import type { Outcome } from './useCodersa'
@@ -103,20 +104,15 @@ const ToolCard = memo(function ToolCard({ item }: { item: ToolItem }) {
   const clipped = useMemo(() => clipOutput(item.output ?? ''), [item.output])
   const summary = summarizeArgs(item.name, item.args)
   const label = TOOL_LABEL[item.name] ?? item.name
-  const icon = item.status === 'running'
-    ? <Loader2 size={14} className="animate-spin" style={{ color: 'var(--text-3)' }} />
-    : item.status === 'refused'
-      ? <ShieldAlert size={14} style={{ color: 'var(--warn, #d59b1c)' }} />
-      : <Check size={14} style={{ color: 'var(--success, #2f9e5b)' }} />
+  // ToolChip shows the state as a crossfading mark; a refused call keeps its own shield icon.
+  const chipStatus = item.status === 'running' ? 'running' : item.status === 'refused' ? 'error' : 'done'
 
   return (
     <div className="codersa-item codersa-enter rounded-[14px] overflow-hidden"
       style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open}
         className="w-full flex items-center gap-2.5 px-3 py-2 text-left min-w-0 hover:bg-[var(--elevated)] transition-colors">
-        <span className="shrink-0 flex items-center justify-center w-4">{icon}</span>
-        <span className="shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-[6px]"
-          style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>{label}</span>
+        <span className="shrink-0"><ToolChip label={label} status={chipStatus} /></span>
         <span className="flex-1 min-w-0 truncate font-mono text-[12px]" style={{ color: 'var(--text-2)' }}>{summary || '—'}</span>
         {open ? <ChevronDown size={13} style={{ color: 'var(--text-3)' }} /> : <ChevronRight size={13} style={{ color: 'var(--text-3)' }} />}
       </button>

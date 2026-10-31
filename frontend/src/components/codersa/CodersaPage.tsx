@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, FolderGit2, Settings2, Sparkles, X } from 'lucide-react'
+import { PaintedBackdrop } from '@/components/backgrounds/PaintedBackdrop'
 import { CodersaMascot, type MascotState } from './CodersaMascot'
 import { PanelLeft } from 'lucide-react'
 import { CodingTabs } from './CodingTabs'
@@ -118,21 +119,24 @@ export function CodersaPage() {
           {isNew && c.items.length === 0 ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="mx-auto max-w-[620px] px-6 pt-[9vh] pb-8 text-center">
-                <div className="flex justify-center mb-5"><CodersaMascot state={mascot} size={96} /></div>
-                <h1 className="text-[26px] font-semibold tracking-tight">What should we build?</h1>
-                <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
-                  Codersa reads, changes and tests code in a project folder you choose. Pick a project below, then say what you need.
-                </p>
-                <div className="mt-7 grid gap-2 text-left">
-                  {SUGGESTIONS.map((s) => (
-                    <button key={s} onClick={() => pick(s)}
-                      className="group flex items-center gap-3 rounded-[14px] px-4 py-3 text-left text-[13px] transition-colors hover:bg-[var(--elevated)]"
-                      style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}>
-                      <Sparkles size={14} className="shrink-0" style={{ color: 'var(--primary)' }} />
-                      <span className="flex-1">{s}</span>
-                    </button>
-                  ))}
-                </div>
+                <PaintedBackdrop src="/art/codersa-backdrop.jpg" webp="/art/codersa-backdrop.webp" focus="50% 45%" strength={0.6}
+                  className="px-6 pt-8 pb-7">
+                  <div className="flex justify-center mb-5"><CodersaMascot state={mascot} size={96} /></div>
+                  <h1 className="text-[26px] font-semibold tracking-tight">What should we build?</h1>
+                  <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                    Codersa reads, changes and tests code in a project folder you choose. Pick a project below, then say what you need.
+                  </p>
+                  <div className="mt-7 grid gap-2 text-left">
+                    {SUGGESTIONS.map((s) => (
+                      <button key={s} onClick={() => pick(s)}
+                        className="group flex items-center gap-3 rounded-[14px] px-4 py-3 text-left text-[13px] transition-colors hover:bg-[var(--elevated)]"
+                        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}>
+                        <Sparkles size={14} className="shrink-0" style={{ color: 'var(--primary)' }} />
+                        <span className="flex-1">{s}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PaintedBackdrop>
               </div>
             </div>
           ) : (

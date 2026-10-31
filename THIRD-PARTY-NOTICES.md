@@ -148,3 +148,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Pace UI and easeUI components
+
+Copied into `frontend/src/components/ui/paceui/` and `frontend/src/components/ui/easeui/`, with imports adapted to this app. Both are MIT-licensed.
+
+| Component set | Upstream | License |
+| --- | --- | --- |
+| Pace UI: text-fall-button, spring-button, fillable-button, scramble-text, tilt-card, liquid-glass, dot-loader, ai-token-counter, reveal-on-scroll, layered-stack | https://github.com/paceui/paceui (Copyright (c) 2026 Denish Navadiya) | MIT |
+| easeUI: tool-approval, diff-view, reasoning-disclosure, tool-chip, agent-loading-states, pixel-loader, morphing-search, number-ticker, gradient-text, hold-to-confirm (plus progress and ease tokens) | https://github.com/rjcuff/easeui (Copyright (c) 2026 Ryan Cuff, portions Copyright (c) 2026 Saurabh Chauhan) | MIT |

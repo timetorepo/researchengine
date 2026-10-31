@@ -18,6 +18,7 @@ import { themeKind } from '@/lib/themes/meta'
 import { wallpaperOf } from '@/lib/wallpapers'
 import { beginHandoff, HANDOFF_BLUR_MS, EASE_OUT, EASE, DUR } from '@/lib/ui/handoff'
 import { ImageLab } from '@/components/home/ImageLab'
+import { PaintedBackdrop } from '@/components/backgrounds/PaintedBackdrop'
 import { RevolvingText } from './RevolvingText'
 import { StreakCard } from '@/components/activity/StreakCard'
 import { AIThemeWelcome } from './AIThemeWelcome'
@@ -135,14 +136,17 @@ export function HomeScreen() {
         {/* Research / build / challenge hero — the rotating word morphs its
             slot width instead of being clipped, and the line scales down rather
             than wrapping (which used to shove the composer south). */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.base, ease: EASE_OUT }} className="text-center">
-          <RevolvingText
-            items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
-            prefix="What do you want to"
-            suffix="Today?"
-            maxFontPx={46}
-            intervalMs={2200}
-          />
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.base, ease: EASE_OUT }}>
+          <PaintedBackdrop src="/art/home-hero.jpg" webp="/art/home-hero.webp" focus="50% 60%" strength={0.7}
+            className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center">
+            <RevolvingText
+              items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
+              prefix="What do you want to"
+              suffix="Today?"
+              maxFontPx={46}
+              intervalMs={2200}
+            />
+          </PaintedBackdrop>
         </motion.div>
 
         {/* Input */}
