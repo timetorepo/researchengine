@@ -44,6 +44,7 @@
     "cards-test": "tsx --tsconfig tsconfig.json scripts/cards-test.mts",
     "ui-card-test": "tsx --tsconfig tsconfig.json scripts/ui-card-test.mts",
     "codex-flow-test": "tsx --tsconfig tsconfig.json scripts/codex-flow-test.mts",
+    "codersa-test": "tsx --tsconfig tsconfig.json scripts/codersa-test.mts",
     "ui-card-render-test": "tsx --tsconfig tsconfig.json scripts/ui-card-render-test.tsx",
     "bots-ui-test": "tsx --tsconfig tsconfig.json scripts/bots-ui-test.mts",
     "context-budget-test": "tsx --tsconfig tsconfig.json scripts/context-budget-test.mts",

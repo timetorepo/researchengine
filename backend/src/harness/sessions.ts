@@ -6,7 +6,8 @@
  * The log holds what was said and done. It never holds an API key: `append`
  * refuses any event carrying a key-looking field.
  */
-import { appendFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { definePlugin } from './kernel'
@@ -33,6 +34,8 @@ export interface SessionSummary {
   id: string
   title: string
   profile: string
+  /** The project folder the session works in, or null for a chat-only session. */
+  workspace: string | null
   createdAt: number
   updatedAt: number
   events: number
@@ -76,9 +79,59 @@ export function createSessionStore(dataDir: string): SessionStore {
       id,
       title: head?.title || 'Untitled session',
       profile: head?.profile || 'minimal',
+      workspace: head?.workspace ?? null,
       createdAt: head?.t ?? 0,
       updatedAt: last?.t ?? head?.t ?? 0,
       events: events.length,
+      forkedFrom: head?.forkedFrom,
+    }
+  }
+
+  /**
+   * The list view's summary without reading the whole log: the header is the
+   * first line (parsed alone), the event count is the number of newlines
+   * streamed through in fixed-size chunks, and the last-updated time is the
+   * file's mtime. Memory stays flat however long the sessions are.
+   */
+  const summarizeFile = async (id: string): Promise<SessionSummary | null> => {
+    const path = pathFor(id)
+    const info = await stat(path).catch(() => null)
+    if (!info) return null
+    let lines = 0
+    let first = ''
+    let sawFirst = false
+    await new Promise<void>((resolve) => {
+      const stream = createReadStream(path, { encoding: 'utf8', highWaterMark: 64 * 1024 })
+      stream.on('data', (chunk: string | Buffer) => {
+        const text = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+        let from = 0
+        for (;;) {
+          const nl = text.indexOf('\n', from)
+          if (nl < 0) break
+          if (!sawFirst) { first += text.slice(from, nl); sawFirst = true }
+          lines++
+          from = nl + 1
+        }
+        if (!sawFirst && first.length < 16 * 1024) first += text.slice(from)
+      })
+      stream.on('error', () => resolve())
+      stream.on('end', () => {
+        // A last line without a trailing newline still counts as an event.
+        if (!sawFirst && first) { sawFirst = true; lines = Math.max(lines, 1) }
+        resolve()
+      })
+    })
+    let head: SessionEvent | undefined
+    try { head = JSON.parse(first) as SessionEvent } catch { head = undefined }
+    return {
+      id,
+      title: head?.title || 'Untitled session',
+      profile: head?.profile || 'minimal',
+      workspace: head?.workspace ?? null,
+      createdAt: head?.t ?? info.birthtimeMs ?? 0,
+      // The file's mtime can be coarser than the event clock, so never report an update before the creation.
+      updatedAt: Math.max(info.mtimeMs, head?.t ?? 0),
+      events: lines,
       forkedFrom: head?.forkedFrom,
     }
   }
@@ -114,7 +167,8 @@ export function createSessionStore(dataDir: string): SessionStore {
       for (const n of names) {
         const id = n.replace(/\.jsonl$/, '')
         if (!ID.test(id)) continue
-        out.push(summarize(id, await readEvents(id)))
+        const summary = await summarizeFile(id)
+        if (summary) out.push(summary)
       }
       return out.sort((a, b) => b.updatedAt - a.updatedAt)
     },

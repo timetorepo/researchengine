@@ -28,6 +28,7 @@ const CompareView = React.lazy(() => import('@/components/compare/CompareView').
 const WorkflowsList = React.lazy(() => import('@/components/workflows/WorkflowsList').then((m) => ({ default: m.WorkflowsList })))
 const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor })))
 const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
+const CodersaPage = React.lazy(() => import('@/components/codersa/CodersaPage').then((m) => ({ default: m.CodersaPage })))
 const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
 import { startBotScheduler } from '@/lib/bots/runner'
 const CalendarView = React.lazy(() => import('@/components/calendar/CalendarView').then((m) => ({ default: m.CalendarView })))
@@ -300,6 +301,7 @@ function RoutedApp() {
           <Route path="/crm" element={<CrmPage />} />
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/code" element={<CodingView />} />
+          <Route path="/code/codersa" element={<CodersaPage />} />
           <Route path="/chats" element={<ChatsView />} />
           <Route path="/alpha" element={<RemoverAlpha />} />
           <Route path="/feedback" element={<FeedbackView />} />

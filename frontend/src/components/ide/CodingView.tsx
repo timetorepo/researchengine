@@ -41,6 +41,7 @@ import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/but
 // R24 chrome: Xcode 26's grouped glass controls, Zed's quiet status buttons,
 // Cursor 3's agent rows. Presentation only — see the file for the motion rules.
 import { GlassBar, GlassGroup, GlassButton, GlassTabs, Breadcrumbs, StatusItem } from './IdeChrome'
+import { CodingTabs } from '@/components/codersa/CodingTabs'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
@@ -212,6 +213,7 @@ export function CodingView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-[900px] mx-auto px-6 py-10">
+        <div className="mb-6"><CodingTabs active="projects" /></div>
         <div className="flex items-center gap-3 mb-1.5">
           <FolderGit2 size={22} style={{ color: 'var(--primary)' }} />
           <h1 className="text-[22px] font-semibold tracking-tight">Coding</h1>

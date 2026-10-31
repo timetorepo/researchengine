@@ -227,6 +227,27 @@ await check('the log is append-only, forks copy up to a point, and search finds 
   assert.equal((await store.list()).length, 2)
 })
 
+await check('the session list gives the project, the event count and the last update, from the log without reading it whole', async () => {
+  const store = createSessionStore(join(root, 'list-data'))
+  const a = await store.create({ profile: 'standard', workspace: 'my-app', title: 'Fix the build' })
+  await store.append(a.id, { type: 'user', content: 'first' })
+  await store.append(a.id, { type: 'assistant', content: 'second with a \n newline inside' })
+  await store.append(a.id, { type: 'user', content: 'third' })
+  const b = await store.create({ profile: 'minimal', workspace: null, title: 'Chat only' })
+  const list = await store.list()
+  const rowA = list.find((x) => x.id === a.id)
+  const rowB = list.find((x) => x.id === b.id)
+  assert.ok(rowA && rowB)
+  assert.equal(rowA.workspace, 'my-app')
+  assert.equal(rowA.title, 'Fix the build')
+  assert.equal(rowA.profile, 'standard')
+  assert.equal(rowA.events, 4, 'header plus three events; a newline inside text does not count as an event')
+  assert.equal(rowB.workspace, null)
+  assert.equal(rowB.events, 1)
+  assert.ok(rowA.updatedAt >= rowA.createdAt)
+  for (let k = 1; k < list.length; k++) assert.ok(list[k - 1].updatedAt >= list[k].updatedAt, 'newest first')
+})
+
 await check('a secret-looking field is refused, so a key cannot reach the log', async () => {
   const store = createSessionStore(join(root, 'secret-data'))
   const s = await store.create({ profile: 'minimal', workspace: null })

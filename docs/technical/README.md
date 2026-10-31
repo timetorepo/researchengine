@@ -30,6 +30,7 @@ Version documented: **1.1.0** (`package.json`, `backend`, `frontend`, `desktop`)
 | 17 | [Rich in-app cards](17-rich-cards.md) | Find every card variant the chat can draw, or add one |
 | 18 | [Interactive answer cards and the coding task loop](18-interactive-cards-and-task-loop.md) | Work on ui-card blocks in answers, the Codex-style task loop, Review intent, or AGENTS.md project instructions |
 | 19 | [Agent harness](19-agent-harness.md) | Work on the plugin kernel, tools, profiles, the session log, or the agent loop, or find the `/api/harness` routes |
+| 20 | [Codersa](20-codersa.md) | Work on the agent page under Coding: sessions, the streamed thread, tool cards, the mascot, or the Run commands switch |
 
 ## Generated references
 
