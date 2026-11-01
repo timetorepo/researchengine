@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { ArtBanner, ART } from '@/components/ui/kit/community/ArtBanner'
 import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 import { useChatBackdrop, CHAT_BACKDROP_OPTIONS, type ChatBackdropKind } from '@/components/ui/kit/backdrops/useChatBackdrop'
 import { Check, Upload, RotateCcw, Pipette } from 'lucide-react'
@@ -85,6 +86,7 @@ export function AppearanceTab() {
   return (
     <div>
       <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Appearance</h2>
+      <ArtBanner art={ART.monet} position="center 45%" className="mt-3" />
       <p className="text-[13px] mb-5" style={{ color: 'var(--text-2)' }}>
         Fully themeable via CSS custom properties. ResearchEngineOS turns the app into a desktop-like environment.
       </p>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { ArtBanner, ART } from '@/components/ui/kit/community/ArtBanner'
 import { NotificationList } from '@/components/ui/kit/community/NotificationList'
 import { motion } from 'motion/react'
 import {
@@ -127,6 +128,7 @@ export function UpdatesTab() {
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Updates</h2>
+        <ArtBanner art={ART.vangogh} position="center 30%" className="mt-3" />
         <section className="surface p-4 mb-4" aria-label="What's new" style={{ borderRadius: 'var(--radius-card)' }}>
           <div className="text-[12.5px] font-medium mb-1">What's new</div>
           <NotificationList

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { ArtBanner, ART } from '@/components/ui/kit/community/ArtBanner'
 import { ScrollRevealText } from '@/components/ui/skecher/scroll-reveal-text'
 import {
   Github, ShieldCheck, ExternalLink, Sparkles, RefreshCw, CheckCircle2, Heart, Scale,
@@ -215,6 +216,7 @@ export function AboutTab() {
         <AppLogo size={40} withName={false} />
         <div>
           <h2 className="text-xl font-semibold" style={{ letterSpacing: '-0.02em' }}>Research Engine</h2>
+          <ArtBanner art={ART.constable} className="mt-3" />
           <p className="text-[12px]" style={{ color: 'var(--text-3)' }}>
             Version {version} · build {BUILD_ID.includes('+') ? BUILD_ID.split('+')[1].replace(/(\d{4})(\d{2})(\d{2})(\d{2})/, '$1-$2-$3 $4h') : 'local'} · self-hosted · privacy-first
           </p>
