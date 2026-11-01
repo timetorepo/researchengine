@@ -21,7 +21,7 @@ import { saveNotice } from '@/stores/useNotices'
 import { TYPEFACES } from '@/lib/themes/typeface'
 import { ArcPicker } from '@/components/ui/kit/beui/ArcPicker'
 import { usePrefFlag } from '@/components/ui/kit/prefs'
-import { KEYBOARD_PREF, KEYBOARD_PERSPECTIVE, KEYBOARD_EVENT } from '@/components/ui/kit/serenity/MechanicalKeyboardDock'
+import { KEYBOARD_PREF, KEYBOARD_PERSPECTIVE, KEYBOARD_EVENT } from '@/components/ui/kit/serenity/keyboardPrefs'
 
 const rgb = (v: [number, number, number]) => `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
 
@@ -363,6 +363,8 @@ export function AppearanceTab() {
           checked={settings.reduceMotion} onChange={(v) => update({ reduceMotion: v })} />
         <Switch label="OS widgets" description="Show small status widgets in ResearchEngineOS."
           checked={settings.osWidgets} onChange={(v) => update({ osWidgets: v })} />
+        <Switch label="Music control in the top bar" description="A small player in the top bar: press it to open play, skip, fast-forward and repeat. The tracks are generated in your browser, so nothing downloads. On by default."
+          checked={settings.showMusicControl !== false} onChange={(v) => update({ showMusicControl: v })} />
         <Switch label="Dynamic Island" description="Float the status island over every theme, not only ResearchEngineOS."
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."

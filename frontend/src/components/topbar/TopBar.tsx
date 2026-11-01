@@ -9,10 +9,10 @@ import { useUpdates } from '@/lib/updates/client'
 import { ModelPicker } from '@/components/topbar/ModelPicker'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { FocusPill } from '@/components/shared/FocusPill'
-import { BUILD_ID } from '@/components/settings/AboutTab'
-import { useRunningVersion } from '@/lib/appVersion'
+import { BUNDLE_BUILD as BUILD_ID, useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
 import { ResourceMeter } from '@/components/topbar/ResourceMeter'
+import { MusicControl } from '@/components/topbar/MusicControl'
 import { useAgents } from '@/lib/ide/agents'
 import StatusMark from '@/components/ui/reactbits/micro/StatusMark'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
@@ -271,6 +271,9 @@ export function TopBar() {
           <AIContextMeter used={lastPrompt.tokens} limit={contextWindowFor(lastPrompt.model)} />
         </div>
       )}
+
+      {/* Music control: on by default, and hidden from Settings → Appearance. */}
+      {settings.showMusicControl !== false && <MusicControl />}
 
       {/* Flow savings counter */}
       <div

@@ -1,20 +1,17 @@
 // The floating keyboard panel shown when Settings → Appearance → "3D keyboard"
 // is on. Pick Fixed or Custom perspective; Custom exposes tilt and turn sliders.
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Keyboard } from 'lucide-react'
-import { MechanicalKeyboard, type Perspective } from './MechanicalKeyboard'
+import {
+  KEYBOARD_EVENT, KEYBOARD_PERSPECTIVE,
+  readKeyboardEnabled as readEnabled, readKeyboardPerspective as readPerspective, type Perspective,
+} from './keyboardPrefs'
 
-export const KEYBOARD_PREF = 'kb3d.enabled'
-export const KEYBOARD_PERSPECTIVE = 'kb3d.perspective'
-/** Dispatched on window whenever the keyboard settings change, so every surface stays in step. */
-export const KEYBOARD_EVENT = 'kb3d-change'
+// The 3D scene is its own chunk. It loads the first time the keyboard is shown, so a
+// person who never turns it on never downloads three.js.
+const MechanicalKeyboard = lazy(() => import('./MechanicalKeyboard').then((m) => ({ default: m.MechanicalKeyboard })))
 
-function readEnabled(): boolean {
-  try { return localStorage.getItem(KEYBOARD_PREF) === '1' } catch { return false }
-}
-function readPerspective(): Perspective {
-  try { return (localStorage.getItem(KEYBOARD_PERSPECTIVE) as Perspective) || 'fixed' } catch { return 'fixed' }
-}
+export { KEYBOARD_EVENT, KEYBOARD_PERSPECTIVE, KEYBOARD_PREF } from './keyboardPrefs'
 
 export function MechanicalKeyboardDock() {
   const [enabled, setEnabled] = useState(readEnabled)
@@ -56,7 +53,9 @@ export function MechanicalKeyboardDock() {
       </header>
       {open && (
         <>
-          <MechanicalKeyboard perspective={perspective} tilt={tilt} rotation={rotation} height={170} />
+          <Suspense fallback={<div className="h-[170px]" aria-hidden />}>
+            <MechanicalKeyboard perspective={perspective} tilt={tilt} rotation={rotation} height={170} />
+          </Suspense>
           {perspective === 'custom' && (
             <div className="grid grid-cols-2 gap-3 px-3 pb-3 text-[11px]" style={{ color: 'var(--text-2)' }}>
               <label className="flex flex-col gap-1">Tilt
