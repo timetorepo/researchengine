@@ -107,7 +107,9 @@ export const Markdown = memo(function Markdown({ content: raw, streaming = false
             const text = Array.isArray(children) ? children.join('') : String(children ?? '')
             const cite = /^\s*\[?\d{1,2}\]?\s*$/.test(text)
             const link = <CssLink href={href ?? '#'} variant={cite ? 'chip' : 'inline'}>{children}</CssLink>
-            const external = !!href && /^https?:\/\//i.test(href) && !href.startsWith(window.location.origin)
+            // `window` is read only when it exists: this also renders without a DOM.
+            const origin = typeof window !== 'undefined' ? window.location.origin : ''
+            const external = !!href && /^https?:\/\//i.test(href) && !(origin && href.startsWith(origin))
             if (!external || cite) return link
             return <HoverImageLink url={href}>{link}</HoverImageLink>
           },

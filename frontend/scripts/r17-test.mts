@@ -286,7 +286,7 @@ async function main() {
       /og:image|resolved\?\.image/.test(preview) && /stage === 'service'/.test(preview) && /favicon/.test(preview))
     check('it cannot be clipped by the answer it sits in', /createPortal/.test(preview) && /position: fixed|className="fixed/.test(preview))
     check('an answer’s links become previews, and citation chips do not',
-      /LinkPreview/.test(read('src/components/chat/Markdown.tsx')) && /cite/.test(read('src/components/chat/Markdown.tsx')))
+      /HoverImageLink/.test(read('src/components/chat/Markdown.tsx')) && /cite/.test(read('src/components/chat/Markdown.tsx')))
 
     const tools = read('src/lib/chat/tools.ts')
     check('the tooltip card is a tool the model calls', /name: 'show_tooltip_card'/.test(tools))
