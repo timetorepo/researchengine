@@ -32,36 +32,41 @@ async function main() {
   // resolved. A static import above would open the database in the process's
   // working directory instead of the user's library. It did exactly that for
   // these three routes until the packaged-install test caught it.
-  const { healthRoutes } = await import('./routes/health')
-  const { feedbackRoutes } = await import('./routes/feedback')
-  const { libraryRoutes } = await import('./routes/library')
-  const { proxyRoutes } = await import('./routes/proxy')
-  const { skillsRoutes } = await import('./routes/skills')
-  const { strixRoutes } = await import('./routes/strix')
-  const { jevRoutes } = await import('./routes/jev')
-  const { dataRoutes } = await import('./routes/data')
-  const { searchRoutes } = await import('./routes/search')
-  const { learnRoutes } = await import('./routes/learn')
-  const { sandboxRoutes } = await import('./routes/sandbox')
-  const { personaRoutes } = await import('./routes/personas')
-  const { chatRoutes } = await import('./routes/chat')
-  const { documentRoutes } = await import('./routes/documents')
-  const { ollamaRoutes } = await import('./routes/ollama')
-  const { integrationRoutes } = await import('./routes/integrations')
-  const { composioRoutes } = await import('./routes/composio')
-  const { signinRoutes } = await import('./routes/signin')
-  const { pipedreamRoutes } = await import('./routes/pipedream')
-  const { harnessRoutes } = await import('./routes/harness')
-  const { context7Routes } = await import('./routes/context7')
-  const { serviceRoutes } = await import('./routes/services')
-  const { resourceRoutes } = await import('./routes/resources')
-  const { fsRoutes } = await import('./routes/fs')
-  const { providerRoutes } = await import('./routes/providers')
-  const { ideRoutes } = await import('./routes/ide')
-  const { previewRoutes } = await import('./routes/preview')
-  const { PreviewManager } = await import('./preview/manager')
-  const { connectorRoutes } = await import('./routes/connectors')
-  const { mcpRoutes } = await import('./routes/mcp')
+  // The route modules do not depend on each other, so they load in parallel instead of
+  // one after another. Every import still finishes before the server listens.
+  const [healthRoutes, feedbackRoutes, libraryRoutes, proxyRoutes, skillsRoutes, strixRoutes, jevRoutes, dataRoutes, searchRoutes, learnRoutes, sandboxRoutes, personaRoutes, chatRoutes, documentRoutes, ollamaRoutes, integrationRoutes, composioRoutes, signinRoutes, pipedreamRoutes, harnessRoutes, context7Routes, serviceRoutes, resourceRoutes, fsRoutes, providerRoutes, ideRoutes, previewRoutes, PreviewManager, connectorRoutes, mcpRoutes, voiceRoutes] = await Promise.all([
+    import('./routes/health').then((m) => m.healthRoutes),
+    import('./routes/feedback').then((m) => m.feedbackRoutes),
+    import('./routes/library').then((m) => m.libraryRoutes),
+    import('./routes/proxy').then((m) => m.proxyRoutes),
+    import('./routes/skills').then((m) => m.skillsRoutes),
+    import('./routes/strix').then((m) => m.strixRoutes),
+    import('./routes/jev').then((m) => m.jevRoutes),
+    import('./routes/data').then((m) => m.dataRoutes),
+    import('./routes/search').then((m) => m.searchRoutes),
+    import('./routes/learn').then((m) => m.learnRoutes),
+    import('./routes/sandbox').then((m) => m.sandboxRoutes),
+    import('./routes/personas').then((m) => m.personaRoutes),
+    import('./routes/chat').then((m) => m.chatRoutes),
+    import('./routes/documents').then((m) => m.documentRoutes),
+    import('./routes/ollama').then((m) => m.ollamaRoutes),
+    import('./routes/integrations').then((m) => m.integrationRoutes),
+    import('./routes/composio').then((m) => m.composioRoutes),
+    import('./routes/signin').then((m) => m.signinRoutes),
+    import('./routes/pipedream').then((m) => m.pipedreamRoutes),
+    import('./routes/harness').then((m) => m.harnessRoutes),
+    import('./routes/context7').then((m) => m.context7Routes),
+    import('./routes/services').then((m) => m.serviceRoutes),
+    import('./routes/resources').then((m) => m.resourceRoutes),
+    import('./routes/fs').then((m) => m.fsRoutes),
+    import('./routes/providers').then((m) => m.providerRoutes),
+    import('./routes/ide').then((m) => m.ideRoutes),
+    import('./routes/preview').then((m) => m.previewRoutes),
+    import('./preview/manager').then((m) => m.PreviewManager),
+    import('./routes/connectors').then((m) => m.connectorRoutes),
+    import('./routes/mcp').then((m) => m.mcpRoutes),
+    import('./routes/voice').then((m) => m.voiceRoutes),
+  ])
 
   // One preview manager per process: it owns the dev servers started for
   // Coding / Design mode and the proxies the browser embeds.
@@ -85,7 +90,6 @@ async function main() {
   app.route('/api/learn', learnRoutes)
   app.route('/api/sandbox', sandboxRoutes)
   app.route('/api/personas', personaRoutes)
-  const { voiceRoutes } = await import('./routes/voice')
   app.route('/api', voiceRoutes)
   app.route('/api/chat', chatRoutes)
   app.route('/api/documents', documentRoutes)

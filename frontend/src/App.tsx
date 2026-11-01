@@ -72,38 +72,43 @@ import { watchFrameBudget } from '@/lib/system/frame-budget'
 import { wireAgentActivity } from '@/lib/ide/agents'
 import { MechanicalKeyboardDock } from '@/components/ui/kit/serenity/MechanicalKeyboardDock'
 
-/** Preload every lazy route chunk during idle time — first paint stays lean,
- *  but palette/navigation targets are warm by the time the user needs them. */
+/**
+ * Warm the most-used route chunks after the first screen is up.
+ *
+ * It starts two frames after mount, as before, so navigation stays instant, but it
+ * fetches one chunk at a time rather than all of them at once, so it does not compete
+ * with the first screen for bandwidth. It is skipped when the person has asked for data
+ * saving or is on a slow connection: there the chunks load when they are opened.
+ */
 function useRoutePreload() {
   useEffect(() => {
-    // Routes first: navigation should never wait on the network — and on a
-    // machine where the server is local or on the LAN, warming all of them is a
-    // disk read. Overlays follow, so the first open of Settings or the palette
-    // feels like it was always there.
-    const load = () => {
-      Promise.all([
-        import('@/components/chat/ChatView'),
-        import('@/components/settings/SettingsView'),
-        import('@/components/agents/FloodView'),
-        import('@/components/quiz/QuizHub'),
-        import('@/components/articles/ArticlesView'),
-        import('@/components/library/LibraryView'),
-        import('@/components/compare/CompareView'),
-      ]).then(() => Promise.all([
-        import('@/components/settings/SettingsSheet'),
-        import('@/components/tasks/TasksPanel'),
-        import('@/components/shared/CommandPalette'),
-      ])).catch(() => {})
-    }
-    // Two frames after mount is "the shell is on screen": the user's first
-    // paint is never delayed, but the warm-up does not wait for a timeout
-    // either. The timer is a floor for a background tab, where rAF never fires.
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+    if (conn?.saveData || /(^|-)2g|3g/.test(conn?.effectiveType ?? '')) return
+
+    const queue: Array<() => Promise<unknown>> = [
+      () => import('@/components/chat/ChatView'),
+      () => import('@/components/quiz/QuizHub'),
+      () => import('@/components/settings/SettingsView'),
+      () => import('@/components/library/LibraryView'),
+      () => import('@/components/articles/ArticlesView'),
+      () => import('@/components/compare/CompareView'),
+      () => import('@/components/agents/FloodView'),
+      () => import('@/components/settings/SettingsSheet'),
+      () => import('@/components/shared/CommandPalette'),
+      () => import('@/components/tasks/TasksPanel'),
+    ]
     let cancelled = false
+    const run = async () => {
+      for (const load of queue) {
+        if (cancelled) return
+        try { await load() } catch { /* a failed warm-up is not an error; the route loads on open */ }
+      }
+    }
+    // Two frames after mount is "the shell is on screen". The timer is a floor for a
+    // background tab, where requestAnimationFrame never fires.
     let raf2 = 0
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => { if (!cancelled) load() })
-    })
-    const t = setTimeout(() => { if (!cancelled) load() }, 1500)
+    const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => { if (!cancelled) void run() }) })
+    const t = window.setTimeout(() => { if (!cancelled) void run() }, 1500)
     return () => { cancelled = true; cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t) }
   }, [])
 }

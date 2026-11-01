@@ -4,7 +4,7 @@ import { Terminal, PlayCircle, CheckCircle2, XCircle, Loader2, Copy, Trash2, Ref
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Switch } from '@/components/ui/heroui/Switch'
-import { BUILD_ID } from '@/components/settings/AboutTab'
+import { BUNDLE_BUILD as BUILD_ID } from '@/lib/appVersion'
 import { runningVersion, useRunningVersion } from '@/lib/appVersion'
 import { Button } from '@/components/ui/heroui/Button'
 import { SAMPLE_PROJECT } from '@/lib/ide/sample'

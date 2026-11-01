@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud, Search, Code2, Swords, Calculator } from 'lucide-react'
@@ -10,7 +10,6 @@ import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
 import { BorderBeam } from 'border-beam'
-import PatternWaves from '@/components/ui/reactbits/micro/PatternWaves'
 import SwipeRow from '@/components/ui/reactbits/micro/SwipeRow'
 import { timeAgo, fmt } from '@/lib/utils'
 import { runChat } from '@/lib/chat/runChat'
@@ -37,6 +36,9 @@ const SUGGESTIONS = [
   'Draft a quiz on cellular respiration from my notes',
   'Is dark matter still the leading explanation? Weigh the alternatives',
 ]
+
+// The pattern backdrop is decorative and uses its own WebGL program; it loads on its own chunk.
+const PatternWaves = lazy(() => import('@/components/ui/reactbits/micro/PatternWaves'))
 
 export function HomeScreen() {
   const navigate = useNavigate()
@@ -115,7 +117,7 @@ export function HomeScreen() {
           place rather than sitting under it. The drifting waves sit above the
           aurora at low strength — a second layer of motion, not a replacement. */}
       {!wallpaper && <AuroraBackground className="absolute inset-0 pointer-events-none" />}
-      {!wallpaper && <div className="absolute inset-0 pointer-events-none"><PatternWaves opacity={0.35} interactive={false} /></div>}
+      {!wallpaper && <div className="absolute inset-0 pointer-events-none"><Suspense fallback={null}><PatternWaves opacity={0.35} interactive={false} /></Suspense></div>}
       <AnimatePresence>
         {dragOver && (
           <motion.div

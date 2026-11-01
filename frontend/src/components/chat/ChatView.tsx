@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { ChatEmptyState } from '@/components/ui/kit/illos/ChatEmptyState'
 import { ChatBackdrop } from '@/components/ui/kit/backdrops/ChatBackdrop'
 import { useParams } from 'react-router-dom'
@@ -12,8 +12,10 @@ import { runPosition } from '@/lib/chat/bubbles'
 import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
-import PatternWaves from '@/components/ui/reactbits/micro/PatternWaves'
 import { WebSearch } from '@/components/ui/kit/rareui/WebSearch'
+
+// The pattern backdrop is decorative and uses its own WebGL program; it loads on its own chunk.
+const PatternWaves = lazy(() => import('@/components/ui/reactbits/micro/PatternWaves'))
 
 export function ChatView() {
   const { id } = useParams<{ id: string }>()
@@ -154,7 +156,7 @@ export function ChatView() {
       {/* A faint wave field behind the conversation, only when there is no
           wallpaper or graph paper competing with it. Subtle, and it sits behind
           the message column, so dense text still reads. */}
-      {!mathMode && <div className="absolute inset-0 pointer-events-none"><PatternWaves opacity={0.22} interactive={false} /></div>}
+      {!mathMode && <div className="absolute inset-0 pointer-events-none"><Suspense fallback={null}><PatternWaves opacity={0.22} interactive={false} /></Suspense></div>}
       {/* The optional animated backdrop (Settings → Appearance). Off unless turned on. */}
       <ChatBackdrop />
       {/* Mode indicator bar */}

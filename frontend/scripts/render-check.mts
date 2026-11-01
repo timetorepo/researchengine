@@ -2586,8 +2586,10 @@ async function main() {
     /React\.lazy\(\(\) => import\('@\/components\/settings\/SettingsSheet'\)/.test(app30))
   check('the panels nobody opened yet are lazy too',
     /React\.lazy\(.*TasksPanel/.test(app30) && /React\.lazy\(.*CommandPalette/.test(app30))
-  check('every route is warmed right after the first paint',
-    /requestAnimationFrame\(\(\) => \{[\s\S]{0,140}requestAnimationFrame/.test(app30) && /SettingsView/.test(app30))
+  check('every route is warmed right after the first paint, one chunk at a time',
+    /requestAnimationFrame\(\(\) => \{[\s\S]{0,140}requestAnimationFrame/.test(app30) && /SettingsView/.test(app30) && /for \(const load of queue\)[\s\S]{0,120}await load\(\)/.test(app30))
+  check('and the warm-up is skipped on data saving or a slow connection',
+    /saveData/.test(app30) && /2g\|3g/.test(app30))
   check('the server compresses what it serves', /brotliCompressSync/.test(static30) && /gzipSync/.test(static30))
   check('and answers a repeat request with 304 instead of the body',
     /if-none-match/.test(static30) && /304/.test(static30))
