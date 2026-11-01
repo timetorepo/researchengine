@@ -1,0 +1,71 @@
+Research Engine — create-path report
+when        : 2026-10-03T13:36:50.502Z
+app version : 0.38.0-beta.1
+build id    : dev
+served      : 0.38.0-beta.1 (2026-10-03T13:36:16.597Z)
+source      : — (portable build has no source tree)
+mode        : checkout
+browser     : Linux x86_64 · node 22.22.3
+server      : linux/x64 · node v22.22.3
+
+test        : create a project
+verdict     : PASSED — a project can be created.
+duration    : 7 ms
+  POST: /api/ide/projects
+  Payload: {"name":"dev-test-bench","fallback":"dev-test","unique":true,"files":{"README.md":"60 B"}}
+  Projects already on disk: sample-landing-e2e-2, design-test-fixture
+  This machine: Linux x86_64 · node 22.22.3 · backend linux/x64
+  Attempts: 1
+  Result: 201/200 — created “dev-test-bench”
+  Cleanup: deleted “dev-test-bench” (200)
+
+raw:
+{
+  "kind": "project",
+  "name": "dev-test-bench",
+  "fallback": "dev-test",
+  "attempts": 1,
+  "ok": true,
+  "ms": 7,
+  "browser": "Linux x86_64 · node 22.22.3",
+  "server": "linux/x64 node v22.22.3",
+  "mode": "checkout"
+}
+
+— and the sample app —
+
+Research Engine — create-path report
+when        : 2026-10-03T13:36:50.502Z
+app version : 0.38.0-beta.1
+build id    : dev
+served      : 0.38.0-beta.1 (2026-10-03T13:36:16.597Z)
+source      : — (portable build has no source tree)
+mode        : checkout
+browser     : Linux x86_64 · node 22.22.3
+server      : linux/x64 · node v22.22.3
+
+test        : create the sample app
+verdict     : PASSED — the sample app can be created.
+duration    : 5 ms
+  POST: /api/ide/projects
+  Payload: {"name":"sample-landing","fallback":"sample-app","unique":true,"files":{"index.html":"1963 B","styles.css":"1584 B","app.js":"528 B","icon.svg":"220 B","README.md":"458 B"}}
+  Projects already on disk: sample-landing-e2e-2, design-test-fixture
+  This machine: Linux x86_64 · node 22.22.3 · backend linux/x64
+  Attempts: 1
+  Result: 201/200 — created “sample-landing”
+  Cleanup: deleted “sample-landing” (200)
+
+raw:
+{
+  "kind": "sample",
+  "name": "sample-landing",
+  "fallback": "sample-app",
+  "attempts": 1,
+  "ok": true,
+  "ms": 5,
+  "browser": "Linux x86_64 · node 22.22.3",
+  "server": "linux/x64 node v22.22.3",
+  "mode": "checkout"
+}
+
+result: ALL PASS: 8 passed, 0 failed

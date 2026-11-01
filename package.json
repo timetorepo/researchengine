@@ -1,0 +1,46 @@
+{
+  "name": "research-engine",
+  "private": true,
+  "version": "1.5.0",
+  "type": "module",
+  "description": "A self-hosted, privacy-first research platform. Docker is optional — see README run modes.",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build --workspace frontend && npm run build --workspace backend",
+    "start": "node backend/bin/research-engine.mjs serve --port 3847",
+    "start:eco": "RE_PROFILE=eco node backend/bin/research-engine.mjs serve --port 3847",
+    "start:performance": "RE_PROFILE=performance node backend/bin/research-engine.mjs serve --port 3847",
+    "smoke": "npm run smoke --workspace frontend",
+    "desktop:dev": "npm run tauri:dev --prefix desktop",
+    "desktop:build": "npm run tauri:build --prefix desktop",
+    "package:binary": "node scripts/package-binary.mjs",
+    "desktop:sidecar": "node scripts/desktop-sidecar.mjs",
+    "desktop:check": "node scripts/desktop-check.mjs --run",
+    "render-probe": "npm run render-probe --workspace frontend",
+    "site:dev": "npm --prefix website run dev",
+    "site:build": "npm --prefix website run build",
+    "site:test": "npm --prefix website run site-test",
+    "site:vendor": "npm --prefix website run vendor",
+    "api:json-test": "node backend/scripts/api-json-test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "author": "dnishh",
+  "devDependencies": {
+    "bun": "^1.4.2"
+  },
+  "overrides": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

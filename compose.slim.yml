@@ -1,0 +1,34 @@
+# OPTIONAL slim single-container deployment — for servers / NAS / isolation fans.
+# Not the recommended laptop setup (use the desktop app or native binary).
+#
+#   docker compose -f compose.slim.yml up --build -d
+#
+# Resource limits per the refinements spec:
+name: research-engine-slim
+
+services:
+  research-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.single
+    ports:
+      - "3847:3847"
+    environment:
+      RESEARCH_ENGINE_DATA_DIR: /data
+      RE_PROFILE: ${RE_PROFILE:-balanced}   # eco | balanced | performance
+      SEARCH_BACKEND: ${SEARCH_BACKEND:-ddg}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+      SERPER_API_KEY: ${SERPER_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+    volumes:
+      - re-data:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+volumes:
+  re-data:

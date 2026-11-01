@@ -1,0 +1,67 @@
+name: website
+
+# Everything the website claims, checked on a runner:
+#
+#   1. it builds — including the type-check the build now runs before Vite;
+#   2. `npm run site-test` mounts the page in jsdom and asserts what a visitor
+#      sees (the download buttons, the comparison, the footer, the vendored
+#      components doing their jobs);
+#   3. `npm run vendor` re-reads every vendored component, compares it with the
+#      digest recorded in website/scripts/site-sources.json, and fetches the
+#      upstream file at its pinned commit to prove the local copy is the
+#      published one with the declared patches and nothing else.
+#
+# The vendor step needs `gh`, which every runner has, and a token to read the
+# public registries' repositories, which is the workflow's own token.
+on:
+  push:
+    paths:
+      - "website/**"
+      - "netlify.toml"
+      - ".github/workflows/website.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - "netlify.toml"
+      - ".github/workflows/website.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    name: Build, test and verify the site
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build (this also type-checks)
+        run: npm run build
+
+      - name: Test the page
+        run: npm run site-test
+
+      - name: Verify the vendored components
+        run: npm run vendor
+
+      - name: Keep the built site for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-dist
+          path: website/dist
+          if-no-files-found: error

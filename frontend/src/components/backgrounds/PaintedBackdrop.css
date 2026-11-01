@@ -1,0 +1,57 @@
+/* PaintedBackdrop: a painting behind content, with a readability wash on top.
+ * Colours come from the app's theme variables, so light and dark both work. */
+
+.painted-backdrop__art {
+  inset: 0;
+  overflow: hidden;
+  /* The requested strength lives here, so the reveal animation on the image does not override it. */
+  opacity: var(--painted-strength, 1);
+}
+
+.painted-backdrop__img {
+  /* A little larger than the box so the slow drift never shows an edge. */
+  transform: scale(1.06);
+  transform-origin: center;
+  animation:
+    painted-backdrop-reveal 1.1s cubic-bezier(0.23, 1, 0.32, 1) both,
+    painted-backdrop-drift 38s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.painted-backdrop__wash {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg) 14%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 40%, transparent) 45%,
+      color-mix(in srgb, var(--bg) 88%, transparent) 100%
+    );
+}
+
+@keyframes painted-backdrop-reveal {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes painted-backdrop-drift {
+  from {
+    transform: scale(1.06) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.1) translate3d(-1.2%, 0.8%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .painted-backdrop__img {
+    animation: none;
+    transform: none;
+    will-change: auto;
+  }
+}

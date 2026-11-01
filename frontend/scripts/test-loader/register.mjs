@@ -1,0 +1,3 @@
+// Usage: NODE_OPTIONS="--import ./scripts/test-loader/register.mjs" npx tsx ...
+import { register } from 'node:module'
+register('./css-hooks.mjs', import.meta.url)
