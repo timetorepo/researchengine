@@ -1,5 +1,6 @@
 // Browser-side streaming adapters. Keys are used in-memory only, never logged.
 import { providerById } from './registry'
+import { withAppContext } from '@/lib/ai/appContext'
 
 export interface StreamRequest {
   providerId: string
@@ -60,30 +61,64 @@ export class ProviderError extends Error {
   }
 }
 
-async function readSSE(res: Response, onData: (json: any) => boolean, onEvent?: (evt: string, json: any) => boolean) {
+/** Pull the human message out of an in-stream error frame, if this is one.
+ *  Providers send `{"error": ...}` (or `event: error`) mid-stream when they
+ *  fail after the 200 — ignoring it used to end the answer silently. */
+function streamErrorOf(evt: string, json: any): string | null {
+  if (evt === 'error' || json?.type === 'error' || json?.error) {
+    const e = json?.error ?? json
+    const msg = typeof e === 'string' ? e : (e?.message ?? json?.message ?? 'The provider reported an error mid-stream')
+    return String(msg)
+  }
+  return null
+}
+
+async function readSSE(
+  res: Response,
+  providerName: string,
+  onData: (json: any) => boolean,
+  onEvent?: (evt: string, json: any) => boolean,
+  onActivity?: () => void,
+) {
   const reader = res.body!.getReader()
   const td = new TextDecoder()
   let buf = ''
   let evtName = 'message'
+  let finished = false
+  // Handle one SSE line. Returns true when the caller should stop reading.
+  const handle = (raw: string): boolean => {
+    const line = raw.trim()
+    // A blank line dispatches the event; the event name never carries over.
+    if (!line) { evtName = 'message'; return false }
+    if (line.startsWith('event:')) { evtName = line.slice(6).trim(); return false }
+    if (!line.startsWith('data:')) return false
+    const data = line.slice(5).trim()
+    if (data === '[DONE]') return true
+    let json: any
+    try { json = JSON.parse(data) } catch { return false } // keep-alive or non-JSON frame
+    const err = streamErrorOf(evtName, json)
+    if (err) throw new ProviderError(providerName, err)
+    return onEvent ? onEvent(evtName, json) : onData(json)
+  }
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
+    onActivity?.()
     buf += td.decode(value, { stream: true })
     const lines = buf.split('\n')
     buf = lines.pop() ?? ''
     for (const raw of lines) {
-      const line = raw.trim()
-      if (line.startsWith('event:')) { evtName = line.slice(6).trim(); continue }
-      if (!line.startsWith('data:')) continue
-      const data = line.slice(5).trim()
-      if (data === '[DONE]') return
-      try {
-        const json = JSON.parse(data)
-        if (onEvent && onEvent(evtName, json)) return
-        else if (!onEvent && onData(json)) return
-      } catch { /* partial line */ }
+      if (handle(raw)) { finished = true; break }
     }
+    if (finished) break
   }
+  // The stream can end without a trailing newline; the last event still counts.
+  if (!finished) {
+    buf += td.decode()
+    if (buf.trim()) handle(buf)
+  }
+  // Release the connection when we stopped early (e.g. message_stop).
+  if (finished) { try { await reader.cancel() } catch { /* already closed */ } }
 }
 
 async function extractError(res: Response): Promise<string> {
@@ -102,6 +137,9 @@ export async function streamToCallback(
   req: StreamRequest,
   onChunk: (text: string) => void,
 ): Promise<{ promptEstimate: number; completionTokens: number; toolCalls: StreamToolCall[]; usage: TokenUsage }> {
+  // Every call names the screen the user is on, so the model knows whether it is
+  // in a coding project, a quiz or the settings page. See lib/ai/appContext.ts.
+  req = { ...req, system: withAppContext(req.system) }
   const meta = providerById(req.providerId)
   if (!meta) throw new ProviderError(req.providerId, 'Unknown provider')
   const base = (req.baseUrl || meta.baseUrl).replace(/\/$/, '')
@@ -109,7 +147,7 @@ export async function streamToCallback(
   const toolCalls: StreamToolCall[] = []
   // Filled in by whichever dialect the provider speaks; null means "it did not
   // tell us", and the caller falls back to an estimate.
-  let reported: { prompt: number; completion: number } | null = null
+  let reported = null as { prompt: number; completion: number } | null
   const takeOpenAIUsage = (u: any) => {
     if (!u) return
     const prompt = Number(u.prompt_tokens ?? u.input_tokens ?? 0)
@@ -141,38 +179,48 @@ export async function streamToCallback(
     const reader = res.body!.getReader()
     const td = new TextDecoder()
     let buf = ''
+    const handleLine = (line: string) => {
+      if (!line.trim()) return
+      let json: any
+      try { json = JSON.parse(line) } catch { return }
+      if (json.error) throw new ProviderError('Ollama', String(json.error))
+      const t = json.message?.content
+      if (t) { completionChars += t.length; onChunk(t) }
+      // Ollama reports its own counts on the last frame.
+      if (json.done && (json.prompt_eval_count || json.eval_count)) {
+        reported = { prompt: Number(json.prompt_eval_count ?? 0), completion: Number(json.eval_count ?? 0) }
+      }
+    }
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
       buf += td.decode(value, { stream: true })
       const lines = buf.split('\n'); buf = lines.pop() ?? ''
-      for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const json = JSON.parse(line)
-          const t = json.message?.content
-          if (t) { completionChars += t.length; onChunk(t) }
-          // Ollama reports its own counts on the last frame.
-          if (json.done && (json.prompt_eval_count || json.eval_count)) {
-            reported = { prompt: Number(json.prompt_eval_count ?? 0), completion: Number(json.eval_count ?? 0) }
-          }
-        } catch { /* skip partial */ }
-      }
+      for (const line of lines) handleLine(line)
     }
+    // The last frame may arrive without a trailing newline.
+    buf += td.decode()
+    handleLine(buf)
   } else {
-    // Watchdog: providers can accept a request and then send nothing for a
-    // long time (NIM serverless cold starts, hanging reasoning models).
-    // Fail with a clear message instead of spinning "thinking" forever.
+    // Watchdog: providers can accept a request and then go quiet — before the
+    // first token (NIM cold starts, hanging reasoning models) OR in the middle
+    // of an answer (a dropped upstream, a stalled proxy). It used to guard only
+    // the first token, so a mid-answer stall hung forever with no error. Any
+    // bytes count as activity, reasoning deltas included, so a model that is
+    // still thinking is not cut off.
     const ctrl = new AbortController()
     const onOuter = () => ctrl.abort()
     req.signal?.addEventListener('abort', onOuter)
     let gotChunk = false
     const patience = Math.max(3_000, req.timeoutMs ?? 45_000)
-    const timer = setTimeout(() => { if (!gotChunk && !req.signal?.aborted) ctrl.abort() }, patience)
-    const chunk = (t: string) => {
-      if (!gotChunk && t) { gotChunk = true; clearTimeout(timer) }
-      onChunk(t)
+    const patienceSec = Math.round(patience / 1000)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const touch = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => { if (!req.signal?.aborted) ctrl.abort() }, patience)
     }
+    touch()
+    const chunk = (t: string) => { if (t) gotChunk = true; onChunk(t) }
     try {
       // One hop: our own backend translates the dialect and streams it back.
       // (FreeRoute used to need a branch here — it was a provider. It is a
@@ -190,11 +238,12 @@ export async function streamToCallback(
       })
       if (!res.ok) throw new ProviderError(meta.name, await extractError(res))
       req.onFirstByte?.()
+      touch()
       if (meta.kind === 'anthropic') {
         let toolAcc: { id: string; name: string; json: string } | null = null
         let anthropicIn = 0
         let anthropicOut = 0
-        await readSSE(res, () => false, (_evt, json) => {
+        await readSSE(res, meta.name, () => false, (_evt, json) => {
           if (json.type === 'message_start' && json.message?.usage) {
             // input tokens are only known up front; output arrives at the end
             anthropicIn = Number(json.message.usage.input_tokens ?? 0)
@@ -218,11 +267,11 @@ export async function streamToCallback(
             chunk(json.delta.text)
           }
           return json.type === 'message_stop'
-        })
+        }, touch)
       } else if (meta.kind === 'gemini') {
         // Gemini SSE: each data frame carries candidates[0].content.parts[].text.
         let n = 0
-        await readSSE(res, (json) => {
+        await readSSE(res, meta.name, (json) => {
           const um = json.usageMetadata
           if (um) {
             const prompt = Number(um.promptTokenCount ?? 0)
@@ -242,11 +291,11 @@ export async function streamToCallback(
             }
           }
           return false
-        })
+        }, undefined, touch)
       } else {
         // OpenAI-dialect tool_calls arrive as incremental chunks keyed by index.
         const acc = new Map<number, { id: string; name: string; args: string; thoughtSignature?: string }>()
-        await readSSE(res, (json) => {
+        await readSSE(res, meta.name, (json) => {
           // With stream_options.include_usage the last frame carries the counts.
           takeOpenAIUsage(json.usage)
           const delta = json.choices?.[0]?.delta
@@ -269,22 +318,30 @@ export async function streamToCallback(
           const think = delta?.reasoning_content ?? delta?.reasoning ?? delta?.reasoning_text
           if (typeof think === 'string' && think) req.onThinking?.(think)
           return false
-        })
+        }, undefined, touch)
         for (const cur of acc.values()) {
           if (cur.name) toolCalls.push({ id: cur.id || `tc_${Math.random().toString(36).slice(2, 8)}`, name: cur.name, arguments: cur.args || '{}', thoughtSignature: cur.thoughtSignature })
         }
       }
     } catch (e: any) {
       if (req.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-      if (!gotChunk && (ctrl.signal.aborted || e?.name === 'AbortError' || e?.name === 'TimeoutError')) {
+      if (ctrl.signal.aborted) {
+        // Our watchdog fired, not the user. Report it as an error so the chat
+        // says why the answer ended; the text received so far is kept.
+        if (!gotChunk) {
+          throw new ProviderError(
+            meta.name,
+            `The provider accepted the request but sent no answer text for ${patienceSec}s. Serverless models cold-start slowly — try again, or pick a smaller/warm model.`,
+          )
+        }
         throw new ProviderError(
           meta.name,
-          'The provider accepted the request but sent no tokens for 45s. Serverless models cold-start slowly — try again, or pick a smaller/warm model.',
+          `The provider stopped sending mid-answer (no data for ${patienceSec}s). The text received so far is kept — send again to retry.`,
         )
       }
       throw e
     } finally {
-      clearTimeout(timer)
+      if (timer) clearTimeout(timer)
       req.signal?.removeEventListener('abort', onOuter)
     }
   }
