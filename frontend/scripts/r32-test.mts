@@ -10,7 +10,7 @@
  *
  * Run from frontend/: tsx --tsconfig tsconfig.json scripts/r32-test.mts
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { SKILL_PACKS } from '../src/content/skills/catalog'
 import { scanForTrojan, formatTrojanReport } from '../src/lib/security/trojan'
 import {
@@ -84,11 +84,12 @@ const check = (name: string, cond: boolean) => {
 }
 const src = (p: string) => readFileSync(p, 'utf8')
 const reset = () => { store.clear(); session.clear() }
+const VENDORED = readdirSync('src/content/skills/upstream').length
 
 /* ------------------------------------------------------------- the packs -- */
 console.log('\n— Upstream skill packs —')
 {
-  check('30 packs ship in the app', SKILL_PACKS.length === 30)
+  check('every vendored pack ships in the app', SKILL_PACKS.length === VENDORED && VENDORED > 0)
   for (const id of ['find-skills', 'web-design-guidelines', 'anti-ui-slop', 'impeccable', 'taste-skill', 'trojan-detector']) {
     check(`${id} is registered`, SKILL_PACKS.some((p) => p.id === id))
   }
@@ -169,7 +170,7 @@ console.log('\n— Strix in the coding workspace —')
   ].every((id) => strix.some((p) => p.id === id)))
   check('every vendored pack has an origin marker', packs.every((p) => existsSync(`src/content/skills/upstream/${p.id}/origin`)))
   check('every pack is licensed', packs.every((p) => !!p.license))
-  check('the catalog holds every pack', packs.length === 30)
+  check('the catalog holds every pack', packs.length === VENDORED)
   check('the vendor script knows about Strix', src('../scripts/vendor-skills.mjs').includes('usestrix/strix'))
   check('the vendor script does not fetch Strix at runtime', src('../scripts/vendor-skills.mjs').includes('--from'))
 
@@ -198,7 +199,7 @@ console.log('\n— System prompt index —')
   check('the master prompts are in it', all.filter((p) => p.kind === 'master').length === MASTERS.length)
   check('the persona archive is in it', all.filter((p) => p.kind === 'persona').length > 800)
   check('the built-in skills are in it', all.filter((p) => p.kind === 'skill').length > 0)
-  check('the upstream packs are in it', all.filter((p) => p.kind === 'pack').length === 30)
+  check('the upstream packs are in it', all.filter((p) => p.kind === 'pack').length === VENDORED)
   check('every entry has a name', all.every((p) => p.name.length > 0))
   check('every entry has an id', all.every((p) => p.id.length > 0))
   check('no id is duplicated', new Set(all.map((p) => p.id)).size === all.length)
