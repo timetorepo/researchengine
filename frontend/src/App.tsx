@@ -1,9 +1,16 @@
-import React, { Suspense, useEffect } from 'react'
+import { WalletWatcher } from '@/components/wallet/WalletWatcher'
+import { ExamGate } from '@/components/exam/Exam'
+import { BugFinder } from '@/components/dev/BugFinder'
+import { ActivityTracker } from '@/components/activity/ActivityTracker'
+import React, { Suspense, useEffect, useMemo } from 'react'
+import { lensMapDataUrl, refractionSupported } from '@/lib/glass/lensMap'
+import { FpsCounter } from '@/components/shared/FpsCounter'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
+import { applyTypeface } from '@/lib/themes/typeface'
 import { Shell } from '@/components/layout/Shell'
 import { HomeScreen } from '@/components/home/HomeScreen'
 import { RouteSkeleton } from '@/components/shared/RouteSkeleton'
@@ -22,7 +29,13 @@ const CompareView = React.lazy(() => import('@/components/compare/CompareView').
 const WorkflowsList = React.lazy(() => import('@/components/workflows/WorkflowsList').then((m) => ({ default: m.WorkflowsList })))
 const WorkflowEditor = React.lazy(() => import('@/components/workflows/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor })))
 const CodingView = React.lazy(() => import('@/components/ide/CodingView').then((m) => ({ default: m.CodingView })))
+const CodersaPage = React.lazy(() => import('@/components/codersa/CodersaPage').then((m) => ({ default: m.CodersaPage })))
 const ChatsView = React.lazy(() => import('@/components/chats/ChatsView').then((m) => ({ default: m.ChatsView })))
+import { startBotScheduler } from '@/lib/bots/runner'
+const CalendarView = React.lazy(() => import('@/components/calendar/CalendarView').then((m) => ({ default: m.CalendarView })))
+const BotsView = React.lazy(() => import('@/components/bots/BotsView').then((m) => ({ default: m.BotsView })))
+const MarketplacePage = React.lazy(() => import('@/components/marketplace/MarketplacePage').then((m) => ({ default: m.MarketplacePage })))
+const CrmPage = React.lazy(() => import('@/components/crm/CrmPage').then((m) => ({ default: m.CrmPage })))
 const SecretsRoute = React.lazy(() => import('@/components/easter/SecretsRoute').then((m) => ({ default: m.SecretsRoute })))
 const RemoverAlpha = React.lazy(() => import('@/components/alpha/RemoverAlpha').then((m) => ({ default: m.RemoverAlpha })))
 const FeedbackView = React.lazy(() => import('@/components/feedback/FeedbackView').then((m) => ({ default: m.FeedbackView })))
@@ -46,6 +59,8 @@ const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/Diagnost
 import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
 import { AppContextMenu } from '@/components/shared/AppContextMenu'
 import { UpdateModal } from '@/components/updates/UpdateModal'
+import { startConnectorSync, consumeComposioReturn, openMarketplace } from '@/lib/composio/sync'
+import { ArtifactPanel } from '@/components/chat/ArtifactPanel'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
 import { LockScreen } from '@/components/vault/LockScreen'
 import { isLocked, readLockSession } from '@/lib/security/lock'
@@ -96,6 +111,10 @@ export default function App() {
   const settings = useStore((s) => s.settings)
   const notFound = useUI((s) => s.notFound)
   useRoutePreload()
+  useEffect(() => { startBotScheduler() }, [])
+  // Connected-app count and notices run on every screen. A sign-in window that
+  // lands back here returns the person to the Marketplace.
+  useEffect(() => { if (consumeComposioReturn()) openMarketplace(); return startConnectorSync() }, [])
 
   // Navigation is wrapped in the View Transitions API where the browser has it:
   // the shell stays put, the page cross-fades, the nav marker travels.
@@ -118,6 +137,8 @@ export default function App() {
     const reduced = settings.reduceMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches
     applyTheme(settings.theme, { fontScale: settings.fontScale, compact: settings.compact, reduceMotion: reduced })
   }, [settings.theme, settings.fontScale, settings.compact, settings.reduceMotion])
+
+  useEffect(() => { applyTypeface(settings.typeface) }, [settings.typeface])
 
   if (notFound) return <NotFound404 />
 
@@ -142,6 +163,12 @@ export default function App() {
         <AppContextMenu>
           <RoutedApp />
         </AppContextMenu>
+        <FpsCounter />
+        <WalletWatcher />
+        <ExamGate />
+        <ActivityTracker />
+        {/* Developer-mode only: the bug finder hotkey and its report. */}
+        {settings.developerMode && <BugFinder />}
       </HashRouter>
     </MotionConfig>
   )
@@ -182,6 +209,12 @@ function RouteLatch() {
 }
 
 function RoutedApp() {
+  // The refraction lens, computed once. Bending is only switched on where the
+  // map exists and the engine can use it; elsewhere Liquid Glass is a blur.
+  const lensMap = useMemo(() => lensMapDataUrl() ?? '', [])
+  useEffect(() => {
+    document.documentElement.dataset.refract = lensMap && refractionSupported() ? 'on' : 'off'
+  }, [lensMap])
   const starfield = useUI((s) => s.starfield)
   // One subscription for the overlay flags, so toggling any of them re-renders
   // this component (and only mounts the overlay that turned on).
@@ -230,12 +263,13 @@ function RoutedApp() {
 
   return (
     <>
-      {/* Refraction filter used by Liquid Glass (chatbox / island bend effect). */}
+      {/* Refraction for Liquid Glass: a lens map bends what is behind the
+          chatbox, the island and toasts at their edges (lib/glass/lensMap.ts). */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden focusable="false">
         <defs>
-          <filter id="re-glass-bend" x="-20%" y="-20%" width="140%" height="140%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="1" seed="4" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="14" xChannelSelector="R" yChannelSelector="G" />
+          <filter id="re-glass-bend" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+            <feImage href={lensMap} preserveAspectRatio="none" result="lens" />
+            <feDisplacementMap in="SourceGraphic" in2="lens" scale="22" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
       </svg>
@@ -263,8 +297,14 @@ function RoutedApp() {
           <Route path="/library" element={<LibraryView />} />
           <Route path="/compare" element={<CompareView />} />
           <Route path="/workflows" element={<WorkflowsList />} />
+          <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/bots" element={<BotsView />} />
+          <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/marketplace/:slug" element={<MarketplacePage />} />
+          <Route path="/crm" element={<CrmPage />} />
           <Route path="/workflows/:id" element={<WorkflowEditor />} />
           <Route path="/code" element={<CodingView />} />
+          <Route path="/code/codersa" element={<CodersaPage />} />
           <Route path="/chats" element={<ChatsView />} />
           <Route path="/alpha" element={<RemoverAlpha />} />
           <Route path="/feedback" element={<FeedbackView />} />
@@ -281,6 +321,7 @@ function RoutedApp() {
       {/* The new-release popup lives outside the router on purpose — a version
           announcement should be able to reach the user on any page. */}
       <UpdateModal />
+      <ArtifactPanel />
       <ScrollProgress />
       {/* Each overlay mounts only once its own flag is on, so the chunk is
           fetched when it is actually wanted (and the idle preload has usually

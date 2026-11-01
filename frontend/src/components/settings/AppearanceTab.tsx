@@ -4,9 +4,9 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
-import { WakeSlider } from '@/components/ui/reactbits/micro/WakeSlider'
-import { CometDial } from '@/components/ui/reactbits/micro/CometDial'
-import { JellyRadio } from '@/components/ui/reactbits/micro/JellyRadio'
+import WakeSlider from '@/components/ui/reactbits/micro/WakeSlider'
+import CometDial from '@/components/ui/reactbits/micro/CometDial'
+import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { DEFAULT_BUBBLES, FILL_SWATCHES, bubbleShape, type BubblePrefs } from '@/lib/chat/bubbles'
@@ -14,6 +14,8 @@ import { fileToBackgroundUrl, SOLID_PRESETS } from '@/lib/backgrounds'
 import { WALLPAPERS, WALLPAPER_SOURCE } from '@/lib/wallpapers'
 import { getPropsForTheme, mixVec3, ANIMATED_BG_META } from '@/lib/backgrounds/themeProps'
 import type { AnimatedBgKind, BackgroundConfig } from '@/types'
+import { saveNotice } from '@/stores/useNotices'
+import { TYPEFACES } from '@/lib/themes/typeface'
 
 const rgb = (v: [number, number, number]) => `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
 
@@ -35,6 +37,10 @@ function BgPreview({ kind }: { kind: AnimatedBgKind }) {
         }
       : kind === 'dark-veil'
         ? { background: `radial-gradient(130% 100% at 25% 0%, ${prim} 0%, ${bg} 62%), radial-gradient(120% 100% at 80% 100%, ${sec} 0%, ${bg} 58%)` }
+        : kind === 'animated-gradient'
+          ? { background: `radial-gradient(120% 90% at 50% 110%, ${prim} 0%, ${bg} 65%)` }
+          : kind === 'etched-accretion'
+            ? { background: `radial-gradient(60% 60% at 50% 50%, ${sec} 0%, ${bg} 70%)` }
         : kind === 'floating-lines'
           ? {
               background: bg,
@@ -65,7 +71,7 @@ export function AppearanceTab() {
     try {
       const dataUrl = await fileToBackgroundUrl(f)
       setBg(blur ? { kind: 'blur', dataUrl } : { kind: 'image', dataUrl })
-      ui.toast('Background updated', 'Stored locally, downscaled to stay light.', 'success')
+      saveNotice('Background updated', 'Stored locally, downscaled to stay light.')
     } catch {
       ui.toast('Could not read image', 'Try a different file.', 'danger')
     }
@@ -200,7 +206,7 @@ export function AppearanceTab() {
         })}
       </div>
 
-      {(bg.kind === 'shape-grid' || bg.kind === 'dark-veil' || bg.kind === 'floating-lines' || bg.kind === 'dither') && (
+      {(bg.kind === 'shape-grid' || bg.kind === 'dark-veil' || bg.kind === 'floating-lines' || bg.kind === 'dither' || bg.kind === 'animated-gradient' || bg.kind === 'etched-accretion' || bg.kind === 'cubes-grid') && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[12.5px] font-medium">Background intensity</span>
@@ -209,11 +215,11 @@ export function AppearanceTab() {
             </span>
           </div>
           <WakeSlider
-            label="Intensity"
+            ariaLabel="Background intensity"
             min={0.2} max={1} step={0.05}
             value={bg.intensity ?? ANIMATED_BG_META[bg.kind].defaultIntensity}
-            onChange={(v) => setBg({ ...bg, intensity: v } as BackgroundConfig)}
-            format={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v: number) => setBg({ ...bg, intensity: v } as BackgroundConfig)}
+            formatValue={(v: number) => `${Math.round(v * 100)}%`}
           />
           <button onClick={() => setBg({ kind: 'default' })}
             className="mt-2 text-[11.5px] inline-flex items-center gap-1 hover:underline" style={{ color: 'var(--text-3)' }}>
@@ -221,6 +227,28 @@ export function AppearanceTab() {
           </button>
         </div>
       )}
+
+      <div className="space-y-1 mt-6">
+        <div className="text-[12.5px] font-medium mb-1">Typeface</div>
+        <p className="text-[11.5px] mb-2" style={{ color: 'var(--text-3)' }}>Applies to the whole interface. Each option is shown in its own font.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+          {TYPEFACES.map((t) => {
+            const active = (settings.typeface ?? 'default') === t.id
+            return (
+              <button key={t.id} onClick={() => update({ typeface: t.id })} aria-pressed={active}
+                className="text-left rounded-[12px] px-3 py-2.5 transition-colors"
+                style={{ background: active ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)', border: `1px solid ${active ? 'var(--primary)' : 'var(--surface-border)'}` }}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] font-medium" style={{ color: 'var(--text)', fontFamily: t.stack }}>{t.label}</span>
+                  <span className="text-[17px]" style={{ color: 'var(--text-2)', fontFamily: t.stack }}>Aa</span>
+                </div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-3)', fontFamily: t.stack }}>{t.feel}</div>
+                {t.note && <div className="text-[10.5px] mt-1" style={{ color: 'var(--text-3)' }}>{t.note}</div>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       <div className="space-y-1 mt-6">
         <div className="text-[12.5px] font-medium mb-1">Font size</div>
@@ -236,10 +264,11 @@ export function AppearanceTab() {
         <div className="flex items-center gap-4 mb-2">
           <CometDial
             size={78}
+            min={80} max={140} step={1}
             value={Math.round(settings.fontScale * 100)}
-            onChange={(v) => update({ fontScale: Math.max(0.8, Math.min(1.4, v / 100)) })}
+            onChange={(v: number) => update({ fontScale: Math.max(0.8, Math.min(1.4, v / 100)) })}
             label="Text size"
-            format={(v) => `${v}%`}
+            unit="%"
           />
           <div className="flex-1">
             <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Fine text size</div>
@@ -252,12 +281,12 @@ export function AppearanceTab() {
           <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Density</div>
           <JellyRadio
             value={settings.compact ? 'compact' : 'cozy'}
-            onChange={(v) => update({ compact: v === 'compact' })}
-            options={[
+            onChange={(v: string) => update({ compact: v === 'compact' })}
+            items={[
               { value: 'cozy', label: 'Cozy' },
               { value: 'compact', label: 'Compact' },
             ]}
-            label="Layout density"
+            ariaLabel="Layout density"
           />
         </div>
 
@@ -325,6 +354,8 @@ export function AppearanceTab() {
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
           checked={settings.themeGradients} onChange={(v) => update({ themeGradients: v })} />
+        <Switch label="Welcome for AI themes" description="Show a welcome on the home screen when Claude, ChatGPT, Gemini or Perplexity is the theme. Off hides it everywhere."
+          checked={settings.aiThemeWelcome !== false} onChange={(v) => update({ aiThemeWelcome: v })} />
         <Switch label="Composer border beam" description="Ring the home-screen chatbox with Border Beam by Jakubantalik. Brightens while you type."
           checked={settings.composerBeam !== false} onChange={(v) => update({ composerBeam: v })} />
         <Switch label="Dock animation" description="Model rows grow toward the pointer and lift their neighbours, like a dock. Off: the list stays perfectly still."
@@ -397,7 +428,7 @@ export function AppearanceTab() {
           <div className="grid grid-cols-3 gap-2">
             {([
               { id: 'off', name: 'Solid', desc: 'Opaque surface — the classic look.' },
-              { id: 'liquid', name: 'Liquid Glass', desc: 'Refracts what is behind it — text visibly bends through the glass.' },
+              { id: 'liquid', name: 'Liquid Glass', desc: 'Bends what is behind the chatbox, the island and toasts at their edges.' },
               { id: 'blur', name: 'Blur', desc: 'Frosted blur only, no refraction or gloss.' },
             ] as const).map((g) => (
               <button key={g.id} onClick={() => update({ glassMode: g.id })}
@@ -411,6 +442,21 @@ export function AppearanceTab() {
               </button>
             ))}
           </div>
+        </div>
+
+        {settings.glassMode === 'liquid' && (
+          <p className="text-[11.5px] -mt-4 mb-5 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+            {document.documentElement.dataset.refract === 'on'
+              ? 'Bending is on in this window. It runs only on those three small surfaces, so scrolling the chat stays smooth. Turn it off if a slow laptop struggles.'
+              : 'This window cannot bend the backdrop (the engine has no SVG backdrop filters), so Liquid Glass shows a frosted blur here. The Chromium-based app and browsers bend it.'}
+          </p>
+        )}
+
+        {/* The Chats kind switch: gooey by default, plain tabs when turned off. */}
+        <div className="surface p-4">
+          <Switch label="Gooey tab switch in Chats"
+            description="On: the All / Research / Coding switch stretches like liquid between tabs. Off: plain tabs, which read better with a screen reader and cost nothing extra."
+            checked={settings.chatsGooey !== false} onChange={(v) => update({ chatsGooey: v })} />
         </div>
 
         <BubbleSection />

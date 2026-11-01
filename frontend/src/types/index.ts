@@ -1,5 +1,5 @@
 export type ProviderId =
-  | 'openai' | 'anthropic' | 'groq' | 'gemini' | 'ollama' | 'nim' | 'openrouter' | 'together' | 'mistral' | 'lmstudio' | 'custom'
+  | 'openai' | 'anthropic' | 'groq' | 'gemini' | 'ollama' | 'nim' | 'openrouter' | 'together' | 'mistral' | 'lmstudio' | 'llamacpp' | 'custom'
   // 0.26.0: the six asked-for providers, plus the FreeRoute gateway that sits
   // in front of every free tier.
   | 'mercury' | 'grok' | 'deepseek' | 'kimi' | 'glm' | 'minimax'
@@ -58,7 +58,11 @@ export interface ChatMessage {
   sources?: Source[]
   flow?: FlowStats
   bookmarked?: boolean
-  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean }
+  mode?: { math?: boolean; quality?: boolean; search?: boolean; replicate?: boolean; council?: boolean }
+  /** AI council drafts, when council mode ran for this answer. */
+  council?: { model: string; label: string; text: string; ok: boolean; error?: string; role?: 'researcher' | 'critic' | 'drafter' }[]
+  /** Images and audio the model generated through a tool, shown under the answer. */
+  media?: { kind: 'image' | 'audio'; src: string; alt: string }[]
   followUps?: string[]
   error?: string
   agentAttribution?: { name: string; color: string }[]
@@ -90,6 +94,8 @@ export interface ChatMessage {
   }
   /** Tool activity for this answer (shown as chips above the text). */
   toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
+  /** One rich card per tool call, drawn from its catalog entry. Raw tool output is never kept. */
+  toolCards?: import('@/lib/cards/types').CardPayload[]
   /** AI-generated questionnaire awaiting the user's answers. */
   questionnaire?: Questionnaire
   /**
@@ -268,6 +274,10 @@ export interface Article {
   updatedAt: number
   spaceId?: string
   sourceChatId?: string
+  /** Short summary shown on the article's preview card. */
+  description?: string
+  /** A picture for the preview card (a data URL). Falls back to the gradient. */
+  coverImage?: string
 }
 
 export interface Citation {
@@ -328,6 +338,61 @@ export interface QuizQuestion {
   pairs?: { left: string; right: string }[]
 }
 
+/** One step of a duolingo-style path: a short lesson drawn from one part of a document. */
+export interface PathLesson {
+  id: string
+  title: string
+  /** What the learner should be able to do after this lesson. */
+  goal: string
+  /** The passage the lesson's questions were written from, shown on wrong answers. */
+  excerpt: string
+  questions: QuizQuestion[]
+}
+
+export interface PathUnit {
+  id: string
+  title: string
+  lessons: PathLesson[]
+}
+
+export interface LearnPath {
+  id: string
+  docId: string
+  docName: string
+  title: string
+  units: PathUnit[]
+  /** "provider:model" when a model wrote the path, or "on-device" when the sentence engine did. */
+  builtWith: string
+  createdAt: number
+}
+
+/** Progress across every path and technique session on this device. */
+export interface LearnProgress {
+  xp: number
+  /** Consecutive days with at least one completed step. */
+  streak: number
+  lastActiveDay?: string
+  /** lessonId → best stars (0–3) and when it was last finished. */
+  lessons: Record<string, { stars: number; at: number }>
+}
+
+/** A flashcard on the spaced-repetition schedule (SM-2 style). */
+export interface SpacedCard {
+  id: string
+  docId: string
+  /** The sentence with its key term blanked out. */
+  front: string
+  /** The key term that belongs in the blank. */
+  answer: string
+  /** The full sentence, shown after the attempt. */
+  context: string
+  ease: number
+  intervalDays: number
+  reps: number
+  lapses: number
+  due: number
+}
+
 export interface QuizRecord {
   id: string
   docId?: string
@@ -356,13 +421,30 @@ export type BackgroundConfig =
   | { kind: 'dark-veil'; intensity?: number }
   | { kind: 'floating-lines'; intensity?: number }
   | { kind: 'dither'; intensity?: number }
+  | { kind: 'animated-gradient'; intensity?: number }
+  | { kind: 'etched-accretion'; intensity?: number }
+  | { kind: 'gradient-ascii'; intensity?: number }
+  | { kind: 'ghost-fibers'; intensity?: number }
+  | { kind: 'topography'; intensity?: number }
+  | { kind: 'prism'; intensity?: number }
+  | { kind: 'light-pillar'; intensity?: number }
+  | { kind: 'antigravity'; intensity?: number }
+  | { kind: 'silk'; intensity?: number }
+  | { kind: 'pixel-blast'; intensity?: number }
+  | { kind: 'color-bends'; intensity?: number }
+  | { kind: 'plasma'; intensity?: number }
+  | { kind: 'prismatic-burst'; intensity?: number }
+  | { kind: 'galaxy'; intensity?: number }
+  | { kind: 'liquid-chrome'; intensity?: number }
+  | { kind: 'cubes-grid'; intensity?: number }
 
-export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', 'dither'] as const
+export const ANIMATED_BG_KINDS = ['shape-grid', 'dark-veil', 'floating-lines', 'dither', 'animated-gradient', 'etched-accretion',
+  'gradient-ascii', 'ghost-fibers', 'topography', 'prism', 'light-pillar', 'antigravity', 'silk', 'pixel-blast', 'color-bends', 'plasma', 'prismatic-burst', 'galaxy', 'liquid-chrome', 'cubes-grid'] as const
 export type AnimatedBgKind = typeof ANIMATED_BG_KINDS[number]
 export type ThemeId =
   | 'dark' | 'light' | 'catppuccin-latte' | 'catppuccin-frappe' | 'catppuccin-macchiato'
   | 'catppuccin-mocha' | 'nord' | 'solarized-dark' | 'solarized-light' | 'high-contrast' | 're-os'
-  | 'perplexity' | 'claude' | 'chatgpt'
+  | 'perplexity' | 'claude' | 'chatgpt' | 'gemini'
 
 export interface ReplicateStage {
   id: string
@@ -395,6 +477,8 @@ export interface Task {
 export interface Settings {
   theme: ThemeId
   fontScale: number
+  /** Interface typeface, one of the ids in lib/themes/typeface.ts. */
+  typeface: string
   /**
    * Snaffy: a router over the providers you already have. Off by default,
    * because a router you did not turn on is a surprise, and a surprise in the
@@ -409,8 +493,16 @@ export interface Settings {
   }
   compact: boolean
   reduceMotion: boolean
+  /** Show the live CPU/RAM meter in the top bar. Off by default. */
+  showResourceMeter?: boolean
+  /** Show a frames-per-second counter over the app. Off by default. */
+  showFps?: boolean
+  /** The welcome card on the home screen for AI-product themes. On by default. */
+  aiThemeWelcome?: boolean
   flowEnabled: boolean
   flowMode: FlowMode
+  /** Real tokens per local day before new requests stop. 0 = no limit. */
+  dailyTokenBudget?: number
   defaultModel: string // "provider:model"
   /** Effort level sent to providers that understand it (Claude, OpenAI…). */
   effort?: string
@@ -418,6 +510,8 @@ export interface Settings {
   sessionSwitchKey?: string
   /** Persona attached by default to new chats (empty: none). */
   defaultPersonaId?: string
+  /** A plain ECC role family (Researcher, Workflow, …) applied to new chats. The ECC members are chosen per request. */
+  defaultRoleId?: string
   modelDefaults: Record<string, { temperature: number; topP: number; maxTokens: number }>
   customSystemPrompts: Record<string, string>
   /**
@@ -425,8 +519,12 @@ export interface Settings {
    * SearXNG → DuckDuckGo), which is why it is the default: search works before
    * anything is configured.
    */
-  searchBackend: 'auto' | 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg'
+  searchBackend: 'auto' | 'demo' | 'searxng' | 'brave' | 'serper' | 'tavily' | 'ddg' | 'firecrawl' | 'crawl4ai'
   searxngUrl: string
+  /** Firecrawl Open Source Core, self-hosted (e.g. http://localhost:3002). Empty = not used. */
+  firecrawlUrl?: string
+  /** Crawl4AI server (e.g. http://localhost:11235). Empty = not used. */
+  crawl4aiUrl?: string
   searchRegion: string
   /**
    * Search finds an engine by itself: your instance, then a local one, then the
@@ -441,6 +539,8 @@ export interface Settings {
     brave?: string
     serper?: string
     tavily?: string
+    /** Firecrawl hosted API key. The hosted API is usually a little better than the open-source core. */
+    firecrawl?: string
   }
   /** Which engine actually answered last — shown next to the results. */
   searchLastEngine?: string
@@ -448,6 +548,12 @@ export interface Settings {
   /** Model ids fetched live from each provider API (never hardcoded). */
   providerModels: Record<string, string[]>
   passphraseSet: boolean
+  /**
+   * Authenticator lock for the key vault. The TOTP secret is stored only
+   * encrypted with the vault passphrase, and unlocking needs a 6-digit code
+   * from an authenticator app as well as the passphrase.
+   */
+  apiKeyAuth?: { enabled: boolean; secretEnc: string; enrolledAt: string }
   dynamicIsland: boolean
   /** Derive card gradients from the active theme instead of fixed hues. */
   themeGradients: boolean
@@ -472,6 +578,44 @@ export interface Settings {
     connectedAt?: number
   }>
   /**
+   * Composio (connectors for 1000+ apps). `token` is the project key, encrypted
+   * like provider keys; `userId` is this machine's id for its connections.
+   */
+  composio?: {
+    token?: string
+    accountUserId?: string
+    /** Advanced: a self-hosted Composio endpoint. Empty (the default) means the hosted API, which we recommend. */
+    endpoint?: string
+    /** The person's own developer app per toolkit (e.g. Spotify). The secret is encrypted when the vault is in use. */
+    apps?: Record<string, { clientId: string; clientSecret: string; scopes?: string }>
+  }
+  /** Pipedream Connect: the OAuth client, project and environment, as one JSON token. Encrypted when the vault is in use. */
+  pipedream?: { token?: string }
+  /** AI council members, as provider:model. Up to four. */
+  councilMembers?: string[]
+  /** A council member's role, by provider:model. Unset members take the default role for their place. */
+  councilRoles?: Record<string, 'researcher' | 'critic' | 'drafter'>
+  /** Coding workspace settings. Unset fields keep their defaults. */
+  coding?: {
+    /** How long one terminal command may run, in seconds (10–300). Default 60. */
+    commandTimeoutSec?: number
+  }
+  /** Optional Context7 key. Documentation search works without one, at lower limits. */
+  context7?: { token?: string }
+  /**
+   * Third-party services for the chat and the bots (lib/services/config.ts). Each
+   * `token` is encrypted like the provider keys and sent per request, never stored
+   * on the server. `url` is the address of the service, or empty for its default.
+   */
+  services?: {
+    openseo?: { url?: string; token?: string; projectId?: string }
+    voicestudio?: { url?: string; token?: string }
+    twenty?: { url?: string; token?: string }
+    postiz?: { url?: string; token?: string }
+    /** Voices cloned with the speaker's permission. The app holds the only record of consent. */
+    voiceConsents?: { id: string; speaker: string; voiceId: string; grantedAt: number }[]
+  }
+  /**
    * Models the user has taken out of the picker. Refs are "provider:model", so
    * hiding one provider's model never hides another's.
    */
@@ -495,6 +639,8 @@ export interface Settings {
   /** The updater. Nothing installs without the user pressing the button. */
   updates?: {
     autoCheck?: boolean
+    /** Download (and verify) a newer release on launch. Never installs or restarts by itself. */
+    autoDownload?: boolean
     /** Version whose "update available" pill was dismissed. */
     dismissed?: string
     /** Version whose "a new release is out" popup has already been shown once. */
@@ -634,6 +780,8 @@ export interface Settings {
   privacyMode: 'none' | 'private' | 'topsecret'
   /** Chatbox / Dynamic Island surface style. */
   glassMode: 'off' | 'liquid' | 'blur'
+  /** The Chats kind switch (All / Research / Coding): the gooey pill (true, default) or plain HeroUI tabs. */
+  chatsGooey?: boolean
   /** AIFlowEngine speed booster applied to API model output. */
   flowBoost: boolean
   mcpServers: McpServerConfig[]
