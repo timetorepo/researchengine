@@ -376,5 +376,197 @@ export const SKILL_PACKS: SkillPack[] = [
   "origin": "usestrix/strix",
   "license": "Apache-2.0",
   "credit": "Strix (usestrix) — open-source AI penetration testing"
+ },
+ {
+  "id": "architecture-decision-records",
+  "name": "architecture-decision-records",
+  "description": "Capture architectural decisions as numbered ADR markdown files in docs/adr/ with context, alternatives considered, consequences, and an index README. Use when the user says 'record this decision' or 'ADR this', chooses between frameworks or databases, discusses trade-offs, or asks why the codebase is shaped this way.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "api-design",
+  "name": "api-design",
+  "description": "REST API design patterns including resource naming, status codes, pagination, filtering, error responses, versioning, and rate limiting for production APIs. Use when designing or reviewing REST endpoints, resource names, status codes, pagination, or versioning.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "article-writing",
+  "name": "article-writing",
+  "description": "Write articles, guides, blog posts, tutorials, newsletter issues, and other long-form content in a distinctive voice derived from supplied examples or brand guidance. Use when the user wants polished written content longer than a paragraph, especially when voice consistency, structure, and credibility matter.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "coding-standards",
+  "name": "coding-standards",
+  "description": "Baseline cross-project coding conventions for naming, readability, immutability, and code-quality review. Use detailed frontend or backend skills for framework-specific patterns. Use when reviewing code quality or naming with no framework-specific skill that applies.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "content-engine",
+  "name": "content-engine",
+  "description": "Create platform-native content systems for X, LinkedIn, TikTok, YouTube, newsletters, and repurposed multi-platform campaigns. Use when the user wants social posts, threads, scripts, content calendars, or one source asset adapted cleanly across platforms.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "deep-research",
+  "name": "deep-research",
+  "description": "Produce cited research reports from multiple web sources using firecrawl and exa MCP tools — plan sub-questions, search and deep-read sources, then synthesize findings with inline citations and confidence levels. Use when the user asks to research a topic in depth, run a deep dive or investigation, or do competitive analysis, technology evaluation, market sizing, or due diligence on a company.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "documentation-lookup",
+  "name": "documentation-lookup",
+  "description": "Use up-to-date library and framework docs via Context7 MCP instead of training data. Activates for setup questions, API references, code examples, or when the user names a framework (e.g. React, Next.js, Prisma).",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "eval-harness",
+  "name": "eval-harness",
+  "description": "Eval-driven development (EDD) framework for AI coding sessions — define capability and regression evals before coding, grade with code-based, model-based, rule, or human graders, and track pass@k and pass^k reliability. Use when defining pass/fail criteria for agent tasks, measuring agent reliability, building regression suites for prompt or agent changes, or benchmarking across model versions.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "git-workflow",
+  "name": "git-workflow",
+  "description": "Git workflow patterns including branching strategies, commit conventions, keeping history clean and readable, tidying local commits before merging, merge vs rebase, conflict resolution, and collaborative development best practices for teams of all sizes. Use when choosing a branching strategy, writing commit conventions, cleaning up history before a pull request, deciding merge versus rebase, or resolving conflicts.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "market-research",
+  "name": "market-research",
+  "description": "Conduct market research, competitive analysis, investor due diligence, and industry intelligence with source attribution and decision-oriented summaries. Use when the user wants market sizing, competitor comparisons, fund research, technology scans, or research that informs business decisions.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "prompt-optimizer",
+  "name": "prompt-optimizer",
+  "description": "Analyze draft prompts, detect intent and missing context, match ECC commands, skills, and agents, and output a ready-to-paste optimized prompt with diagnosis and rationale — advisory only, never executes the task. Use when the user says 'optimize prompt', 'improve my prompt', 'rewrite this prompt', 'help me prompt', 优化prompt, 改进prompt, 怎么写prompt, or 帮我优化这个指令; not for requests to optimize code or performance.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "search-first",
+  "name": "search-first",
+  "description": "\"Research-before-coding workflow: search npm/PyPI, MCP servers, skills, and GitHub for existing tools before writing custom code, then adopt, extend, or build. Launches the researcher agent for non-trivial needs. Use when starting a feature, adding a dependency or integration, or about to write a utility that may already exist.\"",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "security-review",
+  "name": "security-review",
+  "description": "Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "seo",
+  "name": "seo",
+  "description": "Audit, plan, and implement SEO improvements across technical SEO, on-page optimization, structured data, Core Web Vitals, and content strategy. Use when the user wants better search visibility, SEO remediation, schema markup, sitemap/robots work, or keyword mapping.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "tdd-workflow",
+  "name": "tdd-workflow",
+  "description": "\"Test-driven development workflow: write a failing test first, watch it fail, implement the smallest change to green, then refactor with 80%+ coverage across unit, integration, and E2E tests. Use when writing a new feature, fixing a bug, refactoring, or when told to write failing tests first.\"",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
+ },
+ {
+  "id": "verification-loop",
+  "name": "verification-loop",
+  "description": "Run a six-phase verification of a Claude Code session's work — build, type check, lint, tests with coverage, security grep, and diff review — then produce a PASS/FAIL verification report. Use when verifying work after completing a feature or refactor, before creating a PR, or when quality gates must pass.",
+  "files": [
+   "SKILL.md",
+   "origin"
+  ],
+  "origin": "affaan-m/ecc",
+  "license": "MIT",
+  "credit": "Affaan Mustafa — Everything Claude Code (ECC), agent harness skills"
  }
 ]

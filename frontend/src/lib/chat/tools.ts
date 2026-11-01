@@ -8,6 +8,8 @@ import { useUI } from '@/stores/useUI'
 import { designSession, captureStore, formatSnapshot, formatFindings, formatControls } from '@/lib/ide/bridge'
 import { ensurePreviewServer, previewStatus, stopPreview } from '@/lib/ide/preview'
 import { runUiTest } from '@/lib/ide/tests'
+import { serviceReady, permittedVoice } from '@/lib/services/config'
+import { MEDIA_TOOLS } from './media-tools'
 
 export interface ToolCall { id: string; name: string; arguments: Record<string, unknown> | string }
 
@@ -24,6 +26,11 @@ export interface ToolContext {
    * what keeps two agents running at once from writing the same file.
    */
   agent?: string
+  /**
+   * Called once per finished tool call with what the card needs: the text the
+   * model got, and the structured data when the tool had it. Drives the result cards.
+   */
+  onResult?: (r: { tool: string; args: Record<string, unknown>; text: string; data?: unknown; ok: boolean }) => void
 }
 
 /** The scope suffix every IDE call carries: `&agent=<id>` or nothing. */
@@ -60,11 +67,13 @@ function emitActivity(a: Omit<IdeActivity, 'at'>) {
   window.dispatchEvent(new CustomEvent('re:agent-activity', { detail: { ...a, at: Date.now() } }))
 }
 
-interface ToolDef {
+export interface ToolDef {
   name: string
   description: string
   parameters: Record<string, unknown>
   needsProject?: boolean
+  /** Only offered when this returns true, so an unset-up service adds nothing to the prompt. */
+  when?: () => boolean
   run: (args: any, ctx: ToolContext) => Promise<string>
 }
 
@@ -244,6 +253,222 @@ export const TOOLS: ToolDef[] = [
       } catch (e: any) {
         return `Could not read that item: ${String(e?.message ?? e)}`
       }
+    },
+  },
+  {
+    name: 'composio_apps',
+    description: 'List the apps the user has CONNECTED through Composio (Gmail, Slack, GitHub, Notion, Linear and any other app they signed into in the Marketplace). Call this first to see what is available. If the app a person asks about is not listed, say so and tell them to connect it in the Marketplace; do not guess.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    run: async () => {
+      const { composioConfigured, listComposioAccounts, isActiveAccount } = await import('@/lib/composio/client')
+      if (!composioConfigured()) return 'Composio is not set up. Add the project key in the Marketplace, in the sidebar.'
+      try {
+        const active = (await listComposioAccounts()).filter(isActiveAccount)
+        return active.length ? JSON.stringify({ connected: active.map((a) => ({ app: a.toolkit, alias: a.alias ?? null })) }) : 'No apps are connected yet. Connect one in the Marketplace, in the sidebar.'
+      } catch (e: any) {
+        return `Could not list connected apps: ${String(e?.message ?? e)}`
+      }
+    },
+  },
+  {
+    name: 'composio_tools',
+    description: 'List the actions one connected app offers (for example gmail, slack, github). Returns tool names such as GMAIL_FETCH_EMAILS with what each does. Use one of these names with composio_run.',
+    parameters: {
+      type: 'object',
+      properties: { app: opt('string', 'App slug, e.g. gmail, slack, github, notion') },
+      required: ['app'],
+    },
+    run: async (args) => {
+      const { listComposioTools } = await import('@/lib/composio/client')
+      try {
+        const tools = await listComposioTools(String(args?.app ?? '').trim().toLowerCase())
+        return JSON.stringify({ app: args?.app, tools: tools.slice(0, 60) }).slice(0, 12_000)
+      } catch (e: any) {
+        return `Could not list the actions: ${String(e?.message ?? e)}`
+      }
+    },
+  },
+  {
+    name: 'composio_run',
+    description: 'Run one action of a CONNECTED app (name from composio_tools, e.g. GMAIL_FETCH_EMAILS) with its arguments as a JSON object. Read actions are fine to run for the person. Before an action that sends, posts, deletes or changes something, say what you will do and wait for their go-ahead.',
+    parameters: {
+      type: 'object',
+      properties: {
+        tool: opt('string', 'Action name, e.g. GMAIL_FETCH_EMAILS'),
+        arguments: opt('string', 'JSON object of arguments for the action, e.g. {"max_results": 5}'),
+      },
+      required: ['tool'],
+    },
+    run: async (args, ctx) => {
+      const { runComposioTool } = await import('@/lib/composio/client')
+      let input: Record<string, unknown> = {}
+      const raw = args?.arguments
+      if (typeof raw === 'string' && raw.trim()) {
+        try { input = JSON.parse(raw) } catch { return 'The arguments must be a JSON object.' }
+      } else if (raw && typeof raw === 'object') {
+        input = raw as Record<string, unknown>
+      }
+      const res = await runComposioTool(String(args?.tool ?? ''), input)
+      // The structured result goes to the card; the model gets the clipped text.
+      if (res.ok) (ctx as any)?.__setData?.(res.data ?? null)
+      return res.ok ? JSON.stringify(res.data ?? null).slice(0, 12_000) : `The action failed: ${res.error}`
+    },
+  },
+  {
+    name: 'docs_search',
+    description: 'Look up CURRENT documentation and code examples for a library, framework or API (Context7). Use it before writing code against a library, or when a question is about how a specific version of a tool behaves. Give the question and optionally the library name, e.g. query "stream a response in Next.js route handlers", library "next.js". Cite the library and version in the answer.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: opt('string', 'What you need to know, in plain words'),
+        library: opt('string', 'Optional library or framework name(s), comma-separated'),
+      },
+      required: ['query'],
+    },
+    run: async (args) => {
+      const { searchDocs } = await import('@/lib/context7/client')
+      const res = await searchDocs(String(args?.query ?? ''), args?.library ? String(args.library) : undefined)
+      if (!res.ok) return `Documentation lookup failed: ${res.error}`
+      if (!res.hits.length) return 'No documentation matched. Say so rather than guessing.'
+      return JSON.stringify(res.hits).slice(0, 12_000)
+    },
+  },
+  {
+    name: 'seo_domain',
+    description: 'Look up SEO data for a website from OpenSEO: estimated organic traffic, the number of keywords it ranks for, backlinks and referring domains. Use it when someone asks how a site performs in search or who it competes with. Give the domain, e.g. example.com. Report the figures as estimates from the data provider.',
+    parameters: {
+      type: 'object',
+      properties: { domain: opt('string', 'Domain or URL, e.g. example.com') },
+      required: ['domain'],
+    },
+    when: () => serviceReady('openseo'),
+    run: async (args) => {
+      const { seoDomain } = await import('@/lib/services/client')
+      const res = await seoDomain(String(args?.domain ?? ''))
+      return res.ok ? JSON.stringify(res.data.result).slice(0, 12_000) : `OpenSEO lookup failed: ${res.error}`
+    },
+  },
+  {
+    name: 'seo_keywords',
+    description: 'Research keywords with OpenSEO for up to five seed phrases: related keywords with search volume, difficulty and cost per click. Use it for keyword ideas or to size a topic before writing about it.',
+    parameters: {
+      type: 'object',
+      properties: { seeds: { type: 'array', items: STR, description: '1 to 5 seed keywords' } },
+      required: ['seeds'],
+    },
+    when: () => serviceReady('openseo'),
+    run: async (args) => {
+      const seeds = Array.isArray(args?.seeds) ? args.seeds.map((x: unknown) => String(x)).slice(0, 5) : []
+      if (!seeds.length) return 'Give at least one seed keyword.'
+      const { seoKeywords } = await import('@/lib/services/client')
+      const res = await seoKeywords(seeds)
+      return res.ok ? JSON.stringify(res.data.result).slice(0, 12_000) : `OpenSEO research failed: ${res.error}`
+    },
+  },
+  {
+    name: 'crm_search',
+    description: 'Find people or companies in the person\'s CRM (Twenty) by name. Returns matching records with their ids.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['people', 'companies'], description: 'Which records to search' },
+        query: opt('string', 'Name or part of a name'),
+      },
+      required: ['query'],
+    },
+    when: () => serviceReady('twenty'),
+    run: async (args) => {
+      const { crmSearch } = await import('@/lib/services/client')
+      const res = await crmSearch(args?.kind === 'companies' ? 'companies' : 'people', String(args?.query ?? ''))
+      if (!res.ok) return `CRM search failed: ${res.error}`
+      return res.data.records.length ? JSON.stringify(res.data.records) : 'Nothing in the CRM matched.'
+    },
+  },
+  {
+    name: 'crm_create',
+    description: 'Create a person, a company or a note in the CRM (Twenty). Only do this when the person has asked you to add it and has given you the details. Never guess an email address or company name.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['people', 'companies', 'notes'] },
+        firstName: opt('string', 'People: first name'),
+        lastName: opt('string', 'People: last name'),
+        email: opt('string', 'People: email address'),
+        jobTitle: opt('string', 'People: job title'),
+        name: opt('string', 'Companies: company name'),
+        domain: opt('string', 'Companies: website domain'),
+        title: opt('string', 'Notes: title'),
+        body: opt('string', 'Notes: text, in plain words or Markdown'),
+      },
+      required: ['kind'],
+    },
+    when: () => serviceReady('twenty'),
+    run: async (args) => {
+      const kind = args?.kind === 'companies' || args?.kind === 'notes' ? args.kind : 'people'
+      const { crmCreate } = await import('@/lib/services/client')
+      const res = await crmCreate({ ...args, kind } as any)
+      return res.ok ? `Created the ${kind === 'people' ? 'person' : kind === 'companies' ? 'company' : 'note'} (id ${res.data.id}).` : `CRM could not create it: ${res.error}`
+    },
+  },
+  {
+    name: 'social_channels',
+    description: 'List the social channels connected in Postiz (for example X, LinkedIn, a blog). Call it before social_draft to get a channel id.',
+    parameters: { type: 'object', properties: {} },
+    when: () => serviceReady('postiz'),
+    run: async () => {
+      const { socialChannels } = await import('@/lib/services/client')
+      const res = await socialChannels()
+      if (!res.ok) return `Could not list the channels: ${res.error}`
+      return res.data.channels.length
+        ? JSON.stringify(res.data.channels.map((c) => ({ id: c.id, name: c.name, platform: c.identifier, disabled: c.disabled })))
+        : 'No channels are connected in Postiz yet.'
+    },
+  },
+  {
+    name: 'social_draft',
+    description: 'Save a DRAFT post on one connected channel in Postiz. Drafts only: nothing is published or scheduled, and the person does that in Postiz. Write the text for that platform\'s length and style.',
+    parameters: {
+      type: 'object',
+      properties: {
+        channelId: opt('string', 'The channel id from social_channels'),
+        text: opt('string', 'The post text'),
+      },
+      required: ['channelId', 'text'],
+    },
+    when: () => serviceReady('postiz'),
+    run: async (args) => {
+      const { socialDraft } = await import('@/lib/services/client')
+      const res = await socialDraft(String(args?.channelId ?? ''), String(args?.text ?? ''))
+      return res.ok ? `Saved a draft on ${res.data.channel} (post ${res.data.postId || 'created'}). It is in Postiz; nothing was published.` : `The draft was not saved: ${res.error}`
+    },
+  },
+  {
+    name: 'voice_speak',
+    description: 'Speak text aloud with a voice from VoiceStudio and play it in the app. Use a built-in voice name ("default", "alloy", "nova" and so on), or the name of a voice the person has cloned with their permission. You cannot clone a voice yourself: cloning is always started by the person.',
+    parameters: {
+      type: 'object',
+      properties: {
+        voice: opt('string', 'Built-in voice name, or a cloned voice name the person has permitted'),
+        text: opt('string', 'What the voice should say'),
+      },
+      required: ['text'],
+    },
+    when: () => serviceReady('voicestudio'),
+    run: async (args) => {
+      const text = String(args?.text ?? '').trim()
+      if (!text) return 'Say what the voice should read.'
+      const requested = String(args?.voice ?? 'default').trim() || 'default'
+      const consent = permittedVoice(requested)
+      const builtIn = /^(default|alloy|ash|ballad|coral|echo|fable|nova|onyx|sage|shimmer|verse|marin|cedar)$/i.test(requested)
+      if (!consent && !builtIn) return `There is no permitted voice called “${requested}”. Use a built-in voice, or a voice the person cloned with their permission.`
+      const { voiceSpeak } = await import('@/lib/services/client')
+      const res = await voiceSpeak(consent ? consent.voiceId : requested, text)
+      if (!res.ok) return `Speech failed: ${res.error}`
+      const url = URL.createObjectURL(res.data.blob)
+      const audio = new Audio(url)
+      audio.onended = () => URL.revokeObjectURL(url)
+      void audio.play().catch(() => { /* the person can press play in the app if the browser blocks it */ })
+      return `Spoke the text with ${consent ? `the cloned voice “${consent.speaker}”` : `the “${requested}” voice`}. It is playing in the app.`
     },
   },
   {
@@ -455,7 +680,7 @@ export const TOOLS: ToolDef[] = [
       // for anything mutating) — then we ask the human.
       let res = await fetch('/api/ide/exec', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ project: ctx.project, command, agent: ctx.agent }),
+        body: JSON.stringify({ project: ctx.project, command, agent: ctx.agent, timeoutMs: commandTimeoutMs() }),
       })
       let out: any = await res.json()
       if (out.blocked) return `BLOCKED by safety rules: ${out.reason}`
@@ -465,7 +690,7 @@ export const TOOLS: ToolDef[] = [
         if (!approved) return 'The user declined to run this command. Ask how they want to proceed instead.'
         res = await fetch('/api/ide/exec', {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ project: ctx.project, command, confirmed: true, agent: ctx.agent }),
+          body: JSON.stringify({ project: ctx.project, command, confirmed: true, agent: ctx.agent, timeoutMs: commandTimeoutMs() }),
         })
         out = await res.json()
       }
@@ -887,10 +1112,13 @@ export const TOOLS: ToolDef[] = [
   },
 ]
 
+// Image and audio output (see media-tools.ts). Offered only when the model and provider can use them.
+TOOLS.push(...MEDIA_TOOLS)
+
 /** OpenAI-style tool specs for the provider payload. */
 export function toolSpecs(ctx: ToolContext): { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }[] {
   return TOOLS
-    .filter((t) => !t.needsProject || !!ctx.project)
+    .filter((t) => (!t.needsProject || !!ctx.project) && (!t.when || t.when()))
     .map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }))
 }
 
@@ -899,10 +1127,12 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
   const def = TOOLS.find((t) => t.name === call.name)
   if (!def) return `Unknown tool: ${call.name}`
   if (def.needsProject && !ctx.project) return 'This tool needs an open project in Coding mode.'
+  if (def.when && !def.when()) return `${def.name} is not set up. Add it under Marketplace → Built in.`
   let args: any = call.arguments
   if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = { input: args } } }
   args = args ?? {}
-  const fullCtx = { ...ctx, __toolCallId: call.id } as any
+  let structured: unknown = undefined
+  const fullCtx = { ...ctx, __toolCallId: call.id, __setData: (d: unknown) => { structured = d } } as any
   try {
     if (def.name === 'ide_run_command') trace(`run: ${String(args.command ?? '').slice(0, 60)}`, 'confirm')
     else if (def.name === 'run_ui_test') trace(`UI test: ${String(args.name ?? 'flow')}`.slice(0, 60), 'ok')
@@ -919,7 +1149,11 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else if (def.name === 'design_controls') trace('map controls', 'ok')
     else if (def.name === 'design_console') trace('read console', 'ok')
     else if (def.name === 'ask_user') trace('asking you a few questions', 'ok')
+    else if (def.name === 'docs_search') trace(`docs: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
+    else if (def.name.startsWith('composio')) trace(`${def.name === 'composio_run' ? 'run' : 'connectors'} ${String(args.tool ?? args.app ?? '')}`.slice(0, 60), 'ok')
     else if (def.name.startsWith('connector')) trace(`${def.name === 'connector_search' ? 'search' : 'read'} ${String(args.box ?? args.query ?? '')}`.slice(0, 60), 'ok')
+    else if (def.name === 'generate_image') trace(`image: ${String(args.prompt ?? '').slice(0, 44)}`, 'ok')
+    else if (def.name === 'generate_audio') trace('spoken clip', 'ok')
     else if (def.name === 'web_search') trace(`web search: ${String(args.query ?? '').slice(0, 50)}`, 'ok')
     else if (def.name === 'library_search') trace(`library search: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
     else if (def.name === 'library_read') trace(`reading ${String(args.url ?? '').replace(/^https?:\/\//, '').slice(0, 44)}`, 'ok')
@@ -927,15 +1161,24 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else trace(def.name, 'ok')
     const result = await def.run(args, fullCtx)
     const blocked = /^BLOCKED/.test(result)
+    ctx.onResult?.({ tool: def.name, args, text: result, data: structured, ok: !blocked && !/^(The action failed|Tool \S+ failed|Unknown tool)/.test(result) })
     if (def.name === 'ide_run_command') trace(`ran: ${String(args.command ?? '').slice(0, 60)}`, blocked ? 'blocked' : 'ok')
     return result
   } catch (e: any) {
     trace(def.name, 'error')
-    return `Tool ${def.name} failed: ${String(e?.message ?? e)}`
+    const text = `Tool ${def.name} failed: ${String(e?.message ?? e)}`
+    ctx.onResult?.({ tool: def.name, args, text, ok: false })
+    return text
   }
 }
 
 /** MCP servers + tools rendered into the system prompt so the model knows what it can call. */
+/** The Coding setting for one command's time limit, in ms. Unset means the server default. */
+export function commandTimeoutMs(): number | undefined {
+  const sec = useStore.getState().settings.coding?.commandTimeoutSec
+  return typeof sec === 'number' && sec > 0 ? Math.round(sec * 1000) : undefined
+}
+
 export function mcpContextBlock(): string {
   const servers = useStore.getState().settings.mcpServers.filter((s) => s.enabled)
   if (!servers.length) return ''

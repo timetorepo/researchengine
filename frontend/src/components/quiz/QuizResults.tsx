@@ -1,8 +1,9 @@
+import { awardCard } from '@/lib/wallet/cards'
 import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { RotateCcw, Share2, Sparkles, Trophy, Flame, Target, GraduationCap } from 'lucide-react'
 import { ShareStudio } from './ShareStudio'
-import { PeekRating } from '@/components/ui/reactbits/micro/PeekRating'
+import PeekRating from '@/components/ui/reactbits/micro/PeekRating'
 import type { QuizQuestion } from '@/types'
 import type { PlayResult } from './QuizPlay'
 import { burstConfetti } from '@/lib/quiz/confetti'
@@ -35,6 +36,8 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
   const nCorrect = quiz.questions.filter((q) => result.correct[q.id]).length
   const pct = Math.round((nCorrect / Math.max(1, total)) * 100)
   const score = useCountUp(pct)
+  // Finishing a quiz earns the first-quiz card, once. awardCard ignores repeats.
+  useEffect(() => { awardCard('first-quiz') }, [])
   const cardRef = useRef<HTMLDivElement>(null)
   // The share card is a studio now: it opens with a live preview of the exact
   // PNG, four looks, your own picture and the app's accent colours.
@@ -85,7 +88,7 @@ export function QuizResults({ quiz, result, onRetry, onReviewMistakes, onSimilar
           {/* How well it went, as five stars. Read-only: this is a score you are
               shown, not one you set. */}
           <div className="mt-2 flex justify-center">
-            <PeekRating readOnly value={Math.round((pct / 100) * 5)} label="Session score out of five" />
+            <PeekRating readOnly value={Math.round((pct / 100) * 5)} ariaLabel="Session score out of five" activeColor="var(--text-1)" idleColor="var(--surface-border)" />
           </div>
         </motion.div>
 

@@ -137,9 +137,17 @@ async function main() {
   check('and the colourful letters are real elements, not one text node',
     host.querySelectorAll('span[aria-hidden="true"]').length > 4)
 
-  fire(byText(host, 'Get started'))
+  // The welcome is a scrolling page now. Its only way on is the tear ticket, and
+  // the progress dots do not move the wizard from here.
+  check('the welcome has no Get started button', !text(host).includes('Get started'))
+  check('the progress dots are disabled on the welcome', dots.every((d: any) => d.disabled))
+  const stub = host.querySelector('[aria-label="Tear to start setup"]') as HTMLElement | null
+  check('the tear ticket is on the welcome page', !!stub)
+  stub?.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  // onTear fires when the tear animation ends, so give it time to play.
+  await wait(2200)
   await settle()
-  check('“Get started” moves to the privacy step', text(host).includes('Your privacy, enforced by architecture'))
+  check('tearing the ticket moves to the next step (the handle)', text(host).includes('Pick your name and handle'))
 
   const goTo = async (label: string) => {
     const dot = [...host.querySelectorAll('button[aria-label^="Step "]')].find((b: any) => (b.getAttribute('aria-label') ?? '').endsWith(label))

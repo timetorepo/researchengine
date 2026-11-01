@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import type { ControlInfo } from '@/lib/ide/bridge'
 import { testStore, testControl, replayRun, runSteps, type TestRun, type TestStep } from '@/lib/ide/tests'
-import { StatusMark } from '@/components/ui/reactbits/micro/StatusMark'
+import StatusMark from '@/components/ui/reactbits/micro/StatusMark'
 
 /**
  * A step's state, as the reactbits StatusMark.
@@ -16,10 +16,10 @@ import { StatusMark } from '@/components/ui/reactbits/micro/StatusMark'
  * idle, not a minus.
  */
 function StatusIcon({ status }: { status: string }) {
-  if (status === 'pass') return <StatusMark state="done" size={9} />
-  if (status === 'fail') return <StatusMark state="error" size={9} />
-  if (status === 'running') return <StatusMark state="running" size={9} />
-  return <StatusMark state="idle" size={9} />
+  if (status === 'pass') return <StatusMark status="done" size={9} />
+  if (status === 'fail') return <StatusMark status="failed" size={9} />
+  if (status === 'running') return <StatusMark status="running" size={9} />
+  return <StatusMark status="pending" size={9} />
 }
 
 function useRuns(): TestRun[] {

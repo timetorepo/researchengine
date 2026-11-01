@@ -86,12 +86,21 @@ export function ArticlesView() {
                   layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: removing === a.id ? 0 : 1, y: removing === a.id ? -10 : 0, scale: removing === a.id ? 0.96 : 1 }} exit={{ opacity: 0, scale: 0.94, height: 0, margin: 0 }} transition={{ type: 'spring', damping: 26, stiffness: 320, delay: removing === a.id ? 0 : i * 0.04 }}
                   className="group relative rounded-[18px] overflow-hidden cursor-pointer card-hover"
                   onClick={() => navigate(`/articles/${a.id}`)}>
-                  <div className="h-24 w-full" style={{ background: `linear-gradient(135deg, hsl(${hue} 45% 32%), hsl(${(hue + 40) % 360} 40% 22%))` }}>
-                    <div className="p-3.5 h-full flex flex-col justify-end">
+                  <div className="h-24 w-full relative" style={{ background: `linear-gradient(135deg, hsl(${hue} 45% 32%), hsl(${(hue + 40) % 360} 40% 22%))` }}>
+                    {a.coverImage && (
+                      <>
+                        <img src={a.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.7))' }} />
+                      </>
+                    )}
+                    <div className="relative p-3.5 h-full flex flex-col justify-end">
                       <div className="text-white/90 font-semibold text-[14px] leading-tight line-clamp-2" style={{ fontFamily: 'var(--font-serif)' }}>{a.title}</div>
                     </div>
                   </div>
-                  <div className="p-3.5 flex items-center justify-between" style={{ background: 'var(--surface)' }}>
+                  <div className="p-3.5" style={{ background: 'var(--surface)' }}>
+                    {a.description && <p className="mb-2 text-[12px] leading-relaxed line-clamp-2" style={{ color: 'var(--text-2)' }}>{a.description}</p>}
+                  </div>
+                  <div className="px-3.5 pb-3.5 -mt-2 flex items-center justify-between" style={{ background: 'var(--surface)' }}>
                     <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{readingTime(a.blocks.map((b) => b.content).join(' '))} · {timeAgo(a.updatedAt)}</span>
                     <button onClick={(e) => { e.stopPropagation(); removeArticle(a.id) }}
                       className="opacity-0 group-hover:opacity-100 p-1 rounded" style={{ color: 'var(--text-3)' }} aria-label="Delete article">

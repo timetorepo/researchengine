@@ -10,7 +10,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { extractText } from '@/lib/documents/extract'
 import { generateQuiz } from '@/lib/quiz/generate'
-import { TechText } from '@/components/ui/reactbits/micro/TechText'
+import TechText from '@/components/ui/reactbits/micro/TechText'
 import {
   TECHNIQUES, LEVELS, DEFAULT_TECHNIQUE, DEFAULT_LEVEL,
   techniqueById, levelById, typesFor,
@@ -22,6 +22,12 @@ import { ReaderView, type ReaderDoc } from '@/components/reader/ReaderView'
 import { QuizPlay, type PlayResult } from './QuizPlay'
 import { QuizResults } from './QuizResults'
 import { Select } from '@/components/ui/watermelon/Select'
+import { FileDropzone } from '@/components/ui/uiarc/file-dropzone/file-dropzone'
+import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
+import { TechniquesPanel } from '@/components/learn/TechniquesPanel'
+import { PathPanel } from '@/components/learn/PathPanel'
+import { ExamTab } from '@/components/exam/Exam'
+import { VideosPanel } from '@/components/learn/VideosPanel'
 // shadcn-space @shadcn-space/animated-list-02 — the setup-steps animation, used
 // for the two loading paths that read like a pipeline: parsing and analysing a
 // document for the reader, and building the questions for a quiz. The step
@@ -31,6 +37,15 @@ import { SetupSteps } from '@/components/shadcn-space/animated-list/animated-lis
 
 type Stage = { id: string; label: string; icon: any; pct: number; done: boolean }
 
+type LearnTab = 'study' | 'techniques' | 'path' | 'videos' | 'exam'
+const LEARN_TABS: { value: LearnTab; label: string }[] = [
+  { value: 'study', label: 'Study' },
+  { value: 'techniques', label: 'Techniques' },
+  { value: 'path', label: 'Path' },
+  { value: 'videos', label: 'Videos' },
+  { value: 'exam', label: 'Exam' },
+]
+
 export function QuizHub() {
   const documents = useStore((s) => s.documents)
   const quizzes = useStore((s) => s.quizzes)
@@ -39,7 +54,7 @@ export function QuizHub() {
   const [view, setView] = useState<'hub' | 'processing' | 'reader' | 'quiz' | 'results' | 'review'>('hub')
   const [readerDoc, setReaderDoc] = useState<ReaderDoc | null>(null)
   const [pendingNeedle, setPendingNeedle] = useState<string | null>(null)
-  const [dragOver, setDragOver] = useState(false)
+  const seenFiles = useRef(new Set<string>())
   const fileRef = useRef<HTMLInputElement>(null)
 
   // processing
@@ -64,6 +79,7 @@ export function QuizHub() {
   const [activeQuiz, setActiveQuiz] = useState<{ title: string; questions: QuizQuestion[]; docId?: string } | null>(null)
   const [lastResult, setLastResult] = useState<PlayResult | null>(null)
   const [quizIsDemo, setQuizIsDemo] = useState(false)
+  const [tab, setTab] = useState<LearnTab>('study')
 
   const doc = documents.find((d) => d.id === selected) ?? null
 
@@ -346,32 +362,49 @@ export function QuizHub() {
           interleaving, the Feynman method. Everything runs on this machine.
         </p>
 
+        {/* Four ways in: the document study flow, the named techniques you do,
+            the step-by-step path built from a document, and videos for what you
+            are on now. */}
+        <div className="mb-6">
+          <JellyRadio items={LEARN_TABS} value={tab} onChange={(v: string) => setTab(v as LearnTab)} ariaLabel="Learn sections" size="sm" />
+        </div>
+
+        {tab === 'techniques' && <TechniquesPanel documents={documents} />}
+        {tab === 'path' && <PathPanel documents={documents} />}
+        {tab === 'videos' && <VideosPanel documents={documents} />}
+        {tab === 'exam' && <ExamTab />}
+
+        {tab === 'study' && (<>
         {/* The empty state is the one place a heading that assembles itself is a
             welcome rather than a delay: nothing else is moving yet. */}
         {documents.length === 0 && (
           <div className="mb-6">
-            <TechText as="p" text="Nothing here yet. Drop a document to begin."
+            <TechText text="Nothing here yet. Drop a document to begin."
               className="text-[13px] font-medium m-0" speed={26} />
           </div>
         )}
 
-        {/* Drop zone */}
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
-          onClick={() => fileRef.current?.click()}
-          className="rounded-[18px] p-8 text-center cursor-pointer transition-all mb-3"
-          style={{ border: `1.5px dashed ${dragOver ? 'var(--primary)' : 'var(--surface-border)'}`, background: dragOver ? 'color-mix(in srgb, var(--primary) 6%, transparent)' : 'var(--surface)' }}
-        >
-          <UploadCloud size={26} strokeWidth={1.5} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
-          <div className="text-[14px] font-medium">Drop a PDF, DOCX, TXT or Markdown file</div>
-          <div className="text-[11.5px] mt-1" style={{ color: 'var(--text-3)' }}>or click to browse — extraction happens on-device</div>
-          <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md,.markdown" className="hidden" onChange={(e) => {
-            const files = Array.from(e.target.files ?? [])
-            e.target.value = '' // allow re-selecting the same file
-            if (files.length) handleFiles(files)
-          }} />
+        {/* Drop zone: reactbits-style file dropzone (uiarc). It lists each file as it
+            is picked; the handler ingests a file once, the first time it appears. */}
+        <div className="mb-3">
+          <FileDropzone
+            accept=".pdf,.docx,.txt,.md,.markdown"
+            multiple
+            maxFiles={5}
+            maxSize={50 * 1024 * 1024}
+            label="Add a document"
+            description="Drop a PDF, DOCX, TXT or Markdown file, or choose one from your device"
+            note="Extraction happens on-device. Nothing is uploaded."
+            onFilesChange={(files) => {
+              const fresh = files.filter((f) => {
+                const key = `${f.name}:${f.size}:${f.lastModified}`
+                if (seenFiles.current.has(key)) return false
+                seenFiles.current.add(key)
+                return true
+              })
+              if (fresh.length) handleFiles(fresh)
+            }}
+          />
         </div>
 
         {/* Demo entries */}
@@ -529,6 +562,7 @@ export function QuizHub() {
             </div>
           </>
         )}
+        </>)}
       </div>
     </div>
   )

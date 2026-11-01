@@ -119,6 +119,7 @@ export class StreamShaper {
   private rawDone = false
   private finished = false
   private raf = 0
+  private timer: number | undefined
   private nextEmitAt = 0
   private emittedWords = 0
   private stalls = 0
@@ -139,16 +140,17 @@ export class StreamShaper {
     if (!this.firstTokenAt) {
       this.firstTokenAt = now
       this.hooks.onFirstToken?.()
-      if (this.cfg.shaping === 'off') {
-        // Off: pass-through, but keep the hook contract
-        this.flush(chunk)
-        this.emittedWords += chunk.split(/\s+/).filter(Boolean).length
-        this.arrivalTimes.push(now)
-        return
-      }
     }
     this.arrivalTimes.push(now)
     this.totalArrived++
+    if (this.cfg.shaping === 'off') {
+      // Off: pass-through for EVERY chunk. The pacer never runs in this mode,
+      // so queueing here would freeze the visible text after the first chunk
+      // until the final full-text swap.
+      this.flush(chunk)
+      this.emittedWords += chunk.split(/\s+/).filter(Boolean).length
+      return
+    }
     this.pending += chunk
     if (this.stalled) {
       this.stalled = false
@@ -165,7 +167,7 @@ export class StreamShaper {
 
   abort() {
     this.finished = true
-    caf(this.raf)
+    this.cancelTick()
     flowDiagnostics.end()
   }
 
@@ -176,9 +178,26 @@ export class StreamShaper {
     const tick = () => {
       if (this.finished) return
       this.pace()
+      this.schedule(tick)
+    }
+    this.schedule(tick)
+  }
+
+  /** Schedule the next tick. Browsers pause requestAnimationFrame in hidden
+   *  tabs, which froze the pacer (and the answer) until the user came back, so
+   *  a hidden page ticks on a timer instead. */
+  private schedule(tick: () => void) {
+    if (typeof document !== 'undefined' && document.hidden) {
+      this.timer = setTimeout(tick, 100) as unknown as number
+    } else {
       this.raf = raf(tick)
     }
-    this.raf = raf(tick)
+  }
+
+  private cancelTick() {
+    caf(this.raf)
+    if (this.timer !== undefined) clearTimeout(this.timer as unknown as ReturnType<typeof setTimeout>)
+    this.timer = undefined
   }
 
   /* ---- rates ---- */
@@ -291,7 +310,7 @@ export class StreamShaper {
   private complete() {
     if (this.finished) return
     this.finished = true
-    caf(this.raf)
+    this.cancelTick()
     flowDiagnostics.end()
     const now = performance.now()
     this.hooks.onComplete?.({

@@ -77,6 +77,10 @@ interface UIState {
    * anywhere — the pill, the Updates tab, or the automatic first sighting.
    */
   updatePopup: string | null
+  /** Which tab of the Marketplace page is showing. */
+  connectorsTab: 'apps' | 'builtin' | 'connected' | 'mcp' | 'pipedream'
+  /** How many Composio accounts are connected, for the sidebar row. */
+  connectorsCount: number
   /**
    * Text handed to whichever composer is open — used by the task panel's
    * "Send to AI". The composer clears it once it has been adopted.
@@ -155,6 +159,8 @@ export const useUI = create<UIState>((set, get) => ({
    */
   tasksOpen: false,
   updatePopup: null,
+  connectorsTab: 'apps',
+  connectorsCount: 0,
   composerSeed: null,
   handoff: null,
   openSettings: (tab) => {
@@ -193,3 +199,12 @@ export const useUI = create<UIState>((set, get) => ({
   clearNotices: () => { saveNotices([]); set({ notices: [] }) },
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))
+
+// Browser storage filled up and the saved copy was trimmed: say so once, in the
+// same toast channel as everything else (see lib/security/lock.ts).
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage-trimmed', (e) => {
+    const note = (e as CustomEvent<string>).detail
+    useUI.getState().toast('Storage is nearly full', note, 'warning')
+  })
+}

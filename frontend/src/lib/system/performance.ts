@@ -57,3 +57,18 @@ export async function fetchResources(signal?: AbortSignal): Promise<ResourceSnap
     return null
   }
 }
+
+/**
+ * Mirror the active profile onto <html data-perf>, so CSS can adjust costly
+ * effects (backdrop blur) without each component checking the profile.
+ */
+export function startPerformanceSync(): () => void {
+  if (typeof document === 'undefined') return () => {}
+  const apply = (profile: PerfProfileId) => { document.documentElement.dataset.perf = profile }
+  apply(perfProfile())
+  return useStore.subscribe((state, prev) => {
+    if (state.settings.performanceProfile !== prev.settings.performanceProfile) {
+      apply(state.settings.performanceProfile ?? 'balanced')
+    }
+  })
+}

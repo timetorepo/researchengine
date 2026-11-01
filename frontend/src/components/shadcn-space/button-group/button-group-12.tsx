@@ -165,7 +165,7 @@ const ActionExecuteButtonGroup = ({
                   disabled={item.disabled}
                   onClick={() => onAction?.(item.id)}
                 >
-                  {item.icon}
+                  <>{item.icon}</>
                   <span>{item.label}</span>
                 </DropdownMenuItem>
               </motion.div>

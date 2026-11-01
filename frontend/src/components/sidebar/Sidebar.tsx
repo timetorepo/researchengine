@@ -20,6 +20,8 @@ import { prefetchRoute, routePathOf, navigateNow } from '@/lib/routes/registry'
 import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_DWELL_EXPANDED_MS } from './ChatsFlyout'
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
+import { Bot as BotIcon, Briefcase, CalendarDays, Store } from 'lucide-react'
+import { openMarketplace } from '@/lib/composio/sync'
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -32,6 +34,9 @@ const NAV = [
   { to: '/library', label: 'Library', icon: Library },
   { to: '/compare', label: 'Compare', icon: Swords },
   { to: '/workflows', label: 'Workflows', icon: WorkflowIcon },
+  { to: '/bots', label: 'Bots', icon: BotIcon },
+  { to: '/crm', label: 'CRM', icon: Briefcase },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/flood', label: 'Agent Flood', icon: Users },
   { to: '/alpha', label: 'removerAlpha', icon: ScanText },
   { to: '/feedback', label: 'Feedback', icon: MessageSquarePlus },
@@ -89,16 +94,17 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 
       {/* Header */}
       <div className={clsx('flex items-center px-3 pt-3 pb-2 gap-2', collapsed && 'justify-center')}>
-        {!collapsed && <AppLogo size={26} />}
+        {!collapsed && <div className="min-w-0 flex-1 overflow-hidden"><AppLogo size={26} /></div>}
         {collapsed && <AppLogo size={26} withName={false} />}
         {!collapsed && (
           <>
             {/* Notifications live where the app is: in the rail, next to the
                 name, so a released update or a recommendation is visible from
-                every screen without a second window. */}
-            <div className="ml-auto"><NotificationBell /></div>
+                every screen without a second window. The two buttons keep their
+                size; only the logo gives up room. */}
+            <div className="shrink-0"><NotificationBell /></div>
             <button
-              className="p-1.5 rounded-lg hover:bg-[var(--elevated)]"
+              className="shrink-0 p-1.5 rounded-lg hover:bg-[var(--elevated)]"
               style={{ color: 'var(--text-3)' }}
               onClick={() => ui.toggleSidebar()}
               aria-label="Collapse sidebar"
@@ -131,18 +137,21 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
               </DockItem>
             )
           })}
+          <DockItem index={NAV.length + 2} label="Marketplace" onClick={() => openMarketplace()}>
+            <Store size={18} strokeWidth={1.5} />
+          </DockItem>
           <DockSpacer />
           <DockDivider />
-          <DockItem index={NAV.length + 2} label="Theme" onClick={() => useUI.getState().openSettings('appearance')}>
+          <DockItem index={NAV.length + 3} label="Theme" onClick={() => useUI.getState().openSettings('appearance')}>
             <DockThemeIcon />
           </DockItem>
-          <DockItem index={NAV.length + 3} label="Notifications" onClick={() => useUI.getState().openSettings('notifications')}>
+          <DockItem index={NAV.length + 4} label="Notifications" onClick={() => useUI.getState().openSettings('notifications')}>
             <NotificationBell compact />
           </DockItem>
-          <DockItem index={NAV.length + 4} label="Settings" onClick={() => useUI.getState().openSettings()}>
+          <DockItem index={NAV.length + 5} label="Settings" onClick={() => useUI.getState().openSettings()}>
             <Settings size={18} strokeWidth={1.5} />
           </DockItem>
-          <DockItem index={NAV.length + 5} label="Profile" onClick={() => useUI.getState().openSettings('profile')}>
+          <DockItem index={NAV.length + 6} label="Profile" onClick={() => useUI.getState().openSettings('profile')}>
             <UserAvatar size={22} />
           </DockItem>
         </DockRail>
@@ -170,6 +179,10 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             ))}
           </nav>
 
+          {/* Marketplace: one row; the apps page opens from it. */}
+          <div className="px-3 mt-2 pt-2" style={{ borderTop: '1px solid var(--surface-border)' }}>
+            <MarketplaceRow onBefore={closeMobile} />
+          </div>
         </>
       )}
 
@@ -230,6 +243,24 @@ interface RowProps {
   pending: boolean
   warm: () => void
   onBefore: () => void
+}
+
+/** The Marketplace entry in the nav column. It opens the marketplace page. */
+function MarketplaceRow({ onBefore }: { onBefore: () => void }) {
+  const count = useUI((s) => s.connectorsCount)
+  return (
+    <button
+      type="button"
+      onClick={() => { onBefore(); openMarketplace() }}
+      className={rowClass}
+      style={{ color: 'var(--text-2)' }}
+    >
+      <Store size={17} strokeWidth={1.5} />
+      <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">Marketplace</span>
+      {count > 0 && <span className="text-[10.5px] tabular-nums" style={{ color: 'var(--text-3)' }}>{count} connected</span>}
+      <ChevronRight size={14} aria-hidden className="re-nav-arrow ml-auto shrink-0 opacity-30 group-hover:opacity-80 transition-all duration-200" />
+    </button>
+  )
 }
 
 const rowClass = 're-nav-item group relative flex items-center gap-2.5 px-2.5 py-[7px] rounded-[10px] text-[13px] overflow-hidden'
@@ -560,7 +591,7 @@ function DockThemeIcon() {
 /** Bottom padding that makes the collapsed rail feel like a shelf rather than
  *  a column that ran out of room. */
 function DockSpacer() {
-  return <div className="flex-1 min-h-2" />
+  return <div className="re-dock-spacer" />
 }
 
 function IconBtn({ children, label, onClick, active = false }: { children: React.ReactNode; label: string; onClick: () => void; active?: boolean }) {

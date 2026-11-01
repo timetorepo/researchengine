@@ -10,15 +10,18 @@ import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
 import { BorderBeam } from 'border-beam'
-import { PatternWaves } from '@/components/ui/reactbits/micro/PatternWaves'
-import { SwipeRow } from '@/components/ui/reactbits/micro/SwipeRow'
+import PatternWaves from '@/components/ui/reactbits/micro/PatternWaves'
+import SwipeRow from '@/components/ui/reactbits/micro/SwipeRow'
 import { timeAgo, fmt } from '@/lib/utils'
 import { runChat } from '@/lib/chat/runChat'
 import { themeKind } from '@/lib/themes/meta'
 import { wallpaperOf } from '@/lib/wallpapers'
 import { beginHandoff, HANDOFF_BLUR_MS, EASE_OUT, EASE, DUR } from '@/lib/ui/handoff'
 import { ImageLab } from '@/components/home/ImageLab'
+import { PaintedBackdrop } from '@/components/backgrounds/PaintedBackdrop'
 import { RevolvingText } from './RevolvingText'
+import { StreakCard } from '@/components/activity/StreakCard'
+import { AIThemeWelcome } from './AIThemeWelcome'
 import { SuggestedForYou } from './SuggestedForYou'
 
 const SUGGESTIONS = [
@@ -109,7 +112,7 @@ export function HomeScreen() {
           place rather than sitting under it. The drifting waves sit above the
           aurora at low strength — a second layer of motion, not a replacement. */}
       {!wallpaper && <AuroraBackground className="absolute inset-0 pointer-events-none" />}
-      {!wallpaper && <PatternWaves strength={0.35} />}
+      {!wallpaper && <div className="absolute inset-0 pointer-events-none"><PatternWaves opacity={0.35} interactive={false} /></div>}
       <AnimatePresence>
         {dragOver && (
           <motion.div
@@ -127,17 +130,23 @@ export function HomeScreen() {
         )}
       </AnimatePresence>
       <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
+        {/* A welcome for the AI-product themes; off in Settings → Appearance. */}
+        <AIThemeWelcome onFocusInput={() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus()} />
+
         {/* Research / build / challenge hero — the rotating word morphs its
             slot width instead of being clipped, and the line scales down rather
             than wrapping (which used to shove the composer south). */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.base, ease: EASE_OUT }} className="text-center">
-          <RevolvingText
-            items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
-            prefix="What do you want to"
-            suffix="Today?"
-            maxFontPx={46}
-            intervalMs={2200}
-          />
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.base, ease: EASE_OUT }}>
+          <PaintedBackdrop src="/art/home-hero.jpg" focus="50% 50%" strength={0.95}
+            className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center">
+            <RevolvingText
+              items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
+              prefix="What do you want to"
+              suffix="Today?"
+              maxFontPx={46}
+              intervalMs={2200}
+            />
+          </PaintedBackdrop>
         </motion.div>
 
         {/* Input */}
@@ -149,6 +158,11 @@ export function HomeScreen() {
         {/* Suggestions: drawn from your recent chats when there is history,
             otherwise the generic research prompts. */}
         <SuggestedForYou chats={recentChats} onAsk={(prompt, opts) => sendFromHome(prompt, opts)} fallback={chips} />
+
+        {/* The streak: days with real work in them, not days the app was open. */}
+        <div className="mt-6 max-w-[420px] mx-auto">
+          <StreakCard compact />
+        </div>
 
         {/* The offline demo, reachable without a key and without going back
             through onboarding. It never touches the network. Off by default:
@@ -190,8 +204,9 @@ export function HomeScreen() {
                     {recentChats.map((c) => (
                       <SwipeRow
                         key={c.id}
+                        actionWidth={112}
                         actions={[
-                          { id: 'ai', label: 'Send to AI', kind: 'ai', onClick: () => sendFromHome(`Continue where I left off: ${c.title}`, { search: true }) },
+                          { id: 'ai', label: 'Send to AI', icon: <Sparkles size={13} />, color: 'var(--primary)', onSelect: () => sendFromHome(`Continue where I left off: ${c.title}`, { search: true }) },
                         ]}
                       >
                         <button onClick={(e) => { e.stopPropagation(); useStore.getState().setActiveChat(c.id); navigate(`/chat/${c.id}`) }}

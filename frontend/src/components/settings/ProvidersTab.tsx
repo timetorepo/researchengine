@@ -11,6 +11,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { encryptWithPassphrase } from '@/lib/crypto/vault'
 import { getVaultPassphrase, setVaultPassphrase } from '@/lib/crypto/session'
+import { saveNotice } from '@/stores/useNotices'
 
 export function ProvidersTab() {
   const settings = useStore((s) => s.settings)
@@ -50,7 +51,7 @@ export function ProvidersTab() {
     useStore.setState((s) => ({ settings: { ...s.settings, addedProviders: [...(s.settings.addedProviders ?? []), id] } }))
     setAdding(false)
     setCatalogQuery('')
-    useUI.getState().toast('Provider added', `${meta(id).name} is ready for a key — models are fetched live once it is saved.`, 'success')
+    saveNotice('Provider added', `${meta(id).name} is ready for a key — models are fetched live once it is saved.`)
   }
 
   const removeProvider = (id: string, alsoDeleteKey = false) => {

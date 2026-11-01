@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Menu, Wind, ListChecks, ArrowDownToLine, X, Maximize2, Minimize2 } from 'lucide-react'
+import { Menu, Wind, ListChecks, ArrowDownToLine, X, Maximize2, Minimize2, Layers } from 'lucide-react'
+import { SESSION_SWITCHER_EVENT } from '@/components/sessions/SessionSwitcher'
 import { fullscreenSupported, isFullscreen, onFullscreenChange, toggleFullscreen } from '@/lib/dom/fullscreen'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '@/stores/useStore'
@@ -13,10 +14,29 @@ import { useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
 import { ResourceMeter } from '@/components/topbar/ResourceMeter'
 import { useAgents } from '@/lib/ide/agents'
-import { StatusMark } from '@/components/ui/reactbits/micro/StatusMark'
+import StatusMark from '@/components/ui/reactbits/micro/StatusMark'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
 import AIContextMeter from '@/components/smoothui/ai-context-meter'
 import { contextWindowFor } from '@/lib/providers/context-window'
+
+/**
+ * Opens the iOS-style session switcher (CardSwap deck of recent sessions).
+ * The same switcher is on the alt+shift shortcut.
+ */
+function SessionSwitcherButton() {
+  return (
+    <button
+      onClick={() => window.dispatchEvent(new Event(SESSION_SWITCHER_EVENT))}
+      aria-label="Switch session"
+      title="Switch session (alt+shift)"
+      data-ui="session-switcher-toggle"
+      className="p-2 rounded-[10px] hover:bg-[var(--elevated)]"
+      style={{ color: 'var(--text-3)' }}
+    >
+      <Layers size={16} />
+    </button>
+  )
+}
 
 /**
  * One press gives the app the whole window. The icon tracks the browser's
@@ -71,7 +91,7 @@ function AgentPulse() {
         className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
         style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}
       >
-        <StatusMark state="running" pulse size={9} />
+        <StatusMark status="running" size={9} />
         {running.length > 1 ? `${running.length} agents` : 'Agent'}
       </button>
       {open && running.length > 1 && (
@@ -81,7 +101,7 @@ function AgentPulse() {
         >
           {running.map((t) => (
             <div key={t.id} className="flex items-center gap-2 text-[11.5px]" style={{ color: 'var(--text-2)' }}>
-              <StatusMark state="running" pulse size={8} />
+              <StatusMark status="running" size={8} />
               <span className="truncate">{t.title}</span>
             </div>
           ))}
@@ -232,12 +252,13 @@ export function TopBar() {
       {/* Fullscreen — the whole window for the app. The icon tracks the real
           fullscreen state (including F11 and the webview's own menus), and on
           a shell without the API the button simply is not there. */}
+      <SessionSwitcherButton />
       <FullscreenButton />
 
       {/* Live machine load — memory, processor and GPU, from the server's own
           samples. Sits beside the privacy shield because it answers the other
           "what is this app doing" question. */}
-      <ResourceMeter />
+      {settings.showResourceMeter === true && <ResourceMeter />}
 
       <PrivacyShield compact amber={anyIntegration} />
 

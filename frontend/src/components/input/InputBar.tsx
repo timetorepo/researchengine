@@ -1,7 +1,8 @@
+import { EffortSlider } from './EffortSlider'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, Hammer, ListOrdered, ImagePlus, Plug, X, SlidersHorizontal, Calculator, BookOpen, Mic, FolderOpen, HardDrive, Mail, CalendarDays, Github, StickyNote, Hash, Gauge } from 'lucide-react'
+import { ArrowUp, Square, Wind, Globe, Sparkles, Sigma, Paperclip, Hammer, ListOrdered, ImagePlus, Plug, X, SlidersHorizontal, Calculator, BookOpen, Mic, FolderOpen, HardDrive, Mail, CalendarDays, Github, StickyNote, Hash, Gauge, Users } from 'lucide-react'
 import { VoiceBeam } from 'voice-glow'
 import VoicePill from '@/components/ui/reactbits/micro/VoicePill'
 import { useDictation } from '@/hooks/useDictation'
@@ -10,6 +11,7 @@ import { useUI } from '@/stores/useUI'
 import { BorderBeam } from 'border-beam'
 import { SkillPicker } from './SkillPicker'
 import { IntegrationPicker } from './IntegrationPicker'
+import { triggerAt, replaceTrigger } from './trigger'
 import { type ModeOption } from './ModeMenu'
 import { ModeStrip } from './ModeStrip'
 import { IntegrationsMenu } from './IntegrationsMenu'
@@ -24,7 +26,7 @@ export interface ContextRef {
   title: string
 }
 export interface SendOpts {
-  search?: boolean; quality?: boolean; replicate?: boolean
+  search?: boolean; quality?: boolean; replicate?: boolean; council?: boolean
   attachments?: { type: 'image'; name: string; dataUrl: string }[]
   contextRefs?: ContextRef[]
 }
@@ -119,17 +121,10 @@ function EffortPill() {
         <span>{current.label}</span>
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl p-1 z-40"
+        <div className="absolute bottom-full left-0 mb-2 rounded-2xl p-4 z-40"
           style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 12px 32px rgb(0 0 0 / .25)' }}>
-          {steps.map((e) => (
-            <button key={e.id}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-[11px] hover:bg-[var(--elevated)]"
-              style={{ color: e.id === current.id ? 'var(--primary)' : 'var(--text-2)' }}
-              onClick={() => { useStore.setState((s) => ({ settings: { ...s.settings, effort: e.id } })); setOpen(false) }}>
-              <span className="font-medium w-14">{e.label}</span>
-              <span className="opacity-70 text-[10px]">{e.hint}</span>
-            </button>
-          ))}
+          <EffortSlider steps={steps} value={current.id}
+            onChange={(id) => useStore.setState((s) => ({ settings: { ...s.settings, effort: id } }))} />
         </div>
       )}
     </div>
@@ -154,8 +149,11 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [search, setSearch] = useState(false)
   const [quality, setQuality] = useState(false)
   const [replicate, setReplicate] = useState(false)
+  const [council, setCouncil] = useState(false)
   const [picker, setPicker] = useState<'skill' | 'source' | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
+  // Where the open trigger word sits in the text, so a pick replaces only that word.
+  const [pickerAt, setPickerAt] = useState({ start: 0, end: 0 })
   const [sent, setSent] = useState(false)
   const [imgs, setImgs] = useState<{ name: string; dataUrl: string }[]>([])
   const [refs, setRefs] = useState<ContextRef[]>([])
@@ -220,12 +218,15 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
 
   const onChange = (v: string) => {
     setText(v)
-    if (v.startsWith('/') && !v.includes(' ')) { setPicker('skill'); setPickerQuery(v.slice(1)) }
-    else if (v.startsWith('@') && !v.includes(' ')) { setPicker('source'); setPickerQuery(v.slice(1)) }
-    else setPicker(null)
+    const caret = taRef.current?.selectionStart ?? v.length
+    const t = triggerAt(v, caret)
+    if (!t) { setPicker(null); return }
+    setPicker(t.kind)
+    setPickerQuery(t.query)
+    setPickerAt({ start: t.start, end: t.end })
   }
 
-  const doSend = (opts: { search?: boolean; quality?: boolean; replicate?: boolean } = {}) => {
+  const doSend = (opts: { search?: boolean; quality?: boolean; replicate?: boolean; council?: boolean } = {}) => {
     const raw = text.trim()
     // No streaming guard here: ChatView decides — while streaming, prompts
     // are queued and run automatically when the current answer finishes.
@@ -246,6 +247,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     setTimeout(() => setSent(false), 400)
     onSend(raw, {
       search: search || quality || opts.search, quality: quality || opts.quality, replicate: replicate || opts.replicate,
+      council: council || opts.council,
       attachments: imgs.length ? imgs.map((f) => ({ type: 'image' as const, name: f.name, dataUrl: f.dataUrl })) : undefined,
       contextRefs: refs.length ? refs : undefined,
     })
@@ -295,6 +297,12 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
       toggle: () => setReplicate(!replicate),
       title: 'New Tech — staged replication research plan',
     },
+    {
+      id: 'council', label: 'Council', icon: Users, active: council,
+      desc: 'Several models answer, then one combines them. Members are set in Settings → Models.',
+      toggle: () => setCouncil(!council),
+      title: 'AI council: several models answer, one combines them',
+    },
   ]
 
   const beam = big && beamOn && !reduceMotion
@@ -304,7 +312,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     // component in place (see components/settings/UILab.tsx).
     <div data-ui="composer" className={clsx('shrink-0 px-3 pb-3 pt-1', big && 'pb-6')}>
       <div className={clsx('mx-auto', big ? 'max-w-[720px]' : 'max-w-[760px]')}>
-        <div className="relative">
+        <div className="relative" data-skin-composer>
         {beam && (
           <BorderBeam
             size="md"
@@ -355,14 +363,14 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               {picker === 'skill' && (
                 <SkillPicker
                   query={pickerQuery}
-                  onPick={(skill) => { setText(''); setPicker(null); useUI.setState({ skillRun: { skillId: skill.id } }) }}
+                  onPick={(skill) => { setText((t) => replaceTrigger(t, pickerAt, '')); setPicker(null); useUI.setState({ skillRun: { skillId: skill.id } }) }}
                   onClose={() => setPicker(null)}
                 />
               )}
               {picker === 'source' && (
                 <IntegrationPicker
                   query={pickerQuery}
-                  onPick={(label) => { setText((t) => t.replace(/@\S*$/, `@${label} `)); setPicker(null) }}
+                  onPick={(label) => { setText((t) => replaceTrigger(t, pickerAt, `@${label} `)); setPicker(null) }}
                   onClose={() => setPicker(null)}
                 />
               )}

@@ -4,6 +4,26 @@ import { designSupremacySkill } from './design-supremacy'
 export const builtinSkills: Skill[] = [
   // The one client-side design skill: three outlooks, one method.
   designSupremacySkill,
+  // Like Claude's skill-creator: describe what a skill should do, get a complete
+  // SKILL.md back that you can save and reuse.
+  {
+    id: 'sk-skill-creator', name: 'skill-creator', builtin: true, category: 'Custom', icon: 'wand',
+    description: 'Write a complete SKILL.md for a repeatable task: name, when to use it, steps and output.',
+    promptTemplate: [
+      'You are creating a reusable skill, in the same format as Claude’s skills: a folder with a SKILL.md file.',
+      'Turn the goal below into one complete SKILL.md with:',
+      '1. YAML front matter: `name` (lowercase, hyphenated), and `description` (one sentence saying WHEN to use the skill, with trigger words).',
+      '2. A short “When to use” section and a “When not to use” section.',
+      '3. Numbered steps the assistant follows, each one concrete and checkable.',
+      '4. The exact output format, with one short example.',
+      '5. A “Checks before finishing” list.',
+      'Keep it under 300 lines. Do not add filler. Put the whole file in one code block with the markdown language tag.',
+      '',
+      'Goal for the skill: {{goal}}',
+    ].join('\n'),
+    params: [{ name: 'goal', type: 'string', description: 'What should this skill do, and when should it run?' }],
+    outputFormat: 'natural',
+  },
   {
     id: 'sk-summarize-url', name: 'Summarize URL', builtin: true, category: 'Research', icon: 'link',
     description: 'Fetch and summarize the key points of any URL.',

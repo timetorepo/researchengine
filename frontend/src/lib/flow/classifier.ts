@@ -2,6 +2,7 @@
 // fully on-device. No API call for the common path.
 
 import { getMaster, STYLE_RULES, type MasterKey } from '@/lib/prompts/masters'
+import { workModePrompt, type WorkMode } from '@/lib/prompts/workModes'
 
 export type QueryClass = 'factual' | 'reasoning' | 'math' | 'code' | 'creative' | 'longform'
 
@@ -24,9 +25,12 @@ export function classifyQuery(q: string): QueryClass {
  * Final shape: [Master Prompt] + [voice rules] + [mode-specific injections].
  * Skills and pruned history are appended by the caller (runChat).
  */
+/** Tool results reach the person as cards, so the answer summarises them instead of pasting data. */
+const RESULT_CARDS_RULE = 'Tool results are shown to the person as rich cards inside the app. Never paste raw tool output, JSON or long field dumps into the answer. Summarise in one or two sentences, name the best result and say what the person can do next.'
+
 export function shapeSystemPrompt(
   cls: QueryClass,
-  extra: { math?: boolean; quality?: boolean; flow?: boolean; replicate?: boolean } = {},
+  extra: { math?: boolean; quality?: boolean; flow?: boolean; replicate?: boolean; workMode?: WorkMode } = {},
   overrides: Record<string, string> = {},
 ): string {
   // Mode wins over classification.
@@ -43,7 +47,7 @@ export function shapeSystemPrompt(
     creative: 'For this creative request: be vivid and original; match tone to the request; avoid clichés.',
     factual: 'Lead with the direct answer.',
   }
-  const bits = [master, STYLE_RULES]
+  const bits = [master, workModePrompt(extra.workMode), STYLE_RULES, RESULT_CARDS_RULE].filter(Boolean)
   if (inject[cls]) bits.push(inject[cls]!)
   return bits.join('\n\n')
 }

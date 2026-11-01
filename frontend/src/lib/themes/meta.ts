@@ -23,13 +23,15 @@ export const THEMES: ThemeMeta[] = [
   { id: 'perplexity', name: 'Perplexity', kind: 'dark', swatches: ['#1F1F1F', '#2A2A2A', '#20B8CD', '#7BD8E6'], codeTheme: 'dark-plus' },
   { id: 'claude', name: 'Claude', kind: 'light', swatches: ['#F5F1EA', '#FFFFFF', '#C15F3C', '#8A6E56'], codeTheme: 'github-light' },
   { id: 'chatgpt', name: 'ChatGPT', kind: 'dark', swatches: ['#131313', '#1E1E1E', '#10A37F', '#6ED4B4'], codeTheme: 'dark-plus' },
+  { id: 'gemini', name: 'Gemini', kind: 'dark', swatches: ['#131314', '#1E1F20', '#8AB4F8', '#C58AF9'], codeTheme: 'dark-plus' },
 ]
 
 /** Small caption shown under a theme in the picker. */
 export const THEME_CAPTIONS: Partial<Record<ThemeId, string>> = {
   perplexity: 'Inspired by a familiar research tool.',
-  claude: 'Warm paper and a terracotta accent, with the wide radii.',
-  chatgpt: 'Near-black with a mint accent and tight radii.',
+  claude: 'Claude’s warm paper, serif greeting and rounded composer.',
+  chatgpt: 'ChatGPT’s near-black, centred composer and mint accent.',
+  gemini: 'Gemini’s dark surfaces, pill composer and blue-to-violet accent.',
 }
 
 /** Light or dark? Used by widget libraries that need an explicit hint. */

@@ -16,6 +16,7 @@ import { Bell, Download, Sparkles, Info, CheckCheck, Trash2, X } from 'lucide-re
 import NotificationBadge from '@/components/smoothui/notification-badge'
 import { useNotifications, notifications, type AppNotification, type NotificationKind } from '@/lib/notifications/store'
 import { timeAgo } from '@/lib/utils'
+import { Portal } from '@/lib/dom/portal'
 
 const KIND_ICON: Record<NotificationKind, React.ElementType> = {
   update: Download,
@@ -33,12 +34,21 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
   const items = useNotifications()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // In the minimised dock the panel cannot live inside the rail: the rail is a
+  // narrow column, so an absolutely positioned panel rendered on top of the
+  // neighbouring dock items and the chat surface. The dock variant is drawn in a
+  // portal, anchored to the bell's screen position and clamped to the viewport.
+  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null)
   const unread = items.filter((i) => !i.read).length
 
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDoc)
@@ -50,6 +60,11 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
   }, [open])
 
   const openPanel = () => {
+    if (!open && compact && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const maxTop = Math.max(12, window.innerHeight - 440)
+      setAnchor({ left: r.right + 12, top: Math.min(Math.max(12, r.top - 6), maxTop) })
+    }
     setOpen((v) => {
       const next = !v
       // Opening the panel is reading it — a badge that stays lit after you have
@@ -59,9 +74,30 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
     })
   }
 
+  const panel = (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={panelRef}
+          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -4, scale: 0.99 }}
+          transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+          className={compact ? 'fixed w-[320px] rounded-[14px] overflow-hidden z-[90]' : 'absolute left-0 top-[38px] w-[320px] rounded-[14px] overflow-hidden z-[80]'}
+          style={{
+            ...(compact && anchor ? { left: anchor.left, top: anchor.top } : {}),
+            background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 20px 50px -20px rgba(0,0,0,0.55)',
+          }}>
+          <PanelBody items={items} setOpen={setOpen} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+
   return (
     <div ref={wrapRef} className="relative">
       <button
+        ref={btnRef}
         onClick={openPanel}
         aria-label={unread ? `Notifications (${unread} unread)` : 'Notifications'}
         aria-expanded={open}
@@ -73,15 +109,14 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
         </NotificationBadge>
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.99 }}
-            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute left-0 top-[38px] w-[320px] rounded-[14px] overflow-hidden z-[80]"
-            style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 20px 50px -20px rgba(0,0,0,0.55)' }}>
+      {compact ? <Portal>{panel}</Portal> : panel}
+    </div>
+  )
+}
+
+function PanelBody({ items, setOpen }: { items: AppNotification[]; setOpen: (v: boolean) => void }) {
+  return (
+    <>
             <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--surface-border)' }}>
               <span className="text-[12px] font-medium flex-1">Notifications</span>
               {items.length > 0 && (
@@ -108,10 +143,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
                 items.map((n) => <Row key={n.id} n={n} onNavigate={() => setOpen(false)} />)
               )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    </>
   )
 }
 
