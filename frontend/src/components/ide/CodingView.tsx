@@ -9,18 +9,23 @@ import { ScreenshotPanel } from './ScreenshotPanel'
 import { PentestPanel } from './PentestPanel'
 import { DesignStudio } from './DesignStudio'
 import { AgentPanel, chatIdFor } from './AgentPanel'
+import { BuildFromPrompt } from './BuildFromPrompt'
+import { hasBuild } from '@/lib/ide/pendingBuild'
 import { ChangesPanel } from './ChangesPanel'
 import { AIFloat, FocusButton } from './AIFloat'
 import { AgentsDock } from './AgentsDock'
 import { AgentTimeline } from './AgentTimeline'
+import { AgentChangeTimeline } from './AgentChangeTimeline'
+import { VelocityTabs } from '@/components/ui/skecher/velocity-tabs'
 import { AgentSafety } from './AgentSafety'
 import { FrameworksPanel } from './FrameworksPanel'
 import { useDownloadNotices } from '@/hooks/useDownloadNotices'
 import { IDECommandPalette, ideActions, type PaletteAction } from './IDECommandPalette'
 import { useAgents, subscribeActivity, wireAgentActivity } from '@/lib/ide/agents'
-import type { IdeActivity } from '@/lib/chat/tools'
+import { commandTimeoutMs, type IdeActivity } from '@/lib/chat/tools'
 import { CodeEditor } from './CodeEditor'
 import { FileGlyph } from '@/lib/ide/fileIcons'
+import { projectInstructionsTemplate } from '@/lib/ide/codex-flow'
 import type { ProjectInfo, TreeNode, OpenFile } from './types'
 import { designSession, previewUrlFor } from '@/lib/ide/bridge'
 import { previewStatus, ensurePreviewServer } from '@/lib/ide/preview'
@@ -38,6 +43,7 @@ import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/but
 // R24 chrome: Xcode 26's grouped glass controls, Zed's quiet status buttons,
 // Cursor 3's agent rows. Presentation only — see the file for the motion rules.
 import { GlassBar, GlassGroup, GlassButton, GlassTabs, Breadcrumbs, StatusItem } from './IdeChrome'
+import { CodingTabs } from '@/components/codersa/CodingTabs'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
@@ -76,13 +82,11 @@ export function CodingView() {
   // that turned into coding ("start_coding_mode") hands the user a workspace
   // rather than a list to search in. ?hub=<query> is the Library's UI vertical
   // handing a component over to design mode: straight into the hub, searching.
-  const [hubSeed, setHubSeed] = useState('')
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
     const want = params.get('project')
     const hub = params.get('hub')
     if (hub) {
-      setHubSeed(hub)
       setDesign(true)
       setOpen((cur) => cur ?? want ?? '')
     } else if (want) {
@@ -128,6 +132,7 @@ export function CodingView() {
       fallback: 'untitled-project',
       files: {
         'README.md': `# ${requested}\n\nCreated with Research Engine Coding.\n`,
+        'AGENTS.md': projectInstructionsTemplate(requested),
         'main.py': 'print("hello")\n',
       },
       taken: projects?.map((p) => p.name) ?? [],
@@ -192,7 +197,7 @@ export function CodingView() {
   }
 
   if (open && design) {
-    return <DesignStudio project={open} tree={tree} onExit={() => setDesign(false)} hubSeed={hubSeed} />
+    return <DesignStudio project={open} tree={tree} onExit={() => setDesign(false)} />
   }
   if (open) {
     return (
@@ -210,6 +215,7 @@ export function CodingView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-[900px] mx-auto px-6 py-10">
+        <div className="mb-6"><CodingTabs active="projects" /></div>
         <div className="flex items-center gap-3 mb-1.5">
           <FolderGit2 size={22} style={{ color: 'var(--primary)' }} />
           <h1 className="text-[22px] font-semibold tracking-tight">Coding</h1>
@@ -218,6 +224,11 @@ export function CodingView() {
           A real workbench for local projects: edit code, run guarded commands, use git — and switch to
           Design mode so the AI can see the running app, test it, and fix it. Everything stays on this machine.
         </p>
+
+        <BuildFromPrompt
+          taken={projects?.map((p) => p.name) ?? []}
+          onCreated={(name) => { setOpen(name); void refresh() }}
+        />
 
         <div className="flex items-center gap-2 mb-5 flex-wrap">
           <button onClick={() => setCreating(true)}
@@ -365,6 +376,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
   // The right dock is a workspace of its own now: the chat, the parallel agent
   // pool, and a live "what did the AI just touch" feed.
   const [dockTab, setDockTab] = useState<'ai' | 'agents' | 'activity' | 'changes'>('ai')
+  const [activityView, setActivityView] = useState<'list' | 'timeline'>('list')
   // Branch and change count for the status bar, refreshed while the project is open.
   const [gitSummary, setGitSummary] = useState<{ branch: string; files: number } | null>(null)
   useEffect(() => {
@@ -712,6 +724,12 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
     dockDir.current = order[tab] >= order[dockTab] ? 96 : -96
     setDockTab(tab)
   }
+  // A prompt typed on the Coding start screen is waiting for this project:
+  // open the AI dock so its agent panel mounts and takes the prompt.
+  useEffect(() => {
+    if (hasBuild(project)) { openDock('ai'); setAgentOpen(true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project])
   const previewLive = preview.running && preview.ready
 
   return (
@@ -1101,14 +1119,27 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                       <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--ide-border)' }}>
                         <ActivityIcon size={13} style={{ color: 'var(--ide-accent)' }} />
                         <span className="text-[12px] font-medium flex-1">What the AI did</span>
+                        <VelocityTabs
+                          aria-label="Activity view"
+                          value={activityView}
+                          onValueChange={(v) => setActivityView(v)}
+                          tabs={[{ value: 'list', label: 'List' }, { value: 'timeline', label: 'Timeline' }]}
+                          className="text-[11px]"
+                          tabClassName="px-2 py-0.5"
+                        />
                         {streaming && <span className="ide-badge accent"><span className="re-orb re-orb-sm" aria-hidden /> live</span>}
                         <button onClick={() => setSessionActivity([])} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Clear">
                           <X size={11} />
                         </button>
                       </div>
                       <div className="flex-1 min-h-0 overflow-y-auto">
-                        <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
-                          empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        {activityView === 'timeline' ? (
+                          <AgentChangeTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
+                            empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        ) : (
+                          <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
+                            empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        )}
                       </div>
                     </motion.div>
                   )}
@@ -1352,7 +1383,7 @@ function TerminalPanel({ project }: { project: string }) {
     try {
       const res = await fetch('/api/ide/exec', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ project, command, confirmed }),
+        body: JSON.stringify({ project, command, confirmed, timeoutMs: commandTimeoutMs() }),
       })
       const j = await res.json()
       if (j.blocked) { setLines((l) => [...l, { kind: 'err', text: `BLOCKED: ${j.reason}` }]); return }

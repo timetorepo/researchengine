@@ -5,6 +5,7 @@ import {
   Sparkles, X, Square, Image as ImageIcon, ChevronDown, Wand2, Accessibility, MousePointerClick, Smartphone, Eye,
   Plus, Send, CornerDownLeft, Bug, Hammer, Check, Search, Cpu, ChevronUp, Globe,
 } from 'lucide-react'
+import { REVIEW_PREAMBLE } from '@/lib/ide/codex-flow'
 import { PROVIDERS } from '@/lib/providers/registry'
 import { useStore } from '@/stores/useStore'
 import { runChat, isStreamingChat, enqueuePrompt, stopStream } from '@/lib/chat/runChat'
@@ -20,6 +21,7 @@ import { ActivityRow } from './AgentTimeline'
 import { SLASH_COMMANDS, isCommandDraft, parseCommand, expandCommand } from '@/lib/ide/commands'
 import { subscribeActivity, useAgents } from '@/lib/ide/agents'
 import type { IdeActivity } from '@/lib/chat/tools'
+import { takeBuild } from '@/lib/ide/pendingBuild'
 
 /**
  * Devin's handoff needs to know which side a provider is on: the model servers
@@ -60,6 +62,13 @@ export const INTENTS = [
     icon: Wand2,
     hint: 'Polish what exists: clarity, UX, structure, performance',
     preamble: 'INTENT: REFINE. The user wants existing code or UI made better without changing intended behaviour. Look for unclear naming, duplicated logic, awkward layout, weak hierarchy, missing states, and needless complexity. Make focused improvements, keep the diff reviewable, and list what you changed and why. Do not rewrite working code just because you would have written it differently.',
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    icon: Search,
+    hint: 'Read-only critique with path:line findings',
+    preamble: REVIEW_PREAMBLE,
   },
 ] as const
 
@@ -252,6 +261,14 @@ export function AgentPanel({
     if (isStreamingChat(chatId)) { enqueuePrompt(chatId, prompt.trim(), {}, opts); return }
     void runChat({ chatId, prompt: prompt.trim() || '(see attached screenshot)', ...opts })
   }
+
+  // A prompt typed on the Coding start screen arrives here once, as a build
+  // request. See BuildFromPrompt.tsx and lib/ide/pendingBuild.ts.
+  useEffect(() => {
+    if (!chatId) return
+    const prompt = takeBuild(project)
+    if (prompt) send(prompt, undefined, { intent: 'build' })
+  }, [chatId, project])
 
   const attachFile = (f: File) => {
     if (!f.type.startsWith('image/')) return
