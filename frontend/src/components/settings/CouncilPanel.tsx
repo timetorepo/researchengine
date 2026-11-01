@@ -3,6 +3,7 @@
  * pill). Here the person picks which models sit on the council: up to four, from
  * the providers they already use.
  */
+import { AvatarGroup } from '@/components/ui/kit/community/AvatarGroup'
 import React, { useMemo, useState } from 'react'
 import { Users, X, Plus } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
@@ -31,6 +32,11 @@ export function CouncilPanel() {
       <div className="flex items-center gap-2 mb-1">
         <Users size={16} strokeWidth={1.6} style={{ color: 'var(--primary)' }} aria-hidden />
         <h3 id="council-heading" className="text-[14px] font-semibold">AI council</h3>
+        {members.length > 0 && (
+          <div className="ml-auto">
+            <AvatarGroup members={members.map((id) => ({ id, name: labelOf(id) }))} label="Council members" />
+          </div>
+        )}
       </div>
       <p className="text-[12px] mb-3" style={{ color: 'var(--text-2)' }}>
         Turn on <b>Council</b> in the composer for a message. The members below answer the same conversation, then the
