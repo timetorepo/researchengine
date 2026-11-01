@@ -152,6 +152,24 @@ Plenty of apps answer questions. These are the parts you will not find elsewhere
 
 ---
 
+## Programming languages
+
+The coding workspace recognises these languages by file extension. Each file gets its language's icon where one is available, and a generic file icon where none is.
+
+| Group | Languages and extensions |
+| --- | --- |
+| JavaScript and TypeScript | TypeScript (`.ts`, `.mts`, `.cts`), TSX / React (`.tsx`), JavaScript (`.js`, `.mjs`, `.cjs`), JSX (`.jsx`) |
+| Systems and general purpose | Python (`.py`), Go (`.go`), Rust (`.rs`), Java (`.java`), Kotlin (`.kt`), Swift (`.swift`), C (`.c`, `.h`), C++ (`.cpp`, `.cc`, `.cxx`, `.hpp`), C# (`.cs`), Ruby (`.rb`), PHP (`.php`) |
+| Component frameworks | Vue (`.vue`), Svelte (`.svelte`), Astro (`.astro`) |
+| Markup and styles | HTML (`.html`, `.htm`), SVG (`.svg`), CSS (`.css`), SCSS (`.scss`), Less (`.less`), Sass (`.sass`) |
+| Data and config | JSON (`.json`, `.jsonc`), YAML (`.yaml`, `.yml`), TOML (`.toml`), CSV (`.csv`), XML (`.xml`), `.env` and dotfiles such as `.gitignore` and `.editorconfig` |
+| Text and docs | Markdown (`.md`, `.mdx`), plain text (`.txt`, `.rst`, `.log`) |
+| Shell and databases | Shell scripts (`.sh`, `.bash`, `.zsh`, `.fish`, `.ps1`), SQL (`.sql`), SQLite (`.db`, `.sqlite`) |
+
+**Syntax highlighting** is deliberately light. It colours comments, strings, numbers, function calls and keywords for any of the languages above. It has full keyword lists for JavaScript and TypeScript, Python, Rust and SQL. For the other languages, expect strings, comments and numbers to be coloured but keywords to be plain text.
+
+Anything else opens as a plain-text file. You can still edit it, search it and send it to the assistant.
+
 ## ⬇ Download
 
 Pick **one** of these. Every path runs exactly the same product.
