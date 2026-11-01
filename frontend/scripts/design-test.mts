@@ -196,7 +196,10 @@ async function main() {
   // disk the one this code produces? Its output is the first thing to check
   // when a fix is in the source but not in the app.
   const { execFileSync } = await import('node:child_process')
-  const cli = execFileSync(process.execPath, ['backend/bin/research-engine.mjs', 'version'], { cwd: '..', encoding: 'utf8' })
+  // The child is the plain launcher: keep this run's tsx settings (its --tsconfig
+  // is relative to frontend/) out of its environment.
+  const childEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('TSX_') && k !== 'NODE_OPTIONS'))
+  const cli = execFileSync(process.execPath, ['backend/bin/research-engine.mjs', 'version'], { cwd: '..', encoding: 'utf8', env: childEnv })
   check('the CLI names a version', /Research Engine \d+\.\d+/.test(cli), cli.trim())
   check('the CLI names the built frontend', /built frontend\s*:/.test(cli))
   check('the CLI states a status', /STATUS\s+:/.test(cli))
