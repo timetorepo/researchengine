@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { LetterSwap } from '@/components/ui/kit/community/LetterSwap'
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { motion } from 'motion/react'
@@ -116,7 +117,7 @@ export function SettingsView() {
           {/* The tab's name stays in view while you scroll its long page. */}
           <StickyHeader className="px-5">
             <div className="max-w-[680px] mx-auto py-2.5 text-[12px] font-medium" style={{ color: 'var(--text-3)' }}>
-              {TABS.find((t) => t.id === tab)?.label ?? 'Settings'}
+              <LetterSwap text={TABS.find((t) => t.id === tab)?.label ?? 'Settings'} />
             </div>
           </StickyHeader>
           <div className="max-w-[680px] mx-auto px-5 pt-2 pb-24">

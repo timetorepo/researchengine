@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { DotBorderButton } from '@/components/ui/kit/community/DotBorderButton'
 import { ExpandingArrowButton } from '@/components/ui/kit/beui/ExpandingArrowButton'
 import { AnimatePresence, motion } from 'motion/react'
 import {
@@ -793,7 +794,7 @@ export function Onboarding() {
         {/* footer nav */}
         <div className="flex items-center justify-between px-8 pb-8 max-w-[1000px] mx-auto w-full">
           {step > 0 && step < LAST ? (
-            <Button variant="ghost" color="default" size="sm" onClick={back} startContent={<ArrowLeft size={13} />}>Back</Button>
+            <DotBorderButton onClick={back}><ArrowLeft size={13} /> Back</DotBorderButton>
           ) : <span />}
           {STEPS[step].cta ? (
             <div className="flex items-center gap-2">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { NotificationList } from '@/components/ui/kit/community/NotificationList'
 import { motion } from 'motion/react'
 import {
   ArrowDownToLine, CheckCircle2, Download, Loader2, RefreshCw, RotateCcw,
@@ -126,6 +127,12 @@ export function UpdatesTab() {
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Updates</h2>
+        <section className="surface p-4 mb-4" aria-label="What's new" style={{ borderRadius: 'var(--radius-card)' }}>
+          <div className="text-[12.5px] font-medium mb-1">What's new</div>
+          <NotificationList
+            items={CHANGELOG.slice(0, 4).map((r) => ({ id: r.version, title: `Version ${r.version}`, detail: r.summary || r.name, at: r.date, kind: 'info' as const }))}
+          />
+        </section>
         <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
           Keep the app current without losing anything. An update replaces the program and <b>never</b> the library.
         </p>

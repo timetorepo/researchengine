@@ -3,6 +3,12 @@
 // It scrolls: a hero, a short "why" section, the three ways in, and a closing
 // section. The only control that moves the wizard forward is the tear ticket at
 // the end, so reading the page never starts setup by accident.
+import { ParallaxFloating, FloatingItem } from '@/components/ui/kit/community/ParallaxFloating'
+import { MarqueeAlongPath } from '@/components/ui/kit/community/MarqueeAlongPath'
+import { TextAlongCircle } from '@/components/ui/kit/community/TextAlongCircle'
+import { CssBoxHover } from '@/components/ui/kit/community/CssBoxHover'
+import { TextHighlighter } from '@/components/ui/kit/community/TextHighlighter'
+import { TextRotateCard } from '@/components/ui/kit/community/TextRotateCard'
 import { motion, useReducedMotion, type HTMLMotionProps } from 'motion/react'
 import { BookOpen, ChevronDown, GraduationCap, Hammer, KeyRound, Search, ShieldCheck } from 'lucide-react'
 import TearTicket from '@/components/ui/reactbits/micro/TearTicket'
@@ -89,6 +95,36 @@ export function Welcome({ onTear }: { onTear: () => void }) {
           Scroll
           <ChevronDown size={16} />
         </motion.div>
+      </section>
+
+      {/* Parallax floating over a public-domain painting, a marquee, and a few
+          quiet cards. The painting is Van Gogh's self-portrait (1887). */}
+      <section className="px-4 pb-16 max-w-[980px] mx-auto" aria-label="About this app">
+        <ParallaxFloating className="h-[300px] rounded-[18px]" sensitivity={1}>
+          <FloatingItem depth={1} className="left-[8%] top-[10%] w-[30%] h-[80%]">
+            <img src="/art/van-gogh-self-portrait-1887.jpg" alt="Vincent van Gogh, Self-Portrait (1887), public domain" className="w-full h-full object-cover rounded-[12px]" />
+          </FloatingItem>
+          <FloatingItem depth={2} className="left-[46%] top-[14%] w-[44%]">
+            <CssBoxHover>
+              <p className="text-[14px] font-medium" style={{ color: 'var(--text)' }}>Made to be read slowly</p>
+              <p className="text-[12.5px] mt-1" style={{ color: 'var(--text-2)' }}>
+                Every choice here is yours to change. <TextHighlighter trigger="scroll">Keep what matters</TextHighlighter>, leave the rest.
+              </p>
+            </CssBoxHover>
+          </FloatingItem>
+          <FloatingItem depth={3} className="right-[6%] bottom-[8%]">
+            <TextAlongCircle text="Research Engine · local first · your keys · " size={110} />
+          </FloatingItem>
+        </ParallaxFloating>
+        <div className="mt-6">
+          <MarqueeAlongPath words={['private', 'local', 'open source', 'your keys', 'your notes']} />
+        </div>
+        <div className="mt-6 max-w-[560px]">
+          <TextRotateCard
+            quotes={['Your notes stay on this device.', 'Keys are encrypted and only go to the provider you chose.', 'No telemetry, no analytics, no pings.']}
+            author="Research Engine"
+          />
+        </div>
       </section>
 
       {/* Why: three short claims, each one a sentence the app keeps. */}

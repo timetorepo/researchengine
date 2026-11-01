@@ -42,6 +42,16 @@ import { ShowMore } from '../src/components/ui/kit/interior/ShowMore'
 import { BlurUpImage } from '../src/components/ui/kit/interior/BlurUpImage'
 import { ModernSelect, readOptions } from '../src/components/ui/kit/select/ModernSelect'
 import { ChatEmptyState } from '../src/components/ui/kit/illos/ChatEmptyState'
+import { DotBorderButton } from '../src/components/ui/kit/community/DotBorderButton'
+import { LetterSwap } from '../src/components/ui/kit/community/LetterSwap'
+import { TextRotateCard } from '../src/components/ui/kit/community/TextRotateCard'
+import { TextHighlighter } from '../src/components/ui/kit/community/TextHighlighter'
+import { TextAlongCircle } from '../src/components/ui/kit/community/TextAlongCircle'
+import { CssBoxHover } from '../src/components/ui/kit/community/CssBoxHover'
+import { AvatarGroup } from '../src/components/ui/kit/community/AvatarGroup'
+import { NotificationList } from '../src/components/ui/kit/community/NotificationList'
+import { MarqueeAlongPath } from '../src/components/ui/kit/community/MarqueeAlongPath'
+import { ParallaxFloating, FloatingItem } from '../src/components/ui/kit/community/ParallaxFloating'
 import { ChatBackdrop } from '../src/components/ui/kit/backdrops/ChatBackdrop'
 import { readChatBackdrop } from '../src/components/ui/kit/backdrops/useChatBackdrop'
 import { ApprovalCard } from '../src/components/ui/kit/beui/ApprovalCard'
@@ -132,6 +142,16 @@ check('the chat empty state offers suggestions and the math variant', () => {
   assert.ok(math.includes('Solve step by step') && math.includes('Work through it'), 'math suggestions')
 })
 
+check('the avatar group shows initials and a count for the rest', () => {
+  const html = renderToStaticMarkup(React.createElement(AvatarGroup, { max: 2, members: [{ id: '1', name: 'Ada Lovelace' }, { id: '2', name: 'Alan Turing' }, { id: '3', name: 'Grace Hopper' }] }))
+  assert.ok(html.includes('AL') && html.includes('AT'), 'initials of the first two')
+  assert.ok(html.includes('+1'), 'the rest are counted')
+})
+
+check('the notification list says so when empty', () => {
+  assert.ok(renderToStaticMarkup(React.createElement(NotificationList, { items: [], empty: 'Nothing new.' })).includes('Nothing new.'))
+})
+
 check('components render to markup on the server', () => {
   const cases: [string, React.ReactElement][] = [
     ['blackjack', React.createElement(Blackjack)],
@@ -142,6 +162,16 @@ check('components render to markup on the server', () => {
     ['dynamic button', React.createElement(DynamicButton, { onAction: () => {}, idleLabel: 'Check' })],
     ['iridescent foil', React.createElement(IridescentFoil, null, 'card')],
     ['voice note', React.createElement(VoiceNote, { src: '/a.wav', title: 'Reply' })],
+    ['dot border button', React.createElement(DotBorderButton, null, 'Back')],
+    ['letter swap', React.createElement(LetterSwap, { text: 'Coding' })],
+    ['text rotate card', React.createElement(TextRotateCard, { quotes: ['one', 'two'], author: 'me' })],
+    ['text highlighter', React.createElement(TextHighlighter, null, 'word')],
+    ['text along circle', React.createElement(TextAlongCircle, { text: 'Research Engine · ' })],
+    ['css box hover', React.createElement(CssBoxHover, null, 'card')],
+    ['avatar group', React.createElement(AvatarGroup, { members: [{ id: '1', name: 'Ada Lovelace' }, { id: '2', name: 'Alan Turing' }, { id: '3', name: 'Grace Hopper' }, { id: '4', name: 'Linus' }, { id: '5', name: 'Ken' }] })],
+    ['notification list', React.createElement(NotificationList, { items: [{ id: 'a', title: 'Hi', at: 'today', detail: 'x' }] })],
+    ['marquee along path', React.createElement(MarqueeAlongPath, { words: ['private', 'local'] })],
+    ['parallax floating', React.createElement(ParallaxFloating, null, React.createElement(FloatingItem, { depth: 1 }, 'item'))],
     ['chat empty state', React.createElement(ChatEmptyState, { onPick: () => {} })],
     ['modern select', React.createElement(ModernSelect, { value: 'b', onChange: () => {}, 'aria-label': 'Project' }, React.createElement('option', { value: 'a' }, 'Alpha'), React.createElement('option', { value: 'b' }, 'Beta'))],
     ['animated counter', React.createElement(AnimatedCounter, { value: 1234 })],

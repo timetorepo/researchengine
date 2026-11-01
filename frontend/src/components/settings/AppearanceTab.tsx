@@ -236,6 +236,12 @@ export function AppearanceTab() {
       <div className="space-y-1 mt-6">
         <div className="text-[12.5px] font-medium mb-1">Typeface</div>
         <p className="text-[11.5px] mb-2" style={{ color: 'var(--text-3)' }}>Applies to the whole interface. Each option is shown in its own font.</p>
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-[11.5px] shrink-0" style={{ color: 'var(--text-2)' }}>Font family</span>
+          <ModernSelect aria-label="Font family" value={settings.typeface ?? 'default'} onChange={(e) => update({ typeface: e.target.value as any })} className="w-[220px]">
+            {TYPEFACES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </ModernSelect>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
           {TYPEFACES.map((t) => {
             const active = (settings.typeface ?? 'default') === t.id
