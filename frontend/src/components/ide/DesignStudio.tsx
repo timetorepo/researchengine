@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { DesignCursor } from '@/components/ui/kit/community/DesignCursor'
 import { useSyncExternalStore } from 'react'
 import { AnimatePresence, useMotionValue } from 'motion/react'
 import {
@@ -414,7 +415,9 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
   }, [])
 
   return (
-    <div className="ide-shell h-full flex flex-col min-h-0">
+    <div className="ide-shell h-full flex flex-col min-h-0 relative">
+      {/* A design-mode cursor: a ring that follows the pointer here. */}
+      <DesignCursor />
       {/* ---- header ---- */}
       <div className="shrink-0 flex items-center gap-2 px-3 h-11" style={{ borderBottom: '1px solid var(--ide-border)', background: 'var(--ide-panel)' }}>
         <button onClick={onExit} className="ide-btn" title="Back to the code">
