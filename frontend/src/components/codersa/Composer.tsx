@@ -54,8 +54,10 @@ export function Composer(p: ComposerProps) {
           onChange={(e) => p.setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() }
+            // Escape stops a running turn, the same as the stop button.
+            else if (e.key === 'Escape' && p.busy) { e.preventDefault(); p.onStop() }
           }}
-          placeholder={p.busy ? 'Codersa is working. Stop it to send something new.' : 'Ask Codersa to change code, run the checks, or explain something…'}
+          placeholder={p.busy ? 'Codersa is working. Press Esc or stop to send something new.' : 'Ask Codersa to change code, run the checks, or explain something…'}
           className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[14px] leading-relaxed outline-none"
           style={{ color: 'var(--text)', maxHeight: MAX_HEIGHT }} />
 
@@ -110,7 +112,7 @@ export function Composer(p: ComposerProps) {
           </button>
 
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            <span className="hidden xl:inline whitespace-nowrap text-[10.5px]" style={{ color: 'var(--text-3)' }}>Enter to send · Shift+Enter for a new line</span>
+            <span className="hidden xl:inline whitespace-nowrap text-[10.5px]" style={{ color: 'var(--text-3)' }}>{p.busy ? 'Esc to stop' : 'Enter to send · Shift+Enter for a new line'}</span>
             {p.busy ? (
               <button onClick={p.onStop} aria-label="Stop"
                 className="flex h-8 w-8 items-center justify-center rounded-full transition-transform active:scale-95"

@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, FolderGit2, Settings2, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, FolderGit2, Pencil, Settings2, Sparkles, X } from 'lucide-react'
 import { PaintedBackdrop } from '@/components/backgrounds/PaintedBackdrop'
 import { CodersaMascot, type MascotState } from './CodersaMascot'
 import { PanelLeft } from 'lucide-react'
@@ -37,7 +37,16 @@ export function CodersaPage() {
   const profileTitle = c.profiles.find((p) => p.id === (c.active?.profile ?? c.prefs.profile))?.title ?? (c.active?.profile ?? c.prefs.profile)
   const canSend = c.model.ok && !c.busy
 
-  const mascot: MascotState = c.busy ? 'busy' : c.error ? 'error' : c.outcome?.outcome === 'done' ? 'done' : 'idle'
+  const mascot: MascotState = c.busy ? 'busy'
+    : c.error || c.outcome?.outcome === 'error' ? 'error'
+    : c.outcome?.outcome === 'done' ? 'done'
+    : 'idle'
+
+  // After a failed, stopped or step-limited turn, the last message can go back into the
+  // composer to be edited and sent again, rather than retyped.
+  const lastUser = [...c.items].reverse().find((i) => i.kind === 'user')?.text ?? null
+  const canRestore = !c.busy && !!lastUser && (!!c.error || (!!c.outcome && c.outcome.outcome !== 'done'))
+  const restore = () => { if (lastUser) setDraft(lastUser); c.dismissError() }
 
   const send = useCallback(async () => {
     const text = draft
@@ -108,6 +117,11 @@ export function CodersaPage() {
               {!c.model.ok && (
                 <button onClick={() => navigate('/settings')} className="shrink-0 underline" style={{ color: 'var(--primary)' }}>Settings</button>
               )}
+              {canRestore && (
+                <button onClick={restore} className="shrink-0 flex items-center gap-1 underline" style={{ color: 'var(--primary)' }}>
+                  <Pencil size={11} /> Edit last message
+                </button>
+              )}
               <button onClick={c.dismissError} aria-label="Dismiss" className="shrink-0 p-0.5" style={{ color: 'var(--text-3)' }}><X size={13} /></button>
             </div>
           )}
@@ -156,6 +170,15 @@ export function CodersaPage() {
           )}
 
           {c.loading && <p className="sr-only" role="status">Opening session…</p>}
+
+          {canRestore && !c.error && (
+            <div className="mx-auto w-full max-w-[760px] px-6 -mb-1">
+              <button onClick={restore} className="flex items-center gap-1.5 text-[11.5px] rounded-[8px] px-2 py-1 hover:bg-[var(--elevated)]"
+                style={{ color: 'var(--text-3)' }}>
+                <Pencil size={11} /> Edit last message to try again
+              </button>
+            </div>
+          )}
 
           <Composer
             draft={draft}

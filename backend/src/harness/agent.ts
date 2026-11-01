@@ -14,7 +14,7 @@ import type { ChatMessage, CompletionToolSpec, LlmService, ModelTarget } from '.
 import type { SessionEvent, SessionStore } from './sessions'
 import type { ToolEnv, ToolRegistry } from './tools'
 import type { AgentAccess } from '../services/agent-access'
-import { PROFILES, type ProfileId } from './profiles'
+import { PROFILES, type Profile, type ProfileId } from './profiles'
 
 /** Characters, not tokens: a rough, dependable budget (about 4 characters per token). */
 export const DEFAULT_CONTEXT_CHARS = 120_000
@@ -22,11 +22,40 @@ export const DEFAULT_CONTEXT_CHARS = 120_000
 const KEEP_RECENT_MESSAGES = 6
 const SHORT_TOOL_OUTPUT = 400
 
-export const HARNESS_SYSTEM = `You are the coding agent of Research Engine's harness. Work in small, verified steps:
-- Read a file before you change it. Use list_files and read_file to look, str_replace_editor to change.
-- Use bash only when the user has approved shell; run the project's own checks and report what they printed.
-- When you are done, reply with what changed, what you verified, and what you could not verify.
-- Never invent file contents, command output or results.`
+/**
+ * Codersa's system prompt. Built per profile, so it names only the tools that profile
+ * offers: a prompt that promises `read_file` to a profile that cannot call it sends the
+ * model into a loop of refused calls.
+ */
+export function harnessSystem(profile: Profile): string {
+  const tools = profile.tools.map((t) => `\`${t}\``).join(', ')
+  return `You are Codersa, the coding agent inside Research Engine's harness. You work in the person's project folder as a calm, exact senior engineer. You look before you touch, you make the smallest change that solves the problem, and you report exactly what you did and what you did not verify.
+
+# How you work
+1. Understand. Restate the goal in one sentence. Find the files that matter before you change anything. Read them in full when they are short, and in parts when they are long.
+2. Plan when the change spans more than one file: name the files and the order you will edit them in. For a one-line fix, skip the plan.
+3. Change. Edit with the smallest exact replacement that works. Include enough surrounding lines that the text you replace is unique. Create a new file only when the task needs one. Never rewrite a whole file to change one line. Follow the conventions you see: naming, imports, formatting, error handling.
+4. Verify. Find the project's own checks (the test, typecheck, build or lint scripts in package.json, Makefile, pyproject.toml or similar) and run the ones that cover your change. Read the output. If your change broke a check, fix it before you stop.
+5. Report. Use this shape, and keep each part short:
+   - Changed: each file and one line on what changed in it.
+   - Verified: the exact command you ran and whether it passed.
+   - Not verified: anything you could not run or check, and why.
+   - Decision needed: only if the person must choose something before you go on.
+
+# Tools in this profile
+You may call only these: ${tools}. ${profile.tools.includes('bash') ? 'Use `bash` for searches (grep, find), test runs and builds. Keep each command bounded: prefer grep, head and tail to dumping whole files.' : 'You have no shell here, so you read with what the editor and file tools give you.'}
+
+# Rules
+- Never invent file contents, paths, command output or test results. If you have not read it or run it, say so.
+- If a tool says shell is off, do not retry it. Say that shell needs to be allowed for this session, give what you found so far, and stop.
+- Do not run an irreversible or destructive command (deleting files outside a build folder, force-pushing, resetting history, changing a credential) unless the person asked for that exact action.
+- Do not print secrets. If a file holds a key or password, say that it does and do not quote the value.
+- Ask one precise question only when a requirement is genuinely ambiguous. Otherwise make the reasonable choice and say what it was.
+- You have a fixed number of model calls in this turn. When you are told how many remain, stop starting new work, finish what you can, and report.
+
+# Style
+Plain and direct. No preamble, no "Great, I'll", no closing offer of further help. Show code only when the person asks to see it; otherwise name the file and the function.`
+}
 
 export type TurnEvent =
   | { type: 'assistant'; content: string }
@@ -146,7 +175,7 @@ export function agentPlugin() {
           .map((t) => ({ name: t.name, description: t.description, parameters: t.parameters }))
 
         await sessions.append(opts.sessionId, { type: 'user', content: opts.text })
-        const system: ChatMessage = { role: 'system', content: `${HARNESS_SYSTEM}\nProfile: ${profile.title}. ${profile.description}` }
+        const system: ChatMessage = { role: 'system', content: `${harnessSystem(profile)}\n\nProfile: ${profile.title}. ${profile.description}` }
         let steps = 0
         for (let step = 1; step <= profile.maxSteps; step++) {
           steps = step
@@ -156,7 +185,14 @@ export function agentPlugin() {
             return { steps, outcome: 'stopped' }
           }
           const history = messagesFromLog(await sessions.read(opts.sessionId))
-          const window = fitContext([system, ...history], opts.maxContextChars ?? DEFAULT_CONTEXT_CHARS)
+          // Near the limit the model is told how many calls it has left, so it can
+          // wrap up instead of starting a step it cannot finish. The note is sent with
+          // this call only; it is not written to the log.
+          const left = profile.maxSteps - step
+          const budget: ChatMessage[] = left <= 2
+            ? [{ role: 'system', content: left <= 0 ? 'No model calls are left in this turn. Reply now with what changed, what you verified and what remains.' : `You have ${left} model call${left === 1 ? '' : 's'} left in this turn. Finish the work you can and report; do not start a new investigation.` }]
+            : []
+          const window = fitContext([system, ...history, ...budget], opts.maxContextChars ?? DEFAULT_CONTEXT_CHARS)
           let reply
           try {
             reply = await llm.complete(opts.target, window, specs, opts.signal)
@@ -193,7 +229,21 @@ export function agentPlugin() {
           emit({ type: 'done', steps })
           return { steps, outcome: 'done' }
         }
+        // The budget is spent. Ask once more, with no tools offered, for the report the
+        // person needs: what changed and what is left. The turn still counts as stopped.
         const message = `Stopped after ${profile.maxSteps} steps without a final answer.`
+        let summary = ''
+        if (!opts.signal?.aborted) {
+          try {
+            const history = messagesFromLog(await sessions.read(opts.sessionId))
+            const reply = await llm.complete(opts.target, fitContext([system, ...history, { role: 'system', content: 'No model calls are left in this turn. Reply now with what changed, what you verified and what remains. Do not call tools.' }], opts.maxContextChars ?? DEFAULT_CONTEXT_CHARS), [], opts.signal)
+            summary = reply.content.trim()
+          } catch { /* the step-limit message below is still recorded */ }
+        }
+        if (summary) {
+          await sessions.append(opts.sessionId, { type: 'assistant', content: summary })
+          emit({ type: 'assistant', content: summary })
+        }
         await sessions.append(opts.sessionId, { type: 'error', content: message })
         emit({ type: 'error', message })
         return { steps, outcome: 'step-limit' }

@@ -348,6 +348,50 @@ await check('the step limit ends a turn that never answers', async () => {
   assert.equal(r.steps, PROFILES.minimal.maxSteps)
 })
 
+await check('the system prompt names only the tools the profile offers', async () => {
+  const { harnessSystem } = await import('../src/harness/agent')
+  const minimal = harnessSystem(PROFILES.minimal)
+  const standard = harnessSystem(PROFILES.standard)
+  assert.ok(minimal.includes('`bash`') && minimal.includes('`str_replace_editor`'))
+  assert.ok(!minimal.includes('`read_file`') && !minimal.includes('`list_files`'), 'minimal must not promise file reads it cannot make')
+  assert.ok(standard.includes('`read_file`') && standard.includes('`list_files`'))
+})
+
+await check('the model is told how many calls are left as the step limit nears, and the note is not logged', async () => {
+  const s = await harness.sessions.create({ profile: 'minimal', workspace: null })
+  scripted.length = 0
+  for (let i = 0; i < PROFILES.minimal.maxSteps; i++) {
+    scripted.push({ message: { role: 'assistant', content: '', tool_calls: [{ id: `budget-${i}`, type: 'function', function: { name: 'bash', arguments: '{"command":"true"}' } }] } })
+  }
+  scripted.push({ message: { role: 'assistant', content: 'Changed nothing. Verified nothing.' } })
+  await harness.agent.run({
+    sessionId: s.id, text: 'budget', profile: 'minimal', target: { base: 'https://m.example/v1', key: '', model: 'demo' },
+    workspace: null, approve: false, access: { mode: 'project', roots: [] },
+  })
+  const sent = calls.map((c) => (c.body.messages as ChatMessage[]).map((m) => m.content).join('\n'))
+  assert.ok(sent.some((t) => t.includes('calls left in this turn')), 'a warning appears before the limit')
+  assert.ok(sent[sent.length - 1].includes('No model calls are left'), 'the last call asks for the report')
+  const log = await harness.sessions.read(s.id)
+  assert.ok(!log.some((e) => (e.content ?? '').includes('calls left in this turn')), 'the budget note is never written to the log')
+})
+
+await check('a turn that hits the step limit ends with the model’s report, not only an error', async () => {
+  const s = await harness.sessions.create({ profile: 'minimal', workspace: null })
+  scripted.length = 0
+  for (let i = 0; i < PROFILES.minimal.maxSteps; i++) {
+    scripted.push({ message: { role: 'assistant', content: '', tool_calls: [{ id: `rep-${i}`, type: 'function', function: { name: 'bash', arguments: '{"command":"true"}' } }] } })
+  }
+  scripted.push({ message: { role: 'assistant', content: 'Changed: nothing yet. Not verified: tests.' } })
+  const r = await harness.agent.run({
+    sessionId: s.id, text: 'report', profile: 'minimal', target: { base: 'https://m.example/v1', key: '', model: 'demo' },
+    workspace: null, approve: false, access: { mode: 'project', roots: [] },
+  })
+  assert.equal(r.outcome, 'step-limit')
+  const log = await harness.sessions.read(s.id)
+  assert.ok(log.some((e) => e.type === 'assistant' && (e.content ?? '').includes('Not verified: tests')))
+  assert.ok(log.some((e) => e.type === 'error' && (e.content ?? '').includes('Stopped after')))
+})
+
 await check('aborting a turn stops it and records that it stopped', async () => {
   const controller = new AbortController()
   // The client goes away during the model call: the call fails and the turn ends as stopped.
