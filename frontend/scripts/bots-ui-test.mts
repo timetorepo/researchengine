@@ -136,7 +136,7 @@ async function main() {
   const faces = win.document.querySelectorAll('[role="radiogroup"][aria-label="Avatar"] [role="radio"]').length
   check('there are eighteen faces to choose from', faces === 18, String(faces))
   check('the web switch is there', !!win.document.querySelector('[aria-label="Web access for Ana"]'))
-  check('the ECC role picker is there', body().includes('Start from an ECC role'))
+  check('the ECC role picker is there', body().includes('Methods from ECC') && body().includes('Role'))
   check('the role credit names its licence', body().includes('MIT'))
 
   await act(async () => { root.unmount() })

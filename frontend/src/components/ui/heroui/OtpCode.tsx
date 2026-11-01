@@ -1,11 +1,12 @@
 /**
- * HeroUI `InputOTP` for two-factor codes, in this app's colours.
+ * The one-time-code field for two-factor codes, in this app's colours.
+ * It renders the vendored CodeSlots component.
  *
  * Every 2FA entry (authenticator setup, turning it off, unlocking the vault)
  * goes through here, so the code boxes look and behave the same everywhere.
  */
 import React from 'react'
-import { InputOTP } from '@heroui/react'
+import CodeSlots from '@/components/ui/reactbits/micro/CodeSlots'
 
 export function OtpCode({
   value,
@@ -23,31 +24,18 @@ export function OtpCode({
   length?: number
 }) {
   return (
-    <InputOTP
-      maxLength={length}
+    <CodeSlots
+      length={length}
       value={value}
       onChange={(next: string) => onChange(next.replace(/\D/g, '').slice(0, length))}
-      isDisabled={disabled}
-      aria-label={label}
+      disabled={disabled}
       autoFocus={autoFocus}
-      inputMode="numeric"
-      autoComplete="one-time-code"
-      className="flex justify-center"
-    >
-      <InputOTP.Group className="flex gap-2">
-        {Array.from({ length }, (_, i) => (
-          <InputOTP.Slot
-            key={i}
-            index={i}
-            className="h-11 w-10 rounded-[11px] text-[16px] font-medium tabular-nums"
-            style={{
-              background: 'var(--elevated)',
-              border: '1px solid var(--surface-border)',
-              color: 'var(--text)',
-            }}
-          />
-        ))}
-      </InputOTP.Group>
-    </InputOTP>
+      ariaLabel={label}
+      accentColor="var(--primary)"
+      inkColor="var(--text)"
+      slotColor="var(--elevated)"
+      digitColor="var(--text)"
+      dangerColor="var(--danger)"
+    />
   )
 }

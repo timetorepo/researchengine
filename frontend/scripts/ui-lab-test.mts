@@ -121,7 +121,7 @@ async function main() {
   const { UILab, AGENT_UI } = await import('../src/components/settings/UILab')
 
   /* ---------------------------------------------------------------- 1 */
-  console.log('\n[1] Onboarding: nine steps, and the last one runs')
+  console.log('\n[1] Onboarding: ten steps, and the last one runs')
   useStore.setState({ settings: { ...useStore.getState().settings, onboarded: false } } as any)
   const host = win.document.createElement('div')
   win.document.body.appendChild(host)
@@ -130,8 +130,8 @@ async function main() {
   await wait(120)
 
   const dots = [...host.querySelectorAll('button[aria-label^="Step "]')]
-  // Nine since R17: the "setting up" step was added in front of the last one.
-  check('the wizard has nine steps, all reachable', dots.length === 9, `${dots.length}`)
+  // Ten now: "setting up" (R17) sits before "You're set", the last step.
+  check('the wizard has ten steps, all reachable', dots.length === 10, `${dots.length}`)
   check('the welcome screen carries the requested tagline',
     text(host).includes('The swiss knife of') && text(host).includes('AI Research'))
   check('and the colourful letters are real elements, not one text node',

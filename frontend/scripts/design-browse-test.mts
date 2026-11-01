@@ -91,11 +91,13 @@ async function main() {
     return new Response(JSON.stringify(doc(target)), { status: 200, headers: { 'content-type': 'application/json' } })
   }
 
+  // The reader calls useNavigate, so every mount sits inside a router.
+  const { MemoryRouter } = await import('react-router-dom')
   const mount = (el: any) => {
     const host = win.document.createElement('div')
     win.document.body.appendChild(host)
     const root = createRoot(host)
-    root.render(el)
+    root.render(React.createElement(MemoryRouter, null, el))
     return { host, root }
   }
 

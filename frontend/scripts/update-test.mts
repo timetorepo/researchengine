@@ -568,7 +568,9 @@ section('[12] a real packaged install says it can update itself')
         if (existsSync(abs) && createHash('sha256').update(readFileSync(abs)).digest('hex') === digest) intact++
       }
       check('booting the packaged app leaves every user file byte-identical', intact === userFiles.size, `${intact}/${userFiles.size}`)
-      check('and creates its database inside the library, where the user\u2019s data lives', existsSync(join(pkgData, 'db.sqlite')))
+      // SQLite creates the file on its first write, so check the path the server
+      // reports for its database rather than a file that may not exist yet.
+      check('and its database is inside the library, where the user\u2019s data lives', health.db?.file === join(pkgData, 'db.sqlite'), String(health.db?.file))
     }
     child.kill('SIGKILL')
     child = null

@@ -5,7 +5,7 @@ import {
   MonitorUp, Play, RefreshCw, Square, ExternalLink, Crosshair, Camera, Smartphone, Tablet, Monitor,
   Maximize2, ChevronRight, Search, AlertTriangle, CheckCircle2, XCircle, Loader2, Terminal, Bug,
   Image as ImageIcon, Send, Sparkles, Download, X, Layers, ListChecks, Activity,
-  LayoutGrid, Tv, Columns3, AlignJustify, Grid3x3,
+  LayoutGrid, ClipboardList, Boxes, Lightbulb, Rocket, Tv, Columns3, AlignJustify, Grid3x3,
 } from 'lucide-react'
 import { AgentPanel } from './AgentPanel'
 import { GlassTabs } from './IdeChrome'
@@ -20,10 +20,16 @@ import {
 import { DEVICE_PRESETS, ensurePreviewServer, previewStatus, stopPreview, type PreviewState, type DeviceId } from '@/lib/ide/preview'
 import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { GridOverlay, defaultGrids, type GridOptions } from '@/components/design/DevicePreview'
+import { ComponentHub } from '@/components/design/ComponentHub'
+import { DesignBrief } from '@/components/design/DesignBrief'
+import { DesignBoard } from '@/components/design/DesignBoard'
+import { InspirationBoard } from '@/components/design/InspirationBoard'
 import { ShipPanel } from '@/components/design/ShipPanel'
+import { ThrottlePanel } from '@/components/design/ThrottlePanel'
+import { PrototypeBoard } from '@/components/design/PrototypeBoard'
 import type { TreeNode } from './types'
 
-type Tab = 'assistant' | 'inspect' | 'tests' | 'console' | 'captures' | 'ship'
+type Tab = 'assistant' | 'inspect' | 'tests' | 'console' | 'captures' | 'board' | 'brief' | 'hub' | 'inspo' | 'prototype' | 'ship' | 'throttle'
 
 const KIND_TONE: Record<string, string> = {
   a11y: 'var(--warning)', layout: 'var(--primary)', console: 'var(--danger)',
@@ -52,11 +58,12 @@ function themeAccent(): { accent?: string; soft?: string; ink?: string } {
   return { accent, soft: `color-mix(in srgb, ${accent} 16%, transparent)`, ink }
 }
 
-export function DesignStudio({ project, tree, onExit }: {
+export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
   project: string
   tree: TreeNode[]
   onExit: () => void
   /** Arrived from the Library's UI vertical: open on the hub, searching this. */
+  hubSeed?: string
 }) {
   const [state, setState] = useState<PreviewState | null>(null)
   const [starting, setStarting] = useState(false)
@@ -111,7 +118,7 @@ export function DesignStudio({ project, tree, onExit }: {
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
-  const [tab, setTab] = useState<Tab>('assistant')
+  const [tab, setTab] = useState<Tab>(hubSeed ? 'hub' : 'assistant')
   /** The design grids drawn over the preview: columns, baseline, 8 pt, safe areas. */
   const [grids, setGrids] = useState<GridOptions>(defaultGrids)
   const [picking, setPicking] = useState(false)
@@ -652,8 +659,9 @@ export function DesignStudio({ project, tree, onExit }: {
         )}
         <aside className="ide-pane shrink-0 min-h-0 flex flex-col"
           style={{ width: focusPreview ? 0 : inspectorW, display: focusPreview ? 'none' : undefined }}>
-          {/* Tools in two rows: what you are looking at on top, what you are
-              shipping underneath. The strip still scrolls if a pane gets narrow. */}
+          {/* Eleven tools in two tiers rather than one row that scrolls: what you
+              are looking at on top, what you are building underneath. The strip
+              still scrolls on the same three-pixel bar if a pane gets narrow. */}
           <div className="shrink-0 flex flex-col gap-1 px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
             <div className="ide-rail-row ide-tabscroll" data-ui="rail-look">
               <RailTab active={tab === 'assistant'} onClick={() => setTab('assistant')} icon={<Sparkles size={12} />} label="Assistant" />
@@ -663,6 +671,12 @@ export function DesignStudio({ project, tree, onExit }: {
               <RailTab active={tab === 'captures'} onClick={() => setTab('captures')} icon={<ImageIcon size={12} />} label="Shots" badge={captures.length || undefined} />
             </div>
             <div className="ide-rail-row ide-tabscroll" data-ui="rail-build">
+              <RailTab active={tab === 'board'} onClick={() => setTab('board')} icon={<LayoutGrid size={12} />} label="Board" />
+              <RailTab active={tab === 'brief'} onClick={() => setTab('brief')} icon={<ClipboardList size={12} />} label="Brief" />
+              <RailTab active={tab === 'hub'} onClick={() => setTab('hub')} icon={<Boxes size={12} />} label="Components" />
+              <RailTab active={tab === 'inspo'} onClick={() => setTab('inspo')} icon={<Lightbulb size={12} />} label="Inspiration" />
+              <RailTab active={tab === 'prototype'} onClick={() => setTab('prototype')} icon={<Tv size={12} />} label="Prototype" />
+              <RailTab active={tab === 'throttle'} onClick={() => setTab('throttle')} icon={<Rocket size={12} />} label="Full Throttle" />
               <RailTab active={tab === 'ship'} onClick={() => setTab('ship')} icon={<Send size={12} />} label="Ship" />
             </div>
           </div>
@@ -682,6 +696,41 @@ export function DesignStudio({ project, tree, onExit }: {
             )}
 
 
+            {tab === 'board' && (
+              <div className="h-full overflow-y-auto p-3">
+                <DesignBoard onOpenBrief={() => setTab('brief')} />
+              </div>
+            )}
+
+            {tab === 'brief' && (
+              <div className="h-full overflow-y-auto p-3">
+                <DesignBrief onDone={() => setTab('board')} />
+              </div>
+            )}
+
+            {tab === 'hub' && (
+              <div className="h-full overflow-y-auto p-3">
+                <ComponentHub initialQuery={hubSeed ?? ''} />
+              </div>
+            )}
+
+            {tab === 'inspo' && (
+              <div className="h-full overflow-y-auto p-3">
+                <InspirationBoard onDone={() => setTab('board')} onOpenComponents={() => setTab('hub')} />
+              </div>
+            )}
+
+            {tab === 'prototype' && (
+              <div className="h-full min-h-0">
+                <PrototypeBoard url={port ? previewUrlFor(port) : ''} />
+              </div>
+            )}
+
+            {tab === 'throttle' && (
+              <div className="h-full overflow-y-auto">
+                <ThrottlePanel previewUp={!!port} onOpenTab={(t) => setTab(t as Tab)} />
+              </div>
+            )}
             {tab === 'ship' && (
               <div className="h-full overflow-y-auto p-3">
                 <ShipPanel project={project} files={tree.map((t) => t.path)} />
