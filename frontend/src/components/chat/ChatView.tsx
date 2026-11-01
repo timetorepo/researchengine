@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { ChatEmptyState } from '@/components/ui/kit/illos/ChatEmptyState'
+import { ChatBackdrop } from '@/components/ui/kit/backdrops/ChatBackdrop'
 import { useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowDown, Sigma, Sparkles, Globe, Wind, ListOrdered, X } from 'lucide-react'
@@ -153,6 +155,8 @@ export function ChatView() {
           wallpaper or graph paper competing with it. Subtle, and it sits behind
           the message column, so dense text still reads. */}
       {!mathMode && <div className="absolute inset-0 pointer-events-none"><PatternWaves opacity={0.22} interactive={false} /></div>}
+      {/* The optional animated backdrop (Settings → Appearance). Off unless turned on. */}
+      <ChatBackdrop />
       {/* Mode indicator bar */}
       <AnimatePresence>
         {(mathMode) && (
@@ -175,7 +179,7 @@ export function ChatView() {
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            {chat.messages.length === 0 && <EmptyHint math={mathMode} />}
+            {chat.messages.length === 0 && <ChatEmptyState math={mathMode} onPick={(text) => window.dispatchEvent(new CustomEvent('re:send-prompt', { detail: text }))} />}
             {/* Long sessions stay at 60fps by rendering a window: everything
                 before it is one button away, never in the DOM. */}
             {chat.messages.length > 60 && !showAll && (
@@ -262,20 +266,3 @@ export function ChatView() {
   )
 }
 
-function EmptyHint({ math }: { math: boolean }) {
-  return (
-    <div className="max-w-[760px] mx-auto px-4 pt-16 pb-8 text-center">
-      <div className="inline-flex items-center justify-center w-12 h-12 rounded-[14px] mb-4"
-        style={{ background: math ? 'color-mix(in srgb, var(--warning) 12%, transparent)' : 'var(--elevated)' }}>
-        {math ? <Sigma size={22} strokeWidth={1.5} style={{ color: 'var(--warning)' }} /> : <Sparkles size={22} strokeWidth={1.5} style={{ color: 'var(--primary)' }} />}
-      </div>
-      <p className="text-[14px]" style={{ color: 'var(--text-2)' }}>
-        {math ? 'Step-by-step solutions with rendered LaTeX. Ask away.' : 'Ask anything. Toggle Search for cited answers, Flow for token-efficient ones.'}
-      </p>
-      <p className="text-[12px] mt-2" style={{ color: 'var(--text-3)' }}>
-        Try <code className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: 'var(--elevated)' }}>/</code> for skills or{' '}
-        <code className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: 'var(--elevated)' }}>@</code> for connected sources
-      </p>
-    </div>
-  )
-}

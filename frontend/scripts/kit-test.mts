@@ -41,6 +41,9 @@ import { Lightbox } from '../src/components/ui/kit/interior/Lightbox'
 import { ShowMore } from '../src/components/ui/kit/interior/ShowMore'
 import { BlurUpImage } from '../src/components/ui/kit/interior/BlurUpImage'
 import { ModernSelect, readOptions } from '../src/components/ui/kit/select/ModernSelect'
+import { ChatEmptyState } from '../src/components/ui/kit/illos/ChatEmptyState'
+import { ChatBackdrop } from '../src/components/ui/kit/backdrops/ChatBackdrop'
+import { readChatBackdrop } from '../src/components/ui/kit/backdrops/useChatBackdrop'
 import { ApprovalCard } from '../src/components/ui/kit/beui/ApprovalCard'
 import { StreamingResponse } from '../src/components/ui/kit/beui/StreamingResponse'
 import { ArcPicker } from '../src/components/ui/kit/beui/ArcPicker'
@@ -117,6 +120,18 @@ check('the modern select reads its options and shows the chosen label', () => {
   assert.ok(html.includes('Alpha') && html.includes('role="combobox"'), 'trigger shows the label and is a combobox')
 })
 
+check('the chat backdrop is off by default and renders nothing', () => {
+  assert.equal(readChatBackdrop(), 'off', 'no stored choice means off')
+  assert.equal(renderToStaticMarkup(React.createElement(ChatBackdrop)), '', 'the backdrop is absent when off')
+})
+
+check('the chat empty state offers suggestions and the math variant', () => {
+  const plain = renderToStaticMarkup(React.createElement(ChatEmptyState, {}))
+  const math = renderToStaticMarkup(React.createElement(ChatEmptyState, { math: true }))
+  assert.ok(plain.includes('Summarise a document') && plain.includes('Ask anything'), 'plain suggestions')
+  assert.ok(math.includes('Solve step by step') && math.includes('Work through it'), 'math suggestions')
+})
+
 check('components render to markup on the server', () => {
   const cases: [string, React.ReactElement][] = [
     ['blackjack', React.createElement(Blackjack)],
@@ -127,6 +142,7 @@ check('components render to markup on the server', () => {
     ['dynamic button', React.createElement(DynamicButton, { onAction: () => {}, idleLabel: 'Check' })],
     ['iridescent foil', React.createElement(IridescentFoil, null, 'card')],
     ['voice note', React.createElement(VoiceNote, { src: '/a.wav', title: 'Reply' })],
+    ['chat empty state', React.createElement(ChatEmptyState, { onPick: () => {} })],
     ['modern select', React.createElement(ModernSelect, { value: 'b', onChange: () => {}, 'aria-label': 'Project' }, React.createElement('option', { value: 'a' }, 'Alpha'), React.createElement('option', { value: 'b' }, 'Beta'))],
     ['animated counter', React.createElement(AnimatedCounter, { value: 1234 })],
     ['grid reveal', React.createElement(GridReveal, { ready: false })],

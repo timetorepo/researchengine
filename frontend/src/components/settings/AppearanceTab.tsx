@@ -1,4 +1,6 @@
 import React, { useRef, useState } from 'react'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
+import { useChatBackdrop, CHAT_BACKDROP_OPTIONS, type ChatBackdropKind } from '@/components/ui/kit/backdrops/useChatBackdrop'
 import { Check, Upload, RotateCcw, Pipette } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -475,6 +477,7 @@ export function AppearanceTab() {
  */
 function BubbleSection() {
   const [kbOn, setKbOn] = usePrefFlag(KEYBOARD_PREF, false)
+  const [chatBackdrop, setChatBackdrop] = useChatBackdrop()
   const [kbPersp, setKbPersp] = useState<'fixed' | 'custom'>(() => {
     try { return (localStorage.getItem(KEYBOARD_PERSPECTIVE) as 'fixed' | 'custom') || 'fixed' } catch { return 'fixed' }
   })
@@ -579,6 +582,19 @@ function BubbleSection() {
                 onChange={(v) => { setKbPersp(v); try { localStorage.setItem(KEYBOARD_PERSPECTIVE, v); window.dispatchEvent(new Event(KEYBOARD_EVENT)) } catch { /* ignore */ } }} />
             </div>
           )}
+        </div>
+      </section>
+
+      {/* The chat backdrop: an optional animated pattern behind the conversation. Off by default. */}
+      <section className="surface p-4 mt-4" aria-label="Chat background" style={{ borderRadius: 'var(--radius-card)' }}>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-[13px] font-medium" style={{ color: 'var(--text)' }}>Chat background</p>
+            <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-2)' }}>An animated pattern behind the conversation. Off by default; it stays still when reduced motion is on.</p>
+          </div>
+          <ModernSelect aria-label="Chat background" value={chatBackdrop} onChange={(e) => setChatBackdrop(e.target.value as ChatBackdropKind)} className="w-[190px]">
+            {CHAT_BACKDROP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </ModernSelect>
         </div>
       </section>
 
