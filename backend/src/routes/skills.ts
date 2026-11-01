@@ -28,6 +28,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { db } from '../db'
 import { scanForTrojan, type TrojanReport } from '../../../frontend/src/lib/security/trojan'
+import { importGithubSkill } from '../services/github-skill'
 
 export const skillsRoutes = new Hono()
 
@@ -168,6 +169,15 @@ export function staticScan(files: SkillFile[]): { score: number; severity: strin
 /* ----------------------------------------------------------------- routes - */
 
 skillsRoutes.get('/scanner', async (c) => c.json(await scannerInfo()))
+
+/** Read a skill folder from GitHub. The files are returned, not saved: the app scans them first. */
+skillsRoutes.post('/github', async (c) => {
+  const body = await c.req.json().catch(() => null) as any
+  const url = typeof body?.url === 'string' ? body.url.trim() : ''
+  const res = await importGithubSkill(url)
+  if (!res.ok) return c.json({ error: res.error }, res.status as any)
+  return c.json({ files: res.files, source: res.source })
+})
 
 /**
  * POST /api/skills/trojan
