@@ -10,7 +10,7 @@ import { runPosition } from '@/lib/chat/bubbles'
 import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
-import { PatternWaves } from '@/components/ui/reactbits/micro/PatternWaves'
+import PatternWaves from '@/components/ui/reactbits/micro/PatternWaves'
 
 export function ChatView() {
   const { id } = useParams<{ id: string }>()
@@ -76,9 +76,9 @@ export function ChatView() {
     prevLen.current = msgCount
   }, [msgCount, atBottom])
 
-  const send = (prompt: string, opts: { search?: boolean; quality?: boolean; replicate?: boolean; attachments?: any[]; contextRefs?: any[] } = {}) => {
+  const send = (prompt: string, opts: { search?: boolean; quality?: boolean; replicate?: boolean; council?: boolean; attachments?: any[]; contextRefs?: any[] } = {}) => {
     if (!id || !prompt.trim()) return
-    const mode = { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined, replicate: opts.replicate || undefined }
+    const mode = { math: mathMode, search: opts.search || undefined, quality: opts.quality || undefined, replicate: opts.replicate || undefined, council: opts.council || undefined }
     const extra = { attachments: opts.attachments, contextRefs: opts.contextRefs }
     // While an answer is still streaming, queue the question instead of
     // dropping it — it runs automatically when the current one finishes.
@@ -151,7 +151,7 @@ export function ChatView() {
       {/* A faint wave field behind the conversation, only when there is no
           wallpaper or graph paper competing with it. Subtle, and it sits behind
           the message column, so dense text still reads. */}
-      {!mathMode && <PatternWaves strength={0.22} />}
+      {!mathMode && <div className="absolute inset-0 pointer-events-none"><PatternWaves opacity={0.22} interactive={false} /></div>}
       {/* Mode indicator bar */}
       <AnimatePresence>
         {(mathMode) && (

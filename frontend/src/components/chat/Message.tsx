@@ -15,9 +15,12 @@ export function formatTokens(n: number): string {
   return `${Math.round(n / 1000)}k`
 }
 import { Markdown } from './Markdown'
+import { StreamingText } from './StreamingText'
 import { ReplicateTimeline } from './ReplicateTimeline'
 import { ThinkingPhases } from './ThinkingPhases'
 import { ToolTraceChips, ExecApproval, QuestionnaireCard, AttachmentStrip, CodingModeCard } from './ToolUI'
+import { ResultCards } from '@/components/cards/ResultCards'
+import { CouncilDrafts, MediaStrip } from './CouncilMedia'
 import { TooltipCardStrip } from '@/components/ui/aceternity/TooltipCard'
 import { AlphaChip, handOffToAlpha } from '@/components/alpha/RemoverAlpha'
 import { ProviderLogo } from '@/components/shared/ProviderLogo'
@@ -302,7 +305,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         </div>
 
         {(msg.thinking || (streaming && !msg.content)) && (
-          <ThinkingPhases text={msg.thinking ?? ''} live={!!streaming} />
+          <ThinkingPhases text={msg.thinking ?? ''} live={!!streaming} answering={msg.content !== ''} />
         )}
 
         {sectionActions(msg.content).map((a, i) => (
@@ -361,9 +364,15 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
                 onRestore={() => store.getState().updateMessage(chatId, msg.id, { humanized: undefined, humanizedBy: undefined, humanizeError: undefined })}
               />
             ) : (
-              !msg.humanizing && <Markdown content={stripMarkers(msg.content)} streaming={streaming} />
+              !msg.humanizing && (streaming
+                ? <StreamingText content={stripMarkers(msg.content)} sources={msg.sources} />
+                : <Markdown content={stripMarkers(msg.content)} sources={msg.sources} />)
             )}
             {msg.humanizeError && <HumanizeError message={msg.humanizeError} onRetry={() => void runHumanize()} />}
+            {/* One rich card per tool call: results, never raw output. */}
+            <ResultCards cards={msg.toolCards} />
+            <MediaStrip media={msg.media} />
+            <CouncilDrafts drafts={msg.council} streaming={!!streaming} />
           </>
         )}
 

@@ -1,10 +1,5 @@
-// React Bits — Hold Button (Micro)
-// Added verbatim from the published source, TypeScript + Tailwind variant:
-//   https://reactbits.dev/c/micro/hold-button
-//   https://github.com/DavidHDev/react-bits → src/ts-tailwind/Micro/HoldButton/HoldButton.tsx
-// License: MIT + Commons Clause (see the repository LICENSE.md). Not rewritten,
-// not reimplemented — the component as published, so upstream fixes can be
-// diffed in. Only this header was added.
+// Vendored from React Bits (https://reactbits.dev, source: github.com/DavidHDev/react-bits @ 90b2750, src/ts-tailwind/Micro/HoldButton).
+// Unmodified apart from this provenance line. Props are documented on the published page.
 import React, { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type HoldButtonSize = 'sm' | 'md' | 'lg';

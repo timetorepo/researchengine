@@ -26,16 +26,31 @@ export function ThinkingPhases({
   text,
   live = false,
   defaultOpen = false,
+  answering = false,
 }: {
   text: string
   /** True while the provider is still streaming reasoning. */
   live?: boolean
   defaultOpen?: boolean
+  /**
+   * True once the answer itself has started to arrive. The reasoning then folds
+   * away, so the streamed answer is what the eye lands on.
+   */
+  answering?: boolean
 }) {
   const reduceMotion = useStore((s) => s.settings.reduceMotion)
-  const [open, setOpen] = useState(defaultOpen)
+  // Open while the model is thinking, so the reasoning is watched as it streams.
+  const [open, setOpen] = useState(defaultOpen || (live && !answering))
   const [picked, setPicked] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  // Fold it once, when the answer starts. A reader who opens it again keeps it open.
+  const folded = useRef(false)
+  useEffect(() => {
+    if (answering && !folded.current) {
+      folded.current = true
+      setOpen(false)
+    }
+  }, [answering])
 
   const phases = useMemo(() => splitPhases(text), [text])
   const active = live ? phases[phases.length - 1] : null
@@ -67,9 +82,11 @@ export function ThinkingPhases({
         <span className="text-[11.5px] font-medium">
           {live && !text
             ? 'Thinking'
-            : phases.length > 1
-              ? `Thought in ${phases.length} phases`
-              : 'Chain of thought'}
+            : live && answering
+              ? 'Thought, now answering'
+              : phases.length > 1
+                ? `Thought in ${phases.length} phases`
+                : 'Chain of thought'}
         </span>
         {active && (
           <span className="text-[11px] truncate" style={{ color: PHASE_TONE[active.kind] }}>

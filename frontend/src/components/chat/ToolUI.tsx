@@ -1,3 +1,4 @@
+import { AttachmentCarousel } from './AttachmentCarousel'
 import React, { useState } from 'react'
 import { motion } from 'motion/react'
 import { Wrench, CheckCircle2, XCircle, ShieldAlert, TerminalSquare, ClipboardList, Send, Check, X, Code as CodeIcon } from 'lucide-react'
@@ -188,7 +189,8 @@ export function AttachmentStrip({ msg }: { msg: ChatMessage }) {
       {/* What you attached, as the papers of a folder: the badge keeps a thread
           with three screenshots in it from turning into three full-size images
           above every message. Hover it and they fan out. */}
-      {images.length > 0 && (
+      {images.length > 1 && <AttachmentCarousel images={images} />}
+      {images.length === 1 && (
         <ImagesBadge
           className="self-end"
           folderSize={{ width: 40, height: 30 }}
@@ -198,13 +200,13 @@ export function AttachmentStrip({ msg }: { msg: ChatMessage }) {
           text={`${images.length} attachment${images.length === 1 ? '' : 's'}`}
         />
       )}
-      <div className="flex flex-wrap justify-end gap-2">
+      {images.length <= 1 && <div className="flex flex-wrap justify-end gap-2">
         {msg.attachments.map((a, i) => (
           <img key={i} src={a.dataUrl} alt={a.name} title={a.name}
             className="max-h-40 max-w-[240px] object-contain rounded-[10px]"
             style={{ border: '1px solid var(--surface-border)' }} />
         ))}
-      </div>
+      </div>}
     </div>
   )
 }

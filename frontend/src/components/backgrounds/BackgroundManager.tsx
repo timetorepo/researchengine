@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useStore } from '@/stores/useStore'
 import { getPropsForTheme, mixVec3, ANIMATED_BG_META, type BgThemeProps } from '@/lib/backgrounds/themeProps'
 import type { AnimatedBgKind } from '@/types'
+import { REACTBITS_BACKGROUNDS } from './reactBitsBackgrounds'
 
 /**
  * BackgroundManager — mounts the active animated background.
@@ -12,8 +13,10 @@ import type { AnimatedBgKind } from '@/types'
 
 const ShapeGrid = lazy(() => import('./ShapeGrid'))
 const DarkVeil = lazy(() => import('./DarkVeil'))
-const FloatingLines = lazy(() => import('./FloatingLines'))
 const Dither = lazy(() => import('./Dither'))
+const AnimatedGradient = lazy(() => import('./AnimatedGradient'))
+const EtchedAccretion = lazy(() => import('./EtchedAccretion'))
+const CubesGrid = lazy(() => import('./CubesGrid'))
 
 function rgb(v: [number, number, number]) {
   return `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
@@ -39,15 +42,24 @@ function EcoFallback({ kind, theme, intensity }: { kind: AnimatedBgKind; theme: 
           opacity: Math.min(1, intensity + 0.2),
         }
       }
-      case 'floating-lines': {
-        const c1 = rgb(mixVec3(theme.bg, theme.primary, 0.5))
-        const c2 = rgb(mixVec3(theme.bg, theme.secondary, 0.4))
+      case 'animated-gradient':
+        return {
+          background: `radial-gradient(120% 90% at 50% 110%, ${rgb(mixVec3(theme.bg, theme.primary, 0.45))} 0%, ${bg} 65%)`,
+          opacity: Math.min(1, intensity + 0.1),
+        }
+      case 'cubes-grid':
+        // Static stand-in: a faint isometric lattice in the theme's tones.
         return {
           background: bg,
-          backgroundImage: `repeating-linear-gradient(180deg, transparent 0px, transparent 34px, ${c1} 35px, transparent 37px, transparent 78px, ${c2} 79px, transparent 81px)`,
-          opacity: Math.min(1, intensity + 0.25),
+          backgroundImage: `linear-gradient(30deg, ${rgb(mixVec3(theme.bg, theme.primary, 0.1))} 25%, transparent 25%), linear-gradient(-30deg, ${rgb(mixVec3(theme.bg, theme.primary, 0.1))} 25%, transparent 25%)`,
+          backgroundSize: '64px 37px',
+          opacity: Math.min(1, intensity + 0.2),
         }
-      }
+      case 'etched-accretion':
+        return {
+          background: `radial-gradient(60% 60% at 50% 50%, ${rgb(mixVec3(theme.bg, theme.primary, 0.18))} 0%, ${bg} 70%)`,
+          opacity: Math.min(1, intensity + 0.2),
+        }
       case 'dither': {
         const c = rgb(mixVec3(theme.bg, theme.primary, 0.25))
         return {
@@ -57,6 +69,12 @@ function EcoFallback({ kind, theme, intensity }: { kind: AnimatedBgKind; theme: 
           opacity: 0.35 * intensity + 0.2,
         }
       }
+      default:
+        // ReactBits kinds: a static theme-tinted glow when motion is off.
+        return {
+          background: `radial-gradient(120% 90% at 50% 0%, ${rgb(mixVec3(theme.bg, theme.primary, 0.22))} 0%, ${bg} 65%)`,
+          opacity: Math.min(1, intensity + 0.2),
+        }
     }
   }, [kind, theme, intensity, bg])
   return <div className="absolute inset-0" style={style} aria-hidden="true" />
@@ -82,12 +100,21 @@ export function BackgroundManager({ kind, intensity }: { kind: AnimatedBgKind; i
   if (!visible) return null
   if (eco) return <EcoFallback kind={kind} theme={theme} intensity={level} />
 
+  const ReactBitsBg = REACTBITS_BACKGROUNDS[kind]
+
   return (
     <Suspense fallback={null}>
       {kind === 'shape-grid' && <ShapeGrid theme={theme} intensity={level} />}
       {kind === 'dark-veil' && <DarkVeil theme={theme} intensity={level} />}
-      {kind === 'floating-lines' && <FloatingLines theme={theme} intensity={level} />}
+      {ReactBitsBg && (
+        <div className="absolute inset-0" style={{ opacity: 0.35 + level * 0.65 }} aria-hidden="true">
+          <ReactBitsBg theme={theme} />
+        </div>
+      )}
       {kind === 'dither' && <Dither theme={theme} intensity={level} />}
+      {kind === 'animated-gradient' && <AnimatedGradient opacity={0.35 + level * 0.65} />}
+      {kind === 'etched-accretion' && <EtchedAccretion opacity={0.4 + level * 0.6} />}
+      {kind === 'cubes-grid' && <CubesGrid theme={theme} intensity={level} />}
     </Suspense>
   )
 }

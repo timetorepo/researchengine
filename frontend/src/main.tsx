@@ -3,6 +3,11 @@ import ReactDOM from 'react-dom/client'
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
+import '@fontsource/bricolage-grotesque/600.css'
+import '@fontsource/bricolage-grotesque/700.css'
+import '@fontsource/plus-jakarta-sans/600.css'
+import '@fontsource/poppins/500.css'
+import '@fontsource/poppins/600.css'
 import '@fontsource/geist-sans/400.css'
 import '@fontsource/geist-sans/500.css'
 import '@fontsource/geist-sans/600.css'
@@ -17,7 +22,14 @@ import 'blobatar/motion.css'
 // globals.css (.re-sonner-toast) so toasts belong to every theme.
 import 'sonner/dist/styles.css'
 import App from './App'
+import { startPerformanceSync } from '@/lib/system/performance'
+import { installKeyboardNav } from '@/lib/a11y/keynav'
 
+// The active profile is mirrored to <html data-perf> for the eco blur cap.
+startPerformanceSync()
+
+// Arrow keys turn focus rings on; a pointer turns them off again.
+installKeyboardNav()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
