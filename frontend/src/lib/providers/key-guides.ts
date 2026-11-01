@@ -184,6 +184,19 @@ export const KEY_GUIDES: Record<ProviderId, KeyGuide> = {
     free: 'Sometimes — a limited free tier is offered at signup in some regions.',
     tip: 'Mistral requires phone verification before the first key; if the button is greyed out, that step is missing.',
   },
+  llamacpp: {
+    provider: 'llamacpp',
+    console: { label: 'github.com/ggml-org/llama.cpp', url: 'https://github.com/ggml-org/llama.cpp' },
+    steps: [
+      'Install llama.cpp (a release build or your package manager) so that llama-server is on your PATH.',
+      'Start it with a GGUF model, for example: llama-server -m model.gguf --port 8080.',
+      'No key is needed. Press Test connection here, then pick the model from the list.',
+    ],
+    shape: 'No key needed for the local server.',
+    cost: 'Free.',
+    free: 'Yes, entirely — everything runs locally.',
+    tip: 'If the model list is empty, llama-server is running but no model is loaded. Start it with -m <model.gguf>.',
+  },
   lmstudio: {
     provider: 'lmstudio',
     console: { label: 'lmstudio.ai', url: 'https://lmstudio.ai' },

@@ -61,6 +61,13 @@ export const PROVIDERS: ProviderMeta[] = [
     needsKey: false, hint: 'Local server — start it in LM Studio',
   },
   {
+    // llama.cpp's own server. Often the fastest local option on a CPU or a
+    // single GPU, and it speaks the OpenAI wire format, so it reuses the same
+    // adapter. Start it with `llama-server -m model.gguf --port 8080`.
+    id: 'llamacpp', name: 'llama.cpp', kind: 'openai', baseUrl: 'http://localhost:8080/v1',
+    needsKey: false, hint: 'llama-server on port 8080 — the models it loaded appear automatically',
+  },
+  {
     id: 'mercury', name: 'Inception · Mercury', kind: 'openai', baseUrl: 'https://api.inceptionlabs.ai/v1',
     needsKey: true, hint: 'Diffusion LLM (Mercury 2 / Mercury Edit) — OpenAI-compatible, very fast',
   },

@@ -50,7 +50,7 @@ function rank(providerId: string, model: string, overrides?: Record<string, 'fre
   const info = modelTier(providerId, model, overrides)
   if (info.tier !== 'free') return null
   let score = 1
-  if (/^(ollama|lmstudio|custom)$/.test(providerId)) score = 3
+  if (/^(ollama|lmstudio|llamacpp|custom)$/.test(providerId)) score = 3
   else if (/free tier|rate-limited|marked free/i.test(info.why)) score = 2
   return { score, why: info.why }
 }
