@@ -1,5 +1,7 @@
 ## 1.5.0 — Coding that builds from a prompt, typefaces, llama.cpp, and screen-aware assistant
 
+## What changed
+
 - **Coding works like Codex.** Type "make X" in Coding and the assistant creates the project and starts building it. You no longer click to create a project first.
 - **The assistant knows the screen you are on.** Each part of the app (Chats, Coding, Settings and others) gives the assistant a short system prompt that says where you are, so its answers fit the screen.
 - **More typefaces.** Settings → Appearance has Default, Inter, Geist, Plus Jakarta Sans, Bricolage Grotesque, Poppins, Lora and System. The default stack is unchanged.

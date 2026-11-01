@@ -32,7 +32,8 @@ const out = resolve(here, '../src/lib/updates/changelog.ts')
 const args = process.argv.slice(2)
 const fromIdx = args.indexOf('--from')
 const input = fromIdx >= 0 ? args[fromIdx + 1] : '/tmp/releases.json'
-const releases = JSON.parse(readFileSync(input, 'utf8'))
+// A release with no notes has nothing for the Updates tab to show, so it is left out.
+const releases = JSON.parse(readFileSync(input, 'utf8')).filter((r) => String(r.body ?? '').trim())
 
 /** Strip the markdown a page-per-version renderer does not need. */
 function clean(text) {
@@ -85,6 +86,18 @@ function versionOf(tag) {
   const m = String(tag).match(/(\d+\.\d+(?:\.\d+)?)/)
   return m ? m[1] : String(tag)
 }
+
+/** The text after the dash in the first heading that names a version, if it is a real headline. */
+function headlineOf(body) {
+  const m = String(body ?? '').match(/^#{1,3}\s+[^\n]*?\d+\.\d+[^\n]*?[—–-]\s*([^\n]+)$/m)
+  const text = m ? clean(m[1].trim()) : ''
+  return text.length > 20 ? text : ''
+}
+
+/** Two prereleases of one version (0.47.0-beta.1 and 0.47.0-beta.2) keep their full tag, so each stays distinct. */
+const tagCounts = {}
+for (const r of releases) tagCounts[versionOf(r.tag)] = (tagCounts[versionOf(r.tag)] || 0) + 1
+const versionFor = (tag) => (tagCounts[versionOf(tag)] > 1 ? String(tag).replace(/^v/, '') : versionOf(tag))
 
 function parse(release) {
   /**
@@ -171,12 +184,14 @@ function parse(release) {
     .filter((s) => s.items.length)
 
   return {
-    version: versionOf(release.tag),
+    version: versionFor(release.tag),
     tag: release.tag,
-    name: titleOf(release, versionOf(release.tag)),
+    name: titleOf(release, versionFor(release.tag)),
     date: release.date,
     url: release.url,
-    summary: summary || clean(release.name),
+    // The release's own headline ("## 1.2.0 — <headline>") is the one-line summary when
+    // it has one; a later paragraph is only a fallback, so it cannot stand in for it.
+    summary: headlineOf(release.body) || summary || clean(release.name),
     sections: kept,
     counts: {
       items: kept.reduce((n, s) => n + s.items.length, 0),
@@ -188,6 +203,27 @@ function parse(release) {
 const parsed = releases.map(parse).filter((r) => r.sections.length || r.summary)
 parsed.sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1))
 
+/**
+ * A release whose notes are gone from GitHub (deleted, or its body emptied) keeps
+ * the entry this file already has. The record only grows: the Updates tab never
+ * loses a version it has shown. A tag that produced a fresh entry is not kept twice.
+ */
+const PREFIX = 'export const CHANGELOG: Release[] = '
+let previous = []
+try {
+  const text = readFileSync(out, 'utf8')
+  const at = text.indexOf(PREFIX)
+  if (at >= 0) {
+    const start = at + PREFIX.length
+    previous = JSON.parse(text.slice(start, text.indexOf('\n]\n', start) + 2))
+  }
+} catch { previous = [] }
+const freshTags = new Set(parsed.map((r) => r.tag))
+const keptEntries = previous.filter((r) => r && r.tag && !freshTags.has(r.tag))
+const merged = [...parsed, ...keptEntries]
+merged.sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1))
+if (keptEntries.length) console.log(`kept ${keptEntries.length} entries whose notes are no longer on GitHub: ${keptEntries.map((r) => r.version).join(', ')}`)
+
 const header = `/**
  * Every version this app has published, newest first.
  *
@@ -196,7 +232,7 @@ const header = `/**
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * ${parsed.length} versions, ${parsed[0]?.version} back to ${parsed[parsed.length - 1]?.version}.
+ * ${merged.length} versions, ${merged[0]?.version} back to ${merged[merged.length - 1]?.version}.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -236,7 +272,7 @@ export function kindOf(title: string): ChangeKind {
   return 'added'
 }
 
-export const CHANGELOG: Release[] = ${JSON.stringify(parsed, null, 2)}
+export const CHANGELOG: Release[] = ${JSON.stringify(merged, null, 2)}
 
 /** The version the running build is on, for the "you are here" marker. */
 export function findRelease(version: string): Release | undefined {
@@ -251,6 +287,6 @@ mkdirSync(dirname(out), { recursive: true })
 writeFileSync(out, header, 'utf8')
 const bytes = Buffer.byteLength(header, 'utf8')
 console.log(`wrote ${out}`)
-console.log(`${parsed.length} versions, ${parsed[0].version} → ${parsed[parsed.length - 1].version}, ${(bytes / 1024).toFixed(1)} kB`)
-console.log(`first: ${parsed[0].version} — ${parsed[0].name} (${parsed[0].sections.length} sections, ${parsed[0].counts.items} items)`)
-console.log(`oldest: ${parsed[parsed.length - 1].version} — ${parsed[parsed.length - 1].name}`)
+console.log(`${merged.length} versions, ${merged[0].version} → ${merged[merged.length - 1].version}, ${(bytes / 1024).toFixed(1)} kB`)
+console.log(`first: ${merged[0].version} — ${merged[0].name} (${merged[0].sections.length} sections, ${merged[0].counts.items} items)`)
+console.log(`oldest: ${merged[merged.length - 1].version} — ${merged[merged.length - 1].name}`)
