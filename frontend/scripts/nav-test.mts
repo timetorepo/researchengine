@@ -103,7 +103,7 @@ function makeBrowser(innerWidth = 1440) {
 /** A returning user: onboarding done, expanded rail, one chat in the library. */
 function seedReturningUser(w: any) {
   const now = Date.now()
-  w.localStorage.setItem('research-engine-v1', JSON.stringify({
+  w.localStorage.setItem('re.data.main:research-engine-v1', JSON.stringify({
     state: {
       settings: { onboarded: true, theme: 'midnight' },
       chats: [{ id: 'a1', title: 'Attention notes', kind: 'research', messages: [{ id: 'm1', role: 'user', content: 'summarise' }], createdAt: now - 9e4, updatedAt: now - 6e4 }],
@@ -143,13 +143,13 @@ async function main() {
 
   console.log('\n[2] One click navigates — first visit, no hover')
 
-  const quiz = rowFor('Read & Quiz')!
+  const quiz = rowFor('Learn')!
   const ch = (w.history as any).length
   fire(quiz, ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
   await sleep(400)
   check('the URL moves on the first click', w.location.hash === '#/quiz', w.location.hash)
   await sleep(1200)
-  check('and the page is on screen after the first click', /Read & Quiz/.test(pageText()), pageText().slice(0, 60))
+  check('and the page is on screen after the first click', /Learn/.test(pageText()), pageText().slice(0, 60))
 
   console.log('\n[3] One click navigates — first visit, after a hover (the prefetched path)')
 
@@ -172,7 +172,7 @@ async function main() {
   console.log('\n[5] Revisits are animated, and still land')
 
   calls.length = 0
-  const quizAgain = rowFor('Read & Quiz')!
+  const quizAgain = rowFor('Learn')!
   fire(quizAgain, ['pointerover', 'pointerenter', 'mouseover', 'mouseenter'])
   await sleep(120)
   fire(quizAgain, ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'])
@@ -180,7 +180,7 @@ async function main() {
   check('a revisit animates', calls.some((c) => c.startsWith('start')), calls.join(','))
   check('the transition actually ran its update', calls.some((c) => c.startsWith('update')), calls.join(','))
   await sleep(1200)
-  check('and the page is on screen', /Read & Quiz/.test(pageText()), pageText().slice(0, 60))
+  check('and the page is on screen', /Learn/.test(pageText()), pageText().slice(0, 60))
 
   console.log('\n[6] The history is sane')
 

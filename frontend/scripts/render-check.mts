@@ -9,6 +9,9 @@
  * Run: npx tsx --tsconfig tsconfig.json scripts/render-check.mts   (from frontend/)
  */
 import { JSDOM } from 'jsdom'
+// The app's switch is HeroUI v3: an <input role="switch"> whose state is the
+// `checked` property, not an aria-checked attribute on a button.
+const switchOn = (el: any): boolean | undefined => (el ? el.checked === true || el.getAttribute('aria-checked') === 'true' : undefined)
 
 let passed = 0
 let failed = 0
@@ -2074,7 +2077,7 @@ async function main() {
   check('free and paid can still be separated', pickSrc.includes("value: 'free'") && pickSrc.includes("value: 'paid'"))
   check('and sorted through a glide select, not a native select', pickSrc.includes('<GlideSelect') && !/<select/.test(pickSrc))
   check('free-first survives the swap', pickSrc.includes("label: 'Free first'"))
-  check('the dock animation is behind a switch the user owns', pickSrc.includes('dockAnimation') && pickSrc.includes('role="switch"'))
+  check('the dock animation is behind a switch the user owns', pickSrc.includes('dockAnimation') && pickSrc.includes('<Switch'))
   check('and turning it off really stops the magnification', pickSrc.includes('dockOn') && pickSrc.includes('dockOn ? dockScaleFor'))
   check('each row carries a mark: family, else provider', pickSrc.includes('<ModelLogo model={row.model} provider={row.provider}'))
   check('a model can be unlisted from the row itself', pickSrc.includes('Unlist ${row.model}'))
@@ -2183,9 +2186,9 @@ async function main() {
       String(useStore.getState().settings.modelSort))
 
     // The dock animation switch: off means rows stay still.
-    const dockSwitch = host.querySelector('button[role="switch"]') as any
+    const dockSwitch = host.querySelector('[role="switch"]') as any
     check('the dock animation has a switch in the footer', !!dockSwitch)
-    check('and it is on by default', dockSwitch?.getAttribute('aria-checked') === 'true')
+    check('and it is on by default', switchOn(dockSwitch) === true)
 
     // The dock: hovering a row magnifies it and its neighbours, and only those.
     const boxes = Array.from(host.querySelectorAll('button[role="option"]')).map((o: any) => o.parentElement) as any[]
@@ -2209,7 +2212,7 @@ async function main() {
     fire(dockSwitch)
     await wait(150)
     check('turning the switch off is remembered', useStore.getState().settings.dockAnimation === false)
-    check('and it is the switch that says so', dockSwitch?.getAttribute('aria-checked') === 'false')
+    check('and it is the switch that says so', switchOn(dockSwitch) === false)
     check('with the dock off, hovering magnifies nothing', scaleOf(boxes[0]) < 1.005, scaleOf(boxes[0]).toFixed(3))
     fire(dockSwitch)
     await wait(150)
@@ -2464,7 +2467,7 @@ async function main() {
     const rootA = createRoot(hostA)
     rootA.render(React.createElement(AppearanceTab as any))
     await wait(250)
-    const dockRow = [...hostA.querySelectorAll('button[role="switch"], button')]
+    const dockRow = [...hostA.querySelectorAll('[role="switch"], button')]
       .find((b: any) => /Dock animation/.test(b.closest('div')?.textContent ?? '')) as any
     check('the dock animation has a switch in Appearance', !!dockRow, (hostA.textContent ?? '').slice(0, 60))
     if (dockRow) {
@@ -2693,6 +2696,8 @@ async function main() {
     let plugClosed = 0
     plugRoot.render(React.createElement(IntegrationsMenu as any, { anchor: plugAnchor, onPick: (p: any) => picks.push(p), onClose: () => { plugClosed++ } }))
     await wait(200)
+    // The menu searches on open; wait for that to finish instead of a fixed delay.
+    for (let i = 0; i < 60 && /Searching/.test(plugHost.textContent ?? ''); i++) await wait(50)
     const intMenu = plugHost.querySelector('[data-int-menu]') ?? plugHost.firstElementChild
     const intText = plugHost.textContent ?? ''
     check('the plug menu lists every integration this build ships',
@@ -2800,9 +2805,8 @@ async function main() {
 
     /** component → the file that puts it to work. */
     const WIRED: [string, string][] = [
-      ['kinetic-center-build', 'components/onboarding/Onboarding.tsx'],
-      ['typewriter-text', 'components/onboarding/Onboarding.tsx'],
-      ['github-stars-animation', 'components/onboarding/Onboarding.tsx'],
+      ['typewriter-text', 'lib/design/liveDemos.tsx'],
+      ['github-stars-animation', 'lib/design/liveDemos.tsx'],
       ['stagger-from-edges', 'components/onboarding/Onboarding.tsx'],
       ['mac-terminal', 'components/onboarding/Onboarding.tsx'],
       ['folder-reveal', 'components/onboarding/Onboarding.tsx'],
@@ -2821,7 +2825,7 @@ async function main() {
     ]
     for (const [name, user] of WIRED) {
       const src = readSU(`../frontend/src/${user}`, 'utf8')
-      check(`SmoothUI ${name} is used by ${user.split('/').pop()}`, src.includes(`@/components/smoothui/${name}`))
+      check(`SmoothUI ${name} is used by ${user.split('/').pop()}`, (src.includes(`@/components/smoothui/${name}`) || src.includes(`smooth('${name}'`)))
     }
 
     check('the shadcn token vocabulary is mapped onto this app’s own variables, not a dark island',
@@ -2837,7 +2841,7 @@ async function main() {
       && readSU('../frontend/src/components/smoothui/smooth-button/index.tsx', 'utf8').includes('Local patch')
       && readSU('../frontend/src/components/smoothui/ai-message/index.tsx', 'utf8').includes('Local patch'))
     check('every installed component folder is still on disk',
-      ['ai-message', 'ai-context-meter', 'ai-task-list', 'image-generation-panel', 'social-hover-card', 'kinetic-center-build', 'folder-reveal']
+      ['ai-message', 'ai-context-meter', 'ai-task-list', 'image-generation-panel', 'social-hover-card', 'folder-reveal']
         .every((n) => { try { return readSUdir(`../frontend/src/components/smoothui/${n}`).length > 0 } catch { return false } }))
   }
 
@@ -2853,7 +2857,7 @@ async function main() {
       ['GooeyInput', 'components/chats/ChatsView.tsx', 'the chats search box'],
       ['DottedGlowBackground', 'components/onboarding/Onboarding.tsx', 'the "free, unlike these apps" step'],
       ['ImagesBadge', 'components/chat/ToolUI.tsx', 'attachments on a message'],
-      ['ColourfulText', 'components/onboarding/Onboarding.tsx', 'the welcome tagline'],
+      ['ColourfulText', 'components/onboarding/Welcome.tsx', 'the welcome tagline'],
       ['ContainerTextFlip', 'components/onboarding/Onboarding.tsx', 'the modes step'],
       ['CanvasRevealEffect', 'components/onboarding/Onboarding.tsx', 'the modes stage'],
       ['AppleCardsCarousel', 'components/onboarding/onboarding-features.tsx', 'the features carousel'],
@@ -2869,7 +2873,7 @@ async function main() {
     const features = aceternity('components/onboarding/onboarding-features.tsx')
 
     check('the welcome line is the requested sentence, with AI Research coloured',
-      /The swiss knife of <ColourfulText text="AI Research" \/>\./.test(onboarding))
+      /The swiss knife of <ColourfulText text="AI Research" \/>\./.test((await import('node:fs')).readFileSync(new URL('../src/components/onboarding/Welcome.tsx', import.meta.url), 'utf8')))
     check('the paid-apps step says it, word for word',
       onboarding.includes('ResearchEngine is free, unlike these apps.'))
     check('every look-alike is drawn as a favicon, from the app itself',

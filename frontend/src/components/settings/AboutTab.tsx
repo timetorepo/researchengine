@@ -571,7 +571,8 @@ function RevealIntro() {
   }, [])
   return (
     <div ref={anchor} className="mb-6">
-      {ready && (
+      {/* The reveal follows a scrolling ancestor; with none found there is nothing to follow. */}
+      {ready && scroller.current && (
         <ScrollRevealText
           scrollContainerRef={scroller}
           lines={[

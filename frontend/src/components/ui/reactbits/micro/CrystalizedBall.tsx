@@ -970,7 +970,14 @@ const CrystalizedBall = ({
     const container = containerRef.current;
     if (!container) return undefined;
 
-    const renderer = new Renderer({ alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
+    // No WebGL (old GPU drivers, remote desktops, jsdom): draw nothing rather
+    // than take the page down with it.
+    let renderer: Renderer
+    try {
+      renderer = new Renderer({ alpha: true, premultipliedAlpha: true, antialias: false, depth: false })
+    } catch {
+      return undefined
+    }
     const gl = renderer.gl;
     const gl2 = gl as unknown as WebGL2RenderingContext;
     if (!renderer.isWebgl2) {

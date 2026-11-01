@@ -9,6 +9,12 @@
  * Run: npx tsx scripts/ui-test.mts   (from frontend/)
  */
 import { JSDOM } from 'jsdom'
+import { MemoryRouter } from 'react-router-dom'
+import React from 'react'
+import { renderToStaticMarkup as renderStatic } from 'react-dom/server'
+// The workbench panels read the router (tabs, links), so every render of them
+// is inside one, as it is in the app.
+const renderInRouter = (el: any) => renderStatic(React.createElement(MemoryRouter, null as any, el))
 
 let passed = 0
 let failed = 0
@@ -108,7 +114,7 @@ async function main() {
   useStore.setState({ settings: { ...useStore.getState().settings, onboarded: true } } as any)
 
   // The project list is the entry surface.
-  let html = renderToStaticMarkup(React.createElement(CodingView))
+  let html = renderInRouter(React.createElement(CodingView))
   check('project list renders', html.includes('Coding') && html.includes('Try a sample app'))
 
   console.log('\n[2] Design studio (mounted, effects run)')
@@ -136,7 +142,7 @@ async function main() {
   check('agent panel has the shortcut chips', agent.includes('to send') && agent.includes('/ audit'))
   check('agent panel styles the composer', agent.includes('ide-composer'))
 
-  const tests = renderToStaticMarkup(React.createElement(TestPanel as any, {
+  const tests = renderInRouter(React.createElement(TestPanel as any, {
     controls: [
       { uid: 'e1', sel: '#go', kind: 'button', name: 'Get started', rect: { x: 0, y: 0, w: 120, h: 40 }, aboveFold: true, disabled: false },
       { uid: 'e2', sel: '#q', kind: 'input', name: 'Search', rect: { x: 0, y: 50, w: 200, h: 32 }, aboveFold: true, currentValue: '', disabled: false },
@@ -150,7 +156,7 @@ async function main() {
   root.unmount()
   container.innerHTML = ''
   const root2 = createRoot(container)
-  root2.render(React.createElement(CodingView))
+  root2.render(React.createElement(MemoryRouter, null as any, React.createElement(CodingView)))
   await new Promise((r) => setTimeout(r, 300))
   const card = [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('demo'))
   check('project card is listed', !!card, container.textContent?.slice(0, 80))
@@ -198,7 +204,7 @@ async function main() {
   check('assistant offers fix / build / refine intents',
     wb.includes('Fix') && wb.includes('Build') && wb.includes('Refine'))
   check('assistant offers a model picker', /default model|Choose a model/i.test(wb))
-  const agentHtml = renderToStaticMarkup(React.createElement(AgentPanel as any, { project: 'demo', tree: TREE }))
+  const agentHtml = renderInRouter(React.createElement(AgentPanel as any, { project: 'demo', tree: TREE }))
   check('intent buttons carry their own preamble', agentHtml.includes('Bug') || agentHtml.includes('Fix'))
   check('the rethink preamble is distinct per intent', INTENTS.map((i: any) => i.preamble).filter(Boolean).length === INTENTS.length)
 
@@ -247,7 +253,7 @@ async function main() {
   check('the line scales down instead of wrapping', rtCss.includes('available / natural') && rtCss.includes('transformOrigin'))
 
   const now = Date.now()
-  const { MemoryRouter } = await import('react-router-dom')
+
   const suggest = renderToStaticMarkup(React.createElement(MemoryRouter, null as any, React.createElement(SuggestedForYou as any, {
     chats: [
       { id: 'c1', title: 'Transformer attention', messages: [{ role: 'user', content: 'explain attention heads' }, { role: 'assistant', content: 'A head projects…' }], updatedAt: now, createdAt: now },
