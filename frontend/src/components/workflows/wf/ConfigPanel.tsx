@@ -10,6 +10,7 @@ import { WorkflowExecutor } from '@/lib/workflows/executor'
 import { useStore } from '@/stores/useStore'
 import { nanoid } from 'nanoid'
 import { toDisplay } from '@/lib/workflows/vars'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 interface Props {
   wf: Workflow
@@ -134,20 +135,20 @@ export function ConfigPanel({ wf, nodeId, onClose, onChange }: Props) {
           {def.fields.map((f) => (
             <Field key={f.key} label={f.label} error={validation[f.key]}>
               {f.type === 'select' && f.key === 'skillId' ? (
-                <select value={String(node.config[f.key] ?? '')}
+                <ModernSelect value={String(node.config[f.key] ?? '')}
                   onChange={(e) => onChange(node.id, { config: { ...node.config, [f.key]: e.target.value } })}
                   className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }}>
                   <option value="">Choose a skill…</option>
                   {skills.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                </ModernSelect>
               ) : f.type === 'select' ? (
-                <select value={String(node.config[f.key] ?? f.options?.[0]?.value ?? '')}
+                <ModernSelect value={String(node.config[f.key] ?? f.options?.[0]?.value ?? '')}
                   onChange={(e) => onChange(node.id, { config: { ...node.config, [f.key]: e.target.value } })}
                   className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }}>
                   {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                </ModernSelect>
               ) : f.type === 'number' ? (
                 <input type="number" value={Number(node.config[f.key] ?? 0)}
                   onChange={(e) => onChange(node.id, { config: { ...node.config, [f.key]: Number(e.target.value) } })}

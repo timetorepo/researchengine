@@ -7,6 +7,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { SKILL_CATEGORIES, SKILL_ICONS } from '@/lib/skills/builtins'
 import { PROVIDERS } from '@/lib/providers/registry'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 const PARAM_TYPES: ParamType[] = ['string', 'number', 'boolean', 'enum', 'file']
 
@@ -115,11 +116,11 @@ export function SkillBuilderPanel() {
                     style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }} />
                 </Field>
                 <Field label="Category">
-                  <select value={category} onChange={(e) => setCategory(e.target.value)}
+                  <ModernSelect value={category} onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-3 py-2 rounded-[10px] outline-none text-[13px]"
                     style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
                     {SKILL_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                  </select>
+                  </ModernSelect>
                 </Field>
               </div>
 
@@ -144,10 +145,10 @@ export function SkillBuilderPanel() {
                     <div key={i} className="flex items-center gap-2 p-2 rounded-[10px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
                       <input value={p.name} onChange={(e) => setParams((ps) => ps.map((x, j) => j === i ? { ...x, name: e.target.value.replace(/[^a-z0-9_]/gi, '') } : x))}
                         className="w-24 bg-transparent outline-none text-[12px] font-mono" style={{ color: 'var(--primary)' }} />
-                      <select value={p.type} onChange={(e) => setParams((ps) => ps.map((x, j) => j === i ? { ...x, type: e.target.value as ParamType } : x))}
+                      <ModernSelect value={p.type} onChange={(e) => setParams((ps) => ps.map((x, j) => j === i ? { ...x, type: e.target.value as ParamType } : x))}
                         className="flex-1 bg-transparent outline-none text-[12px]" style={{ background: 'transparent' }}>
                         {PARAM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                      </ModernSelect>
                       <input value={p.default ?? ''} placeholder="default"
                         onChange={(e) => setParams((ps) => ps.map((x, j) => j === i ? { ...x, default: e.target.value } : x))}
                         className="w-20 bg-transparent outline-none text-[12px]" style={{ color: 'var(--text-2)' }} />
@@ -172,12 +173,12 @@ export function SkillBuilderPanel() {
                   </div>
                 </Field>
                 <Field label="Model binding">
-                  <select value={modelBinding} onChange={(e) => setModelBinding(e.target.value)}
+                  <ModernSelect value={modelBinding} onChange={(e) => setModelBinding(e.target.value)}
                     className="w-full px-2 py-2 rounded-[10px] outline-none text-[12px]"
                     style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
                     <option value="inherit">Inherit from agent</option>
                     {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  </ModernSelect>
                 </Field>
               </div>
             </div>

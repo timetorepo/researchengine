@@ -1159,7 +1159,7 @@ async function main() {
   await wait(200)
   fire([...c18.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim().startsWith('Exit focus')))
   await wait(250)
-  const zoom18 = c18.querySelector('select[aria-label="Zoom"]') as any
+  const zoom18 = c18.querySelector('[role="combobox"][aria-label="Zoom"]') as any
   check('the zoom control says what the frame is really showing', (zoom18?.textContent ?? '').includes('Fit · 68%'), zoom18?.textContent)
   check('a 1280-wide frame is scaled down to fit the pane', (shell18()?.style.transform ?? '').includes('scale(0.678'), shell18()?.style.transform)
   const setSelect18 = (el: any, value: string) => {
@@ -1167,7 +1167,10 @@ async function main() {
     Object.getOwnPropertyDescriptor(win.HTMLSelectElement.prototype, 'value')!.set!.call(el, value)
     el.dispatchEvent(new win.Event('change', { bubbles: true }))
   }
-  setSelect18(zoom18, '1.5')
+  // The zoom control is a modern select: open it, then pick the option by its label.
+  fire(zoom18)
+  await wait(60)
+  fire([...win.document.querySelectorAll('[role="option"]')].find((o: any) => o.textContent?.trim() === '150%'), 'mousedown')
   await wait(200)
   check('zooming multiplies on top of the fit', (shell18()?.style.transform ?? '').includes('scale(1.017'), shell18()?.style.transform)
   fire([...c18.querySelectorAll('button')].find((b) => (b.getAttribute('title') ?? '').startsWith('Fit the frame')))
@@ -2513,8 +2516,13 @@ async function main() {
     check('naming all three engines', /In this browser/.test(text) && /A provider/.test(text) && /Local whisper server/.test(text))
     check('and crediting Jakub Antalik', /Jakub Antalik/.test(text))
     check('push-to-talk is offered', /Push to talk/.test(text))
+    // The options only exist while the list is open, so open it and read them.
+    fire(hostV.querySelector('[role="combobox"][aria-label="Transcription provider"]'))
+    await wait(60)
     check('a provider you have added but not keyed says so',
-      /no key yet/.test((hostV.querySelector('select[aria-label="Transcription provider"]')?.textContent ?? '')))
+      /no key yet/.test([...win.document.querySelectorAll('[role="option"]')].map((o: any) => o.textContent).join(' ')))
+    fire(win.document.body, 'mousedown')
+    await wait(20)
     rootV.unmount()
     useStore.setState({ settings: baseV } as any)
   }

@@ -10,6 +10,7 @@ import { handOffProject } from '@/lib/bots/runner'
 import { type Project } from '@/lib/bots/logic'
 import { useUI } from '@/stores/useUI'
 import { BotFace } from './BotFace'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 export function ProjectsView() {
   const projects = useBots((s) => s.projects)
@@ -72,10 +73,10 @@ function NewProjectForm({ onDone }: { onDone: (id: string) => void }) {
         className="w-full px-2.5 py-1.5 rounded-[10px] text-[12px] outline-none resize-y" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
       <label className="block text-[11px]" style={{ color: 'var(--text-3)' }}>
         Owner
-        <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="mt-1 w-full px-2 py-1 rounded-[10px] text-[12px] outline-none" style={{ background: 'var(--elevated)' }}>
+        <ModernSelect value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="mt-1 w-full px-2 py-1 rounded-[10px] text-[12px] outline-none" style={{ background: 'var(--elevated)' }}>
           <option value="">No owner yet</option>
           {bots.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
+        </ModernSelect>
       </label>
       <button type="button" onClick={create} className="w-full px-3 py-1.5 rounded-full text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Create project</button>
     </div>
@@ -132,9 +133,9 @@ function ProjectDetail({ project }: { project: Project }) {
           <div className="space-y-2 p-2.5 rounded-[10px]" style={{ background: 'var(--elevated)' }}>
             <label className="block text-[11.5px]" style={{ color: 'var(--text-3)' }}>
               New owner
-              <select value={target} onChange={(e) => setTarget(e.target.value)} className="mt-1 w-full px-2 py-1 rounded-[8px] text-[12px] outline-none" style={{ background: 'var(--surface)' }}>
+              <ModernSelect value={target} onChange={(e) => setTarget(e.target.value)} className="mt-1 w-full px-2 py-1 rounded-[8px] text-[12px] outline-none" style={{ background: 'var(--surface)' }}>
                 {candidates.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+              </ModernSelect>
             </label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} aria-label="Note for the new owner"
               placeholder="Note for them (optional): what matters most now" className="w-full px-2 py-1 rounded-[8px] text-[12px] outline-none resize-none" style={{ background: 'var(--surface)' }} />

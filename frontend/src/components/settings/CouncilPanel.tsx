@@ -9,6 +9,7 @@ import { useStore } from '@/stores/useStore'
 import { Button } from '@/components/ui/heroui/Button'
 import { InlineAlert } from '@/components/ui/heroui/InlineAlert'
 import { COUNCIL_MAX, COUNCIL_ROLES, councilMembers, councilModelOptions, councilRoleOf, type CouncilRole } from '@/lib/chat/council'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 export function CouncilPanel() {
   const settings = useStore((s) => s.settings)
@@ -43,7 +44,7 @@ export function CouncilPanel() {
           {members.map((id) => (
             <li key={id} className="flex items-center gap-2 rounded-[12px] px-3 py-2 text-[12.5px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
               <span className="flex-1 min-w-0 truncate">{labelOf(id)}</span>
-              <select
+              <ModernSelect
                 aria-label={`Role for ${labelOf(id)}`}
                 value={councilRoleOf(settings, id)}
                 onChange={(e) => setRole(id, e.target.value as CouncilRole)}
@@ -51,7 +52,7 @@ export function CouncilPanel() {
                 style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}
               >
                 {COUNCIL_ROLES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-              </select>
+              </ModernSelect>
               <Button size="sm" variant="ghost" color="default" onClick={() => save(members.filter((m) => m !== id))} >
                 <X size={12} aria-hidden /> Remove
               </Button>
@@ -68,7 +69,7 @@ export function CouncilPanel() {
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex-1 min-w-[220px]">
             <span className="block text-[12.5px] font-medium mb-1.5">Add a member</span>
-            <select
+            <ModernSelect
               value={pick}
               disabled={full}
               onChange={(e) => setPick(e.target.value)}
@@ -77,7 +78,7 @@ export function CouncilPanel() {
             >
               <option value="">{full ? `The council is full (${COUNCIL_MAX})` : 'Choose a model'}</option>
               {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
+            </ModernSelect>
           </label>
           <Button size="sm" disabled={!pick || full} onClick={() => { save([...members, pick]); setPick('') }}>
             <Plus size={12} aria-hidden /> Add

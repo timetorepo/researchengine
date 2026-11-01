@@ -9,6 +9,7 @@ import {
   browserSttSupported, describeStt, recorderSupported, resolveMode,
   type SttMode,
 } from '@/lib/voice/stt'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 /**
  * Voice — dictation and the microphone glow.
@@ -129,7 +130,7 @@ export function VoiceTab() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-[11.5px] block mb-1" style={{ color: 'var(--text-3)' }}>Provider</label>
-              <select value={voice.provider ?? ''} onChange={(e) => update({ provider: e.target.value || undefined })}
+              <ModernSelect value={voice.provider ?? ''} onChange={(e) => update({ provider: e.target.value || undefined })}
                 aria-label="Transcription provider"
                 className="w-full px-3 py-2 rounded-[10px] text-[13px] outline-none"
                 style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-1)' }}>
@@ -140,7 +141,7 @@ export function VoiceTab() {
                     {settings.providers?.[p]?.apiKey ? '' : ' — no key yet'}
                   </option>
                 ))}
-              </select>
+              </ModernSelect>
             </div>
             <div>
               <label className="text-[11.5px] block mb-1" style={{ color: 'var(--text-3)' }}>Model</label>

@@ -18,6 +18,7 @@ import {
 import { useAgents, type AgentTask } from '@/lib/ide/agents'
 import { ActivityRow } from './AgentTimeline'
 import { useStore } from '@/stores/useStore'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 const STATUS_TONE: Record<AgentTask['status'], string> = {
   forking: 'var(--ide-faint)',
@@ -147,11 +148,11 @@ export function AgentsDock({ project, onOpenFile, onOpenChat, seedPrompt = '' }:
                         <Cloud size={10} /> cloud
                       </button>
                     </div>
-                    <select value={model} onChange={(e) => setModel(e.target.value)} aria-label="Model"
+                    <ModernSelect value={model} onChange={(e) => setModel(e.target.value)} aria-label="Model"
                       className="ide-input flex-1 min-w-0" style={{ fontSize: 11, padding: '4px 6px' }}>
                       <option value="">{handoff === 'cloud' ? 'cloud default' : `local default${defaultModel ? ` · ${defaultModel}` : ''}`}</option>
                       {(handoff === 'cloud' ? cloudModels : []).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                    </select>
+                    </ModernSelect>
                     <button onClick={() => void start()} disabled={!prompt.trim() || busy} className="ide-btn primary" style={{ height: 26 }}>
                       {busy ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />} Spawn
                     </button>

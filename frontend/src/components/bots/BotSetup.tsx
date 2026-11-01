@@ -10,6 +10,7 @@ import { ROLE_FAMILIES, familyById, familyForRole, type RoleFamily } from '@/lib
 import { Switch } from '@/components/ui/heroui/Switch'
 import { useUI } from '@/stores/useUI'
 import { BotFace } from './BotFace'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 /** The role a family gives a bot. The ECC members are chosen per request, not stored here. */
 export function roleFromFamily(familyId: string): BotRole | null {
@@ -28,11 +29,11 @@ export function RolePicker({ value, onChange, id }: { value: string; onChange: (
   return (
     <div className="space-y-1">
       <label htmlFor={id} className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>Role</label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
+      <ModernSelect id={id} value={value} onChange={(e) => onChange(e.target.value)}
         className="w-full px-2.5 py-1.5 rounded-[10px] text-[12px] outline-none" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
         <option value="">No role</option>
         {ROLE_FAMILIES.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-      </select>
+      </ModernSelect>
       {family && <p className="text-[10.5px] leading-snug" style={{ color: 'var(--text-3)' }}>{family.blurb} It picks the methods that fit each request and this bot’s job.</p>}
       <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>Methods from ECC, affaan-m/ecc (MIT), pinned at {ECC_REF.slice(0, 7)}.</p>
     </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react'
 import { ArrowUp, Square, Terminal, FolderGit2 } from 'lucide-react'
 import type { HarnessProfile } from '@/lib/codersa/api'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 const MAX_HEIGHT = 200
 const MAX_CHARS = 20_000
@@ -79,11 +80,11 @@ export function Composer(p: ComposerProps) {
                 style={{ background: 'var(--elevated)', color: p.project ? 'var(--text-2)' : 'var(--text-3)' }}>
                 <FolderGit2 size={12} className="shrink-0" />
                 <span className="sr-only">Project</span>
-                <select value={p.project} onChange={(e) => p.setProject(e.target.value)} className="min-w-0 bg-transparent outline-none truncate"
+                <ModernSelect value={p.project} onChange={(e) => p.setProject(e.target.value)} className="min-w-0 bg-transparent outline-none truncate"
                   style={{ color: 'inherit' }}>
                   <option value="">No project</option>
                   {p.projects.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+                </ModernSelect>
               </label>
             </>
           ) : (

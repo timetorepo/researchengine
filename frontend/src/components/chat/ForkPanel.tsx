@@ -22,6 +22,7 @@ import { Switch } from '@/components/ui/heroui/Switch'
 import { compressConversation, type ForkLevel } from '@/lib/chat/fork'
 import { nanoid } from 'nanoid'
 import { useNavigate } from 'react-router-dom'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 const LEVELS: { id: ForkLevel; label: string; note: string }[] = [
   { id: 'compact', label: 'Compact', note: 'Fewest tokens — the shape of the work only' },
@@ -147,13 +148,13 @@ export function ForkPanel({ open, onClose, chatId, exhausted = false }: { open: 
             <div className="flex items-center gap-3 ml-auto">
               <label className="flex items-center gap-1.5 text-[11.5px]" style={{ color: 'var(--text-2)' }}>
                 Recent turns kept
-                <select
-                  value={keepLast}
+                <ModernSelect
+                  value={String(keepLast)}
                   onChange={(e) => update({ keepLast: Number(e.target.value) })}
                   className="px-2 py-1 rounded-[8px] text-[11px] outline-none"
                   style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
                   {[0, 1, 2, 3, 4, 6].map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+                </ModernSelect>
               </label>
               <label className="flex items-center gap-1.5 text-[11.5px]" style={{ color: 'var(--text-2)' }}>
                 Code

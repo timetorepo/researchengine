@@ -18,6 +18,7 @@ import PromptBar from '@/components/ui/reactbits/micro/PromptBar'
 import { useDictation } from '@/hooks/useDictation'
 import { fmt } from '@/lib/utils'
 import { perfCaps } from '@/lib/system/performance'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 const EFFORT_TOKENS = { quick: 400, standard: 700, deep: 1300 } as const
 
@@ -317,11 +318,11 @@ export function FloodView() {
                         aria-label="Remove agent" style={{ color: 'var(--text-3)' }}><Trash2 size={12} /></button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <select value={ag.role}
+                      <ModernSelect value={ag.role}
                         onChange={(e) => setAgents((prev) => prev.map((x) => x.id === ag.id ? { ...x, role: e.target.value as any } : x))}
                         className="bg-transparent outline-none text-[11.5px] flex-1" style={{ color: 'var(--text-2)' }}>
                         {AGENT_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                      </select>
+                      </ModernSelect>
                       <label className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--text-3)' }}>
                         τ
                         <input type="number" min={0} max={2} step={0.1} value={ag.temperature}

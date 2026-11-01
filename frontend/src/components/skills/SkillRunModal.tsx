@@ -5,6 +5,7 @@ import { Play, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { runChat } from '@/lib/chat/runChat'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 export function SkillRunModal() {
   const run = useUI((s) => s.skillRun)
@@ -86,11 +87,11 @@ export function SkillRunModal() {
                     ))}
                   </div>
                 ) : p.type === 'enum' ? (
-                  <select value={values[p.name]} onChange={(e) => setValues((val) => ({ ...val, [p.name]: e.target.value }))}
+                  <ModernSelect value={values[p.name]} onChange={(e) => setValues((val) => ({ ...val, [p.name]: e.target.value }))}
                     className="w-full px-3 py-2 rounded-[10px] outline-none text-[13px]"
                     style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
                     {(p.options ?? []).map((o) => <option key={o}>{o}</option>)}
-                  </select>
+                  </ModernSelect>
                 ) : p.type === 'string' && (p.description?.includes('Paste') || p.name.includes('text') || p.name.includes('notes') || p.name.includes('sources')) ? (
                   <textarea value={values[p.name]} onChange={(e) => setValues((val) => ({ ...val, [p.name]: e.target.value }))} rows={3}
                     className="w-full px-3 py-2 rounded-[10px] outline-none text-[13px] resize-y"

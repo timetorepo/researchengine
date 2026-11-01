@@ -40,6 +40,7 @@ import { HideOnScroll } from '../src/components/ui/kit/interior/HideOnScroll'
 import { Lightbox } from '../src/components/ui/kit/interior/Lightbox'
 import { ShowMore } from '../src/components/ui/kit/interior/ShowMore'
 import { BlurUpImage } from '../src/components/ui/kit/interior/BlurUpImage'
+import { ModernSelect, readOptions } from '../src/components/ui/kit/select/ModernSelect'
 import { ApprovalCard } from '../src/components/ui/kit/beui/ApprovalCard'
 import { StreamingResponse } from '../src/components/ui/kit/beui/StreamingResponse'
 import { ArcPicker } from '../src/components/ui/kit/beui/ArcPicker'
@@ -109,6 +110,13 @@ check('the Markdown renderer routes blackjack and poll fences', () => {
   assert.match(md, /ZoomableImage/)
 })
 
+check('the modern select reads its options and shows the chosen label', () => {
+  const opts = readOptions([React.createElement('option', { key: 1, value: 'a' }, 'Alpha'), React.createElement('optgroup', { key: 2, label: 'g' }, React.createElement('option', { value: 'b', disabled: true }, 'Beta'))])
+  assert.deepEqual(opts.map((o) => [o.value, o.label, !!o.disabled]), [['a', 'Alpha', false], ['b', 'Beta', true]])
+  const html = renderToStaticMarkup(React.createElement(ModernSelect, { value: 'a', onChange: () => {} }, React.createElement('option', { value: 'a' }, 'Alpha')))
+  assert.ok(html.includes('Alpha') && html.includes('role="combobox"'), 'trigger shows the label and is a combobox')
+})
+
 check('components render to markup on the server', () => {
   const cases: [string, React.ReactElement][] = [
     ['blackjack', React.createElement(Blackjack)],
@@ -119,6 +127,7 @@ check('components render to markup on the server', () => {
     ['dynamic button', React.createElement(DynamicButton, { onAction: () => {}, idleLabel: 'Check' })],
     ['iridescent foil', React.createElement(IridescentFoil, null, 'card')],
     ['voice note', React.createElement(VoiceNote, { src: '/a.wav', title: 'Reply' })],
+    ['modern select', React.createElement(ModernSelect, { value: 'b', onChange: () => {}, 'aria-label': 'Project' }, React.createElement('option', { value: 'a' }, 'Alpha'), React.createElement('option', { value: 'b' }, 'Beta'))],
     ['animated counter', React.createElement(AnimatedCounter, { value: 1234 })],
     ['grid reveal', React.createElement(GridReveal, { ready: false })],
     ['web search', React.createElement(WebSearch, { query: 'rust', hits: [{ title: 'Rust', url: 'https://rust-lang.org' }], searching: true })],

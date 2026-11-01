@@ -28,6 +28,7 @@ import { ShipPanel } from '@/components/design/ShipPanel'
 import { ThrottlePanel } from '@/components/design/ThrottlePanel'
 import { PrototypeBoard } from '@/components/design/PrototypeBoard'
 import type { TreeNode } from './types'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 type Tab = 'assistant' | 'inspect' | 'tests' | 'console' | 'captures' | 'board' | 'brief' | 'hub' | 'inspo' | 'prototype' | 'ship' | 'throttle'
 
@@ -516,12 +517,12 @@ export function DesignStudio({ project, tree, onExit, hubSeed = '' }: {
                     className="w-14 px-1.5 py-1 rounded-[6px] tabular-nums outline-none" style={{ background: 'var(--bg)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
                 </>
               )}
-              <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))} aria-label="Zoom"
+              <ModernSelect value={String(zoom)} onChange={(e) => setZoom(Number(e.target.value))} aria-label="Zoom"
                 className="ide-input" style={{ width: 88, padding: '4px 6px' }}>
                 {[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => (
                   <option key={z} value={z}>{z === 1 ? `Fit · ${pct}%` : `${Math.round(z * 100)}%`}</option>
                 ))}
-              </select>
+              </ModernSelect>
               <button onClick={() => setZoom(1)} title="Fit the frame to the pane" className="ide-icon-btn" style={{ width: 24, height: 24 }}>
                 <Maximize2 size={11} />
               </button>

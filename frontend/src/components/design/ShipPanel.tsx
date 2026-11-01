@@ -12,6 +12,7 @@ import React, { useMemo, useState } from 'react'
 import { Rocket, Check, FileCode2, ClipboardCopy, AlertTriangle } from 'lucide-react'
 import { SHIP_TARGETS, shipChecklist, shipFiles, type ShipTargetId } from '@/lib/design/directives'
 import { FRAMEWORKS, detectFramework } from '@/lib/design/frameworks'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 export function ShipPanel({ project, files }: { project: string; files: string[] }) {
   const detected = useMemo(() => detectFramework(files), [files])
@@ -66,9 +67,9 @@ export function ShipPanel({ project, files }: { project: string; files: string[]
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-[11px]" style={{ color: 'var(--ide-faint, var(--text-3))' }}>Framework</label>
-        <select value={framework} onChange={(e) => setFramework(e.target.value)} className="ide-input text-[11.5px] py-1" data-ship-framework>
+        <ModernSelect value={framework} onChange={(e) => setFramework(e.target.value)} className="ide-input text-[11.5px] py-1" data-ship-framework>
           {FRAMEWORKS.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </select>
+        </ModernSelect>
         {detected && (
           <span className="text-[10.5px]" style={{ color: detected.id === framework ? 'var(--success)' : 'var(--ide-faint, var(--text-3))' }}>
             {detected.id === framework ? `detected in ${project}` : `project looks like ${detected.name}`}

@@ -38,6 +38,7 @@ import { navigateNow } from '@/lib/routes/registry'
 import { scrollChildIntoView } from '@/lib/dom/scroll'
 import type { FlowStage } from '@/lib/flow/engine'
 import { clsx } from 'clsx'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 
 /* ------------------------------------------------------------------ types */
 
@@ -400,14 +401,14 @@ export function UILab() {
             <span className="flex items-center gap-1 text-[10.5px] uppercase tracking-wider ml-2 mr-1" style={{ color: 'var(--text-3)' }}>
               <Sun size={11} /> Theme
             </span>
-            <select
+            <ModernSelect
               value={themePreview}
               onChange={(e) => setThemePreview(e.target.value)}
               className="px-2 py-1 rounded-[8px] text-[11px] outline-none"
               style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
               <option value="">{`In use — ${THEMES.find((t) => t.id === settings.theme)?.name ?? settings.theme}`}</option>
               {THEMES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            </ModernSelect>
 
             <button onClick={() => setGrid((g) => !g)} title="Grid"
               className="p-1.5 rounded-full"
@@ -462,11 +463,11 @@ export function UILab() {
                     <input type="checkbox" checked={!!v[k.id]} onChange={(e) => setKnob(k.id, e.target.checked)} />
                   )}
                   {k.type === 'select' && (
-                    <select value={String(v[k.id])} onChange={(e) => setKnob(k.id, e.target.value)}
+                    <ModernSelect value={String(v[k.id])} onChange={(e) => setKnob(k.id, e.target.value)}
                       className="px-2 py-1 rounded-[8px] text-[11px] outline-none"
                       style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
                       {k.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    </ModernSelect>
                   )}
                   {k.type === 'range' && (
                     <>
