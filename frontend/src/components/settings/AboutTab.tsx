@@ -120,10 +120,6 @@ function StaleBuildCard() {
 
 /** The UI component libraries the interface is assembled from. */
 const UI_LIBRARIES: { name: string; href: string; author?: string; used: string }[] = [
-  {
-    name: 'ReactBits', href: 'https://reactbits.dev',
-    used: 'Animated counters, magnetic buttons, and the micro set — prompt bar, hold, rubber segment, glide select, lattice loader, voice pill, status mark (the topbar agent indicator), code slots, border glow, spotlight, tech text, wake slider, peek rating, plus the rest written here against the documented behaviour: bell toggle (update notifications), call chip (agent command timing), comet dial (font scale), jelly radio (density), refine frame (image generation), slide commit (git commit), tear ticket and star border (onboarding), swipe row (send to AI), crystalized ball, infinite spiral, masked heading, flowing menu and pattern waves (home and chat backgrounds)',
-  },
   { name: 'HeroUI', href: 'https://www.heroui.com', used: 'Button, Input and Switch primitives' },
   { name: 'Aceternity UI', href: 'https://ui.aceternity.com', used: 'Aurora background, moving borders, spotlight cards, text-generate effect' },
   { name: 'Border Beam', href: 'https://beam.jakubantalik.com', author: 'Jakub Antalik', used: 'The travelling light around the home-screen chatbox' },
@@ -133,7 +129,12 @@ const UI_LIBRARIES: { name: string; href: string; author?: string; used: string 
   { name: 'Watermelon UI', href: 'https://ui.watermelon.sh', used: 'Expandable profile card, shuffled pinned list (tasks), and the select used across settings and the quiz' },
   { name: 'Cult UI', href: 'https://www.cult-ui.com', used: 'Timer anatomy (compound icon/display/progress) and the magnified dock behaviour in the collapsed sidebar' },
   { name: 'Number Flow', href: 'https://number-flow.barvian.me', author: 'Max Barvian', used: 'The per-digit roll behind every animated number' },
-  { name: 'ReactBits', href: 'https://github.com/DavidHDev/react-bits', author: 'David Haz', used: 'The GooeyNav kind switch, the CardSwap session switcher and the animated backgrounds (Silk, Galaxy, Liquid Chrome, Floating Lines and more). Licence: MIT + Commons Clause, so the code may not be sold on its own.' },
+  { name: 'RareUI', href: 'https://rareui.com', used: 'Voice note (AI audio messages), animated counter (usage totals), grid reveal (image generation), web search, AI status, bounce sidebar (library contents) and the rail table of contents (updates). Licensed under MIT with the Commons Clause: this credit stays, and the components are not sold or redistributed.' },
+  { name: 'dqnamo', href: 'https://www.dqnamo.com/kitchen', used: 'Blackjack at the chat table, logo trace loader (library search), scramble text, receipt printer (usage), magnetic drop zone (Learn), dynamic button (updates) and iridescent foil (home cards). Rebuilt against the published behaviour.' },
+  { name: 'Serenity UI', href: 'https://serenity-ui.com', author: 'ayushmxxn', used: 'The 3D mechanical keyboard in Settings → Appearance, drawn with React Three Fiber. The keyboard is designed by Work Louder.' },
+  { name: 'interior', href: 'https://www.interior.dev', used: 'Task steps (project build), new-items pill (Codersa), tree view (Coding files), sticky header (Settings), hide on scroll (library), poll results (bot polls), lightbox, show more, and the blur-up image. Rebuilt against the documented API.' },
+  { name: 'beUI', href: 'https://beui.dev', used: 'Approval card (commands that need your yes), streaming response, arc picker, AI sidebar (Coder sessions), expanding arrow button (home), morphing search and overflow actions. Rebuilt against the documented API.' },
+  { name: 'ReactBits', href: 'https://github.com/DavidHDev/react-bits', author: 'David Haz', used: 'Animated counters, magnetic buttons, and the micro set — prompt bar, hold, rubber segment, glide select, lattice loader, voice pill, status mark (the topbar agent indicator), code slots, border glow, spotlight, tech text, wake slider, peek rating, plus the rest written here against the documented behaviour: bell toggle (update notifications), call chip (agent command timing), comet dial (font scale), jelly radio (density), refine frame (image generation), slide commit (git commit), tear ticket and star border (onboarding), swipe row (send to AI), crystalized ball, infinite spiral, masked heading, flowing menu and pattern waves (home and chat backgrounds) The GooeyNav kind switch, the CardSwap session switcher and the animated backgrounds (Silk, Galaxy, Liquid Chrome, Floating Lines and more). Licence: MIT + Commons Clause, so the code may not be sold on its own.' },
 ]
 
 const RUNTIME_LIBRARIES = ['React', 'Vite', 'Tailwind CSS', 'Framer Motion', 'Zustand', 'Lucide', 'KaTeX', 'react-markdown', 'JSZip']

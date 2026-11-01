@@ -1,13 +1,14 @@
 import { AttachmentCarousel } from './AttachmentCarousel'
 import React, { useState } from 'react'
 import { motion } from 'motion/react'
-import { Wrench, CheckCircle2, XCircle, ShieldAlert, TerminalSquare, ClipboardList, Send, Check, X, Code as CodeIcon } from 'lucide-react'
+import { Wrench, CheckCircle2, XCircle, ShieldAlert, ClipboardList, Send, Code as CodeIcon } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { submitQuestionnaire, resolveExec } from '@/lib/chat/tools'
 // SmoothUI's AIToolCall — the tool that is running right now, as a card.
 import AIToolCall from '@/components/smoothui/ai-tool-call'
 // Aceternity's Images Badge — a folder whose papers fan out under the pointer.
 import { ImagesBadge } from '@/components/ui/aceternity/ImagesBadge'
+import { ApprovalCard } from '@/components/ui/kit/beui/ApprovalCard'
 
 /* ---------- tool activity chips ---------- */
 export function ToolTraceChips({ msg, streaming = false }: { msg: ChatMessage; streaming?: boolean }) {
@@ -81,27 +82,14 @@ export function ExecApproval({ chatId, msg }: { chatId: string; msg: ChatMessage
   const pe = msg.pendingExec
   if (!pe) return null
   return (
-    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-      className="p-3.5 rounded-[14px] mb-3"
-      style={{ background: 'color-mix(in srgb, var(--warning) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)' }}>
-      <div className="flex items-center gap-2 text-[12.5px] font-medium mb-1.5">
-        <TerminalSquare size={14} style={{ color: 'var(--warning)' }} /> Command approval required
-      </div>
-      <p className="text-[11.5px] mb-2" style={{ color: 'var(--text-2)' }}>{pe.reason || 'The AI wants to run this command inside the project folder. It only runs if you approve.'}</p>
-      <code className="block px-2.5 py-2 rounded-lg text-[11.5px] font-mono mb-3 break-all"
-        style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>$ {pe.command}</code>
-      <div className="flex gap-2">
-        <button onClick={() => resolveExec(chatId, msg.id, pe.toolCallId, true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium"
-          style={{ background: 'var(--success)', color: '#fff' }}>
-          <Check size={13} /> Approve &amp; run
-        </button>
-        <button onClick={() => resolveExec(chatId, msg.id, pe.toolCallId, false)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium"
-          style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
-          <X size={13} /> Decline
-        </button>
-      </div>
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mb-3">
+      {/* The AI paused for a yes or no. The card says what it wants to run and waits. */}
+      <ApprovalCard
+        title="Command approval required"
+        description={pe.reason || 'The AI wants to run this command inside the project folder. It only runs if you approve.'}
+        command={`$ ${pe.command}`}
+        onDecide={(d) => resolveExec(chatId, msg.id, pe.toolCallId, d === 'approve')}
+      />
     </motion.div>
   )
 }

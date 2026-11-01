@@ -22,7 +22,6 @@ import { ReaderView, type ReaderDoc } from '@/components/reader/ReaderView'
 import { QuizPlay, type PlayResult } from './QuizPlay'
 import { QuizResults } from './QuizResults'
 import { Select } from '@/components/ui/watermelon/Select'
-import { FileDropzone } from '@/components/ui/uiarc/file-dropzone/file-dropzone'
 import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
 import { TechniquesPanel } from '@/components/learn/TechniquesPanel'
 import { PathPanel } from '@/components/learn/PathPanel'
@@ -34,6 +33,7 @@ import { VideosPanel } from '@/components/learn/VideosPanel'
 // labels are the pipeline's own stages, so the animation cannot invent a step
 // that is not happening; the true percentage stays underneath it.
 import { SetupSteps } from '@/components/shadcn-space/animated-list/animated-list-02'
+import { MagneticDropZone } from '@/components/ui/kit/dqnamo/MagneticDropZone'
 
 type Stage = { id: string; label: string; icon: any; pct: number; done: boolean }
 
@@ -384,24 +384,22 @@ export function QuizHub() {
           </div>
         )}
 
-        {/* Drop zone: reactbits-style file dropzone (uiarc). It lists each file as it
-            is picked; the handler ingests a file once, the first time it appears. */}
+        {/* Drop zone: the border and icon lean toward the pointer. It keeps the same rules as
+            before: five files at most, 50 MB each, and a file is ingested once, the first time it appears. */}
         <div className="mb-3">
-          <FileDropzone
+          <MagneticDropZone
             accept=".pdf,.docx,.txt,.md,.markdown"
             multiple
-            maxFiles={5}
-            maxSize={50 * 1024 * 1024}
             label="Add a document"
-            description="Drop a PDF, DOCX, TXT or Markdown file, or choose one from your device"
-            note="Extraction happens on-device. Nothing is uploaded."
-            onFilesChange={(files) => {
+            hint="Drop a PDF, DOCX, TXT or Markdown file, or click to choose one. Extraction happens on-device. Nothing is uploaded."
+            onFiles={(files) => {
               const fresh = files.filter((f) => {
+                if (f.size > 50 * 1024 * 1024) return false
                 const key = `${f.name}:${f.size}:${f.lastModified}`
                 if (seenFiles.current.has(key)) return false
                 seenFiles.current.add(key)
                 return true
-              })
+              }).slice(0, 5)
               if (fresh.length) handleFiles(fresh)
             }}
           />

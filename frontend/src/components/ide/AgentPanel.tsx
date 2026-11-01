@@ -22,6 +22,7 @@ import { SLASH_COMMANDS, isCommandDraft, parseCommand, expandCommand } from '@/l
 import { subscribeActivity, useAgents } from '@/lib/ide/agents'
 import type { IdeActivity } from '@/lib/chat/tools'
 import { takeBuild } from '@/lib/ide/pendingBuild'
+import { AiStatus } from '@/components/ui/kit/rareui/AiStatus'
 
 /**
  * Devin's handoff needs to know which side a provider is on: the model servers
@@ -339,6 +340,8 @@ export function AgentPanel({
       </AnimatePresence>
 
       {/* messages */}
+      {/* Says what the agent is doing right now, while it is doing it. */}
+      {streaming && <div className="px-3 pt-2"><AiStatus active={streaming} label={design ? 'Checking the screen' : 'Working on this project'} /></div>}
       <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
         {!chat?.messages.length && (
           <div className="text-[12px] leading-relaxed" style={{ color: 'var(--ide-dim)' }}>

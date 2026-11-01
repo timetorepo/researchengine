@@ -1,6 +1,9 @@
 import React, { memo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { HoverImageLink } from '@/components/ui/hover-image-link/HoverImageLink'
+import { Blackjack } from '@/components/ui/kit/dqnamo/Blackjack'
+import { PollResults, parsePoll } from '@/components/ui/kit/interior/PollResults'
+import { ZoomableImage } from '@/components/ui/kit/interior/ZoomableImage'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
@@ -92,8 +95,19 @@ export const Markdown = memo(function Markdown({ content: raw, streaming = false
               const parsed = parseUiCard(String(children ?? ''))
               if (parsed.ok) return <UiCard card={parsed.card} />
             }
+            // A game or a poll the AI opens in the chat: ```blackjack, or ```poll with JSON.
+            if (isBlock && className === 'language-blackjack') return <Blackjack />
+            if (isBlock && className === 'language-poll') {
+              const poll = parsePoll(String(children ?? ''))
+              if (poll) return <PollResults poll={poll} />
+            }
             if (isBlock) return <CodeBlock className={className}>{children}</CodeBlock>
             return <code className={className}>{children}</code>
+          },
+          // Pictures in an answer open in the lightbox and sharpen in as they load.
+          img({ src, alt }) {
+            if (!src) return null
+            return <ZoomableImage src={String(src)} alt={alt ?? ''} className="max-w-full rounded-[12px] my-2" style={{ maxHeight: 480 }} />
           },
           // Links in an answer are the way out of it, so they get the real
           // treatment: the rule is drawn in CSS instead of by the browser, the

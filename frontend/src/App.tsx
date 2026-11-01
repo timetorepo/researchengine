@@ -70,6 +70,7 @@ import { markVisited, routePathOf } from '@/lib/routes/registry'
 import { installFramePin } from '@/lib/dom/scroll'
 import { watchFrameBudget } from '@/lib/system/frame-budget'
 import { wireAgentActivity } from '@/lib/ide/agents'
+import { MechanicalKeyboardDock } from '@/components/ui/kit/serenity/MechanicalKeyboardDock'
 
 /** Preload every lazy route chunk during idle time — first paint stays lean,
  *  but palette/navigation targets are warm by the time the user needs them. */
@@ -164,6 +165,8 @@ export default function App() {
           <RoutedApp />
         </AppContextMenu>
         <FpsCounter />
+        {/* Off by default; Settings → Appearance → 3D keyboard turns it on. */}
+        <MechanicalKeyboardDock />
         <WalletWatcher />
         <ExamGate />
         <ActivityTracker />

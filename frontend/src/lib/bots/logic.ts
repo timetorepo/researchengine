@@ -530,7 +530,7 @@ export function buildRoomPrompt(room: Room, bot: Bot, bots: Bot[]): string {
     `You are in a group chat called "${room.name}" with: ${names.join(', ')}.`,
     `Your job: ${bot.job || '(not written yet)'}`,
     recent.length ? `Recent messages:\n${recent.join('\n')}` : 'Nobody has written yet.',
-    `Reply as ${bot.name}, briefly, and only for your part of the work. If you have nothing useful to add, reply with exactly [pass]. To bring in a teammate, write @Name in your reply, using the name from the list above. Do not write for the others.`,
+    `Reply as ${bot.name}, briefly, and only for your part of the work. If you have nothing useful to add, reply with exactly [pass]. To bring in a teammate, write @Name in your reply, using the name from the list above. To ask the group to choose, write a fenced block tagged poll with one JSON object, {"question": "...", "options": [{"label": "..."}]}, instead of a list in prose. Do not write for the others.`,
   ].join('\n\n')
 }
 

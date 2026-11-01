@@ -8,6 +8,8 @@
  */
 import React, { useMemo, useState } from 'react'
 import { useStore } from '@/stores/useStore'
+import { AnimatedCounter } from '@/components/ui/kit/rareui/AnimatedCounter'
+import { ReceiptPrinter } from '@/components/ui/kit/dqnamo/ReceiptPrinter'
 import { localDay } from '@/lib/usage/day'
 import {
   columnHeights, compactTokens, summarizeUsage, usageColumns, USAGE_COLUMNS, type UsageMetric,
@@ -63,7 +65,7 @@ export function UsageTab() {
           <div className="flex-1 min-w-[160px]">
             <div className="text-[12px]" style={{ color: 'var(--text-3)' }}>{meta.label}, last 12 months</div>
             <div className="font-mono text-[22px] font-medium">
-              {metric === 'tokens' ? compactTokens(summary.total) : metric === 'active' ? String(summary.activeDays) : compactTokens(summary.peakDay?.tokens ?? 0)}
+              {metric === 'tokens' ? <AnimatedCounter value={summary.total} /> : metric === 'active' ? String(summary.activeDays) : compactTokens(summary.peakDay?.tokens ?? 0)}
             </div>
           </div>
           <div role="tablist" aria-label="Chart metric" className="flex gap-1 rounded-full p-1" style={{ background: 'var(--elevated)' }}>
@@ -136,6 +138,18 @@ export function UsageTab() {
         <p className="text-[11.5px] mt-2" style={{ color: 'var(--text-3)' }}>
           The daily token budget is set under Settings → AIFlowEngine. Providers bill their own tokens; this page counts what the app saw.
         </p>
+      </section>
+
+      <section aria-label="Usage receipt" className="max-w-md">
+        <ReceiptPrinter
+          title="Research Engine · usage"
+          lines={[
+            { label: 'Tokens, 12 months', value: summary.total.toLocaleString() },
+            { label: 'Active days', value: String(summary.activeDays) },
+            { label: 'Busiest day', value: summary.peakDay ? `${fmtDay(summary.peakDay.day)} · ${summary.peakDay.tokens.toLocaleString()}` : 'none yet' },
+          ]}
+          footer="Counted on this computer."
+        />
       </section>
     </div>
   )

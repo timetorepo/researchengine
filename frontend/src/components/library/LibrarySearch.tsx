@@ -43,6 +43,9 @@ export { componentHits, expandPattern, PATTERN_TERMS, searchComponents } from '@
 
 import { nanoid } from 'nanoid'
 import { timeAgo } from '@/lib/utils'
+import { LogoTraceLoader } from '@/components/ui/kit/dqnamo/LogoTraceLoader'
+import { ShowMore } from '@/components/ui/kit/interior/ShowMore'
+import { HideOnScroll } from '@/components/ui/kit/interior/HideOnScroll'
 
 interface Hit {
   id: string
@@ -493,8 +496,9 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
         onClose={() => setViewerFor(null)}
         onSave={(s) => openSave({ id: `hit_${nanoid(6)}`, kind: (s.kind === 'wikipedia' ? 'wikipedia' : 'source'), title: s.title || s.url, url: s.url, source: s.url })}
       />
-      {/* the front door */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* the front door — tucks away while you scroll down a long result list */}
+      <HideOnScroll>
+      <div className="flex flex-wrap items-center gap-3 pb-1 bg-[var(--bg)]">
         <GooeyInput
           placeholder="Search everything…"
           collapsedWidth={200}
@@ -521,12 +525,13 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
           <Rss size={12} /> Add a feed
         </button>
       </div>
+      </HideOnScroll>
 
       {/* What happened, in one line per source. This is the part that used to
           be invisible: a failed search rendered nothing at all. */}
       {(busy || ranFor) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]" style={{ color: 'var(--text-3)' }}>
-          {busy && <span className="flex items-center gap-1.5"><Loader2 size={11} className="animate-spin" /> Searching…</span>}
+          {busy && <span className="flex items-center gap-1.5"><LogoTraceLoader loading size={14} strokeWidth={1.6} ariaLabel="Searching the library" /> Searching…</span>}
           {!busy && tookMs !== null && <span>Answered in {tookMs} ms</span>}
           {/* The lane chips stay up while the follow-up poll runs, so "still
               looking" is visible rather than implied by a spinner. */}
@@ -610,7 +615,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                         className="text-[13px] font-medium leading-snug text-left hover:underline" style={{ color: 'var(--text)' }}>
                         {h.title}
                       </button>
-                      {h.snippet && <p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{h.snippet}</p>}
+                      {h.snippet && <ShowMore collapsedHeight={34}><p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{h.snippet}</p></ShowMore>}
                       <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{h.source}</span>
                     </div>
                     {h.url && (
@@ -687,7 +692,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
                             {h.title}
                           </a>
                         )}
-                        {h.snippet && <p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{h.snippet}</p>}
+                        {h.snippet && <ShowMore collapsedHeight={34}><p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{h.snippet}</p></ShowMore>}
                         <span className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>{h.source}</span>
                       </div>
                       {!h.url.startsWith('app://') && (

@@ -8,6 +8,7 @@ import { TABS, TAB_GROUPS, renderTab } from './settingsTabs'
 import { closeSettings } from '@/lib/ui/settingsExit'
 import { DUR, EASE } from '@/lib/ui/handoff'
 import { SettingsNotices } from '@/components/settings/SettingsNotices'
+import { StickyHeader } from '@/components/ui/kit/interior/StickyHeader'
 
 export function SettingsView() {
   const ui = useUI()
@@ -112,7 +113,13 @@ export function SettingsView() {
           ))}
         </div>
         <div className="flex-1 overflow-y-auto min-h-0 pane-scroll">
-          <div className="max-w-[680px] mx-auto px-5 pt-6 pb-24">
+          {/* The tab's name stays in view while you scroll its long page. */}
+          <StickyHeader className="px-5">
+            <div className="max-w-[680px] mx-auto py-2.5 text-[12px] font-medium" style={{ color: 'var(--text-3)' }}>
+              {TABS.find((t) => t.id === tab)?.label ?? 'Settings'}
+            </div>
+          </StickyHeader>
+          <div className="max-w-[680px] mx-auto px-5 pt-2 pb-24">
             <SettingsNotices />
             {renderTab(tab)}
           </div>

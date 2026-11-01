@@ -3,6 +3,7 @@ import { useStore } from '@/stores/useStore'
 import ImageGenerationPanel, { type ImageGenerationImage } from '@/components/smoothui/image-generation-panel'
 import { generateImage, imageModelFor, imageProviderId, imageSizeFor } from '@/lib/images/generate'
 import { PROVIDERS } from '@/lib/providers/registry'
+import { GridReveal } from '@/components/ui/kit/rareui/GridReveal'
 
 /**
  * The one card on the home screen that makes something new.
@@ -39,6 +40,8 @@ export function ImageLab() {
 
   return (
     <div className="surface p-3">
+      {/* While the picture is being made, a grid of tiles stands in for it. */}
+      {status === 'generating' && <div className="mb-3"><GridReveal ready={false} label={`Generating with ${providerName}`} /></div>}
       <ImageGenerationPanel
         aspectRatio={ratio}
         className="border-0 bg-transparent"

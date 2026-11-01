@@ -23,6 +23,9 @@ import { RevolvingText } from './RevolvingText'
 import { StreakCard } from '@/components/activity/StreakCard'
 import { AIThemeWelcome } from './AIThemeWelcome'
 import { SuggestedForYou } from './SuggestedForYou'
+import { ScrambleText } from '@/components/ui/kit/dqnamo/ScrambleText'
+import { IridescentFoil } from '@/components/ui/kit/dqnamo/IridescentFoil'
+import { ExpandingArrowButton } from '@/components/ui/kit/beui/ExpandingArrowButton'
 
 const SUGGESTIONS = [
   'Compare RAG vs fine-tuning for domain-specific Q&A',
@@ -335,22 +338,33 @@ function GettingStarted() {
     { title: 'Deploy an Agent Flood', desc: 'Point a squad of specialized agents at one objective.', icon: Users, grad: 'grad-research', go: () => navigate('/flood') },
   ]
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {items.map((it, i) => (
-        <motion.div key={it.title} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.06, duration: DUR.base, ease: EASE_OUT }}>
-          <SpotlightCard
-            className={`rounded-[18px] ${it.grad} card-hover`}
-            spotlightColor="rgba(255,255,255,0.14)"
-            onClick={it.go}
-          >
-            <div className="p-5">
-              <it.icon size={20} strokeWidth={1.5} className="text-white mb-3" />
-              <div className="text-[15px] font-semibold text-white" style={{ letterSpacing: '-0.01em' }}>{it.title}</div>
-              <div className="text-[12.5px] text-white/70 mt-1 leading-relaxed">{it.desc}</div>
-            </div>
-          </SpotlightCard>
-        </motion.div>
-      ))}
+    <div>
+      <div className="text-[11.5px] uppercase tracking-[0.12em] mb-2.5" style={{ color: 'var(--text-3)' }}>
+        <ScrambleText text="Getting started" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {items.map((it, i) => (
+          <motion.div key={it.title} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.06, duration: DUR.base, ease: EASE_OUT }}>
+            {/* The foil sheen sits under the gradient card and follows the pointer. */}
+            <IridescentFoil className="rounded-[18px]">
+              <SpotlightCard
+                className={`rounded-[18px] ${it.grad} card-hover`}
+                spotlightColor="rgba(255,255,255,0.14)"
+                onClick={it.go}
+              >
+                <div className="p-5">
+                  <it.icon size={20} strokeWidth={1.5} className="text-white mb-3" />
+                  <div className="text-[15px] font-semibold text-white" style={{ letterSpacing: '-0.01em' }}>{it.title}</div>
+                  <div className="text-[12.5px] text-white/70 mt-1 leading-relaxed">{it.desc}</div>
+                </div>
+              </SpotlightCard>
+            </IridescentFoil>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <ExpandingArrowButton label="Ask something new" onClick={() => navigate(`/chat/${useStore.getState().newChat()}`)} />
+      </div>
     </div>
   )
 }

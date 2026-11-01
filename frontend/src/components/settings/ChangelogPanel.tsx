@@ -26,6 +26,10 @@ import {
   Tag, ExternalLink, ChevronRight, Package,
 } from 'lucide-react'
 import { CHANGELOG, kindOf, findRelease, type ChangeKind, type Release } from '@/lib/updates/changelog'
+import { ReadingProgress } from '@/components/ui/kit/interior/ReadingProgress'
+import { findScroller, isPage } from '@/components/ui/kit/interior/scroller'
+import { scrollChildIntoView } from '@/lib/dom/scroll'
+import { RailToc } from '@/components/ui/kit/rareui/RailToc'
 
 const KIND: Record<ChangeKind, { label: string; Icon: React.ComponentType<any>; tone: string }> = {
   added: { label: 'new', Icon: Sparkles, tone: 'var(--success)' },
@@ -67,6 +71,7 @@ export function ChangelogPanel({ runningVersion }: { runningVersion?: string }) 
   const running = useMemo(() => (runningVersion ? findRelease(runningVersion) : undefined), [runningVersion])
   const [selected, setSelected] = useState<string>(() => CHANGELOG[0]?.version ?? '')
   const [q, setQ] = useState('')
+  const [tocActive, setTocActive] = useState<string | undefined>(undefined)
   const railRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
@@ -130,6 +135,7 @@ export function ChangelogPanel({ runningVersion }: { runningVersion?: string }) 
         </div>
       </div>
 
+      <ReadingProgress />
       <div className="flex gap-3 min-h-[520px]">
         {/* the rail */}
         <div ref={railRef} className="w-[224px] shrink-0 overflow-y-auto rounded-[16px] p-1.5"
@@ -209,11 +215,12 @@ export function ChangelogPanel({ runningVersion }: { runningVersion?: string }) 
                   </p>
                 )}
 
-                <div className="mt-4 flex flex-col gap-3">
+                <div className="mt-4 flex gap-4">
+                <div className="flex-1 min-w-0 flex flex-col gap-3">
                   {release.sections.map((section, si) => {
                     const kind = KIND[kindOf(section.title)]
                     return (
-                      <motion.section key={section.title + si}
+                      <motion.section id={`cl-sec-${si}`} key={section.title + si}
                         initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: reduce ? 0 : Math.min(0.28, si * 0.06) }}
@@ -241,6 +248,23 @@ export function ChangelogPanel({ runningVersion }: { runningVersion?: string }) 
                       </motion.section>
                     )
                   })}
+                </div>
+                <div className="hidden lg:block w-[150px] shrink-0 sticky top-6 self-start">
+                  <RailToc
+                    fixed={false}
+                    items={release.sections.map((sec, si) => ({ id: `cl-sec-${si}`, label: sec.title }))}
+                    activeId={tocActive}
+                    onSelect={(id) => {
+                      setTocActive(id)
+                      const target = document.getElementById(id)
+                      if (!target) return
+                      // Scroll only the pane that holds the section, never the app frame.
+                      const sc = findScroller(target)
+                      if (isPage(sc)) window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top, behavior: reduce ? 'auto' : 'smooth' })
+                      else scrollChildIntoView(sc, target, { block: 'start', smooth: !reduce })
+                    }}
+                  />
+                </div>
                 </div>
               </motion.div>
             )}

@@ -17,6 +17,7 @@ import { ChangelogPanel } from '@/components/settings/ChangelogPanel'
 import { CHANGELOG } from '@/lib/updates/changelog'
 import { History } from 'lucide-react'
 import { saveNotice, updateNotice, warnNotice } from '@/stores/useNotices'
+import { DynamicButton } from '@/components/ui/kit/dqnamo/DynamicButton'
 
 /**
  * Settings → Updates.
@@ -40,7 +41,6 @@ export function UpdatesTab() {
   const autoDownload = settings.updates?.autoDownload === true
   const { status, check, error, notice, busy, refreshStatus, runCheck, install, installFromFile, restart, setError } =
     useUpdates({ autoCheck: false })
-  const [checking, setChecking] = useState(false)
   const [justChecked, setJustChecked] = useState(false)
   const [archive, setArchive] = useState<File | null>(null)
   const [sums, setSums] = useState('')
@@ -71,9 +71,7 @@ export function UpdatesTab() {
   const canSelfUpdate = status?.canSelfUpdate ?? check?.canSelfUpdate ?? false
 
   const doCheck = async () => {
-    setChecking(true)
     const result = await runCheck(true)
-    setChecking(false)
     setJustChecked(true)
     if (result?.available) updateNotice('Update available', `${result.latest} is out — you are on ${result.current}.`)
     else if (result) saveNotice('Up to date', `You are running the newest release (${result.current}).`)
@@ -268,9 +266,8 @@ export function UpdatesTab() {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="flat" onClick={doCheck} disabled={checking || running}>
-            {checking ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Check for updates
-          </Button>
+          {/* The check runs in place: the button moves from idle to checking to done. */}
+          <DynamicButton onAction={doCheck} idleLabel="Check for updates" workingLabel="Checking…" doneLabel="Checked" disabled={running} />
           {check?.available && !pending && kind !== 'desktop' && (
             /* Swapping the running app is worth a deliberate press: hold to
                fill, then it installs. The desktop path below stays a plain

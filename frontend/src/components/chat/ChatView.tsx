@@ -11,6 +11,7 @@ import { Message } from './Message'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import PatternWaves from '@/components/ui/reactbits/micro/PatternWaves'
+import { WebSearch } from '@/components/ui/kit/rareui/WebSearch'
 
 export function ChatView() {
   const { id } = useParams<{ id: string }>()
@@ -198,6 +199,16 @@ export function ChatView() {
                   className="max-w-[760px] mx-auto px-4 py-4"
                 >
                   <ThinkingIndicator stage={waiting ? (flowActive?.stage ?? 'think') : 'think'} inline={!waiting} />
+                  {/* While the answer is being looked for on the web, the query and the scan show here. */}
+                  {waiting && (flowActive?.stage === 'search' || flowActive?.stage === 'read-sources') && (
+                    <div className="mt-3">
+                      <WebSearch
+                        query={[...chat.messages].reverse().find((m) => m.role === 'user')?.content ?? ''}
+                        hits={[]}
+                        searching
+                      />
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

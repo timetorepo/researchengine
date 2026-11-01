@@ -5,6 +5,8 @@
 import React from 'react'
 import { Users, AlertTriangle, ChevronDown } from 'lucide-react'
 import type { ChatMessage } from '@/types'
+import { VoiceNote } from '@/components/ui/kit/rareui/VoiceNote'
+import { ZoomableImage } from '@/components/ui/kit/interior/ZoomableImage'
 
 type Draft = NonNullable<ChatMessage['council']>[number]
 
@@ -45,9 +47,10 @@ export function MediaStrip({ media }: { media?: ChatMessage['media'] }) {
   return (
     <div className="mt-3 flex flex-col gap-3">
       {media.map((m, i) => m.kind === 'image' ? (
-        <img key={i} src={m.src} alt={m.alt} className="max-w-full rounded-[14px]" style={{ maxHeight: 520, border: '1px solid var(--surface-border)' }} loading="lazy" />
+        <ZoomableImage key={i} src={m.src} alt={m.alt} className="max-w-full rounded-[14px]" style={{ maxHeight: 520, border: '1px solid var(--surface-border)' }} />
       ) : (
-        <audio key={i} src={m.src} controls className="w-full max-w-md" aria-label={m.alt} />
+        // Audio is a voice note: play, watch it fill, and download it.
+        <VoiceNote key={i} src={m.src} title={m.alt || 'Voice note'} seed={m.src} />
       ))}
     </div>
   )

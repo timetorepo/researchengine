@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Trash2, Loader2, X } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
 import type { SessionSummary, SearchHit } from '@/lib/codersa/api'
+import { MorphingSearch } from '@/components/ui/kit/beui/MorphingSearch'
+import { OverflowActions } from '@/components/ui/kit/beui/OverflowActions'
 
 /** Most rows the rail draws at once; the rest are one search away. */
 const MAX_ROWS = 200
@@ -76,17 +78,7 @@ export function SessionRail({ sessions, activeId, busy, onNew, onOpen, onDelete,
           style={{ background: 'var(--primary)', color: '#fff' }}>
           <Plus size={14} /> New session
         </button>
-        <label className="relative block">
-          <span className="sr-only">Search sessions</span>
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-3)' }} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sessions"
-            className="w-full pl-8 pr-8 py-1.5 rounded-[10px] text-[12.5px] outline-none focus-visible:ring-2"
-            style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
-          {query && (
-            <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded"
-              style={{ color: 'var(--text-3)' }}><X size={12} /></button>
-          )}
-        </label>
+        <MorphingSearch value={query} onChange={setQuery} label="Search sessions" placeholder="Search sessions" width={232} />
       </div>
 
       <div className="codersa-scroll flex-1 min-h-0 overflow-y-auto px-2 pb-3">
@@ -128,12 +120,10 @@ export function SessionRail({ sessions, activeId, busy, onNew, onOpen, onDelete,
                         <button onClick={() => { setConfirm(null); onDelete(s.id) }} className="px-1.5 py-0.5 rounded text-[10.5px]" style={{ background: 'var(--danger)', color: '#fff' }}>Delete</button>
                         <button onClick={() => setConfirm(null)} className="px-1.5 py-0.5 rounded text-[10.5px]" style={{ color: 'var(--text-2)' }}>Keep</button>
                       </div>
-                    ) : (
-                      <button onClick={() => setConfirm(s.id)} aria-label={`Delete ${s.title}`} disabled={busy && on}
-                        className="absolute right-1.5 top-2 p-1 rounded opacity-0 group-hover:opacity-100 focus-visible:opacity-100 disabled:hidden transition-opacity"
-                        style={{ color: 'var(--text-3)' }}>
-                        <Trash2 size={12} />
-                      </button>
+                    ) : !(busy && on) && (
+                      <div className="absolute right-1 top-1.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <OverflowActions label={`Actions for ${s.title}`} items={[{ id: 'delete', label: 'Delete session', danger: true, onSelect: () => setConfirm(s.id) }]} />
+                      </div>
                     )}
                   </div>
                 )

@@ -23,7 +23,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { scrollChildIntoView } from '@/lib/dom/scroll'
 import { isHostileToEmbedding, proxyPath } from '@/lib/library/embed'
 import {
-  X, Globe, BookOpen, ExternalLink, RefreshCw, AlertTriangle, List, Link2,
+  X, Globe, BookOpen, ExternalLink, RefreshCw, AlertTriangle, Link2,
   Check, Loader2, Star, Type, PanelTop, CornerDownRight, Sparkles, Send, Quote, Copy,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -31,6 +31,8 @@ import { useStore } from '@/stores/useStore'
 import { runChat } from '@/lib/chat/runChat'
 import { CITATION_FORMATS } from '@/lib/library/citations'
 import { copyText } from '@/lib/utils'
+import { BounceSidebar } from '@/components/ui/kit/rareui/BounceSidebar'
+import { usePrefFlag } from '@/components/ui/kit/prefs'
 
 export interface OpenSource {
   url: string
@@ -91,6 +93,8 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
       embedding as a matter of policy start out proxied. */
   const [frame, setFrame] = useState<'direct' | 'proxied'>('direct')
   const [activeId, setActiveId] = useState<string | null>(null)
+  // The wiki-style contents rail is on by default; the Contents switch remembers a choice.
+  const [tocOn, setTocOn] = usePrefFlag('library.toc', true)
 
   const navigate = useNavigate()
   const [citeOpen, setCiteOpen] = useState(false)
@@ -506,27 +510,27 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
             <div className="flex-1 min-h-0 flex">
               {tab === 'read' ? (
                 <>
-                  {/* outline rail — only when the document actually has structure */}
+                  {/* outline rail — only when the document actually has structure. On by default; the Contents switch hides it. */}
                   {doc && (doc.outline?.length ?? 0) > 2 && (
+                    <div className="hidden lg:flex flex-col items-end absolute right-6 top-2 z-10">
+                      <button type="button" aria-pressed={tocOn} onClick={() => setTocOn(!tocOn)}
+                        className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>
+                        {tocOn ? 'Hide contents' : 'Contents'}
+                      </button>
+                    </div>
+                  )}
+                  {doc && tocOn && (doc.outline?.length ?? 0) > 2 && (
                     <motion.aside
                       initial={reduce ? { opacity: 0 } : { opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.28, delay: 0.06 }}
                       className="hidden lg:flex flex-col gap-0.5 w-[210px] shrink-0 px-3 py-4 overflow-y-auto"
                       style={{ borderRight: '1px solid var(--surface-border)' }}>
-                      <div className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-3)' }}>
-                        <List size={10} /> Sections
-                      </div>
-                      {(doc.outline ?? []).map((s) => (
-                        <button key={s.id} onClick={() => jump(s.id)}
-                          className="text-left text-[11.5px] leading-snug px-2 py-1 rounded-[8px] transition-colors"
-                          style={{
-                            color: activeId === s.id ? 'var(--text)' : 'var(--text-3)',
-                            background: activeId === s.id ? 'var(--elevated)' : 'transparent',
-                            paddingLeft: 8 + (s.level - 1) * 9,
-                          }}>
-                          {s.text}
-                        </button>
-                      ))}
+                      <BounceSidebar
+                        title="Sections"
+                        activeId={activeId ?? undefined}
+                        onSelect={(id) => jump(id)}
+                        items={(doc.outline ?? []).map((s) => ({ id: s.id, label: s.text, depth: Math.max(0, s.level - 1) }))}
+                      />
                     </motion.aside>
                   )}
 

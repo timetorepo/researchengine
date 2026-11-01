@@ -44,6 +44,7 @@ import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/but
 // Cursor 3's agent rows. Presentation only — see the file for the motion rules.
 import { GlassBar, GlassGroup, GlassButton, GlassTabs, Breadcrumbs, StatusItem } from './IdeChrome'
 import { CodingTabs } from '@/components/codersa/CodingTabs'
+import { TreeView, type TreeNode as KitTreeNode } from '@/components/ui/kit/interior/TreeView'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
@@ -873,7 +874,20 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                     className="ide-input" style={{ fontSize: 11 }} />
                 </div>
                 <div className="flex-1 overflow-y-auto pb-3">
-                  <Tree nodes={tree} depth={0} sel={active} onOpen={(p) => void openFile(p)} onDelete={deleteFile} />
+                  {/* The project tree as a keyboard-navigable tree view: arrows move, Right/Left open
+                      and close folders, Enter opens a file. Delete stays on each file row. */}
+                  <TreeView
+                    key={project}
+                    label="Project files"
+                    nodes={toTreeNodes(tree)}
+                    selectedId={active ?? undefined}
+                    initialOpen={tree.filter((n) => n.dir && n.name === 'src').map((n) => n.path)}
+                    onSelect={(n) => { if (!n.children) void openFile(n.id) }}
+                    renderTrailing={(n) => (n.children ? null : (
+                      <button onClick={() => void deleteFile(n.id)} title={`Delete ${n.id}`} aria-label={`Delete ${n.id}`}
+                        className="p-1 rounded" style={{ color: 'var(--ide-faint)' }}><Trash2 size={10} /></button>
+                    ))}
+                  />
                   {!tree.length && <p className="px-3 text-[11px]" style={{ color: 'var(--ide-faint)' }}>Empty project — create a file above.</p>}
                 </div>
               </>
@@ -1321,43 +1335,9 @@ function PanelTabBtn({ active, onClick, icon, label, group }: { active: boolean;
   )
 }
 
-function Tree({ nodes, depth, sel, onOpen, onDelete, onParent }: {
-  nodes: TreeNode[]; depth: number; sel: string | null
-  onOpen: (p: string) => void; onDelete?: (p: string) => void; onParent?: string
-}) {
-  const [openDirs, setOpenDirs] = useState<Record<string, boolean>>({})
-  useEffect(() => { if (depth === 0) setOpenDirs((d) => (Object.keys(d).length ? d : { src: true })) }, [depth])
-  return (
-    <div>
-      {nodes.map((n) => {
-        const dirOpen = openDirs[n.path] ?? depth === 0
-        return (
-          <div key={n.path}>
-            <div className="group flex items-center" style={{ paddingLeft: 6 + depth * 11 }}>
-              <button
-                onClick={() => n.dir ? setOpenDirs((d) => ({ ...d, [n.path]: !dirOpen })) : onOpen(n.path)}
-                className="flex-1 min-w-0 flex items-center gap-1 py-[3px] pr-1 text-left text-[11.5px] rounded-[5px] hover:bg-[var(--ide-hover)]"
-                style={{ color: sel === n.path ? 'var(--ide-accent)' : 'var(--ide-dim)' }}>
-                {n.dir
-                  ? (dirOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />)
-                  : <FileGlyph path={n.path} size={11} />}
-                <span className="truncate">{n.name}</span>
-              </button>
-              {!n.dir && onDelete && (
-                <button onClick={() => onDelete(n.path)} title={`Delete ${n.path}`}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--ide-faint)' }}>
-                  <Trash2 size={10} />
-                </button>
-              )}
-            </div>
-            {n.dir && dirOpen && n.children && (
-              <Tree nodes={n.children} depth={depth + 1} sel={sel} onOpen={onOpen} onDelete={onDelete} onParent={n.path} />
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
+/** The project tree in the shape the tree view takes: `id` is the file path. */
+function toTreeNodes(nodes: TreeNode[]): KitTreeNode[] {
+  return nodes.map((n) => ({ id: n.path, label: n.name, children: n.dir ? toTreeNodes(n.children ?? []) : undefined }))
 }
 
 /* ================================================================== */

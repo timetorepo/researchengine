@@ -10,6 +10,7 @@ import { Loader2, Wand2 } from 'lucide-react'
 import { createProjectRobust, postJson } from '@/lib/ide/create'
 import { projectInstructionsTemplate } from '@/lib/ide/codex-flow'
 import { nameFromPrompt, queueBuild } from '@/lib/ide/pendingBuild'
+import { TaskSteps } from '@/components/ui/kit/interior/TaskSteps'
 
 export function BuildFromPrompt({ taken, onCreated }: { taken: string[]; onCreated: (name: string) => void }) {
   const [text, setText] = useState('')
@@ -59,6 +60,17 @@ export function BuildFromPrompt({ taken, onCreated }: { taken: string[]; onCreat
         className="w-full resize-none rounded-[10px] px-3 py-2 text-[13.5px] outline-none"
         style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}
       />
+      {(busy || err) && (
+        <div className="mt-3">
+          {/* The three steps of creating a project, ticking off as the request goes through. */}
+          <TaskSteps
+            label="Creating the project"
+            steps={[{ label: 'Name the project' }, { label: 'Create the folder and starter files' }, { label: 'Hand the brief to the AI' }]}
+            current={busy ? 1 : 2}
+            failed={err ? 1 : undefined}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3 mt-2">
         <p className="text-[11.5px]" style={{ color: err ? 'var(--danger)' : 'var(--text-3)' }}>
           {err || 'Enter starts the build. Shift+Enter adds a line. The project folder is named from your first few words.'}

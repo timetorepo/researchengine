@@ -4,6 +4,9 @@ import { Check, ChevronDown, ChevronRight, GitFork, AlertTriangle, Terminal } fr
 import { Markdown } from '@/components/chat/Markdown'
 import { clipOutput, summarizeArgs, type Item, type ToolItem } from '@/lib/codersa/timeline'
 import type { Outcome } from './useCodersa'
+import { AiStatus } from '@/components/ui/kit/rareui/AiStatus'
+import { StreamingResponse } from '@/components/ui/kit/beui/StreamingResponse'
+import { NewItemsPill, useNewItems } from '@/components/ui/kit/interior/NewItemsPill'
 
 const TOOL_LABEL: Record<string, string> = {
   bash: 'Command',
@@ -28,6 +31,8 @@ interface ThreadProps {
 export function Thread({ items, hidden, busy, outcome, onFork, canFork, sessionKey }: ThreadProps) {
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
+  const [atBottom, setAtBottom] = useState(true)
+  const news = useNewItems(items.length, atBottom)
 
   // A new session starts at the bottom, and the view follows new output while the reader is there.
   useLayoutEffect(() => { stick.current = true }, [sessionKey])
@@ -39,6 +44,7 @@ export function Thread({ items, hidden, busy, outcome, onFork, canFork, sessionK
   const onScroll = () => {
     const el = scroller.current
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX
+    setAtBottom(stick.current)
   }
 
   return (
@@ -50,17 +56,28 @@ export function Thread({ items, hidden, busy, outcome, onFork, canFork, sessionK
             {hidden} earlier {hidden === 1 ? 'item is' : 'items are'} kept in the session log. The latest {items.length} are shown.
           </p>
         )}
-        {items.map((item) => (
-          <ItemView key={item.id} item={item} canFork={canFork} onFork={onFork} />
+        {items.map((item, i) => (
+          <ItemView key={item.id} item={item} canFork={canFork} onFork={onFork} live={busy && i === items.length - 1} />
         ))}
-        {busy && <WorkingLine />}
+        {busy && <WorkingLine detail={runningDetail(items)} />}
         {!busy && outcome && <OutcomeLine outcome={outcome} />}
+        <div className="sticky bottom-2 flex justify-center pointer-events-none">
+          <div className="pointer-events-auto">
+            <NewItemsPill count={news.count} label="new" onClick={() => {
+              const el = scroller.current
+              if (el) el.scrollTop = el.scrollHeight
+              stick.current = true
+              setAtBottom(true)
+              news.clear()
+            }} />
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-const ItemView = memo(function ItemView({ item, canFork, onFork }: { item: Item; canFork: boolean; onFork: (at: number) => void }) {
+const ItemView = memo(function ItemView({ item, canFork, onFork, live = false }: { item: Item; canFork: boolean; onFork: (at: number) => void; live?: boolean }) {
   switch (item.kind) {
     case 'user':
       return (
@@ -74,7 +91,8 @@ const ItemView = memo(function ItemView({ item, canFork, onFork }: { item: Item;
     case 'assistant':
       return (
         <div className="codersa-item codersa-enter group relative text-[14px] leading-relaxed" style={{ color: 'var(--text)' }}>
-          <Markdown content={item.text} />
+          {/* The reply being written streams word by word; once it settles it is rendered as Markdown. */}
+          {live ? <StreamingResponse text={item.text} streaming /> : <Markdown content={item.text} />}
           {canFork && item.at !== undefined && (
             <button onClick={() => onFork(item.at!)} aria-label="Fork a new session from here"
               className="absolute -bottom-5 left-0 flex items-center gap-1 text-[11px] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
@@ -141,16 +159,15 @@ const ToolCard = memo(function ToolCard({ item }: { item: ToolItem }) {
   )
 })
 
-function WorkingLine() {
-  return (
-    <div className="flex items-center gap-2 text-[12.5px]" role="status" style={{ color: 'var(--text-3)' }}>
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inset-0 rounded-full animate-ping opacity-60" style={{ background: 'var(--primary)' }} />
-        <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: 'var(--primary)' }} />
-      </span>
-      Codersa is working…
-    </div>
-  )
+/** What Codersa is doing right now, named from its latest running tool call. */
+function runningDetail(items: Item[]): string | undefined {
+  const last = items[items.length - 1]
+  if (!last || last.kind !== 'tool' || last.status !== 'running') return undefined
+  return `${TOOL_LABEL[last.name] ?? last.name}…`
+}
+
+function WorkingLine({ detail }: { detail?: string }) {
+  return <AiStatus active label="Codersa is working" detail={detail} />
 }
 
 function OutcomeLine({ outcome }: { outcome: Outcome }) {

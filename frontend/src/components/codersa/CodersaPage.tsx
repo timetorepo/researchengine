@@ -10,6 +10,7 @@ import { Thread } from './Thread'
 import { Composer } from './Composer'
 import { useCodersa } from './useCodersa'
 import './codersa.css'
+import { AiSidebar } from '@/components/ui/kit/beui/AiSidebar'
 
 const SUGGESTIONS = [
   'Explain how this project is laid out, and where the main logic lives.',
@@ -68,15 +69,18 @@ export function CodersaPage() {
       <div className="flex flex-1 min-h-0">
         {railOpen && <div className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={() => setRailOpen(false)} aria-hidden />}
         <div className={railOpen ? 'fixed inset-y-0 left-0 z-40 flex md:static md:z-auto' : 'hidden md:flex'}>
-          <SessionRail
-            sessions={c.sessions}
-            activeId={c.activeId}
-            busy={c.busy}
-            onNew={() => { setRailOpen(false); c.newSession() }}
-            onOpen={openSession}
-            onDelete={(id) => void c.removeSession(id)}
-            onSearch={c.searchSessions}
-          />
+          {/* The Coder's sidebar: the session list folds away into a thin rail. */}
+          <AiSidebar title="Sessions" width={264}>
+            <SessionRail
+              sessions={c.sessions}
+              activeId={c.activeId}
+              busy={c.busy}
+              onNew={() => { setRailOpen(false); c.newSession() }}
+              onOpen={openSession}
+              onDelete={(id) => void c.removeSession(id)}
+              onSearch={c.searchSessions}
+            />
+          </AiSidebar>
         </div>
 
         <main className="flex-1 min-w-0 flex flex-col min-h-0">
