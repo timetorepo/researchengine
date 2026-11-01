@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { CHANGELOG, kindOf, findRelease, type ChangeKind, type Release } from '@/lib/updates/changelog'
 
-const KIND: Record<ChangeKind, { label: string; Icon: React.ElementType; tone: string }> = {
+const KIND: Record<ChangeKind, { label: string; Icon: React.ComponentType<any>; tone: string }> = {
   added: { label: 'new', Icon: Sparkles, tone: 'var(--success)' },
   fixed: { label: 'fixed', Icon: Wrench, tone: 'var(--warning)' },
   changed: { label: 'changed', Icon: RefreshCw, tone: 'var(--primary)' },

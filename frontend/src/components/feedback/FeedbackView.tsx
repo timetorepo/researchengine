@@ -28,7 +28,7 @@ interface FeedbackEntry {
   createdAt: number
 }
 
-const KINDS: { id: Kind; label: string; Icon: React.ElementType; hint: string }[] = [
+const KINDS: { id: Kind; label: string; Icon: React.ComponentType<any>; hint: string }[] = [
   { id: 'bug', label: 'Bug', Icon: Bug, hint: 'Something broke or behaved wrongly' },
   { id: 'ui', label: 'Interface', Icon: Palette, hint: 'Something looks wrong or feels off' },
   { id: 'idea', label: 'Idea', Icon: Lightbulb, hint: 'Something the app should do' },

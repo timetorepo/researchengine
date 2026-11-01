@@ -21,7 +21,7 @@ import { AnimatedNumber, useSteadyCountdown, msToNextSecond } from '@/components
 const WORK = 25 * 60
 const BREAK = 5 * 60
 
-const ACTIVITY: Record<ActivityKind, { label: string; icon: React.ElementType; tone: string }> = {
+const ACTIVITY: Record<ActivityKind, { label: string; icon: React.ComponentType<any>; tone: string }> = {
   idle: { label: 'Focus', icon: Timer, tone: 'var(--primary)' },
   quiz: { label: 'Quiz', icon: GraduationCap, tone: 'var(--secondary)' },
   coding: { label: 'Coding', icon: Code2, tone: 'var(--success)' },

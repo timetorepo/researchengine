@@ -35,7 +35,7 @@ import {
  */
 export type ProgressMode = 'bar' | 'circle' | 'dot' | 'top'
 
-export const PROGRESS_MODES: { id: ProgressMode; label: string; blurb: string; icon: React.ElementType }[] = [
+export const PROGRESS_MODES: { id: ProgressMode; label: string; blurb: string; icon: React.ComponentType<any> }[] = [
   { id: 'bar', label: 'Bar', blurb: 'Thin track on the edge', icon: BarChart3 },
   { id: 'circle', label: 'Circle progress', blurb: 'Ring with a background', icon: CircleDot },
   { id: 'dot', label: 'Circle (bare)', blurb: 'Ring only, no background', icon: Circle },

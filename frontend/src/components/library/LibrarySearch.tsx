@@ -89,7 +89,7 @@ interface MiniHit {
 interface MiniGroup { vertical: string; label: string; state: 'ok' | 'error' | 'empty'; ms: number; hits: MiniHit[]; reason?: string; note?: string }
 
 /** Every group carries how it should be treated, because they are not equivalents. */
-const MINI_META: Record<string, { tone: string; Icon: React.ElementType; external: boolean }> = {
+const MINI_META: Record<string, { tone: string; Icon: React.ComponentType<any>; external: boolean }> = {
   web: { tone: 'var(--primary)', Icon: Globe, external: true },
   wikipedia: { tone: 'var(--primary)', Icon: BookOpen, external: false },
   screens: { tone: 'var(--secondary)', Icon: Sparkles, external: true },
@@ -97,7 +97,7 @@ const MINI_META: Record<string, { tone: string; Icon: React.ElementType; externa
   docs: { tone: 'var(--success)', Icon: FileText, external: true },
 }
 
-const KIND_META: Record<string, { label: string; Icon: React.ElementType; tone: string }> = {
+const KIND_META: Record<string, { label: string; Icon: React.ComponentType<any>; tone: string }> = {
   wikipedia: { label: 'Wikipedia', Icon: BookOpen, tone: 'var(--primary)' },
   source: { label: 'Trusted sources', Icon: Globe, tone: 'var(--secondary)' },
   document: { label: 'Your documents', Icon: FileText, tone: 'var(--success)' },

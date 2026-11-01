@@ -18,7 +18,7 @@ import { useNotifications, notifications, type AppNotification, type Notificatio
 import { timeAgo } from '@/lib/utils'
 import { Portal } from '@/lib/dom/portal'
 
-const KIND_ICON: Record<NotificationKind, React.ElementType> = {
+const KIND_ICON: Record<NotificationKind, React.ComponentType<any>> = {
   update: Download,
   recommendations: Sparkles,
   info: Info,

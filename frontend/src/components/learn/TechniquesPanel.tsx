@@ -401,7 +401,7 @@ function FeynmanSession({ doc }: { doc: DocumentRecord }) {
 /* Dual coding                                                         */
 /* ------------------------------------------------------------------ */
 
-const SYMBOLS: { id: string; label: string; Icon: React.ElementType }[] = [
+const SYMBOLS: { id: string; label: string; Icon: React.ComponentType<any> }[] = [
   { id: 'atom', label: 'Atom', Icon: Atom },
   { id: 'zap', label: 'Energy', Icon: Zap },
   { id: 'waves', label: 'Wave', Icon: Waves },

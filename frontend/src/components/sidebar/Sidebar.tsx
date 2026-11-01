@@ -238,7 +238,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 interface RowProps {
   to: string
   label: string
-  icon: React.ElementType
+  icon: React.ComponentType<any>
   end?: boolean
   pending: boolean
   warm: () => void

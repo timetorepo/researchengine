@@ -81,7 +81,7 @@ export function NotificationsTab() {
 }
 
 function Row({ Icon, title, body, on, onToggle }: {
-  Icon: React.ElementType; title: string; body: string; on: boolean; onToggle: () => void
+  Icon: React.ComponentType<any>; title: string; body: string; on: boolean; onToggle: () => void
 }) {
   return (
     <button onClick={onToggle} className="surface p-4 w-full text-left flex items-start gap-3 mb-2.5">

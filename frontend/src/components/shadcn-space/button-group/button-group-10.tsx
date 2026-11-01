@@ -73,7 +73,7 @@ export interface EditorToolbarProps {
 }
 
 export function EditorToolbar({ active = {}, onCommand, className }: EditorToolbarProps) {
-  const buttons: { id: EditorCommandId; icon: React.ElementType; label: string }[] = [
+  const buttons: { id: EditorCommandId; icon: React.ComponentType<any>; label: string }[] = [
     { id: "bold", icon: Bold, label: "Bold" },
     { id: "italic", icon: Italic, label: "Italic" },
     { id: "underline", icon: Underline, label: "Underline" },

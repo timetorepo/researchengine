@@ -12,7 +12,7 @@ export interface BlurRevealTextProps extends React.HTMLAttributes<HTMLElement> {
   /** The text content to animate */
   text: string
   /** HTML element tag to render. @default "p" */
-  as?: React.ElementType
+  as?: string | React.ComponentType<any>
   /** Custom class for the outer wrapper */
   className?: string
   /** Custom class for each word/character token */

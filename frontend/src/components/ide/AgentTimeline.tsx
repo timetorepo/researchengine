@@ -14,7 +14,7 @@ import type { IdeActivity } from '@/lib/chat/tools'
 import { describeActivity } from '@/lib/ide/agents'
 import CallChip from '@/components/ui/reactbits/micro/CallChip'
 
-const ICON: Record<IdeActivity['kind'], React.ElementType> = {
+const ICON: Record<IdeActivity['kind'], React.ComponentType<any>> = {
   read: FileText,
   write: PencilLine,
   run: TerminalSquare,
