@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { ExpandingArrowButton } from '@/components/ui/kit/beui/ExpandingArrowButton'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   ArrowRight, ArrowLeft, Check, KeyRound, Rocket, ShieldCheck, BookOpen, Lock, HardDrive, Sparkles,
@@ -797,7 +798,7 @@ export function Onboarding() {
           {STEPS[step].cta ? (
             <div className="flex items-center gap-2">
               {STEPS[step].skip && <Button variant="ghost" color="default" size="sm" onClick={next}>{STEPS[step].skip}</Button>}
-              <Button size="sm" onClick={next}>Continue <ArrowRight size={13} className="inline" /></Button>
+              <ExpandingArrowButton label="Continue" onClick={next} />
             </div>
           ) : <span />}
         </div>

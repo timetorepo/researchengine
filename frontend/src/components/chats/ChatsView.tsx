@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { OverflowActions } from '@/components/ui/kit/beui/OverflowActions'
 import { motion, AnimatePresence } from 'motion/react'
-import { MessageSquare, Search, Trash2, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, PinOff, Download, Box, Monitor, ServerCog } from 'lucide-react'
+import { MessageSquare, Search, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, Box, Monitor, ServerCog } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import GooeyNav from '@/components/reactbits/GooeyNav/GooeyNav'
 import { Tabs } from '@heroui/react'
@@ -204,15 +205,12 @@ export function ChatsView() {
                 </div>
               </button>
               <IsolationButton chatId={chat.id} />
-              <button onClick={() => setPinned(chat.id, !chat.pinned)} aria-label={chat.pinned ? 'Unpin chat' : 'Pin chat'}
-                title={chat.pinned ? 'Unpin' : 'Pin to the top'}
-                className={`p-2 rounded-lg hover:bg-[var(--elevated)] transition-opacity ${chat.pinned ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}
-                style={{ color: chat.pinned ? 'var(--warning)' : 'var(--text-3)' }}>
-                {chat.pinned ? <PinOff size={14} /> : <Pin size={14} />}
-              </button>
-              <button onClick={() => exportChat(chat.id)} aria-label="Export chat" title="Export as JSON"
-                className="p-2 rounded-lg opacity-40 group-hover:opacity-100 hover:bg-[var(--elevated)] transition-opacity" style={{ color: 'var(--text-3)' }}><Download size={14} /></button>
-              <button onClick={() => remove(chat.id)} aria-label="Delete chat" className="p-2 rounded-lg opacity-40 group-hover:opacity-100 hover:bg-[var(--elevated)] transition-opacity" style={{ color: 'var(--danger)' }}><Trash2 size={14} /></button>
+              <OverflowActions label={`Actions for ${chat.title}`} items={[
+                { id: 'pin', label: chat.pinned ? 'Unpin' : 'Pin to the top', onSelect: () => setPinned(chat.id, !chat.pinned) },
+                { id: 'rename', label: 'Rename', onSelect: () => { setDraft(chat.title); setRenaming(chat.id) } },
+                { id: 'export', label: 'Export as JSON', onSelect: () => exportChat(chat.id) },
+                { id: 'delete', label: 'Delete chat', danger: true, onSelect: () => remove(chat.id) },
+              ]} />
             </motion.div>
           ))}
         </AnimatePresence>
