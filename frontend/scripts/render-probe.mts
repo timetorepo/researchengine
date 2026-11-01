@@ -73,7 +73,12 @@ async function main() {
 
   const rows = (side.html.match(/re-nav-item/g) ?? []).length
   const arrows = (side.html.match(/re-nav-arrow/g) ?? []).length
-  check('every rail row is drawn', rows === 9, `${rows} rows`)
+  // One row per NAV entry, plus the Marketplace row. Read the count from the
+  // source so the check follows the nav instead of a number that goes stale.
+  const navSource = (await import('node:fs')).readFileSync(new URL('../src/components/sidebar/Sidebar.tsx', import.meta.url), 'utf8')
+  const navBlock = navSource.slice(navSource.indexOf('const NAV = ['), navSource.indexOf('\n]\n', navSource.indexOf('const NAV = [')))
+  const expectedRows = (navBlock.match(/\{ to: '/g) ?? []).length + 1
+  check('every rail row is drawn', rows === expectedRows, `${rows} rows, expected ${expectedRows}`)
   check('and every row carries its edge arrow', arrows === rows, `${arrows} arrows for ${rows} rows`)
   check('the Spaces section is gone', !/Space(s)? chip|data-space-chip/i.test(side.html))
   check('the research/coding switch is gone', !side.html.includes('re-history-tabs'))

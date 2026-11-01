@@ -84,10 +84,15 @@ writeFileSync(join(dataDir, 'db.sqlite-wal'), 'wal-contents')
 writeFileSync(join(dataDir, 'config.json'), JSON.stringify({ profile: 'balanced', marker: 'do-not-touch' }))
 writeFileSync(join(dataDir, 'documents', 'paper.pdf'), Buffer.from('%PDF-1.4 pretend paper'))
 
+// The library's own files. The updater writes its safety copy under backups/
+// and its scratch downloads under updates/; those are the updater's, so they
+// are left out, and the backup itself is checked separately below.
+const UPDATER_FOLDERS = new Set(['backups', 'updates'])
 function hashTree(root: string): string {
   const h = createHash('sha256')
   const walk = (dir: string, base = '') => {
     for (const name of readdirSync(dir).sort()) {
+      if (!base && UPDATER_FOLDERS.has(name)) continue
       const full = join(dir, name)
       const rel = base ? `${base}/${name}` : name
       const st = statSync(full)
@@ -336,6 +341,7 @@ check('the backup really is the old code', readFileSync(join(appRoot, '.update',
 check('the launcher was left alone (it is version-agnostic)', readFileSync(join(appRoot, 'research-engine'), 'utf8').includes('server/index.js'))
 check('staging is cleaned up after the swap', !existsSync(join(appRoot, '.update', 'stage')))
 check('THE LIBRARY IS UNTOUCHED after a full update', hashTree(dataDir) === libraryBefore)
+check('a copy of the library was taken before the update', existsSync(join(dataDir, 'backups')) && readdirSync(join(dataDir, 'backups')).some((d) => d.startsWith('pre-update-')))
 
 section('[5] a new version that boots is kept')
 {

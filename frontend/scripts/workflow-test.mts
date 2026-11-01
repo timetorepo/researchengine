@@ -5,6 +5,16 @@ import type { Workflow } from '../src/lib/workflows/types'
 import { useStore } from '../src/stores/useStore'
 import { nodeDef, NODE_LIBRARY } from '../src/lib/workflows/library'
 import { fromTemplate, exportWorkflow, importWorkflow, WORKFLOW_TEMPLATES } from '../src/lib/workflows/templates'
+// The app runs in a browser; the store's deferred saves write to localStorage.
+const storage = new Map<string, string>()
+;(globalThis as any).localStorage = {
+  getItem: (k: string) => storage.get(k) ?? null,
+  setItem: (k: string, v: string) => void storage.set(k, String(v)),
+  removeItem: (k: string) => void storage.delete(k),
+  clear: () => storage.clear(),
+  key: (i: number) => [...storage.keys()][i] ?? null,
+  get length() { return storage.size },
+}
 
 let failed = 0
 const check = (name: string, ok: boolean, extra = '') => {

@@ -49,6 +49,9 @@ export interface HistoryFit {
  */
 export function fitHistory(msgs: BudgetMsg[], budgetTokens: number): HistoryFit {
   const n = msgs.length
+  // Older messages are shortened only when the history is over budget. If it
+  // fits as it is, every message keeps its text (only the recent-turn cap applies).
+  const fitsWhole = msgs.reduce((a, m) => a + estimateTokens(clip(m.content, LIMITS.verbatimChars)), 0) <= budgetTokens
   const kept: BudgetMsg[] = []
   const folded: BudgetMsg[] = []
   let used = 0
@@ -56,7 +59,7 @@ export function fitHistory(msgs: BudgetMsg[], budgetTokens: number): HistoryFit 
   for (let i = n - 1; i >= 0; i--) {
     const m = msgs[i]
     const recent = n - 1 - i < LIMITS.verbatimMessages
-    const text = clip(m.content, recent ? LIMITS.verbatimChars : LIMITS.olderChars)
+    const text = clip(m.content, recent || fitsWhole ? LIMITS.verbatimChars : LIMITS.olderChars)
     const t = estimateTokens(text)
     if (text.length < m.content.length) shortened++
     if (!recent && used + t > budgetTokens) {

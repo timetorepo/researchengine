@@ -70,12 +70,12 @@
         "dropdown-menu"
       ],
       "files": {
-        "src/components/shadcn-space/button-group/button-group-12.tsx": "6174544dc1f545685b6d2dd0e2566089422e9e1f7111a5ab09e65a55a9efed4e"
+        "src/components/shadcn-space/button-group/button-group-12.tsx": "1ca42c436a4d6a2d7edcdb30cbdda8f568d1b236261b467e6d05963cd06ea542"
       },
       "patches": {
         "src/components/shadcn-space/button-group/button-group-12.tsx": {
           "upstream_sha256": "f7053f845d64455385f5c83b9bd615c38136427d8b65ee7db296002bbb802d6c",
-          "reason": "Locally adapted, deliberately: `satisfies Variants` on the two variant maps (upstream ships them untyped and this repository typechecks), and the labels/handlers became props (label, icon, items, onPrimary, onAction, disabled, menuLabel) so the same Execute-button-group drives the coding toolbar's Run/Save actions and can name what is behind its chevron. Structure, animation, separator and staggered menu are upstream's. The defaults still render the upstream demo."
+          "reason": "Locally adapted, deliberately: `satisfies Variants` on the two variant maps (upstream ships them untyped and this repository typechecks), and the labels/handlers became props (label, icon, items, onPrimary, onAction, disabled, menuLabel) so the same Execute-button-group drives the coding toolbar's Run/Save actions and can name what is behind its chevron. Structure, animation, separator and staggered menu are upstream's. The defaults still render the upstream demo. The menu item's icon is wrapped in a fragment so that it type-checks under React 19."
         }
       }
     },
@@ -89,12 +89,12 @@
         "button-group"
       ],
       "files": {
-        "src/components/shadcn-space/button-group/button-group-10.tsx": "4b91c04d13c0be410f6f9affd87eb8ae0e9f9cdea320d2c26e5dbb1cc2ea8487"
+        "src/components/shadcn-space/button-group/button-group-10.tsx": "d7a9971d5240883c39969df543f29e8101ce8a8e38380bd479d9857e738557c0"
       },
       "patches": {
         "src/components/shadcn-space/button-group/button-group-10.tsx": {
           "upstream_sha256": "61cf9d8aecf052ffcff93f277218ddbb810145d679ff522ded6bd3f7fe6df2e1",
-          "reason": "The toolbar and its command helpers are exported (`EditorToolbar`, `runEditorCommand`, `readEditorState`, `EditorSelectionState`) and take props, because upstream welds the toolbar to one demo contentEditable and the article editor owns its own surface. The default `Pattern` demo is unchanged in behaviour and still uses the same pieces."
+          "reason": "The toolbar and its command helpers are exported (`EditorToolbar`, `runEditorCommand`, `readEditorState`, `EditorSelectionState`) and take props, because upstream welds the toolbar to one demo contentEditable and the article editor owns its own surface. The default `Pattern` demo is unchanged in behaviour and still uses the same pieces. Also typed for React 19: the icon maps are `React.ComponentType<any>` instead of `React.ElementType`, which the React 19 JSX types reject when called."
         }
       }
     }

@@ -44,9 +44,11 @@ async function main() {
 
   console.log('\n[2] Context pruning (capsules)')
   const { pruneContext, estimateTokens } = await import('../src/lib/flow/pruner')
-  const history = Array.from({ length: 20 }, (_, i) => ({
+  // Pruning follows the history budget (efficient = 12k tokens), so the history
+  // must be larger than that before anything is folded.
+  const history = Array.from({ length: 200 }, (_, i) => ({
     id: `m${i}`, role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
-    content: `Message number ${i} with enough content to estimate tokens properly.`, createdAt: i,
+    content: `Message number ${i}. ${'Enough content to estimate tokens properly. '.repeat(25)}`, createdAt: i,
   }))
   const pruned = pruneContext(history as any, 'efficient', true)
   check('capsule created', pruned.capsule !== null && pruned.capsule!.includes('capsule'))
@@ -103,7 +105,7 @@ async function main() {
   for (let i = 0; i < 12; i++) {
     useStore.getState().addMessage(chat2, {
       id: `x${i}`, role: i % 2 === 0 ? 'user' : 'assistant',
-      content: `Prior turn ${i}: ${'context padding for pruning. '.repeat(6)}`, createdAt: i,
+      content: `Prior turn ${i}: ${'context padding for pruning. '.repeat(400)}`, createdAt: i,
     })
   }
   const savedBefore = useStore.getState().tokensSavedLifetime
