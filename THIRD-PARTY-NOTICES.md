@@ -188,3 +188,13 @@ That licence permits use in finished applications, but not redistribution of the
 component as a reusable kit or library.
 The copy here has the JSX and the registry's demo SVG artwork restored or removed as
 noted in the file headers.
+
+## Fan gallery, from ReactDrops
+
+`frontend/src/components/ui/reactdrops/fan-*` (`fan-gallery.tsx`, `fan-gallery.css`,
+`fan-layout.ts`, `fan-motion.ts`, `fan-playback.ts`) and `viewport-playback.ts` are vendored
+from the ReactDrops "Fan Gallery" component (https://reactdrops.dev/components/gallery/fan-gallery,
+registry item `fan-gallery` v2.0.1). Copyright (c) 2026 ReactDrops, licensed under the ReactDrops
+Component License 1.0 (`frontend/src/components/ui/reactdrops/LICENSE.txt`). The library modules are
+unchanged. The component's JSX and prop wiring were rebuilt by hand, since the registry source
+fetches without JSX. The same redistribution limit applies: use in an app only, not as a kit.

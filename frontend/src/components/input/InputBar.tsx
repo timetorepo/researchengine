@@ -10,6 +10,9 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { BorderBeam } from 'border-beam'
 import { SkillPicker } from './SkillPicker'
+import { usePrefFlag } from '@/components/ui/kit/prefs'
+import { FAN_GALLERY_PREF } from '@/components/ui/reactdrops/fanPrefs'
+import FanGallery from '@/components/ui/reactdrops/fan-gallery'
 import { IntegrationPicker } from './IntegrationPicker'
 import { triggerAt, replaceTrigger } from './trigger'
 import { type ModeOption } from './ModeMenu'
@@ -155,6 +158,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   // Where the open trigger word sits in the text, so a pick replaces only that word.
   const [pickerAt, setPickerAt] = useState({ start: 0, end: 0 })
   const [sent, setSent] = useState(false)
+  const [fanOn] = usePrefFlag(FAN_GALLERY_PREF, false)
   const [imgs, setImgs] = useState<{ name: string; dataUrl: string }[]>([])
   const [refs, setRefs] = useState<ContextRef[]>([])
   const [connOpen, setConnOpen] = useState(false)
@@ -377,6 +381,22 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             </AnimatePresence>
           </div>
 
+          {/* Experimental: several attached images fan out as a carousel (Settings → Appearance). */}
+          {fanOn && imgs.length >= 2 && (
+            <div className="px-3 pt-2 max-w-[360px]">
+              <FanGallery
+                items={imgs.map((f) => ({ src: f.dataUrl, alt: f.name }))}
+                cardWidth={84}
+                spacing={0.5}
+                lift={18}
+                trigger="hover"
+                entrance="stack"
+                speed={0.6}
+                stagger={0.05}
+                radius={10}
+              />
+            </div>
+          )}
           {/* Attached images + connector references */}
           {(imgs.length > 0 || refs.length > 0) && (
             <div className="flex flex-wrap items-center gap-1.5 px-3 pt-1.5">

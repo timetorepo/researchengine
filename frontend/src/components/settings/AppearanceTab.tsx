@@ -21,6 +21,7 @@ import { saveNotice } from '@/stores/useNotices'
 import { TYPEFACES } from '@/lib/themes/typeface'
 import { ArcPicker } from '@/components/ui/kit/beui/ArcPicker'
 import { usePrefFlag } from '@/components/ui/kit/prefs'
+import { FAN_GALLERY_PREF } from '@/components/ui/reactdrops/fanPrefs'
 import * as engine from '@/lib/music/engine'
 import { useMusic } from '@/stores/useMusic'
 import {
@@ -521,6 +522,7 @@ function MusicStart() {
 function BubbleSection() {
   const [kbOn, setKbOn] = usePrefFlag(KEYBOARD_PREF, false)
   const [introEvery, setIntroEveryState] = useState<boolean>(readIntroEvery)
+  const [fanOn, setFanOn] = usePrefFlag(FAN_GALLERY_PREF, false)
   const [kbAsk, setKbAsk] = useState(false)
   const [chatBackdrop, setChatBackdrop] = useChatBackdrop()
   const [kbPersp, setKbPersp] = useState<'fixed' | 'custom'>(() => {
@@ -611,6 +613,12 @@ function BubbleSection() {
           </div>
         </div>
       </div>
+
+      {/* Experimental: several attached images fan out into a carousel. Off by default. */}
+      <section className="surface p-4 mt-4" aria-label="Experimental fan gallery" style={{ borderRadius: 'var(--radius-card)' }}>
+        <Switch label="Fan gallery for several images (experimental)" description="When you attach two or more images to a message, show them as a fan you can hover through. Off by default."
+          checked={fanOn} onChange={(v: boolean) => { setFanOn(v) }} />
+      </section>
 
       {/* The launch intro: plays once, or on every launch when this is on. */}
       <section className="surface p-4 mt-4" aria-label="Launch intro" style={{ borderRadius: 'var(--radius-card)' }}>
