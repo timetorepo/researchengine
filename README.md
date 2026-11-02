@@ -7,7 +7,7 @@
 
 **Search, read, study, write, code and design, with every page, note, quiz and draft staying on your machine.**
 
-[![Release](https://img.shields.io/badge/release-v1.5.0-blue)](https://github.com/timetorepo/researchengine/releases)
+[![Release](https://img.shields.io/badge/release-v1.6.0-blue)](https://github.com/timetorepo/researchengine/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20Web-success)](#-download)
 [![No account](https://img.shields.io/badge/account-none%20needed-8b5cf6)](#your-work-stays-yours)
