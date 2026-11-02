@@ -54,6 +54,8 @@ const ShortcutsOverlay = React.lazy(() => import('@/components/shared/ShortcutsO
 const SkillBuilderPanel = React.lazy(() => import('@/components/skills/SkillBuilderPanel').then((m) => ({ default: m.SkillBuilderPanel })))
 const SkillRunModal = React.lazy(() => import('@/components/skills/SkillRunModal').then((m) => ({ default: m.SkillRunModal })))
 const Onboarding = React.lazy(() => import('@/components/onboarding/Onboarding').then((m) => ({ default: m.Onboarding })))
+// The launch intro (liquid-glass logo). Lazy, so its WebGL code is not in the startup bundle.
+const LogoIntro = React.lazy(() => import('@/components/intro/LogoIntro').then((m) => ({ default: m.LogoIntro })))
 const StarField = React.lazy(() => import('@/components/easter/StarField').then((m) => ({ default: m.StarField })))
 const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/DiagnosticsOverlay').then((m) => ({ default: m.DiagnosticsOverlay })))
 import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
@@ -151,6 +153,7 @@ export default function App() {
   if (!settings.onboarded) {
     return (
       <>
+        <Suspense fallback={null}><LogoIntro /></Suspense>
         <Onboarding />
         <AppToaster />
       </>
@@ -170,6 +173,7 @@ export default function App() {
           <RoutedApp />
         </AppContextMenu>
         <FpsCounter />
+        <Suspense fallback={null}><LogoIntro /></Suspense>
         {/* Off by default; Settings → Appearance → 3D keyboard turns it on. */}
         <MechanicalKeyboardDock />
         <WalletWatcher />

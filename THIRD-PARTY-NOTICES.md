@@ -177,3 +177,14 @@ released under the MIT licence. The keyboard design is by Work Louder
 (https://worklouder.cc). The local changes are listed in the file header: an
 `orbit` prop, password-field key skipping, and the removal of the Next.js
 `"use client"` directive. Its 3D rendering uses `@react-three/drei` (MIT).
+
+## Liquid glass logo, from ReactDrops
+
+`frontend/src/components/ui/reactdrops/liquid-glass-logo*` is vendored from the
+ReactDrops "Liquid Glass Logo" component (https://reactdrops.dev, registry item
+`liquid-glass-logo`, Copyright (c) 2026 ReactDrops). It is licensed under the
+ReactDrops Component License 1.0, reproduced in `frontend/src/components/ui/reactdrops/LICENSE.txt`.
+That licence permits use in finished applications, but not redistribution of the
+component as a reusable kit or library.
+The copy here has the JSX and the registry's demo SVG artwork restored or removed as
+noted in the file headers.

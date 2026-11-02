@@ -28,6 +28,7 @@ import {
   grantKeyboardConsent, readKeyboardConsent, setKeyboardEnabled,
 } from '@/components/ui/kit/serenity/keyboardPrefs'
 import { KeyboardConsentDialog } from '@/components/ui/kit/serenity/KeyboardConsent'
+import { readIntroEvery, setIntroEvery, playIntroNow } from '@/components/intro/introPrefs'
 
 const rgb = (v: [number, number, number]) => `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
 
@@ -519,6 +520,7 @@ function MusicStart() {
  */
 function BubbleSection() {
   const [kbOn, setKbOn] = usePrefFlag(KEYBOARD_PREF, false)
+  const [introEvery, setIntroEveryState] = useState<boolean>(readIntroEvery)
   const [kbAsk, setKbAsk] = useState(false)
   const [chatBackdrop, setChatBackdrop] = useChatBackdrop()
   const [kbPersp, setKbPersp] = useState<'fixed' | 'custom'>(() => {
@@ -609,6 +611,17 @@ function BubbleSection() {
           </div>
         </div>
       </div>
+
+      {/* The launch intro: plays once, or on every launch when this is on. */}
+      <section className="surface p-4 mt-4" aria-label="Launch intro" style={{ borderRadius: 'var(--radius-card)' }}>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <Switch label="Show the intro on every launch" description="The liquid-glass logo plays the first time you open Research Engine. Turn this on to see it at every launch. Any key or click skips it."
+              checked={introEvery} onChange={(v: boolean) => { setIntroEveryState(v); setIntroEvery(v) }} />
+          </div>
+          <Button size="sm" variant="flat" onClick={() => playIntroNow()}>Play intro now</Button>
+        </div>
+      </section>
 
       {/* The 3D keyboard: a floating Serenity-style keyboard. Off by default. */}
       <section className="surface p-4 mt-4" aria-label="3D keyboard" style={{ borderRadius: 'var(--radius-card)' }}>
