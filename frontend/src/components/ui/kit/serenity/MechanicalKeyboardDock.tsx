@@ -4,8 +4,10 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Keyboard } from 'lucide-react'
 import {
   KEYBOARD_EVENT, KEYBOARD_PERSPECTIVE,
+  grantKeyboardConsent, keyboardListening, readKeyboardConsent, setKeyboardEnabled,
   readKeyboardEnabled as readEnabled, readKeyboardPerspective as readPerspective, type Perspective,
 } from './keyboardPrefs'
+import { KeyboardConsentDialog } from './KeyboardConsent'
 
 // The 3D scene is its own chunk. It loads the first time the keyboard is shown, so a
 // person who never turns it on never downloads three.js.
@@ -19,14 +21,30 @@ export function MechanicalKeyboardDock() {
   const [tilt, setTilt] = useState(0.6)
   const [rotation, setRotation] = useState(0)
   const [open, setOpen] = useState(true)
+  // A keyboard turned on before the disclaimer existed has no consent on record. Ask
+  // before it listens to anything; declining switches it off again.
+  const [askConsent, setAskConsent] = useState(() => readEnabled() && !readKeyboardConsent())
 
   useEffect(() => {
-    const sync = () => { setEnabled(readEnabled()); setPerspective(readPerspective()) }
+    const sync = () => {
+      setEnabled(readEnabled()); setPerspective(readPerspective())
+      if (readEnabled() && !readKeyboardConsent()) setAskConsent(true)
+    }
     window.addEventListener(KEYBOARD_EVENT, sync)
     return () => window.removeEventListener(KEYBOARD_EVENT, sync)
   }, [])
 
-  if (!enabled) return null
+  if (askConsent && enabled) {
+    return (
+      <KeyboardConsentDialog
+        onAgree={() => { grantKeyboardConsent(); setAskConsent(false); setKeyboardEnabled(true) }}
+        onCancel={() => { setAskConsent(false); setKeyboardEnabled(false) }}
+      />
+    )
+  }
+
+  // Shown only when it is on AND the person has agreed. Otherwise nothing listens.
+  if (!enabled || !keyboardListening()) return null
 
   const choose = (p: Perspective) => {
     setPerspective(p)

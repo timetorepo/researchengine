@@ -62,7 +62,8 @@
     "dot-stat-test": "tsx --tsconfig tsconfig.json scripts/dot-stat-test.mts",
     "kit-test": "tsx --tsconfig tsconfig.json scripts/kit-test.mts",
     "codersa-model-test": "tsx --tsconfig tsconfig.json scripts/codersa-model-test.mts",
-    "music-engine-test": "tsx --tsconfig tsconfig.json scripts/music-engine-test.mts"
+    "music-engine-test": "tsx --tsconfig tsconfig.json scripts/music-engine-test.mts",
+    "keyboard-consent-test": "tsx --tsconfig tsconfig.json scripts/keyboard-consent-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

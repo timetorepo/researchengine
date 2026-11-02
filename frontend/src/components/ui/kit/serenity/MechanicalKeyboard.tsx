@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { keyboardListening } from './keyboardPrefs'
 
 export type Perspective = 'fixed' | 'custom'
 
@@ -92,6 +93,10 @@ export function MechanicalKeyboard({ perspective = 'fixed', tilt = 0.6, rotation
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // Listen only while the keyboard is on and agreed to; never in a password field.
+      if (!keyboardListening()) return
+      const t = e.target as HTMLInputElement | null
+      if (t && t.tagName === 'INPUT' && t.type === 'password') return
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
       const id = e.key === ' ' ? ' ' : e.key.length === 1 ? e.key.toUpperCase() : ''
       if (!id) return
