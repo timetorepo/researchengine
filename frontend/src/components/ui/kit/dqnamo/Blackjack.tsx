@@ -3,7 +3,7 @@
 // strategy (hit on 16 or less) once you stand.
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { freshDeck, handTotal, aiShouldHit, outcome, type Card } from './blackjack'
+import { freshDeck, handTotal, aiShouldHit, outcome, type Card } from './blackjackRules'
 
 function CardFace({ card, hidden = false, index = 0 }: { card: Card; hidden?: boolean; index?: number }) {
   const red = card.suit === '♥' || card.suit === '♦'
