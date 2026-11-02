@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 54 versions, 1.5.0 back to 0.10.0.
+ * 55 versions, 1.6.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,53 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.6.0",
+    "tag": "v1.6.0",
+    "name": "",
+    "date": "2026-11-02",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.6.0",
+    "summary": "A music player that only shows while it plays, a consented 3D keyboard, faster startup, and sharper personas",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "label": "Music shows only while it plays.",
+            "text": "The top-bar player appears when a track starts and disappears when it stops. While it is up, it shows the track name, artist, album, mood, BPM and position, read live from the player."
+          },
+          {
+            "label": "The 3D keyboard asks first.",
+            "text": "The first time you turn it on, a disclaimer asks you to tick a checkbox. It says Research Engine does not listen to keys outside the 3D keyboard toggle, and that keys are not recorded, stored or sent."
+          },
+          {
+            "label": "A 3D marquee on the welcome screen.",
+            "text": "Aceternity's 3D Marquee now runs in onboarding, filled with the app's own screenshots and public-domain paintings from the repository. It is decorative and stops moving when reduced motion is on."
+          },
+          {
+            "label": "Faster startup.",
+            "text": "The 3D keyboard and the decorative pattern load on demand, not with the first screen. The entry bundle drops from about 3.0 MB to about 1.9 MB of JavaScript. The backend loads its routes in parallel."
+          },
+          {
+            "label": "Personas rewritten.",
+            "text": "Researcher, Flow, Math, Scholar, Tutor, Replicator and Essayist each have a personality, a working method, rules for sources and uncertainty, and a list of what they will not do. Council roles and work modes get the same detail."
+          },
+          {
+            "label": "Codersa is steadier.",
+            "text": "Its system prompt names only the tools each profile can use. As the step limit nears, the model sees how many steps remain. A turn that runs out of steps ends with a report instead of an error."
+          },
+          {
+            "label": "Smaller fixes.",
+            "text": "Codersa runs Gemini and Ollama through their OpenAI-compatible routes. Selects use one modern control across the app. Council members appear as an avatar group."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 7,
+      "sections": 1
+    }
+  },
   {
     "version": "1.5.0",
     "tag": "v1.5.0",
