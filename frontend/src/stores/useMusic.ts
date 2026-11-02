@@ -5,47 +5,47 @@ import * as engine from '@/lib/music/engine'
 /**
  * UI mirror of the music engine: what is playing, where, and the controls.
  * The engine owns the audio; this store only lets React redraw when it changes.
+ *
+ * `now` is the track's details (name, artist, album, position) and is set only while
+ * music is playing. When nothing plays it is null, and the top bar hides the control.
  */
 interface MusicState {
   playing: boolean
-  index: number
+  now: engine.NowPlaying | null
   repeat: engine.RepeatMode
   volume: number
-  position: number
-  duration: number
-  expanded: boolean
   sync: () => void
-  setExpanded: (v: boolean) => void
 }
 
 export const useMusic = create<MusicState>((set, get) => ({
   playing: false,
-  index: engine.currentIndex(),
+  now: null,
   repeat: engine.getRepeat(),
   volume: engine.getVolume(),
-  position: 0,
-  duration: engine.trackDuration(engine.TRACKS[engine.currentIndex()]),
-  expanded: false,
   sync: () => {
-    const index = engine.currentIndex()
     const s = get()
-    const dur = engine.trackDuration(engine.TRACKS[index])
     const playing = engine.isPlaying()
+    const now = engine.nowPlaying()
     const repeat = engine.getRepeat()
     const volume = engine.getVolume()
-    if (s.playing !== playing || s.index !== index || s.repeat !== repeat || s.volume !== volume || s.duration !== dur) {
-      set({ playing, index, repeat, volume, duration: dur })
-    }
+    const same = s.playing === playing && s.repeat === repeat && s.volume === volume &&
+      (s.now === null ? now === null : now !== null && s.now.title === now.title && s.now.position === now.position &&
+        s.now.repeat === now.repeat && s.now.number === now.number)
+    if (!same) set({ playing, now, repeat, volume })
   },
-  setExpanded: (v) => set({ expanded: v }),
 }))
 
-/** Keeps the store in step with the engine. Mount once, where the control lives. */
+/**
+ * Keeps the store in step with the engine. Mount once, where the control lives.
+ * While music plays, the position is re-read four times a second, so the time and
+ * seek bar stay accurate; when paused there is nothing to poll.
+ */
 export function useMusicSync() {
   useEffect(() => {
     const sync = () => useMusic.getState().sync()
     const off = engine.onEngineChange(sync)
     sync()
-    return off
+    const id = window.setInterval(() => { if (engine.isPlaying()) sync() }, 250)
+    return () => { off(); window.clearInterval(id) }
   }, [])
 }

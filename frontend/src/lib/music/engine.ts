@@ -16,19 +16,22 @@ export interface Track {
   title: string
   /** Shown under the title. Says plainly that the track is generated. */
   mood: string
+  /** Who made it. Generated tracks are credited to the app, never to a real artist. */
+  artist: string
+  album: string
   bpm: number
   /** One chord per bar, as MIDI note numbers. The loop is these bars played twice. */
   chords: number[][]
 }
 
 export const TRACKS: Track[] = [
-  { id: 'dusk-drift', title: 'Dusk Drift', mood: 'Slow pads · generated', bpm: 70,
+  { id: 'dusk-drift', title: 'Dusk Drift', artist: 'Research Engine', album: 'Generated study sessions', mood: 'Slow pads · generated', bpm: 70,
     chords: [[57, 60, 64, 67], [53, 57, 60, 64], [48, 52, 55, 59], [55, 59, 62, 66]] },
-  { id: 'low-tide', title: 'Low Tide', mood: 'Minor drift · generated', bpm: 64,
+  { id: 'low-tide', title: 'Low Tide', artist: 'Research Engine', album: 'Generated study sessions', mood: 'Minor drift · generated', bpm: 64,
     chords: [[50, 53, 57, 60], [46, 50, 53, 57], [53, 57, 60, 64], [48, 52, 55, 59]] },
-  { id: 'paper-lamp', title: 'Paper Lamp', mood: 'Bright arpeggio · generated', bpm: 84,
+  { id: 'paper-lamp', title: 'Paper Lamp', artist: 'Research Engine', album: 'Generated study sessions', mood: 'Bright arpeggio · generated', bpm: 84,
     chords: [[60, 64, 67, 71], [57, 60, 64, 67], [53, 57, 60, 64], [55, 59, 62, 65]] },
-  { id: 'quiet-circuit', title: 'Quiet Circuit', mood: 'Night focus · generated', bpm: 78,
+  { id: 'quiet-circuit', title: 'Quiet Circuit', artist: 'Research Engine', album: 'Generated study sessions', mood: 'Night focus · generated', bpm: 78,
     chords: [[45, 48, 52, 55], [41, 45, 48, 52], [48, 52, 55, 59], [43, 47, 50, 54]] },
 ]
 
@@ -192,6 +195,32 @@ export function position(): number {
   const dur = trackDuration(t)
   const p = eng.ctx.currentTime - eng.t0
   return Math.min(dur, Math.max(0, p))
+}
+
+/** What the player shows: read fresh from the engine, so it is never stale. Null when nothing is playing. */
+export interface NowPlaying {
+  title: string
+  artist: string
+  album: string
+  mood: string
+  bpm: number
+  /** 1-based position in the list, and the list length. */
+  number: number
+  count: number
+  position: number
+  duration: number
+  repeat: RepeatMode
+}
+
+export function nowPlaying(): NowPlaying | null {
+  if (!eng?.playing) return null
+  const index = eng.track
+  const t = TRACKS[index]
+  return {
+    title: t.title, artist: t.artist, album: t.album, mood: t.mood, bpm: t.bpm,
+    number: index + 1, count: TRACKS.length,
+    position: position(), duration: trackDuration(t), repeat: eng.repeat,
+  }
 }
 
 export function currentIndex(): number { return eng ? eng.track : readTrack() }

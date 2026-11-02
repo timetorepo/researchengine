@@ -21,7 +21,13 @@ import { saveNotice } from '@/stores/useNotices'
 import { TYPEFACES } from '@/lib/themes/typeface'
 import { ArcPicker } from '@/components/ui/kit/beui/ArcPicker'
 import { usePrefFlag } from '@/components/ui/kit/prefs'
-import { KEYBOARD_PREF, KEYBOARD_PERSPECTIVE, KEYBOARD_EVENT } from '@/components/ui/kit/serenity/keyboardPrefs'
+import * as engine from '@/lib/music/engine'
+import { useMusic } from '@/stores/useMusic'
+import {
+  KEYBOARD_PREF, KEYBOARD_PERSPECTIVE, KEYBOARD_EVENT,
+  grantKeyboardConsent, readKeyboardConsent, setKeyboardEnabled,
+} from '@/components/ui/kit/serenity/keyboardPrefs'
+import { KeyboardConsentDialog } from '@/components/ui/kit/serenity/KeyboardConsent'
 
 const rgb = (v: [number, number, number]) => `rgb(${v.map((c) => Math.round(c * 255)).join(',')})`
 
@@ -363,8 +369,9 @@ export function AppearanceTab() {
           checked={settings.reduceMotion} onChange={(v) => update({ reduceMotion: v })} />
         <Switch label="OS widgets" description="Show small status widgets in ResearchEngineOS."
           checked={settings.osWidgets} onChange={(v) => update({ osWidgets: v })} />
-        <Switch label="Music control in the top bar" description="A small player in the top bar: press it to open play, skip, fast-forward and repeat. The tracks are generated in your browser, so nothing downloads. On by default."
+        <Switch label="Music control in the top bar" description="Shows a small player in the top bar while music is playing: the track, its artist, and the controls. The tracks are generated in your browser, so nothing downloads. On by default."
           checked={settings.showMusicControl !== false} onChange={(v) => update({ showMusicControl: v })} />
+        <MusicStart />
         <Switch label="Dynamic Island" description="Float the status island over every theme, not only ResearchEngineOS."
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
@@ -481,12 +488,38 @@ export function AppearanceTab() {
 }
 
 /**
+ * Starts the generated music. The top-bar control only appears while music plays,
+ * and browsers allow audio only after a click, so this button is the way in.
+ */
+function MusicStart() {
+  const playing = useMusic((s) => s.playing)
+  const now = useMusic((s) => s.now)
+  const off = useStore((s) => s.settings.showMusicControl === false)
+  return (
+    <div className="surface p-4 mt-4 flex flex-wrap items-center gap-3" style={{ borderRadius: 'var(--radius-card)' }} aria-label="Background music">
+      <div className="flex-1 min-w-[200px]">
+        <div className="text-[13px] font-medium" style={{ color: 'var(--text)' }}>Background music</div>
+        <div className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
+          {playing && now ? `Playing ${now.title} · ${now.artist}` : off ? 'The control is hidden, so music will play without it.' : 'Nothing is playing. Music starts only when you press play.'}
+        </div>
+      </div>
+      <button type="button" onClick={() => void engine.toggle()}
+        className="px-3 py-1.5 rounded-[10px] text-[12.5px] font-medium"
+        style={{ background: 'var(--primary)', color: '#fff' }}>
+        {playing ? 'Pause' : 'Play music'}
+      </button>
+    </div>
+  )
+}
+
+/**
  * Chat bubbles. Taste here is genuinely personal, so this is a real section
  * rather than a theme slot: the same theme should be able to carry an iMessage
  * thread and the app's own card without one of them being wrong.
  */
 function BubbleSection() {
   const [kbOn, setKbOn] = usePrefFlag(KEYBOARD_PREF, false)
+  const [kbAsk, setKbAsk] = useState(false)
   const [chatBackdrop, setChatBackdrop] = useChatBackdrop()
   const [kbPersp, setKbPersp] = useState<'fixed' | 'custom'>(() => {
     try { return (localStorage.getItem(KEYBOARD_PERSPECTIVE) as 'fixed' | 'custom') || 'fixed' } catch { return 'fixed' }
@@ -581,8 +614,15 @@ function BubbleSection() {
       <section className="surface p-4 mt-4" aria-label="3D keyboard" style={{ borderRadius: 'var(--radius-card)' }}>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[200px]">
-            <Switch label="3D keyboard" description="A mechanical keyboard that presses down as you type, with a click. Shown in the corner; off by default."
-              checked={kbOn} onChange={(v: boolean) => { setKbOn(v); try { localStorage.setItem(KEYBOARD_PREF, v ? '1' : '0'); window.dispatchEvent(new Event(KEYBOARD_EVENT)) } catch { /* private mode */ } }} />
+            <Switch label="3D keyboard" description="A mechanical keyboard that presses down as you type, with a click. Shown in the corner; off by default. It listens to keys only while it is on, and never outside it."
+              checked={kbOn} onChange={(v: boolean) => {
+                // The first time, the disclaimer comes first; the switch stays off until it is agreed to.
+                if (v && !readKeyboardConsent()) { setKbAsk(true); return }
+                setKbOn(v); setKeyboardEnabled(v)
+              }} />
+            {kbAsk && <KeyboardConsentDialog
+              onAgree={() => { grantKeyboardConsent(); setKbAsk(false); setKbOn(true); setKeyboardEnabled(true) }}
+              onCancel={() => setKbAsk(false)} />}
           </div>
           {kbOn && (
             <div className="flex flex-col gap-1.5">

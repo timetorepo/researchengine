@@ -60,5 +60,14 @@ check('volume clamps to 1', eng.getVolume() === 1)
 check('prev restarts a track past 3s', (() => { eng.selectTrack(2); advance(5); eng.prev(); return eng.position() < 1 && eng.currentIndex() === 2 })())
 check('prev goes back when near the start', (() => { eng.prev(); return eng.currentIndex() === 1 })())
 
+// Now-playing details: the top bar shows them only while music plays.
+check('every track is credited to an artist and album', eng.TRACKS.every((t) => t.artist && t.album))
+eng.pause()
+check('paused: no now-playing details, so the control hides', eng.nowPlaying() === null)
+await eng.play()
+const np = eng.nowPlaying()
+check('playing: details come from the current track', !!np && np.title === eng.TRACKS[eng.currentIndex()].title && np.artist === 'Research Engine', np ? `${np.title} · ${np.artist}` : 'null')
+check('playing: the position and number are live', !!np && np.number === eng.currentIndex() + 1 && np.count === eng.TRACKS.length && np.position >= 0 && np.position <= np.duration)
+
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS')
 process.exit(failures ? 1 : 0)
