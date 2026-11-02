@@ -13,10 +13,19 @@ import { motion, useReducedMotion, type HTMLMotionProps } from 'motion/react'
 import { BookOpen, ChevronDown, GraduationCap, Hammer, KeyRound, Search, ShieldCheck } from 'lucide-react'
 import TearTicket from '@/components/ui/reactbits/micro/TearTicket'
 import { ColourfulText } from '@/components/ui/aceternity/ColourfulText'
+import { ThreeDMarquee } from '@/components/ui/aceternity/ThreeDMarquee'
 
 const DISPLAY = "'Bricolage Grotesque', 'Inter', var(--font-ui), sans-serif"
 const GEOMETRIC = "'Plus Jakarta Sans', 'Inter', var(--font-ui), sans-serif"
 const INTER = "'Inter', var(--font-ui), sans-serif"
+
+// The app's own screenshots and public-domain paintings from the repository. Local files only.
+const MARQUEE_IMAGES = [
+  '/marquee/shot-1.webp', '/marquee/shot-2.webp', '/marquee/shot-3.webp', '/marquee/shot-4.webp',
+  '/marquee/reveal.webp', '/marquee/coding.webp', '/marquee/quiz.webp', '/marquee/workflow.webp',
+  '/art/van-gogh-self-portrait-1887.jpg', '/art/monet-impression-sunrise.jpg',
+  '/art/constable-cloud-study.jpg', '/art/home-hero.jpg',
+]
 
 const WHY = [
   { icon: ShieldCheck, title: 'Local-first', text: 'Your chats, notes and keys stay on this device. Nothing is sent until you ask a question.' },
@@ -125,6 +134,13 @@ export function Welcome({ onTear }: { onTear: () => void }) {
             author="Research Engine"
           />
         </div>
+      </section>
+
+      {/* The app, in motion: its own screenshots and paintings, in a 3D marquee.
+          Decorative, so it is hidden from assistive tech; nothing here is a control. */}
+      <section className="px-4 pb-10 max-w-[1100px] mx-auto" aria-label="Inside Research Engine">
+        <p className="text-center text-[12px] font-semibold tracking-[0.14em] uppercase mb-4" style={{ color: 'var(--text-3)' }}>Inside the app</p>
+        <ThreeDMarquee images={MARQUEE_IMAGES} />
       </section>
 
       {/* Why: three short claims, each one a sentence the app keeps. */}
