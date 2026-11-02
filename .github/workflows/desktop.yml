@@ -46,7 +46,16 @@ jobs:
         run: npm ci
 
       - name: Build the frontend and the backend bundle
-        run: npm run build
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+
+      - name: Explain a failed build
+        if: steps.build.outcome == 'failure'
+        shell: bash
+        run: node scripts/ci-annotate.mjs build.log "frontend/backend build failed"
 
       - name: Install Bun
         id: bun
@@ -55,6 +64,7 @@ jobs:
           bun-version: latest
 
       - name: Compile the sidecar (single-file server, no Node on the user's machine)
+        id: sidecar
         shell: bash
         env:
           BUN: ${{ steps.bun.outputs['bun-path'] }}
@@ -64,7 +74,7 @@ jobs:
           node scripts/desktop-sidecar.mjs --target win-x64 2>&1 | tee sidecar.log
 
       - name: Explain a failed sidecar build
-        if: failure()
+        if: steps.sidecar.outcome == 'failure'
         shell: bash
         run: node scripts/ci-annotate.mjs sidecar.log "sidecar build failed"
 
@@ -133,7 +143,16 @@ jobs:
         run: npm ci
 
       - name: Build the frontend and the backend bundle
-        run: npm run build
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+
+      - name: Explain a failed build
+        if: steps.build.outcome == 'failure'
+        shell: bash
+        run: node scripts/ci-annotate.mjs build.log "frontend/backend build failed"
 
       - name: Install Bun
         id: bun
@@ -142,6 +161,7 @@ jobs:
           bun-version: latest
 
       - name: Compile the sidecar
+        id: sidecar
         env:
           BUN: ${{ steps.bun.outputs['bun-path'] }}
         run: |
@@ -150,7 +170,7 @@ jobs:
           node scripts/desktop-sidecar.mjs --target linux-x64 2>&1 | tee sidecar.log
 
       - name: Explain a failed sidecar build
-        if: failure()
+        if: steps.sidecar.outcome == 'failure'
         run: node scripts/ci-annotate.mjs sidecar.log "sidecar build failed"
 
       - name: Prove the sidecar answers
