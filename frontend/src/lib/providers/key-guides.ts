@@ -156,6 +156,20 @@ export const KEY_GUIDES: Record<ProviderId, KeyGuide> = {
     free: 'The gateway lists free-tier models; the rest bill per use.',
     tip: 'Kilo Code is a gateway, not one model: pick any model it serves from the model list after the key is saved.',
   },
+  experiential: {
+    provider: 'experiential',
+    console: { label: 'platform.experientiallabs.ai', url: 'https://platform.experientiallabs.ai/' },
+    steps: [
+      'Sign in at platform.experientiallabs.ai (or make an account).',
+      'Open the API keys section of the dashboard.',
+      'Create a gateway key. It starts with xpl_ and is shown once, so copy it now.',
+      'Paste it here.',
+    ],
+    shape: 'A key that starts with xpl_.',
+    cost: 'Each routed model is billed at its provider’s list price. The gateway states no token markup.',
+    free: 'The public pages do not list a free tier. The dashboard shows what your account includes.',
+    tip: 'Experiential Labs is a gateway, not one model. Pick any model it serves from the model list after saving the key.',
+  },
   together: {
     provider: 'together',
     console: { label: 'api.together.ai', url: 'https://api.together.ai/settings/api-keys' },

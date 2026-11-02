@@ -51,6 +51,10 @@ export const PROVIDERS: ProviderMeta[] = [
     needsKey: true, hint: 'Kilo Code gateway key, from the Kilo dashboard — one key for many models',
   },
   {
+    id: 'experiential', name: 'Experiential Labs', kind: 'openai', baseUrl: 'https://api.experientiallabs.ai/v1',
+    needsKey: true, hint: 'Key starts with xpl_, from platform.experientiallabs.ai — one OpenAI-compatible gateway for many models',
+  },
+  {
     id: 'together', name: 'Together', kind: 'openai', baseUrl: 'https://api.together.xyz/v1', needsKey: true,
   },
   {
