@@ -9,7 +9,7 @@
  */
 import { providerById } from '@/lib/providers/registry'
 import { usableKey } from '@/lib/providers/keys'
-import { streamToCallback } from '@/lib/providers/stream'
+import { streamToCallback, usageOfError } from '@/lib/providers/stream'
 import type { Settings } from '@/types'
 
 export const COUNCIL_MAX = 4
@@ -147,8 +147,14 @@ export async function runCouncilMember(
       reported: !!res.usage?.reported,
     }
   } catch (e: any) {
-    if (signal.aborted) throw e
-    return { ...base, text: text.trim(), ok: false, error: String(e?.message ?? e) }
+    // A stop still bills what this member had already used (the caller charges it).
+    const u = usageOfError(e)
+    const spent = { promptTokens: u?.prompt ?? 0, completionTokens: u?.completion ?? 0, reported: !!u?.reported }
+    if (signal.aborted) {
+      if (e && typeof e === 'object') (e as { usage?: unknown }).usage = u
+      throw e
+    }
+    return { ...base, ...spent, text: text.trim(), ok: false, error: String(e?.message ?? e) }
   }
 }
 

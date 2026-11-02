@@ -13,7 +13,7 @@ import { pruneContext, estimateTokens } from '@/lib/flow/pruner'
 import { LIMITS, clip, compactToolRounds } from '@/lib/context/budget'
 import { assertBudget, recordTokens } from '@/lib/usage/guard'
 import { cacheGet, cacheSet } from '@/lib/flow/cache'
-import { streamToCallback, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
+import { streamToCallback, usageOfError, ProviderError, type StreamToolCall } from '@/lib/providers/stream'
 import { personaText, CODING_PERSONA_SLUG } from '@/lib/personas'
 import { packText } from '@/lib/skills/packs'
 import { freeCandidates, isFailoverWorthy, pickFreeModel, type FreeCandidate } from '@/lib/providers/free'
@@ -412,6 +412,30 @@ export async function runChat(opts: RunOptions): Promise<void> {
   let usagePrompt = 0
   let usageCompletion = 0
   let usageReported = false
+  // Every request is charged once, as it settles. A stream that is stopped or
+  // fails mid-answer still consumed the tokens it produced, so it is billed too.
+  const charge = (prompt: number, completion: number) => {
+    const total = Math.max(0, Math.round(prompt)) + Math.max(0, Math.round(completion))
+    if (total > 0) { useStore.getState().addTokensUsed(total); recordTokens(total) }
+  }
+  const tally = (prompt: number, completion: number, reported: boolean) => {
+    usagePrompt += prompt
+    usageCompletion += completion
+    if (reported) usageReported = true
+    charge(prompt, completion)
+  }
+  // streamToCallback, with the round billed whether it finished, failed or was stopped.
+  const streamBilled = async (args: Parameters<typeof streamToCallback>[0], onChunk: (t: string) => void) => {
+    try {
+      const res = await streamToCallback(args, onChunk)
+      tally(res.usage.prompt, res.usage.completion, res.usage.reported)
+      return res
+    } catch (e) {
+      const u = usageOfError(e)
+      if (u) tally(u.prompt, u.completion, u.reported)
+      throw e
+    }
+  }
   let usedDemo = false
   let lastIslandUpdate = 0
   const bumpIsland = () => {
@@ -538,16 +562,22 @@ export async function runChat(opts: RunOptions): Promise<void> {
           })
         } else {
           trace(`council · ${members.length} model${members.length === 1 ? '' : 's'}`, 'ok')
-          const drafts = await Promise.all(members.map((id) => runCouncilMember(id, wire, shieldedSystem.text, settings, controller.signal)))
+          // Each member settles on its own, so a stop mid-council still bills what every member used.
+          const outcomes = await Promise.all(members.map((id) =>
+            runCouncilMember(id, wire, shieldedSystem.text, settings, controller.signal).then((d) => ({ d }), (e: unknown) => ({ e }))))
+          for (const o of outcomes) {
+            if ('d' in o) tally(o.d.promptTokens, o.d.completionTokens, o.d.reported)
+            else {
+              const u = usageOfError(o.e)
+              if (u) tally(u.prompt, u.completion, u.reported)
+            }
+          }
+          const stopped = outcomes.find((o): o is { e: unknown } => 'e' in o)
+          if (stopped) throw stopped.e
+          const drafts = outcomes.map((o) => (o as { d: Awaited<ReturnType<typeof runCouncilMember>> }).d)
           useStore.getState().updateMessage(chatId, asstId, {
             council: drafts.map((d) => ({ model: d.model, label: d.label, text: d.text, ok: d.ok, error: d.error, role: d.role })),
           })
-          // Every member's tokens count toward this answer, so the cost is never hidden.
-          for (const d of drafts) {
-            usagePrompt += d.promptTokens
-            usageCompletion += d.completionTokens
-            if (d.reported) usageReported = true
-          }
           const block = councilBlock(drafts)
           if (block) {
             const shieldedBlock = shieldOutbound(block)
@@ -558,7 +588,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
       }
       for (;;) {
         round++
-        const res = await streamToCallback({
+        const res = await streamBilled({
           providerId, model, apiKey,
           baseUrl: pconf?.baseUrl || undefined,
           // Our own patience for this provider, in seconds, set by the user.
@@ -575,9 +605,6 @@ export async function runChat(opts: RunOptions): Promise<void> {
         }, pushChunk)
         promptTokens = res.promptEstimate
         completionTokens += res.completionTokens
-        usagePrompt += res.usage?.prompt ?? res.promptEstimate
-        usageCompletion += res.usage?.completion ?? res.completionTokens
-        if (res.usage?.reported) usageReported = true
         const calls = res.toolCalls ?? []
         if (!toolsAllowed || !calls.length || round >= MAX_TOOL_ROUNDS) break
         current = [...current, { role: 'assistant', content: '', toolCalls: calls }]
@@ -681,8 +708,8 @@ function finish(
     reported: !!ctx.usageReported,
   }
   usage.total = usage.prompt + usage.completion
-  if (usage.total > 0) store.addTokensUsed(usage.total)
-  if (usage.total > 0 && !ctx.usedDemo) recordTokens(usage.total)
+  // Real requests were charged as they settled (see charge); the on-device demo never was.
+  if (usage.total > 0 && ctx.usedDemo) store.addTokensUsed(usage.total)
 
   const followUps = DEMO_FOLLOW_UPS
     .sort(() => Math.random() - 0.5)

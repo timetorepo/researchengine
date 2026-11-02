@@ -1,7 +1,7 @@
 // Reusable one-shot generation used by Agent Flood, synthesis and any future
 // multi-agent flow. Runs the configured provider for real when credentials
 // exist; otherwise falls back to the clearly-labeled on-device engine.
-import { streamToCallback, ProviderError } from '@/lib/providers/stream'
+import { streamToCallback, usageOfError, ProviderError } from '@/lib/providers/stream'
 import { providerById } from '@/lib/providers/registry'
 import { demoAnswer } from '@/lib/providers/demo'
 import { usableKey } from '@/lib/providers/keys'
@@ -51,7 +51,9 @@ export async function generateText(req: GenerateRequest): Promise<GenerateResult
     assertBudget()
     useStore.getState().logConnection(meta!.baseUrl, `${meta!.name} · ${model}`, estimateTokens(req.prompt) * 4)
     let text = ''
-    const res = await streamToCallback({
+    let res
+    try {
+    res = await streamToCallback({
       providerId, model, apiKey,
       baseUrl: pconf?.baseUrl || undefined,
       system: shieldedSystem.text,
@@ -63,6 +65,12 @@ export async function generateText(req: GenerateRequest): Promise<GenerateResult
       text += chunk
       req.onChunk?.(chunk)
     })
+    } catch (e) {
+      // A failed or stopped generation still used tokens: bill what it used.
+      const u = usageOfError(e)
+      if (u) recordTokens(u.prompt + u.completion)
+      throw e
+    }
     recordTokens(res.promptEstimate + res.completionTokens)
     return {
       text,

@@ -79,7 +79,7 @@ async function readSSE(
   onData: (json: any) => boolean,
   onEvent?: (evt: string, json: any) => boolean,
   onActivity?: () => void,
-) {
+): Promise<boolean> {
   const reader = res.body!.getReader()
   const td = new TextDecoder()
   let buf = ''
@@ -115,10 +115,28 @@ async function readSSE(
   // The stream can end without a trailing newline; the last event still counts.
   if (!finished) {
     buf += td.decode()
-    if (buf.trim()) handle(buf)
+    if (buf.trim() && handle(buf)) finished = true
   }
   // Release the connection when we stopped early (e.g. message_stop).
   if (finished) { try { await reader.cancel() } catch { /* already closed */ } }
+  return finished
+}
+
+/** Text from a delta: most providers send a string, some send content parts. */
+function textOf(v: any): string {
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v.map((p) => (typeof p === 'string' ? p : typeof p?.text === 'string' ? p.text : '')).join('')
+  return ''
+}
+
+/** A failure carries what the request had already cost, so the caller can bill it. */
+function attachUsage(e: unknown, usage: TokenUsage) {
+  if (e && typeof e === 'object') (e as { usage?: TokenUsage }).usage = usage
+}
+
+/** The usage a thrown error carried (streams cut short still consumed tokens). */
+export function usageOfError(e: unknown): TokenUsage | undefined {
+  return e && typeof e === 'object' ? (e as { usage?: TokenUsage }).usage : undefined
 }
 
 async function extractError(res: Response): Promise<string> {
@@ -148,6 +166,22 @@ export async function streamToCallback(
   // Filled in by whichever dialect the provider speaks; null means "it did not
   // tell us", and the caller falls back to an estimate.
   let reported = null as { prompt: number; completion: number } | null
+  let ended = false // the provider sent its own end marker
+  let thoughts = 0
+  const emitThinking = (t: string) => { thoughts += t.length; req.onThinking?.(t) }
+  const snapshot = (): TokenUsage => {
+    const sysTokens = Math.round(req.system.length / 4)
+    const msgTokens = Math.round(req.messages.reduce((a, m) => a + (
+      typeof m.content === 'string' ? m.content.length
+        : Array.isArray(m.content) ? m.content.reduce((x: number, p: any) => x + (p.type === 'text' ? (p.text?.length ?? 0) : 2000), 0)
+        : 0
+    ), 0) / 4)
+    const promptEstimate = sysTokens + msgTokens
+    const completionEstimate = Math.max(1, Math.round(completionChars / 4))
+    return reported
+      ? { prompt: reported.prompt, completion: reported.completion, total: reported.prompt + reported.completion, reported: true }
+      : { prompt: promptEstimate, completion: completionEstimate, total: promptEstimate + completionEstimate, reported: false }
+  }
   const takeOpenAIUsage = (u: any) => {
     if (!u) return
     const prompt = Number(u.prompt_tokens ?? u.input_tokens ?? 0)
@@ -155,6 +189,7 @@ export async function streamToCallback(
     if (prompt || completion) reported = { prompt, completion }
   }
 
+  try {
   if (meta.id === 'ollama') {
     // localhost — no CORS concerns, call directly
     const plain = req.messages.map((m) => {
@@ -186,6 +221,7 @@ export async function streamToCallback(
       if (json.error) throw new ProviderError('Ollama', String(json.error))
       const t = json.message?.content
       if (t) { completionChars += t.length; onChunk(t) }
+      if (json.done) ended = true
       // Ollama reports its own counts on the last frame.
       if (json.done && (json.prompt_eval_count || json.eval_count)) {
         reported = { prompt: Number(json.prompt_eval_count ?? 0), completion: Number(json.eval_count ?? 0) }
@@ -243,7 +279,7 @@ export async function streamToCallback(
         let toolAcc: { id: string; name: string; json: string } | null = null
         let anthropicIn = 0
         let anthropicOut = 0
-        await readSSE(res, meta.name, () => false, (_evt, json) => {
+        const done = await readSSE(res, meta.name, () => false, (_evt, json) => {
           if (json.type === 'message_start' && json.message?.usage) {
             // input tokens are only known up front; output arrives at the end
             anthropicIn = Number(json.message.usage.input_tokens ?? 0)
@@ -261,17 +297,19 @@ export async function streamToCallback(
             toolCalls.push({ id: toolAcc.id, name: toolAcc.name, arguments: toolAcc.json || '{}' })
             toolAcc = null
           } else if (json.type === 'content_block_delta' && json.delta?.type === 'thinking_delta' && json.delta.thinking) {
-            req.onThinking?.(json.delta.thinking)
+            emitThinking(json.delta.thinking)
           } else if (json.type === 'content_block_delta' && json.delta?.text) {
             completionChars += json.delta.text.length
             chunk(json.delta.text)
           }
           return json.type === 'message_stop'
         }, touch)
+        ended = ended || done
       } else if (meta.kind === 'gemini') {
         // Gemini SSE: each data frame carries candidates[0].content.parts[].text.
         let n = 0
-        await readSSE(res, meta.name, (json) => {
+        const done = await readSSE(res, meta.name, (json) => {
+          if (json.candidates?.[0]?.finishReason) ended = true
           const um = json.usageMetadata
           if (um) {
             const prompt = Number(um.promptTokenCount ?? 0)
@@ -285,19 +323,21 @@ export async function streamToCallback(
                 const thoughtSignature = p.thoughtSignature ?? p.thought_signature
                 toolCalls.push({ id: `gmc_${++n}`, name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}), thoughtSignature })
               } else if (typeof p?.text === 'string' && p.text) {
-                if (p.thought) req.onThinking?.(p.text)
+                if (p.thought) emitThinking(p.text)
                 else { completionChars += p.text.length; chunk(p.text) }
               }
             }
           }
           return false
         }, undefined, touch)
+        ended = ended || done
       } else {
         // OpenAI-dialect tool_calls arrive as incremental chunks keyed by index.
         const acc = new Map<number, { id: string; name: string; args: string; thoughtSignature?: string }>()
-        await readSSE(res, meta.name, (json) => {
+        const done = await readSSE(res, meta.name, (json) => {
           // With stream_options.include_usage the last frame carries the counts.
           takeOpenAIUsage(json.usage)
+          if (json.choices?.[0]?.finish_reason) ended = true
           const delta = json.choices?.[0]?.delta
           if (Array.isArray(delta?.tool_calls)) {
             for (const tc of delta.tool_calls) {
@@ -313,12 +353,13 @@ export async function streamToCallback(
           }
           // NIM sends many chunks with delta.content null (and reasoning
           // models emit reasoning_content separately) — only count real text.
-          const text = delta?.content
+          const text = textOf(delta?.content) || textOf(json.choices?.[0]?.message?.content)
           if (text) { completionChars += text.length; chunk(text) }
           const think = delta?.reasoning_content ?? delta?.reasoning ?? delta?.reasoning_text
-          if (typeof think === 'string' && think) req.onThinking?.(think)
+          if (typeof think === 'string' && think) emitThinking(think)
           return false
         }, undefined, touch)
+        ended = ended || done
         for (const cur of acc.values()) {
           if (cur.name) toolCalls.push({ id: cur.id || `tc_${Math.random().toString(36).slice(2, 8)}`, name: cur.name, arguments: cur.args || '{}', thoughtSignature: cur.thoughtSignature })
         }
@@ -345,21 +386,22 @@ export async function streamToCallback(
       req.signal?.removeEventListener('abort', onOuter)
     }
   }
+  // An answer that produced nothing at all (no text, no tool call, no reasoning)
+  // is an error, not a silent blank bubble. It is still counted as spent below.
+  if (!completionChars && !toolCalls.length && !thoughts) {
+    throw new ProviderError(meta.name, ended
+      ? 'The provider finished without returning any answer text. Try again, or pick another model.'
+      : 'The provider closed the connection before sending any answer text. Try again.')
+  }
+  } catch (e: unknown) {
+    attachUsage(e, snapshot())
+    throw e
+  }
 
-  const sysTokens = Math.round(req.system.length / 4)
-  const msgTokens = Math.round(req.messages.reduce((a, m) => a + (
-    typeof m.content === 'string' ? m.content.length
-      : Array.isArray(m.content) ? m.content.reduce((x: number, p: any) => x + (p.type === 'text' ? (p.text?.length ?? 0) : 2000), 0)
-      : 0
-  ), 0) / 4)
-  const promptEstimate = sysTokens + msgTokens
-  const completionEstimate = Math.max(1, Math.round(completionChars / 4))
-  const usage: TokenUsage = reported
-    ? { prompt: reported.prompt, completion: reported.completion, total: reported.prompt + reported.completion, reported: true }
-    : { prompt: promptEstimate, completion: completionEstimate, total: promptEstimate + completionEstimate, reported: false }
+  const usage = snapshot()
   return {
-    promptEstimate: usage.reported ? usage.prompt : promptEstimate,
-    completionTokens: usage.reported ? usage.completion : completionEstimate,
+    promptEstimate: usage.prompt,
+    completionTokens: usage.completion,
     toolCalls,
     usage,
   }

@@ -299,9 +299,23 @@ chatRoutes.post('/', async (c) => {
     return c.json({ error: maskSecrets(msg) }, upstream.status as any)
   }
 
-  // Pass the SSE stream straight through.
   c.header('Content-Type', 'text/event-stream')
   c.header('Cache-Control', 'no-cache')
+
+  // Some models ignore stream:true and answer with one plain JSON body. Turn it
+  // into the same SSE the client reads, so the text and the usage still arrive.
+  const isSSE = /text\/event-stream/i.test(upstream.headers.get('content-type') ?? '')
+  if (!isSSE && kind !== 'gemini') {
+    const raw = await upstream.text().catch(() => '')
+    let json: any = null
+    try { json = JSON.parse(raw) } catch { /* not JSON either */ }
+    return streamSSE(c, async (stream) => {
+      await stream.write(plainToSSE(kind, json, raw))
+    })
+  }
+
+  // Pass the SSE stream straight through. If the upstream breaks mid-answer,
+  // say so in-band, so the client shows the failure instead of a short answer.
   return streamSSE(c, async (stream) => {
     const reader = upstream.body!.getReader()
     const td = new TextDecoder()
@@ -314,6 +328,38 @@ chatRoutes.post('/', async (c) => {
       // Flush a multi-byte character split across the final chunk.
       const tail = td.decode()
       if (tail) await stream.write(tail)
-    } catch { /* client went away — upstream already aborted via signal */ }
+    } catch (err: any) {
+      // Client went away: the upstream is already aborted via the signal.
+      if (c.req.raw.signal.aborted) return
+      const msg = maskSecrets(String(err?.message ?? 'The provider connection broke off.'))
+      await stream.write(`event: error\ndata: ${JSON.stringify({ error: { message: `The connection to the provider broke off mid-answer: ${msg}` } })}\n\n`).catch(() => {})
+    }
   })
 })
+
+/** A plain (non-stream) JSON answer, re-expressed as the SSE frames the client reads. */
+function plainToSSE(kind: string, json: any, raw: string): string {
+  const err = json?.error
+  if (err || !json) {
+    const message = typeof err === 'string' ? err : (err?.message ?? json?.detail ?? json?.message ?? (raw.slice(0, 200) || 'The provider returned an empty answer.'))
+    return `event: error\ndata: ${JSON.stringify({ error: { message: maskSecrets(String(message)) } })}\n\n`
+  }
+  const frame = (o: unknown) => `data: ${JSON.stringify(o)}\n\n`
+  if (kind === 'anthropic') {
+    const text = (Array.isArray(json.content) ? json.content : []).filter((b: any) => b?.type === 'text').map((b: any) => b.text ?? '').join('')
+    const u = json.usage ?? {}
+    return frame({ type: 'message_start', message: { usage: { input_tokens: u.input_tokens ?? 0, output_tokens: 0 } } })
+      + frame({ type: 'content_block_delta', delta: { type: 'text_delta', text } })
+      + frame({ type: 'message_delta', usage: { output_tokens: u.output_tokens ?? 0 } })
+      + frame({ type: 'message_stop' })
+  }
+  const choice = json.choices?.[0] ?? {}
+  const message = choice.message ?? {}
+  const text = typeof message.content === 'string' ? message.content
+    : Array.isArray(message.content) ? message.content.map((p: any) => p?.text ?? '').join('') : ''
+  const toolCalls = Array.isArray(message.tool_calls) && message.tool_calls.length
+    ? message.tool_calls.map((t: any, i: number) => ({ ...t, index: i })) : undefined
+  return frame({ choices: [{ delta: { content: text, ...(toolCalls ? { tool_calls: toolCalls } : {}) } }] })
+    + frame({ choices: [{ delta: {}, finish_reason: choice.finish_reason ?? 'stop' }], usage: json.usage })
+    + 'data: [DONE]\n\n'
+}

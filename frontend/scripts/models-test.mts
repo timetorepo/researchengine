@@ -179,8 +179,8 @@ check('Gemini usage is read from usageMetadata', streamSrc.includes('usageMetada
 check('Ollama usage is read from its final frame', streamSrc.includes('prompt_eval_count'))
 check('a provider that reports nothing is marked as estimated',
   streamSrc.includes('reported: false') && streamSrc.includes('reported: true'))
-check('the app totals across tool rounds', runChatSrc.includes('usagePrompt += res.usage?.prompt'))
-check('a mixed answer is reported only if any round reported', runChatSrc.includes('if (res.usage?.reported) usageReported = true'))
+check('the app totals across tool rounds', runChatSrc.includes('tally(res.usage.prompt, res.usage.completion, res.usage.reported)'))
+check('a mixed answer is reported only if any round reported', runChatSrc.includes('if (reported) usageReported = true'))
 check('the total is added to the session counter', runChatSrc.includes('store.addTokensUsed(usage.total)'))
 check('and stored on the message', runChatSrc.includes('usage,') && src('../src/types/index.ts').includes('usage?: { prompt: number; completion: number; total: number; reported: boolean }'))
 check('the message shows it', /formatTokens\(usage\.total\)[\s\S]{0,20}tokens/.test(src('../src/components/chat/Message.tsx')))
