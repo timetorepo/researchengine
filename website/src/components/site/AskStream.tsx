@@ -21,6 +21,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { CornerDownLeft, Paperclip, Search, Sparkles } from 'lucide-react'
 import { TypewriterEffect } from '@/components/aceternity/TypewriterEffect'
 import { cn } from '@/lib/utils'
+import { VERSION } from '@/lib/release'
 
 interface Exchange {
   id: string
@@ -58,7 +59,7 @@ export const EXCHANGES: Exchange[] = [
     answer:
       'The search now reports why a source failed instead of showing an empty panel, and the exit animation hides the text it was typing. Your library was not part of the swap: updates replace the code, verify the download against its published fingerprint first, and put the old version back if the new one cannot start.',
     sources: [
-      { label: 'Release notes', note: 'v0.46.0-beta.1' },
+      { label: 'Release notes', note: `v${VERSION}` },
       { label: 'Checksum', note: 'verified before unpacking' },
       { label: 'Rollback', note: 'automatic' },
     ],

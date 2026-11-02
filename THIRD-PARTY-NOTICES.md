@@ -166,3 +166,14 @@ Both paintings are public-domain landscapes from Wikimedia Commons and its linke
 | --- | --- | --- | --- |
 | `frontend/public/art/home-hero.jpg` | Thomas Cole (1801–1848), *The Oxbow* (1836), Metropolitan Museum of Art | https://artincontext.org/the-oxbow-by-thomas-cole/ (image of the public-domain painting) | Public domain |
 | `frontend/public/art/codersa-backdrop.jpg` | Frederic Edwin Church (1826–1900), *Twilight in the Wilderness* (1860), Cleveland Museum of Art | https://en.wikipedia.org/wiki/Frederic_Edwin_Church | Public domain |
+
+## Mechanical keyboard, from Serenity UI
+
+`frontend/src/components/ui/kit/serenity/SerenityKeyboard.tsx` is vendored from
+the Serenity UI mechanical keyboard component. Upstream is
+https://github.com/ayushmxxn/serenity-ui (`app/components/serenity/mechanical-keyboard.tsx`,
+commit `286ba243d78b73fea48132fba095149ad089f53f`, Copyright (c) 2026 Ayushmaan Singh),
+released under the MIT licence. The keyboard design is by Work Louder
+(https://worklouder.cc). The local changes are listed in the file header: an
+`orbit` prop, password-field key skipping, and the removal of the Next.js
+`"use client"` directive. Its 3D rendering uses `@react-three/drei` (MIT).

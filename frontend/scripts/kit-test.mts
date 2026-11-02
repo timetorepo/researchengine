@@ -61,7 +61,7 @@ import { AiSidebar } from '../src/components/ui/kit/beui/AiSidebar'
 import { ExpandingArrowButton } from '../src/components/ui/kit/beui/ExpandingArrowButton'
 import { MorphingSearch } from '../src/components/ui/kit/beui/MorphingSearch'
 import { OverflowActions } from '../src/components/ui/kit/beui/OverflowActions'
-import { MechanicalKeyboard } from '../src/components/ui/kit/serenity/MechanicalKeyboard'
+import { MechanicalKeyboard } from '../src/components/ui/kit/serenity/SerenityKeyboard'
 
 let passed = 0
 const check = (name: string, fn: () => void) => {

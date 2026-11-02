@@ -1,6 +1,10 @@
-// The floating keyboard panel shown when Settings → Appearance → "3D keyboard"
-// is on. Pick Fixed or Custom perspective; Custom exposes tilt and turn sliders.
-import { lazy, Suspense, useEffect, useState } from 'react'
+// The floating keyboard panel, shown when Settings → Appearance → "3D keyboard" is on.
+//
+// • Drag the header to put it anywhere on screen. The spot is remembered.
+// • Fixed (top): a view from above, no orbit. Custom: drag the scene to any angle.
+// • It listens to keys only while it is on AND the person has agreed to the
+//   disclaimer (KeyboardConsent.tsx). Nothing mounts before that.
+import { lazy, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { ChevronDown, ChevronUp, Keyboard } from 'lucide-react'
 import {
   KEYBOARD_EVENT, KEYBOARD_PERSPECTIVE,
@@ -11,16 +15,37 @@ import { KeyboardConsentDialog } from './KeyboardConsent'
 
 // The 3D scene is its own chunk. It loads the first time the keyboard is shown, so a
 // person who never turns it on never downloads three.js.
-const MechanicalKeyboard = lazy(() => import('./MechanicalKeyboard').then((m) => ({ default: m.MechanicalKeyboard })))
+const SerenityKeyboard = lazy(() => import('./SerenityKeyboard').then((m) => ({ default: m.MechanicalKeyboard })))
 
 export { KEYBOARD_EVENT, KEYBOARD_PERSPECTIVE, KEYBOARD_PREF } from './keyboardPrefs'
+
+const POSITION = 'kb3d.position'
+const WIDTH = 360
+const SCENE_HEIGHT = 220
+
+type Pos = { x: number; y: number }
+
+function readPosition(): Pos | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(POSITION) || 'null')
+    return v && Number.isFinite(v.x) && Number.isFinite(v.y) ? { x: v.x, y: v.y } : null
+  } catch { return null }
+}
+
+/** Keeps the panel on screen: the header always stays reachable. */
+function clamp(p: Pos, height: number): Pos {
+  const maxX = Math.max(0, window.innerWidth - WIDTH)
+  const maxY = Math.max(0, window.innerHeight - 40)
+  return { x: Math.min(Math.max(0, p.x), maxX), y: Math.min(Math.max(0, p.y), Math.max(0, maxY - height + 40)) }
+}
 
 export function MechanicalKeyboardDock() {
   const [enabled, setEnabled] = useState(readEnabled)
   const [perspective, setPerspective] = useState<Perspective>(readPerspective)
-  const [tilt, setTilt] = useState(0.6)
-  const [rotation, setRotation] = useState(0)
   const [open, setOpen] = useState(true)
+  const [pos, setPos] = useState<Pos>(() => readPosition() ?? { x: 12, y: Math.max(12, window.innerHeight - SCENE_HEIGHT - 80) })
+  const drag = useRef<{ dx: number; dy: number; id: number } | null>(null)
+  const panel = useRef<HTMLElement>(null)
   // A keyboard turned on before the disclaimer existed has no consent on record. Ask
   // before it listens to anything; declining switches it off again.
   const [askConsent, setAskConsent] = useState(() => readEnabled() && !readKeyboardConsent())
@@ -31,7 +56,12 @@ export function MechanicalKeyboardDock() {
       if (readEnabled() && !readKeyboardConsent()) setAskConsent(true)
     }
     window.addEventListener(KEYBOARD_EVENT, sync)
-    return () => window.removeEventListener(KEYBOARD_EVENT, sync)
+    const resize = () => setPos((p) => clamp(p, panel.current?.offsetHeight ?? 0))
+    window.addEventListener('resize', resize)
+    return () => {
+      window.removeEventListener(KEYBOARD_EVENT, sync)
+      window.removeEventListener('resize', resize)
+    }
   }, [])
 
   if (askConsent && enabled) {
@@ -52,10 +82,31 @@ export function MechanicalKeyboardDock() {
     window.dispatchEvent(new Event(KEYBOARD_EVENT))
   }
 
+  const onDown = (e: ReactPointerEvent<HTMLElement>) => {
+    // Buttons in the header keep their own clicks; only the rest of it drags.
+    if ((e.target as HTMLElement).closest('button, [role="group"]')) return
+    drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y, id: e.pointerId }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    setPos(clamp({ x: e.clientX - d.dx, y: e.clientY - d.dy }, panel.current?.offsetHeight ?? 0))
+  }
+  const onUp = (e: ReactPointerEvent<HTMLElement>) => {
+    if (!drag.current || drag.current.id !== e.pointerId) return
+    drag.current = null
+    try { localStorage.setItem(POSITION, JSON.stringify(pos)) } catch { /* private mode */ }
+  }
+
   return (
-    <section aria-label="3D keyboard" className="fixed bottom-3 left-3 z-40 w-[360px] max-w-[calc(100vw-24px)] rounded-[16px] overflow-hidden"
-      style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 18px 40px -20px rgba(0,0,0,0.5)' }}>
-      <header className="flex items-center gap-2 px-3 py-2 text-[12px]" style={{ color: 'var(--text-2)' }}>
+    <section ref={panel} aria-label="3D keyboard"
+      className="fixed z-40 rounded-[16px] overflow-hidden"
+      style={{ left: pos.x, top: pos.y, width: WIDTH, maxWidth: 'calc(100vw - 24px)', background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 18px 40px -20px rgba(0,0,0,0.5)' }}>
+      <header className="flex items-center gap-2 px-3 py-2 text-[12px] cursor-grab active:cursor-grabbing touch-none select-none"
+        style={{ color: 'var(--text-2)' }}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        title="Drag to move the keyboard">
         <Keyboard size={13} aria-hidden style={{ color: 'var(--primary)' }} />
         <span className="font-medium" style={{ color: 'var(--text)' }}>Keyboard</span>
         <div role="group" aria-label="Perspective" className="ml-auto flex rounded-[8px] p-0.5" style={{ background: 'var(--elevated)' }}>
@@ -70,21 +121,14 @@ export function MechanicalKeyboardDock() {
         </button>
       </header>
       {open && (
-        <>
-          <Suspense fallback={<div className="h-[170px]" aria-hidden />}>
-            <MechanicalKeyboard perspective={perspective} tilt={tilt} rotation={rotation} height={170} />
+        <div style={{ height: SCENE_HEIGHT }} className="relative">
+          <Suspense fallback={<div className="h-full" aria-hidden />}>
+            <SerenityKeyboard interactive orbit={perspective === 'custom'} />
           </Suspense>
           {perspective === 'custom' && (
-            <div className="grid grid-cols-2 gap-3 px-3 pb-3 text-[11px]" style={{ color: 'var(--text-2)' }}>
-              <label className="flex flex-col gap-1">Tilt
-                <input type="range" min={0} max={1.4} step={0.02} value={tilt} onChange={(e) => setTilt(Number(e.target.value))} />
-              </label>
-              <label className="flex flex-col gap-1">Turn
-                <input type="range" min={-0.6} max={0.6} step={0.02} value={rotation} onChange={(e) => setRotation(Number(e.target.value))} />
-              </label>
-            </div>
+            <p className="absolute bottom-1 inset-x-0 text-center text-[10.5px] pointer-events-none" style={{ color: 'var(--text-3)' }}>Drag the keyboard to change the angle</p>
           )}
-        </>
+        </div>
       )}
     </section>
   )

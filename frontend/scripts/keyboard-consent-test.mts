@@ -29,9 +29,9 @@ prefs.setKeyboardEnabled(true)
 check('agreement is remembered, so turning on again does not ask again', prefs.readKeyboardConsent() === true && prefs.keyboardListening() === true)
 
 // The listener itself must check the same rule on every key, and skip password fields.
-const kb = readFileSync(new URL('../src/components/ui/kit/serenity/MechanicalKeyboard.tsx', import.meta.url), 'utf8')
-check('the key listener checks consent on every key', /if \(!keyboardListening\(\)\) return/.test(kb))
-check('the key listener ignores password fields', /type === 'password'\) return/.test(kb))
+const kb = readFileSync(new URL('../src/components/ui/kit/serenity/SerenityKeyboard.tsx', import.meta.url), 'utf8')
+check('the key listener ignores password fields', /if \(isPasswordField\(e\.target\)\) return/.test(kb) && /type === "password"/.test(kb))
+check('the vendored keyboard only adds orbit controls when asked', /interactive && orbit && \(/.test(kb))
 const dock = readFileSync(new URL('../src/components/ui/kit/serenity/MechanicalKeyboardDock.tsx', import.meta.url), 'utf8')
 check('the dock shows the disclaimer before anything listens', /askConsent && enabled/.test(dock) && /!keyboardListening\(\)\) return null/.test(dock))
 const app = readFileSync(new URL('../src/components/settings/AppearanceTab.tsx', import.meta.url), 'utf8')
