@@ -7,6 +7,7 @@ import { ThinkingOrb } from 'thinking-orbs'
 import { STAGE_LABELS, type FlowStage } from '@/lib/flow/engine'
 import { useStore } from '@/stores/useStore'
 import { themeKind } from '@/lib/themes/meta'
+import { TypingText } from '@/components/ui/hyperiux/typing-text'
 
 const ORDER: FlowStage[] = ['understand', 'search', 'read-sources', 'retrieve', 'think', 'compose']
 
@@ -55,6 +56,11 @@ export function ThinkingIndicator({ stage, inline = false }: { stage: FlowStage;
         {/* ThinkingOrb by Jakubantalik — the live state of the engine, drawn. */}
         <ThinkingOrb state={ORB_STATE[shown] ?? 'working'} size={20} theme={themeKind(theme)} paused={reduceMotion} />
       </motion.div>
+      {style === 'typing' ? (
+        <span key={label} className="text-[12px] select-none" style={{ color: 'var(--text-3)', letterSpacing: '0.01em' }}>
+          <TypingText text={label} speed={34} />
+        </span>
+      ) : (
       <AnimatePresence mode="wait">
         <motion.span
           key={label}
@@ -66,6 +72,7 @@ export function ThinkingIndicator({ stage, inline = false }: { stage: FlowStage;
           {label}
         </motion.span>
       </AnimatePresence>
+      )}
       {style === 'verbose' && (
         <span className="flex items-center gap-1 ml-1">
           {ORDER.map((s) => (

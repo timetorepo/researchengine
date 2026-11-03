@@ -27,6 +27,7 @@ const THINKING_STYLES = [
   { id: 'minimal', name: 'Minimal' },
   { id: 'standard', name: 'Standard' },
   { id: 'verbose', name: 'Verbose' },
+  { id: 'typing', name: 'Typing' },
 ] as const
 
 function Segmented({ options, value, onChange }: {
@@ -178,6 +179,7 @@ export function FlowTab() {
               <div className="text-[11px] mt-1.5" style={{ color: 'var(--text-3)' }}>
                 {settings.thinkingStyle === 'minimal' ? 'No label while a response is being composed.'
                   : settings.thinkingStyle === 'verbose' ? 'Orb, stage label, and a full pipeline progress strip.'
+                  : settings.thinkingStyle === 'typing' ? 'Orb, with the stage label typed out one letter at a time.'
                   : 'Orb plus the current pipeline stage.'}
               </div>
             </div>

@@ -777,7 +777,7 @@ export interface Settings {
   adaptiveQuality?: boolean
   highMemoryMode: boolean
   flowShaping: 'off' | 'subtle' | 'standard' | 'cinematic'
-  thinkingStyle: 'minimal' | 'standard' | 'verbose'
+  thinkingStyle: 'minimal' | 'standard' | 'verbose' | 'typing'
   pacingSensitivity: number
   punctuationPauses: boolean
   /** Privacy Shield: none = no scanning, private = scan + keep local (default),
