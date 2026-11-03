@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 55 versions, 1.6.0 back to 0.10.0.
+ * 56 versions, 1.7.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,73 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.7.0",
+    "tag": "v1.7.0",
+    "name": "A liquid-glass intro, answers that bill every request, and new effects in onboarding",
+    "date": "2026-11-03",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.7.0",
+    "summary": "A liquid-glass intro, answers that bill every request, and new effects in onboarding",
+    "sections": [
+      {
+        "title": "1.7.0 — A liquid-glass intro, answers that bill every request, and new effects i…",
+        "items": [
+          {
+            "text": "Onboarding gains several new effects: a flip card on the privacy step, a portal carousel of the modes, a monthly-price chart drawn from the real prices of the apps it replaces, a pipeline diagram, a stack loader while setup runs, and a pixel-font headline on the final step."
+          }
+        ]
+      },
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "label": "A liquid-glass intro on the first launch.",
+            "text": "The app's logo melts into glass and settles, with the name below it. Any key or click skips it. Settings → Appearance has \"Show the intro on every launch\" (off by default) and a \"Play intro now\" button."
+          },
+          {
+            "label": "Every answer is billed, including the ones that stop.",
+            "text": "Tokens count toward the daily budget as each request settles. An answer you stop, a request that fails part way, and a council member that is cancelled are all counted, and the failed attempt in free routing is counted too."
+          },
+          {
+            "label": "Broken streams are visible.",
+            "text": "An empty answer is reported as an error instead of a blank bubble. A connection that breaks mid-answer says so, and the text received so far is kept. A model that ignores streaming and returns one JSON body still shows its answer."
+          },
+          {
+            "label": "Experiential Labs is a provider.",
+            "text": "It speaks the OpenAI-compatible API at api.experientiallabs.ai, with keys that start with xpl_. Its models come from the live model list."
+          },
+          {
+            "label": "The 3D keyboard is the Serenity UI mechanical keyboard.",
+            "text": "It replaces the approximate keyboard from earlier builds. It is still off by default, and it still asks before it listens to keys."
+          },
+          {
+            "label": "An experimental fan gallery.",
+            "text": "When you attach two or more images to a message, they can fan out into a carousel you hover through. It is off by default, and it is switched on in Settings → Appearance."
+          },
+          {
+            "label": "A typing loading style.",
+            "text": "Settings → Flow → Thinking indicator now offers \"Typing\", which types the stage label one letter at a time under the orb."
+          },
+          {
+            "label": "New effects in onboarding.",
+            "text": "A card flip on the privacy step, a portal carousel of the modes, a chart of monthly prices for the apps this replaces, a pipeline diagram on the demo step, a stack loader while setup runs, a block transition between steps, and a pixel-font…"
+          },
+          {
+            "label": "A liquid-glass tab switch in Codersa.",
+            "text": "Projects and Codersa use Glisse's segmented control (MIT). The routes are unchanged."
+          },
+          {
+            "label": "Credits.",
+            "text": "Settings → About lists Glisse, Hyperiux Vault and badtzx0, and links the full notices."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 11,
+      "sections": 2
+    }
+  },
   {
     "version": "1.6.0",
     "tag": "v1.6.0",
