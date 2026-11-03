@@ -39,6 +39,14 @@ import { Carousel as AppleCarousel, Card as AppleCardView } from '@/components/u
 import { ONBOARDING_FEATURES } from '@/components/onboarding/onboarding-features'
 import { PAID_APPS, Favicon } from '@/components/onboarding/paid-apps'
 import { MultiStepLoader } from '@/components/ui/aceternity/MultiStepLoader'
+// Hyperiux Vault and badtzx0 (21st.dev), rebuilt in-app — see THIRD-PARTY-NOTICES.md.
+import { BlockTransition } from '@/components/ui/hyperiux/block-transition'
+import { CardFlip } from '@/components/ui/hyperiux/card-flip'
+import { PortalCarousel } from '@/components/ui/hyperiux/portal-carousel'
+import { AnimatedCardChart } from '@/components/ui/hyperiux/animated-card-chart'
+import { AnimatedCardDiagram } from '@/components/ui/hyperiux/animated-card-diagram'
+import { StackLoader } from '@/components/ui/hyperiux/stack-loader'
+import { PixelTextFill } from '@/components/ui/hyperiux/pixel-text-fill'
 import { beginHandoff } from '@/lib/ui/handoff'
 import { runChat } from '@/lib/chat/runChat'
 import { PROVIDERS } from '@/lib/providers/registry'
@@ -379,6 +387,13 @@ export function Onboarding() {
     /* 2 — Privacy */
     <div key="s1" className="max-w-[560px] mx-auto">
       <StepHeader icon={ShieldCheck} title="Your privacy, enforced by architecture" sub="Not a promise — a design constraint. There is no server to leak from." />
+      {/* Hyperiux Vault's card flip: the promise on the front, the detail on the back. */}
+      <div className="mb-4">
+        <CardFlip
+          front={<><div className="text-[13px] font-semibold" style={{ color: 'var(--text-1)' }}>Stays on this device</div><div className="text-[12px] mt-2" style={{ color: 'var(--text-3)' }}>Your notes, chats and keys. Hover or tap to see what can leave.</div></>}
+          back={<><div className="text-[13px] font-semibold" style={{ color: 'var(--text-1)' }}>Only the calls you choose</div><div className="text-[12px] mt-2" style={{ color: 'var(--text-2)' }}>A message leaves the device only when you send it to a model you picked. Nothing is sent in the background.</div></>}
+        />
+      </div>
       <div className="space-y-2 mb-6">
         {[
           { icon: HardDrive, t: 'Everything is stored in your browser', d: 'Chats, documents, quizzes and settings live in local storage. Export or wipe them anytime from Settings → Data.' },
@@ -417,6 +432,14 @@ export function Onboarding() {
     /* 2 — Modes: what you ask for, in plain words */
     <div key="s2" className="max-w-[640px] mx-auto">
       <StepHeader icon={Layers} title="One app, every mode" sub="Say what you want in a sentence — a mode is a click, not a configuration." />
+      {/* Hyperiux Vault's portal carousel: the three ways in, one at a time. */}
+      <div className="mb-5">
+        <PortalCarousel label="Modes" slides={[
+          { title: 'Research', body: 'Ask a question, read your sources, and get an answer with citations you can check.' },
+          { title: 'Study', body: 'Turn what you read into notes, quizzes and a reader that keeps your place.' },
+          { title: 'Code', body: 'Codersa works in your projects, with every change shown before it is applied.' },
+        ]} />
+      </div>
       <div className="relative overflow-hidden rounded-[20px] mb-3" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
         {/* Aceternity's Canvas Reveal Effect: the dot matrix the words flip on.
             Local patches: it pauses itself the moment the step scrolls away,
@@ -478,6 +501,15 @@ export function Onboarding() {
     /* 4 — Free, unlike these apps */
     <div key="s4" className="max-w-[660px] mx-auto">
       <StepHeader icon={Gift} title="The same job, without the bill" sub="Each of these apps does what Research Engine does. Every one of them charges by the month." />
+      <div className="mb-5">
+        <AnimatedCardChart title="Monthly price, per app" bars={[
+          ...PAID_APPS.slice(0, 4).map((a) => {
+            const m = /\$?([\d.]+)/.exec(a.price)
+            return { label: a.name.split(' ')[0], value: m ? Number(m[1]) : 0, display: a.price }
+          }),
+          { label: 'Research Engine', value: 0, display: '$0', highlight: true },
+        ]} />
+      </div>
       <div className="relative overflow-hidden rounded-[20px] p-4 sm:p-5" style={{ border: '1px solid var(--surface-border)', background: 'var(--elevated)' }}>
         {/* Aceternity's Dotted Glow Background, themed by variable rather than
             by a `.dark` class — this app has thirteen themes, not two. */}
@@ -587,6 +619,9 @@ export function Onboarding() {
     /* 6 — Try the demo */
     <div key="s6" className="max-w-[520px] mx-auto text-center">
       <StepHeader icon={BookOpen} title="See it working — no key required" sub="A bundled study demo: a genuine DNA primer, AI study rewrite, three-tier highlights, and a hand-tuned quiz. Fully offline." />
+      <div className="mb-5 text-left">
+        <AnimatedCardDiagram title="How a question is answered" nodes={['Your question', 'Your sources', 'Search and read', 'Answer with citations']} />
+      </div>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         className="rounded-[18px] p-5 text-left mb-5 flex flex-col sm:flex-row items-center gap-5"
         style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
@@ -626,6 +661,7 @@ export function Onboarding() {
       {!setupAnimDone || !setupWorkDone ? (
         <MultiStepLoader loadingStates={SETUP_STATES} loading duration={640} onDone={() => setSetupAnimDone(true)} />
       ) : null}
+      {!setupWorkDone ? <div className="flex justify-center mb-3"><StackLoader size={30} label="Setting things up" /></div> : null}
       <StepHeader icon={Rocket} title="Setting things up" sub="A few real checks before the app hands over. Nothing here leaves the device." />
       <div className="mt-4 flex flex-col gap-1.5 text-left max-w-[420px] mx-auto">
         {setupNotes.map((n, i) => (
@@ -651,7 +687,7 @@ export function Onboarding() {
         style={{ background: 'color-mix(in srgb, var(--success) 16%, transparent)' }}>
         <Check size={26} style={{ color: 'var(--success)' }} />
       </motion.div>
-      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em', fontFamily: DISPLAY }}>You're set</h2>
+      <h2 className="text-[24px] font-semibold" style={{ letterSpacing: '-0.02em', fontFamily: DISPLAY }}><PixelTextFill style={{ fontSize: 28 }}>You're set</PixelTextFill></h2>
       <p className="text-[13.5px] mt-2 leading-relaxed" style={{ color: 'var(--text-2)' }}>
         Theme: <b>{THEMES.find((t) => t.id === theme)?.name}</b> ·
         Model: <b>{apiKey ? PROVIDERS.find((p) => p.id === provider)?.name : 'Local demo'}</b>
@@ -729,7 +765,8 @@ export function Onboarding() {
           ))}
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 overscroll-contain">
+        <BlockTransition transitionKey={step} />
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 overscroll-contain">
           <div className={step === 0 ? 'min-h-full' : 'min-h-full flex items-center justify-center'}>
             <AnimatePresence mode="wait">
               <motion.div

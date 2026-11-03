@@ -198,3 +198,20 @@ registry item `fan-gallery` v2.0.1). Copyright (c) 2026 ReactDrops, licensed und
 Component License 1.0 (`frontend/src/components/ui/reactdrops/LICENSE.txt`). The library modules are
 unchanged. The component's JSX and prop wiring were rebuilt by hand, since the registry source
 fetches without JSX. The same redistribution limit applies: use in an app only, not as a kit.
+
+## Glisse (MIT)
+
+`glisse` 0.5.0 (https://glisse.kelvinzhang.ca, https://github.com/0kzh/glisse), MIT License,
+Copyright (c) 2026 Kelvin Zhang. Installed from npm and used for the Projects/Codersa switch.
+
+## Hyperiux Vault and badtzx0 components (21st.dev)
+
+The following components are rebuilt in `frontend/src/components/ui/hyperiux/`, inspired by
+their published 21st.dev listings. The upstream source sits behind a 21st.dev account, so
+these are not copies of it:
+
+- Portal Carousel, Block Transition, Stack Loader, Gsap Card Flip, Pixel Text Fill,
+  Typing Text, Scramble Link Button — Hyperiux Vault (https://21st.dev/@hyperiux/library/hyperiux-vault)
+- Animated Card Chart, Animated Card Diagram — badtzx0 (https://21st.dev/@badtzx0)
+
+Each file's header names its source listing.

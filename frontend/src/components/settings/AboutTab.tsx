@@ -16,6 +16,7 @@ import SpotlightCard from '@/components/ui/reactbits/micro/SpotlightCard'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { BUNDLE_BUILD, runningVersion, useRunningVersion } from '@/lib/appVersion'
 import { saveNotice, updateNotice } from '@/stores/useNotices'
+import { ScrambleLinkButton } from '@/components/ui/hyperiux/scramble-link-button'
 
 /**
  * Injected by Vite from package.json, so it never drifts from the shipped build.
@@ -121,6 +122,9 @@ function StaleBuildCard() {
 
 /** The UI component libraries the interface is assembled from. */
 const UI_LIBRARIES: { name: string; href: string; author?: string; used: string }[] = [
+  { name: 'Glisse', href: 'https://glisse.kelvinzhang.ca', author: 'Kelvin Zhang', used: 'The liquid-glass segmented control that switches between Projects and Codersa. MIT-licensed.' },
+  { name: 'Hyperiux Vault', href: 'https://21st.dev/@hyperiux/library/hyperiux-vault', used: 'Ideas for the portal carousel, card flip, block transition, pixel headline, typing loader, scramble link and stack loader. Rebuilt in-app; the upstream source is not copied.' },
+  { name: 'badtzx0 (21st.dev)', href: 'https://21st.dev/@badtzx0', used: 'Ideas for the animated card chart and card diagram on the onboarding steps. Rebuilt in-app; the upstream source is not copied.' },
   { name: 'HeroUI', href: 'https://www.heroui.com', used: 'Button, Input and Switch primitives' },
   { name: 'Aceternity UI', href: 'https://ui.aceternity.com', used: 'Aurora background, moving borders, spotlight cards, text-generate effect' },
   { name: 'Border Beam', href: 'https://beam.jakubantalik.com', author: 'Jakub Antalik', used: 'The travelling light around the home-screen chatbox' },
@@ -344,6 +348,11 @@ export function AboutTab() {
         <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-3)' }}>
           The interface is assembled from these libraries. Each one is credited to the people who built it.
         </p>
+        <div className="mb-4">
+          <ScrambleLinkButton href="https://github.com/timetorepo/researchengine/blob/main/THIRD-PARTY-NOTICES.md" target="_blank" rel="noreferrer">
+            Full credits and licences
+          </ScrambleLinkButton>
+        </div>
         <div className="space-y-2.5">
           {UI_LIBRARIES.map((lib) => (
             <div key={lib.name} className="flex items-start gap-2.5">
