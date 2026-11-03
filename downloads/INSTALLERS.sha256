@@ -1,4 +1,7 @@
 # Installers, published with each release. Digests come from the GitHub release asset.
+# 1.7.0: Windows and Linux installers, both built and attached by the desktop workflow on tag v1.7.0.
+sha256:dfa3f0468929ca1b46793f22b7011c8f3d29b29a11773a5e745e1ee03cec3bfe  Research.Engine_1.7.0_amd64.deb  (79509624 bytes)
+sha256:a3cf12305e33b01f932cea83cf4dcbfbbb6501f9cc3bae15b670f7ff6e6c3239  Research.Engine_1.7.0_x64-setup.exe  (64251087 bytes)
 # 1.6.0: Windows and Linux installers, both built and attached by the desktop workflow on tag v1.6.0.
 sha256:55dc1e854e4fe90029f05951158cac2daf5262c6ce9ae4a5dcad3d6bdf8a48b0  Research.Engine_1.6.0_amd64.deb  (79315146 bytes)
 sha256:7a5fdd2381300372e685e2200a191ad432121bebcf9a84c9b7b3ee260f2d4774  Research.Engine_1.6.0_x64-setup.exe  (63943277 bytes)
