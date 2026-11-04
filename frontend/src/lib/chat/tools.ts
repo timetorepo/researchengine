@@ -542,6 +542,25 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'graph_save',
+    description: 'Save what matters from this conversation or coding session to the user\'s bird\'s-eye graph: short labelled nodes (a concept, file, person, decision, source) and the labelled edges between them (for example "reads", "depends on", "decided"). Before calling it, tell the user in one sentence what you are about to save. Keep a save to a few nodes; the user can open the graph window from the chat to see it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        nodes: { type: 'array', items: { type: 'object', properties: { label: STR, kind: STR }, required: ['label'] } },
+        edges: { type: 'array', items: { type: 'object', properties: { from: STR, to: STR, label: STR }, required: ['from', 'to'] } },
+      },
+      required: ['nodes'],
+    },
+    run: async (args) => {
+      const res = await fetch('/api/graph', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nodes: args?.nodes ?? [], edges: args?.edges ?? [] }) })
+      const body: any = await res.json().catch(() => ({}))
+      if (!res.ok) return `The graph could not be saved: ${body?.error ?? res.statusText}`
+      const skipped = Array.isArray(body.skipped) && body.skipped.length ? ` Skipped: ${body.skipped.join('; ')}.` : ''
+      return `Saved to the bird's-eye graph: ${body.addedNodes} new node(s), ${body.addedEdges} new edge(s). The graph now has ${body.graph?.nodes?.length ?? 0} nodes.${skipped}`
+    },
+  },
+  {
     name: 'library_search',
     description: 'Search the app\'s own small search engine: the live web, Wikipedia, design references (Awwwards, Dribbble, Refero, Mobbin), app-interface patterns — including the components this app can install, each with the exact command that installs it — and the documentation index. Returns hits labelled by vertical — say which vertical a claim came from. Use for anything the user wants sources for, and for "how do other apps do this screen" questions.',
     parameters: {
@@ -1167,6 +1186,7 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else if (def.name === 'generate_audio') trace('spoken clip', 'ok')
     else if (def.name === 'web_search') trace(`web search: ${String(args.query ?? '').slice(0, 50)}`, 'ok')
     else if (def.name === 'browse_page') trace(`browse: ${String(args.url ?? '').replace(/^https?:\/\//, '').slice(0, 48)}`, 'ok')
+    else if (def.name === 'graph_save') trace(`Bird's-eye graph: ${Array.isArray(args.nodes) ? args.nodes.length : 0} node(s), ${Array.isArray(args.edges) ? args.edges.length : 0} edge(s)`, 'ok')
     else if (def.name === 'library_search') trace(`library search: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
     else if (def.name === 'library_read') trace(`reading ${String(args.url ?? '').replace(/^https?:\/\//, '').slice(0, 44)}`, 'ok')
     else if (def.name === 'mcp_call') trace(`MCP ${String(args.serverId ?? '')}:${String(args.tool ?? '')}`.slice(0, 60), 'ok')

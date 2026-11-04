@@ -55,6 +55,7 @@ const SkillBuilderPanel = React.lazy(() => import('@/components/skills/SkillBuil
 const SkillRunModal = React.lazy(() => import('@/components/skills/SkillRunModal').then((m) => ({ default: m.SkillRunModal })))
 const Onboarding = React.lazy(() => import('@/components/onboarding/Onboarding').then((m) => ({ default: m.Onboarding })))
 // The launch intro (liquid-glass logo). Lazy, so its WebGL code is not in the startup bundle.
+const BirdsEyeWindow = React.lazy(() => import('@/components/graph/BirdsEyeWindow').then((m) => ({ default: m.BirdsEyeWindow })))
 const LogoIntro = React.lazy(() => import('@/components/intro/LogoIntro').then((m) => ({ default: m.LogoIntro })))
 const StarField = React.lazy(() => import('@/components/easter/StarField').then((m) => ({ default: m.StarField })))
 const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/DiagnosticsOverlay').then((m) => ({ default: m.DiagnosticsOverlay })))
@@ -174,6 +175,7 @@ export default function App() {
         </AppContextMenu>
         <FpsCounter />
         <Suspense fallback={null}><LogoIntro /></Suspense>
+        <Suspense fallback={null}><BirdsEyeWindow /></Suspense>
         {/* Off by default; Settings → Appearance → 3D keyboard turns it on. */}
         <MechanicalKeyboardDock />
         <WalletWatcher />

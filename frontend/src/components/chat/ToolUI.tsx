@@ -9,6 +9,7 @@ import AIToolCall from '@/components/smoothui/ai-tool-call'
 // Aceternity's Images Badge — a folder whose papers fan out under the pointer.
 import { ImagesBadge } from '@/components/ui/aceternity/ImagesBadge'
 import { ApprovalCard } from '@/components/ui/kit/beui/ApprovalCard'
+import { openBirdsEye } from '@/components/graph/BirdsEyeWindow'
 
 /* ---------- tool activity chips ---------- */
 export function ToolTraceChips({ msg, streaming = false }: { msg: ChatMessage; streaming?: boolean }) {
@@ -34,6 +35,12 @@ export function ToolTraceChips({ msg, streaming = false }: { msg: ChatMessage; s
           style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
           <Wrench size={10} style={{ color: t.status === 'error' ? 'var(--danger)' : t.status === 'blocked' ? 'var(--warning)' : 'var(--primary)' }} />
           {t.label}
+          {t.label.startsWith("Bird's-eye graph:") && (
+            <button type="button" onClick={() => openBirdsEye()}
+              className="ml-1 underline underline-offset-2" style={{ color: 'var(--primary)' }}>
+              Open graph
+            </button>
+          )}
         </span>
       ))}
       </div>
