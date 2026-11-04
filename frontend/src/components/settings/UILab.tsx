@@ -39,6 +39,8 @@ import { scrollChildIntoView } from '@/lib/dom/scroll'
 import type { FlowStage } from '@/lib/flow/engine'
 import { clsx } from 'clsx'
 import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
+import { SceneCard } from '@/components/ui/cards/SceneCard'
+import { GlowBorderCard } from '@/components/ui/cards/GlowBorderCard'
 
 /* ------------------------------------------------------------------ types */
 
@@ -120,6 +122,31 @@ function ModeMenuStage({ log }: { log: (line: string) => void }) {
 }
 
 export const AGENT_UI: LabEntry[] = [
+  {
+    id: 'scene-card',
+    name: 'Scene card',
+    component: '@/components/ui/cards/SceneCard',
+    note: 'A light-control card: tags, a title, a colour dot with an intensity readout, and a warm glow that grows with the intensity.',
+    host: 'Settings → Developer → UI lab (a card to reuse for light and scene controls)',
+    ui: 'scene-card',
+    hint: 'It is in the component lab; open Developer mode to see it.',
+    knobs: [
+      { id: 'tall', label: 'Show the tags', type: 'toggle', initial: true },
+    ],
+    render: (v) => (
+      <SceneCard title="Alex's workspace" tags={v.tall ? ['light', 'cabinet', 'scenario'] : []} />
+    ),
+  },
+  {
+    id: 'glow-border-card',
+    name: 'Glow-rim card',
+    component: '@/components/ui/cards/GlowBorderCard',
+    note: 'A card whose rim turns slowly in two colours. The rim stops when reduced motion is on.',
+    host: 'Settings → Developer → UI lab (a card for live or "ready" states)',
+    ui: 'glow-border-card',
+    hint: 'It is in the component lab; open Developer mode to see it.',
+    render: () => <GlowBorderCard title="Ready when you are" />,
+  },
   {
     id: 'composer',
     name: 'The composer',
