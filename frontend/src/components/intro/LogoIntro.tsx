@@ -78,11 +78,12 @@ export function LogoIntro() {
       >
         Research Engine
       </p>
+      {/* Skip sits in the top-right corner, out of the way of the logo. */}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen(false) }}
-        className="mt-6 text-[12px] px-3 py-1 rounded-full"
-        style={{ color: '#9aa3b2', border: '1px solid #2a3140' }}
+        className="absolute top-5 right-5 text-[12px] px-3 py-1 rounded-full"
+        style={{ color: '#9aa3b2', border: '1px solid #2a3140', background: 'rgba(10,10,11,0.5)' }}
       >
         Skip
       </button>

@@ -45,6 +45,9 @@ function publishedWhen(iso: string): string {
   return new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+/** Log cards use the app's own surface (near-black in dark mode), not HeroUI's default white. */
+const LOG_CARD: React.CSSProperties = { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--surface-border)' }
+
 /** One status card: a HeroUI Card with a tinted tone, used for ready / done / failed. */
 function UpdateCard({ tone, icon, title, children }: {
   tone: 'primary' | 'success' | 'danger'
@@ -174,7 +177,7 @@ export function UpdateModal() {
           )}
           {/* The install engine's own words, whichever kind of build this is. */}
           {running && progress && (
-            <Card variant="secondary" className="mb-4 p-4 gap-2">
+            <Card variant="secondary" className="mb-4 p-4 gap-2" style={LOG_CARD}>
               <div className="flex items-center gap-2 text-[12.5px]">
                 <Loader2 size={13} className="animate-spin" style={{ color: 'var(--primary)' }} />
                 <span>{progress.message || phaseLabel(progress.phase)}</span>
@@ -221,7 +224,7 @@ export function UpdateModal() {
           {check?.available && (
             <>
               {/* Release notes, inline — no trip to a private repo's web page. */}
-              <Card variant="secondary" className="gap-0 p-0 overflow-hidden">
+              <Card variant="secondary" className="gap-0 p-0 overflow-hidden" style={LOG_CARD}>
                 <CardHeader className="flex-row items-center gap-2 px-4 pt-3.5 pb-2">
                   <ArrowDownToLine size={14} strokeWidth={1.7} style={{ color: 'var(--primary)' }} />
                   <CardTitle className="text-[12.5px] font-semibold">What's new in {latest}</CardTitle>
