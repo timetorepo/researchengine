@@ -215,3 +215,7 @@ these are not copies of it:
 - Animated Card Chart, Animated Card Diagram — badtzx0 (https://21st.dev/@badtzx0)
 
 Each file's header names its source listing.
+
+## Open WebUI Desktop (inspiration only, AGPL-3.0)
+
+Research Engine's desktop install flow and window-control look were inspired by [Open WebUI Desktop](https://github.com/open-webui/desktop), which is licensed under AGPL-3.0. No code or assets from that project were copied. The install film, the traffic-light controls and the glow cards are written from scratch for this project.

@@ -126,6 +126,7 @@ const UI_LIBRARIES: { name: string; href: string; author?: string; used: string 
   { name: 'Hyperiux Vault', href: 'https://21st.dev/@hyperiux/library/hyperiux-vault', used: 'Ideas for the portal carousel, card flip, block transition, pixel headline, typing loader, scramble link and stack loader. Rebuilt in-app; the upstream source is not copied.' },
   { name: 'badtzx0 (21st.dev)', href: 'https://21st.dev/@badtzx0', used: 'Ideas for the animated card chart and card diagram on the onboarding steps. Rebuilt in-app; the upstream source is not copied.' },
   { name: 'HeroUI', href: 'https://www.heroui.com', used: 'Button, Input and Switch primitives' },
+  { name: 'Open WebUI Desktop', href: 'https://github.com/open-webui/desktop', author: 'Open WebUI', used: 'Inspiration for the desktop install flow (a one-click set-up with a visible progress path) and the calm, system-following window look. Research Engine\'s own install film and window controls were written from scratch; no code or assets were copied, and the upstream project is AGPL-3.0.' },
   { name: 'Aceternity UI', href: 'https://ui.aceternity.com', used: 'Aurora background, moving borders, spotlight cards, text-generate effect' },
   { name: 'Border Beam', href: 'https://beam.jakubantalik.com', author: 'Jakub Antalik', used: 'The travelling light around the home-screen chatbox' },
   { name: 'Orbs', href: 'https://orbs.jakubantalik.com', author: 'Jakub Antalik', used: 'The thinking indicator and streaming marker' },
