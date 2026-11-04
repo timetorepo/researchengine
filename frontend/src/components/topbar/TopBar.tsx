@@ -13,6 +13,8 @@ import { BUNDLE_BUILD as BUILD_ID, useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
 import { ResourceMeter } from '@/components/topbar/ResourceMeter'
 import { MusicControl } from '@/components/topbar/MusicControl'
+import { TrafficLights } from '@/components/topbar/TrafficLights'
+import { useTrafficLights } from '@/components/topbar/windowControlsPrefs'
 import { useAgents } from '@/lib/ide/agents'
 import StatusMark from '@/components/ui/reactbits/micro/StatusMark'
 // SmoothUI's AIContextMeter — the ring that shows how full the window is.
@@ -113,6 +115,7 @@ function AgentPulse() {
 
 export function TopBar() {
   const ui = useUI()
+  const [trafficLights] = useTrafficLights()
   /** Stamped into the bundle, or read from the server when it could not be. */
   const version = useRunningVersion()
   const tasks = useStore((s) => s.tasks)
@@ -171,6 +174,7 @@ export function TopBar() {
       className="re-vt-topbar flex items-center gap-2 px-3 h-12 shrink-0 relative z-30"
       style={{ borderBottom: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--bg) 82%, transparent)', backdropFilter: 'blur(12px)' }}
     >
+      {trafficLights ? <TrafficLights /> : null}
       <button className="md:hidden p-2 rounded-lg hover:bg-[var(--elevated)]" aria-label="Open menu" onClick={() => ui.set({ sidebarOpenMobile: true })}>
         <Menu size={18} strokeWidth={1.5} />
       </button>
@@ -253,7 +257,7 @@ export function TopBar() {
           fullscreen state (including F11 and the webview's own menus), and on
           a shell without the API the button simply is not there. */}
       <SessionSwitcherButton />
-      <FullscreenButton />
+      {!trafficLights && <FullscreenButton />}
 
       {/* Live machine load — memory, processor and GPU, from the server's own
           samples. Sits beside the privacy shield because it answers the other

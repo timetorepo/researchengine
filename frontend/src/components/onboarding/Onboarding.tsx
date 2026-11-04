@@ -45,7 +45,7 @@ import { CardFlip } from '@/components/ui/hyperiux/card-flip'
 import { PortalCarousel } from '@/components/ui/hyperiux/portal-carousel'
 import { AnimatedCardChart } from '@/components/ui/hyperiux/animated-card-chart'
 import { AnimatedCardDiagram } from '@/components/ui/hyperiux/animated-card-diagram'
-import { StackLoader } from '@/components/ui/hyperiux/stack-loader'
+import { InstallFilm } from '@/components/onboarding/InstallFilm'
 import { PixelTextFill } from '@/components/ui/hyperiux/pixel-text-fill'
 import { beginHandoff } from '@/lib/ui/handoff'
 import { runChat } from '@/lib/chat/runChat'
@@ -661,7 +661,10 @@ export function Onboarding() {
       {!setupAnimDone || !setupWorkDone ? (
         <MultiStepLoader loadingStates={SETUP_STATES} loading duration={640} onDone={() => setSetupAnimDone(true)} />
       ) : null}
-      {!setupWorkDone ? <div className="flex justify-center mb-3"><StackLoader size={30} label="Setting things up" /></div> : null}
+      {/* The install film: its bar follows the real checks in setupNotes (five in all). */}
+      <div className="mb-5">
+        <InstallFilm progress={setupNotes.length / 5} done={setupWorkDone} lastNote={setupNotes[setupNotes.length - 1]} />
+      </div>
       <StepHeader icon={Rocket} title="Setting things up" sub="A few real checks before the app hands over. Nothing here leaves the device." />
       <div className="mt-4 flex flex-col gap-1.5 text-left max-w-[420px] mx-auto">
         {setupNotes.map((n, i) => (
