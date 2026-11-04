@@ -1,0 +1,6 @@
+# One page, and everything on it is meant to be found: no analytics, no
+# paywall, no gated sections.
+User-agent: *
+Allow: /
+
+Sitemap: https://researchengine.app/sitemap.xml

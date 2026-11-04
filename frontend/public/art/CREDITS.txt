@@ -1,0 +1,15 @@
+Artwork used in ResearchEngine (human-made paintings, public domain).
+
+van-gogh-self-portrait-1887.jpg
+  Vincent van Gogh, Self-Portrait (1887). Public domain.
+  Source: Wikimedia Commons (via search, digitally enhanced by rawpixel).
+
+constable-cloud-study.jpg
+  John Constable, cloud study (c. 1820s). Public domain.
+  Source: Wikimedia Commons, "John Constable - Cloud Study - Google Art Project"
+  (photograph of the painting, no watermark).
+
+monet-impression-sunrise.jpg
+  Claude Monet, Impression, Sunrise (1872). Public domain.
+  Source: Wikimedia Commons, "Monet - Impression, Sunrise" (copy digitally
+  enhanced by rawpixel).

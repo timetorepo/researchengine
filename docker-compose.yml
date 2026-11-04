@@ -1,0 +1,35 @@
+name: research-engine
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      PORT: 8787
+      DB_PATH: /data/research-engine.db
+      SEARCH_BACKEND: ${SEARCH_BACKEND:-searxng}
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+      SERPER_API_KEY: ${SERPER_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+    volumes:
+      - re-data:/data
+    restart: unless-stopped
+
+  # Optional: self-hosted search. Uncomment to run the full privacy stack.
+  # searxng:
+  #   image: searxng/searxng:latest
+  #   environment:
+  #     SEARXNG_SECRET: change-me
+  #   restart: unless-stopped
+
+volumes:
+  re-data:

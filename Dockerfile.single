@@ -1,0 +1,34 @@
+# Research Engine — single slim image (optional; the recommended laptop path
+# is the native binary or the desktop app, see README).
+# One process serves API + built frontend; SQLite lives in /data.
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY frontend/package*.json frontend/
+RUN npm --prefix frontend install --no-audit --no-fund
+COPY frontend/ frontend/
+RUN npm --prefix frontend run build
+
+COPY backend/package*.json backend/
+RUN npm --prefix backend install --omit=dev --no-audit --no-fund
+COPY backend/ backend/
+RUN npm --prefix backend run build
+
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/backend/dist ./server
+COPY --from=build /app/backend/package.json ./server/package.json
+COPY --from=build /app/backend/node_modules ./server/node_modules
+COPY --from=build /app/frontend/dist ./frontend-dist
+
+# No root, no privileged mode
+RUN addgroup -S re && adduser -S re -G re && mkdir -p /data && chown -R re:re /data /app
+USER re
+
+ENV RESEARCH_ENGINE_DATA_DIR=/data
+ENV FRONTEND_DIST=/app/frontend-dist
+EXPOSE 3847
+
+HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://127.0.0.1:3847/api/health || exit 1
+
+CMD ["node", "server/index.js", "serve", "--port", "3847", "--host", "0.0.0.0"]
