@@ -219,3 +219,7 @@ Each file's header names its source listing.
 ## Open WebUI Desktop (inspiration only, AGPL-3.0)
 
 Research Engine's desktop install flow and window-control look were inspired by [Open WebUI Desktop](https://github.com/open-webui/desktop), which is licensed under AGPL-3.0. No code or assets from that project were copied. The install film, the traffic-light controls and the glow cards are written from scratch for this project.
+
+## Lightpanda (headless browser, AGPL-3.0)
+
+The optional headless browser is [Lightpanda](https://github.com/lightpanda-io/browser). Its browser binary is licensed under AGPL-3.0. Research Engine does not bundle that binary in its installers. `backend/scripts/install-lightpanda.mjs` downloads the unmodified release from upstream, and the backend runs it as a separate program over the command line. The Lightpanda client package used for reference is Apache-2.0.

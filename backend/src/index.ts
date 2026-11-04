@@ -14,6 +14,7 @@ import { linkRoutes } from './routes/link'
 import { calendarRoutes } from './routes/calendar'
 import { botWebRoutes } from './routes/botweb'
 import { artifactRoutes } from './routes/artifacts'
+import { headlessRoutes } from './routes/headless'
 import { bootUpdateCheck, handleFatalWithPending, rollbackAndRestart, scheduleHealthy } from './update/boot'
 import { EXIT_RESTART } from './update/service'
 
@@ -102,6 +103,7 @@ async function main() {
   app.route('/api', context7Routes(rt))
   app.route('/api', serviceRoutes(rt))
   app.route('/api', artifactRoutes(rt))
+  app.route('/api', headlessRoutes)
   app.route('/api', providerRoutes)
   // The updater. Everything it can touch is guarded inside update/service.ts.
   app.route('/api', updateRoutes(rt))

@@ -531,6 +531,17 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'browse_page',
+    description: 'Open a public web page in the headless Lightpanda browser, which runs the page\'s own JavaScript, and get its text as Markdown. Use it when web_search or a plain read gives an empty page or a page that is built in the browser. Only public http(s) addresses work. Say in one sentence which page you are opening and why.',
+    parameters: { type: 'object', properties: { url: STR }, required: ['url'] },
+    run: async (args) => {
+      const res = await fetch('/api/browse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: String(args?.url ?? '') }) })
+      const body: any = await res.json().catch(() => ({}))
+      if (!res.ok) return `The page could not be opened: ${body?.error ?? res.statusText}`
+      return `Page: ${body.url}${body.truncated ? ' (cut to the first part)' : ''}\n\n${String(body.text ?? '').slice(0, 30_000)}`
+    },
+  },
+  {
     name: 'library_search',
     description: 'Search the app\'s own small search engine: the live web, Wikipedia, design references (Awwwards, Dribbble, Refero, Mobbin), app-interface patterns — including the components this app can install, each with the exact command that installs it — and the documentation index. Returns hits labelled by vertical — say which vertical a claim came from. Use for anything the user wants sources for, and for "how do other apps do this screen" questions.',
     parameters: {
@@ -1155,6 +1166,7 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else if (def.name === 'generate_image') trace(`image: ${String(args.prompt ?? '').slice(0, 44)}`, 'ok')
     else if (def.name === 'generate_audio') trace('spoken clip', 'ok')
     else if (def.name === 'web_search') trace(`web search: ${String(args.query ?? '').slice(0, 50)}`, 'ok')
+    else if (def.name === 'browse_page') trace(`browse: ${String(args.url ?? '').replace(/^https?:\/\//, '').slice(0, 48)}`, 'ok')
     else if (def.name === 'library_search') trace(`library search: ${String(args.query ?? '').slice(0, 44)}`, 'ok')
     else if (def.name === 'library_read') trace(`reading ${String(args.url ?? '').replace(/^https?:\/\//, '').slice(0, 44)}`, 'ok')
     else if (def.name === 'mcp_call') trace(`MCP ${String(args.serverId ?? '')}:${String(args.tool ?? '')}`.slice(0, 60), 'ok')
