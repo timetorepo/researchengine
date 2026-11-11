@@ -7,6 +7,7 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
+import { AppleCard, AppleRow } from '@/components/ui/apple/AppleCard'
 import WakeSlider from '@/components/ui/reactbits/micro/WakeSlider'
 import CometDial from '@/components/ui/reactbits/micro/CometDial'
 import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
@@ -72,6 +73,20 @@ function BgPreview({ kind }: { kind: AnimatedBgKind }) {
               opacity: 0.9,
             }
   return <div className="h-12 w-full rounded-[9px] mb-2 border" style={{ ...style, borderColor: 'var(--surface-border)' }} aria-hidden="true" />
+}
+
+/**
+ * A grouped Apple list of switches: one card, one row per switch, hairlines
+ * inset from the edge. Each child is wrapped in an AppleRow, so the switches
+ * themselves do not change.
+ */
+function SwitchGroup({ children }: { children: React.ReactNode }) {
+  const items = React.Children.toArray(children)
+  return (
+    <AppleCard padded={false} className="mb-3">
+      {items.map((c, i) => <AppleRow key={i} first={i === 0}>{c}</AppleRow>)}
+    </AppleCard>
+  )
 }
 
 export function AppearanceTab() {
@@ -367,6 +382,7 @@ export function AppearanceTab() {
           </div>
         </div>
 
+        <SwitchGroup>
         <Switch label="Compact mode" description="Tighter spacing and smaller type throughout."
           checked={settings.compact} onChange={(v) => update({ compact: v })} />
         <Switch label="Reduce motion" description="Cross-fades under 150ms instead of spring animations. Also honors your OS setting."
@@ -375,7 +391,9 @@ export function AppearanceTab() {
           checked={settings.osWidgets} onChange={(v) => update({ osWidgets: v })} />
         <Switch label="Music control in the top bar" description="Shows a small player in the top bar while music is playing: the track, its artist, and the controls. The tracks are generated in your browser, so nothing downloads. On by default."
           checked={settings.showMusicControl !== false} onChange={(v) => update({ showMusicControl: v })} />
+        </SwitchGroup>
         <MusicStart />
+        <SwitchGroup>
         <Switch label="Dynamic Island" description="Float the status island over every theme, not only ResearchEngineOS."
           checked={settings.dynamicIsland} onChange={(v) => update({ dynamicIsland: v })} />
         <Switch label="Theme-matched gradients" description="Derive card gradients from the active theme's palette instead of the fixed vibrant hues."
@@ -391,6 +409,7 @@ export function AppearanceTab() {
         <Switch label="Scroll progress" description="A thin indicator on the edge of every scrolling surface (Skiper UI's scroll progress). Right-click it to unlock and drag it anywhere; this switch is how you bring it back if you hide it."
           checked={settings.scrollProgress?.enabled !== false}
           onChange={(v) => update({ scrollProgress: { ...(settings.scrollProgress ?? {}), enabled: v } })} />
+        </SwitchGroup>
 
         {/* Border Beam palette — same component, four built-in variants. */}
         <div className="surface p-4">
@@ -479,18 +498,17 @@ export function AppearanceTab() {
         )}
 
         {/* Experimental: a floating glass tab bar. Off until someone asks for it. */}
-        <div className="surface p-4">
+        <SwitchGroup>
           <Switch label="Floating tab bar (experimental)"
             description="A glass capsule of five main screens at the bottom. Hidden on Chat and Coding, where the composer and editor need the space."
             checked={settings.experimentalTabBar === true} onChange={(v) => update({ experimentalTabBar: v })} />
-        </div>
+
 
         {/* The Chats kind switch: gooey by default, plain tabs when turned off. */}
-        <div className="surface p-4">
           <Switch label="Gooey tab switch in Chats"
             description="On: the All / Research / Coding switch stretches like liquid between tabs. Off: plain tabs, which read better with a screen reader and cost nothing extra."
             checked={settings.chatsGooey !== false} onChange={(v) => update({ chatsGooey: v })} />
-        </div>
+        </SwitchGroup>
 
         <BubbleSection />
       </div>
