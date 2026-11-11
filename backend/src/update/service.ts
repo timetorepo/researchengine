@@ -1123,3 +1123,78 @@ export function updateStatus(deps: UpdateDeps) {
 
 /** Compare two version strings — re-exported so routes and tests share one rule. */
 export { compareVersions, isNewer }
+
+/* ---------------------------------------------------------------- readme ---- */
+
+/**
+ * The project's README at a release tag, for the "Read more" view in the update
+ * card. Read on the server, never by the browser: the repository may be private,
+ * and the token must not reach the page.
+ */
+export interface ReadmeResult {
+  version: string
+  /** The tag the text was read from. */
+  tag: string
+  markdown: string
+  /** Where the text came from, for a "view on GitHub" link. */
+  url: string
+  fetchedAt: number
+}
+
+export const README_TTL_MS = 30 * 60_000
+const README_CACHE_MAX = 20
+const readmeCache = new Map<string, ReadmeResult>()
+const readmeInflight = new Map<string, Promise<ReadmeResult>>()
+
+/**
+ * Make a README's relative links and images point at GitHub, so they still work
+ * once the text is on another page. Absolute URLs, anchors and mail links are
+ * left alone. Pure, so it can be tested without a network.
+ */
+export function absolutiseReadme(md: string, repo: string, tag: string): string {
+  const blob = `https://github.com/${repo}/blob/${tag}/`
+  const raw = `https://raw.githubusercontent.com/${repo}/${tag}/`
+  return md.replace(/(!?)\[([^\]]*)\]\(\s*([^)\s]+)([^)]*)\)/g, (whole, bang, label, target, rest) => {
+    if (/^(https?:|mailto:|#|\/\/)/i.test(target)) return whole
+    const clean = String(target).replace(/^\.\//, '').replace(/^\/+/, '')
+    const base = bang ? raw : blob
+    return `${bang}[${label}](${base}${clean}${rest})`
+  })
+}
+
+/** Try the tag the release was made from (v1.2.3), then the bare version. */
+export async function fetchReadme(deps: UpdateDeps, version: string): Promise<ReadmeResult> {
+  const repo = repoOf(deps)
+  const key = `${repo}@${version}`
+  const hit = readmeCache.get(key)
+  if (hit && Date.now() - hit.fetchedAt < README_TTL_MS) return hit
+  const pending = readmeInflight.get(key)
+  if (pending) return pending
+  const job = (async () => {
+    const tags = [`v${version}`, version]
+    const urls = tags.map((t) => `https://raw.githubusercontent.com/${repo}/${t}/README.md`)
+    let text: string, url: string
+    try {
+      ;({ text, url } = await fetchTextAny(deps, urls))
+    } catch (e: any) {
+      throw new Error(`no README could be read for ${version} — ${String(e?.message ?? e).replace(/^could not read the release checksum — /, '')}`)
+    }
+    const tag = tags.find((t) => url.includes(`/${t}/README.md`)) ?? tags[0]
+    const value: ReadmeResult = {
+      version, tag,
+      markdown: absolutiseReadme(text, repo, tag),
+      url: `https://github.com/${repo}/blob/${tag}/README.md`,
+      fetchedAt: Date.now(),
+    }
+    if (readmeCache.size >= README_CACHE_MAX) readmeCache.delete(readmeCache.keys().next().value as string)
+    readmeCache.set(key, value)
+    return value
+  })()
+  readmeInflight.set(key, job)
+  try { return await job } finally { readmeInflight.delete(key) }
+}
+
+/** Warm the cache in the background. Never throws: a failed preload just means a slower first read. */
+export function preloadReadme(deps: UpdateDeps, version: string): void {
+  void fetchReadme(deps, version).catch(() => {})
+}

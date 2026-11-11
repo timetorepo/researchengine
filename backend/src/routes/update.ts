@@ -26,6 +26,7 @@ import {
   rollback, updateStatus,
 } from '../update/service'
 import { respawn, handleFatalWithPending } from '../update/boot'
+import { fetchReadme, preloadReadme } from '../update/service'
 
 const CACHE_MS = 10 * 60 * 1000
 
@@ -96,10 +97,29 @@ export function updateRoutes(rt: Runtime) {
 
   app.get('/update/check', async (c) => {
     try {
-      const value = await check(c.req.query('force') === '1', depsFor(c))
+      const d = depsFor(c)
+      const value = await check(c.req.query('force') === '1', d)
+      // Warm the README while the person is still reading the notice, so "Read more" is instant.
+      if (value.available && value.latest) preloadReadme(d, value.latest)
       return c.json(value)
     } catch (e: any) {
       return c.json({ error: `could not reach GitHub: ${String(e?.message ?? e)}` }, 502)
+    }
+  })
+
+  // The release README for the "Read more" view. Served from the server's cache
+  // (preloaded by /update/check), so the browser never talks to GitHub itself.
+  app.get('/update/readme', async (c) => {
+    const version = (c.req.query('version') ?? '').trim() || cache?.value.latest || ''
+    if (!version || !/^\d+\.\d+\.\d+([-.][0-9A-Za-z.]+)?$/.test(version)) {
+      return c.json({ error: 'no release version to read' }, 400)
+    }
+    try {
+      const r = await fetchReadme(depsFor(c), version)
+      c.header('Cache-Control', 'private, max-age=600')
+      return c.json(r)
+    } catch (e: any) {
+      return c.json({ error: `could not read the README: ${String(e?.message ?? e)}` }, 502)
     }
   })
 

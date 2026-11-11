@@ -11,6 +11,7 @@
     "signin-flights-test": "tsx scripts/signin-flights-test.ts",
     "pipedream-test": "tsx scripts/pipedream-test.ts",
     "harness-test": "tsx scripts/harness-test.ts",
+    "readme-test": "tsx scripts/readme-test.ts",
     "github-skill-test": "tsx scripts/github-skill-test.ts",
     "signin-error-test": "tsx scripts/signin-error-test.ts"
   },
