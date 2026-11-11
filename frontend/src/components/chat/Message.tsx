@@ -2,10 +2,11 @@ import React, { memo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import {
-  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2, Gauge, Scissors, BrainCircuit,
+  Copy, Check, RefreshCw, Pencil, GitBranch, Bookmark, Wand2, Info, Lightbulb, AlertTriangle, ArrowRight, Sparkles, Feather, Loader2, Gauge, Scissors, BrainCircuit, Brain,
 } from 'lucide-react'
 import type { ChatMessage } from '@/types'
 import { useStore } from '@/stores/useStore'
+import { addMemory } from '@/lib/memory/memory'
 import { useUI } from '@/stores/useUI'
 
 /** 1234 → 1.2k. Token counts are for orientation, not accounting. */
@@ -221,6 +222,14 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
           <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
             <HoverBtn label="Edit" onClick={() => { setDraft(msg.content); setEditing(true) }}><Pencil size={13} /></HoverBtn>
             <HoverBtn label="Build skill" onClick={() => ui().set({ skillBuilderOpen: msg.content })}><Wand2 size={13} /></HoverBtn>
+            {/* Remember: the one way a fact joins persistent memory from a chat. It is an
+                explicit act on this message, never an inference from the conversation. */}
+            <HoverBtn label="Remember this" onClick={() => {
+              const st = useStore.getState()
+              const r = addMemory(st.memories ?? [], msg.content, { source: 'chat', chatId })
+              if (r.added) { useStore.setState({ memories: r.list }); useUI.getState().toast('Remembered', 'Saved to Settings → Memory.', 'success') }
+              else useUI.getState().toast('Not saved', r.reason === 'duplicate' ? 'That is already remembered.' : 'Nothing to remember.', 'info')
+            }}><Brain size={13} /></HoverBtn>
           </div>
         </div>
       </div>

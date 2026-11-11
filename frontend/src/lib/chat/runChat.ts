@@ -34,6 +34,7 @@ import { usableKey } from '@/lib/providers/keys'
 import { useUI } from '@/stores/useUI'
 import type { ChatMessage, Source } from '@/types'
 import { buildCardPayload } from '@/lib/cards/build'
+import { memoryPromptBlock } from '@/lib/memory/memory'
 
 export interface RunOptions {
   chatId: string
@@ -245,6 +246,13 @@ export async function runChat(opts: RunOptions): Promise<void> {
   // What the model knows about the app itself: its sections, its in-app markers, the
   // coding tools, council, and connector sign-in. See lib/prompts/app-knowledge.ts.
   system += `\n\n${APP_KNOWLEDGE}`
+  // Persistent memory: the facts the user chose to keep. Skipped when the user
+  // has turned memory off, or when there is nothing saved.
+  {
+    const st = useStore.getState()
+    const block = st.settings.useMemories !== false ? memoryPromptBlock(st.memories ?? []) : ''
+    if (block) system += `\n\n${block}`
+  }
 
   // Interactive cards: the model may add one ui-card block when an answer is
   // clearer as something to explore. Plain JSON, rendered safely (lib/uicards).

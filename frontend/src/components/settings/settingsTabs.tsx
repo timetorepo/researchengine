@@ -1,7 +1,7 @@
 import { WalletTab } from './WalletTab'
 import { lazy, Suspense } from 'react'
 import React from 'react'
-import { BarChart3, Wallet, KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route, Split } from 'lucide-react'
+import { BarChart3, Wallet, KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route, Split, Brain } from 'lucide-react'
 import { ProfileTab } from './ProfileTab'
 import { CodingTab } from './CodingTab'
 import { ProvidersTab } from './ProvidersTab'
@@ -23,6 +23,7 @@ import { SecurityTab } from './SecurityTab'
 import { SnaffyTab } from './SnaffyTab'
 import { JevTab } from './JevTab'
 import { UsageTab } from './UsageTab'
+import { MemoryTab } from './MemoryTab'
 
 /**
  * The rail, grouped. Fewer things are in front of a person at once: the groups below
@@ -31,7 +32,7 @@ import { UsageTab } from './UsageTab'
  * opening a tab from a link shows it even while Advanced is closed.
  */
 export const TAB_GROUPS: { label: string; tabs: string[]; advanced?: boolean }[] = [
-  { label: 'You', tabs: ['profile', 'appearance', 'voice', 'notifications', 'shortcuts'] },
+  { label: 'You', tabs: ['profile', 'memory', 'appearance', 'voice', 'notifications', 'shortcuts'] },
   { label: 'AI', tabs: ['providers', 'models', 'search', 'skills', 'personas', 'agents', 'coding', 'usage'] },
   { label: 'Data and safety', tabs: ['data', 'security'] },
   { label: 'App', tabs: ['updates', 'about'] },
@@ -40,6 +41,7 @@ export const TAB_GROUPS: { label: string; tabs: string[]; advanced?: boolean }[]
 
 export const TABS = [
   { id: 'profile', label: 'Profile', icon: UserRound },
+  { id: 'memory', label: 'Memory', icon: Brain },
   { id: 'providers', label: 'Providers', icon: KeyRound },
   { id: 'updates', label: 'Updates', icon: ArrowDownToLine },
   { id: 'voice', label: 'Voice', icon: Mic },
@@ -69,6 +71,7 @@ const PersonasTab = lazy(() => import('./PersonasTab').then((m) => ({ default: m
 export function renderTab(tab: string): React.ReactNode {
   switch (tab) {
     case 'profile': return <ProfileTab />
+    case 'memory': return <MemoryTab />
     case 'providers': return <ProvidersTab />
     case 'updates': return <UpdatesTab />
     case 'voice': return <VoiceTab />

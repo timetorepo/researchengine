@@ -13,6 +13,7 @@ import { localDay } from '@/lib/usage/day'
 import { DEFAULT_BUBBLES } from '@/lib/chat/bubbles'
 import { createDeferredJsonStorage } from '@/lib/storage/deferredJson'
 import { activeNamespace, scopedStorage, writeNamespaced } from '@/lib/security/lock'
+import type { Memory } from '@/lib/memory/memory'
 
 /** The main store's persistence: scoped per user, written at most every 400 ms. */
 const deferredMainStorage = createDeferredJsonStorage({
@@ -28,6 +29,8 @@ interface StoreState {
   chats: Chat[]
   activeChatId: string | null
   skills: Skill[]
+  /** Facts the user chose to keep across conversations. See lib/memory/memory.ts. */
+  memories: Memory[]
   /**
    * The scan report attached to an imported skill, by skill id.
    *
@@ -171,6 +174,7 @@ const defaultSettings: Settings = {
   privacyMode: 'private',
   glassMode: 'off',
   chatsGooey: true,
+  useMemories: true,
   flowBoost: true,
   mcpServers: [],
   developerMode: false,
@@ -197,6 +201,7 @@ export const useStore = create<StoreState>()(
       chats: [],
       activeChatId: null,
       skills: builtinSkills,
+      memories: [],
       skillSecurity: {},
       articles: [],
       wallet: { usageMs: 0, earned: [], cards: [] },
@@ -380,7 +385,7 @@ export const useStore = create<StoreState>()(
       // Batched: a streamed answer would otherwise re-serialise every chat per token.
       storage: deferredMainStorage as any,
       partialize: (s) => ({
-        chats: s.chats, skills: s.skills, articles: s.articles, spaces: s.spaces, wallet: s.wallet,
+        chats: s.chats, skills: s.skills, memories: s.memories, articles: s.articles, spaces: s.spaces, wallet: s.wallet,
         citations: s.citations, knowledge: s.knowledge, documents: s.documents,
         quizzes: s.quizzes, learnPaths: s.learnPaths, learnProgress: s.learnProgress, spacedCards: s.spacedCards,
         squads: s.squads, integrations: s.integrations,

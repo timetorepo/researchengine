@@ -15,6 +15,7 @@
     "fork-test": "tsx --tsconfig tsconfig.json scripts/fork-test.mts",
     "stream-robustness-test": "tsx scripts/stream-robustness-test.mts",
     "hyperiux-test": "tsx scripts/hyperiux-test.mts",
+    "memory-test": "tsx scripts/memory-test.mts",
     "ide-chrome-test": "tsx --tsconfig tsconfig.json scripts/ide-chrome-test.mts",
     "library-test": "tsx --tsconfig tsconfig.json scripts/library-test.mts",
     "preview": "vite preview",
