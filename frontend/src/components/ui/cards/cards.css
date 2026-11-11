@@ -1,0 +1,49 @@
+/* Card effects. The glow-gradient pattern and the conic-gradient border idea
+   are common web techniques; this file is written from scratch. */
+
+.re-scene-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -18%;
+  width: 78%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  filter: blur(22px);
+  transition: opacity 500ms ease, transform 500ms ease;
+  pointer-events: none;
+}
+
+.re-glow-border {
+  position: relative;
+  border-radius: 24px;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.re-glow-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -2;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, transparent 0 8deg, var(--glow-a, #ff9a3c) 26deg, transparent 48deg, transparent 180deg, var(--glow-b, #ffd166) 206deg, transparent 228deg);
+  animation: re-glow-spin 6s linear infinite;
+}
+
+.re-glow-border::after {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  z-index: -1;
+  border-radius: calc(24px - 1.5px);
+  background: var(--surface);
+}
+
+@keyframes re-glow-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .re-glow-border::before { animation: none; }
+}

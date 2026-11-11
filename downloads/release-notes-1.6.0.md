@@ -1,0 +1,13 @@
+## 1.6.0 — A music player that only shows while it plays, a consented 3D keyboard, faster startup, and sharper personas
+
+This release tightens three things people use every day. The top-bar music player now appears only while a track plays, and it shows the track's name, artist and album. The 3D keyboard asks for consent the first time it is turned on, and it listens to keys only while it is on. The app starts faster because the heavy 3D code now loads only when it is needed. The research personas are rewritten with clearer working methods, and Codersa runs with a step budget it can see.
+
+## What changed
+
+- **Music shows only while it plays.** The top-bar player appears when a track starts and disappears when it stops. While it is up, it shows the track name, artist, album, mood, BPM and position, read live from the player. Start music from Settings → Appearance → Background music. Playback still starts only from a click, because browsers block autoplay.
+- **The 3D keyboard asks first.** The first time you turn it on, a disclaimer asks you to tick a checkbox. It says Research Engine does not listen to keys outside the 3D keyboard toggle, and that keys are not recorded, stored or sent. Key presses in password fields are ignored. If you turned it on in an earlier version, you are asked once. Until you agree, nothing listens.
+- **A 3D marquee on the welcome screen.** Aceternity's 3D Marquee now runs in onboarding, filled with the app's own screenshots and public-domain paintings from the repository. It is decorative and stops moving when reduced motion is on.
+- **Faster startup.** The 3D keyboard and the decorative pattern load on demand, not with the first screen. The entry bundle drops from about 3.0 MB to about 1.9 MB of JavaScript. The backend loads its routes in parallel. Painting files are smaller: Van Gogh is 136 kB instead of 390 kB.
+- **Personas rewritten.** Researcher, Flow, Math, Scholar, Tutor, Replicator and Essayist each have a personality, a working method, rules for sources and uncertainty, and a list of what they will not do. Council roles and work modes get the same detail.
+- **Codersa is steadier.** Its system prompt names only the tools each profile can use. As the step limit nears, the model sees how many steps remain. A turn that runs out of steps ends with a report instead of an error. Esc stops a running turn, and a failed or stopped message can be edited and sent again.
+- **Smaller fixes.** Codersa runs Gemini and Ollama through their OpenAI-compatible routes. Selects use one modern control across the app. Council members appear as an avatar group.

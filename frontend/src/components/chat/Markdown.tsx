@@ -1,0 +1,136 @@
+import React, { memo, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { HoverImageLink } from '@/components/ui/hover-image-link/HoverImageLink'
+import { Blackjack } from '@/components/ui/kit/dqnamo/Blackjack'
+import { PollResults, parsePoll } from '@/components/ui/kit/interior/PollResults'
+import { ZoomableImage } from '@/components/ui/kit/interior/ZoomableImage'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import { Check, Copy, Layers } from 'lucide-react'
+import { useArtifacts } from '@/lib/artifacts/store'
+import { titleFor } from '@/lib/artifacts/preview'
+import { normalizeModelMarkdown } from '@/lib/chat/markdownDialects'
+import { highlight } from '@/lib/highlight'
+import { CssLink } from '@/components/ui/skiper/CssLink'
+import { UiCard } from '@/components/chat/UiCard'
+import { parseUiCard, UI_CARD_LANG } from '@/lib/uicards/spec'
+// SmoothUI's AIResponse — used for the plain-text streaming path below.
+import AIResponse from '@/components/smoothui/ai-response'
+
+function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }) {
+  const [copied, setCopied] = useState(false)
+  const code = String(children ?? '').replace(/\n$/, '')
+  const lang = (className ?? '').replace('language-', '') || 'text'
+
+  return (
+    <div className="relative group/code my-2">
+      <div className="flex items-center justify-between px-3.5 py-1.5 rounded-t-[14px] text-[10.5px] font-mono"
+        style={{ background: 'var(--elevated)', borderBottom: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
+        <span>{lang}</span>
+        <div className="flex items-center gap-3">
+        {code.split('\n').length >= 3 && (
+          <button
+            aria-label="Open as artifact"
+            onClick={() => useArtifacts.getState().open({ title: titleFor(lang, code), lang, code })}
+            className="flex items-center gap-1 hover:text-[var(--text)] transition-colors"
+          >
+            <Layers size={11} /> Artifact
+          </button>
+        )}
+        <button
+          aria-label="Copy code"
+          onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
+          className="flex items-center gap-1 hover:text-[var(--text)] transition-colors"
+        >
+          {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? 'Copied' : 'Copy'}
+        </button>
+        </div>
+      </div>
+      <pre className="!mt-0 !rounded-t-none">
+        <code dangerouslySetInnerHTML={{ __html: highlight(code) }} />
+      </pre>
+    </div>
+  )
+}
+
+/**
+ * Turn `[n]` markers into links to the n-th source, so a citation is a real
+ * chip that opens its page. Code (fenced or inline) is left alone, and a
+ * marker with no matching source keeps its plain text.
+ */
+const CODE_SPAN = /(```[\s\S]*?```|`[^`\n]*`)/
+export function linkCitations(text: string, sources?: { url?: string }[]): string {
+  if (!sources?.length || !text.includes('[')) return text
+  return text.split(CODE_SPAN).map((part, i) => {
+    if (i % 2 === 1) return part // a code span
+    return part.replace(/(^|[^\]\\\w])\[(\d{1,3})\](?!\()/g, (whole, pre: string, n: string) => {
+      const url = sources[Number(n) - 1]?.url
+      if (!url || !/^https?:\/\//i.test(url)) return whole
+      return `${pre}[${n}](${url.replace(/[()\s]/g, (c) => (c === '(' ? '%28' : c === ')' ? '%29' : '%20'))})`
+    })
+  }).join('')
+}
+
+export const Markdown = memo(function Markdown({ content: raw, streaming = false, sources }: { content: string; streaming?: boolean; sources?: { url?: string }[] }) {
+  const content = linkCitations(normalizeModelMarkdown(raw, sources), sources)
+  const plainStreaming = streaming && !/[`#*_\[\]]/.test(content)
+  return (
+    <div className={`md-body ${streaming ? 'md-streaming' : ''}`}>
+      {plainStreaming ? (
+        // SmoothUI's AIResponse animates a word when the word *arrives* rather
+        // than on a fixed timer, so the entrance can never drift out of step
+        // with the stream it is describing. Markdown takes over the moment the
+        // answer contains any markup to render.
+        <AIResponse text={content} isStreaming />
+      ) : <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          code({ node, className, children, ...props }) {
+            const isBlock = /language-/.test(className ?? '') || String(children).includes('\n')
+            if (isBlock && className === `language-${UI_CARD_LANG}`) {
+              // An interactive card. If the JSON does not parse (or is still
+              // streaming in), the block stays a plain code block: no answer is lost.
+              const parsed = parseUiCard(String(children ?? ''))
+              if (parsed.ok) return <UiCard card={parsed.card} />
+            }
+            // A game or a poll the AI opens in the chat: ```blackjack, or ```poll with JSON.
+            if (isBlock && className === 'language-blackjack') return <Blackjack />
+            if (isBlock && className === 'language-poll') {
+              const poll = parsePoll(String(children ?? ''))
+              if (poll) return <PollResults poll={poll} />
+            }
+            if (isBlock) return <CodeBlock className={className}>{children}</CodeBlock>
+            return <code className={className}>{children}</code>
+          },
+          // Pictures in an answer open in the lightbox and sharpen in as they load.
+          img({ src, alt }) {
+            if (!src) return null
+            return <ZoomableImage src={String(src)} alt={alt ?? ''} className="max-w-full rounded-[12px] my-2" style={{ maxHeight: 480 }} />
+          },
+          // Links in an answer are the way out of it, so they get the real
+          // treatment: the rule is drawn in CSS instead of by the browser, the
+          // external marker arrives on hover, and citations read as chips.
+          //
+          // A link that leaves the app also becomes a preview: hovering it shows
+          // the page's own image (robots.txt first, then its Open Graph tags) in a
+          // tile that follows the cursor. Everything stays a
+          // link, so it is never a dead end if the preview is refused.
+          a({ href, children }) {
+            const text = Array.isArray(children) ? children.join('') : String(children ?? '')
+            const cite = /^\s*\[?\d{1,2}\]?\s*$/.test(text)
+            const link = <CssLink href={href ?? '#'} variant={cite ? 'chip' : 'inline'}>{children}</CssLink>
+            // `window` is read only when it exists: this also renders without a DOM.
+            const origin = typeof window !== 'undefined' ? window.location.origin : ''
+            const external = !!href && /^https?:\/\//i.test(href) && !(origin && href.startsWith(origin))
+            if (!external || cite) return link
+            return <HoverImageLink url={href}>{link}</HoverImageLink>
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>}
+    </div>
+  )
+})

@@ -1,0 +1,1642 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import { FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch, TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp, Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2, FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes, Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles, Package, Plug, Camera, GitCompareArrows, ShieldAlert } from 'lucide-react'
+import { useStore } from '@/stores/useStore'
+import { useUI } from '@/stores/useUI'
+import { DepsPanel } from './DepsPanel'
+import { McpPanel } from './McpPanel'
+import { ScreenshotPanel } from './ScreenshotPanel'
+import { PentestPanel } from './PentestPanel'
+import { DesignStudio } from './DesignStudio'
+import { AgentPanel, chatIdFor } from './AgentPanel'
+import { BuildFromPrompt } from './BuildFromPrompt'
+import { hasBuild } from '@/lib/ide/pendingBuild'
+import { ChangesPanel } from './ChangesPanel'
+import { AIFloat, FocusButton } from './AIFloat'
+import { AgentsDock } from './AgentsDock'
+import { AgentTimeline } from './AgentTimeline'
+import { AgentChangeTimeline } from './AgentChangeTimeline'
+import { VelocityTabs } from '@/components/ui/skecher/velocity-tabs'
+import { AgentSafety } from './AgentSafety'
+import { FrameworksPanel } from './FrameworksPanel'
+import { useDownloadNotices } from '@/hooks/useDownloadNotices'
+import { IDECommandPalette, ideActions, type PaletteAction } from './IDECommandPalette'
+import { useAgents, subscribeActivity, wireAgentActivity } from '@/lib/ide/agents'
+import { commandTimeoutMs, type IdeActivity } from '@/lib/chat/tools'
+import { CodeEditor } from './CodeEditor'
+import { FileGlyph } from '@/lib/ide/fileIcons'
+import { projectInstructionsTemplate } from '@/lib/ide/codex-flow'
+import type { ProjectInfo, TreeNode, OpenFile } from './types'
+import { designSession, previewUrlFor } from '@/lib/ide/bridge'
+import { previewStatus, ensurePreviewServer } from '@/lib/ide/preview'
+import { isStreamingChat } from '@/lib/chat/runChat'
+import { SAMPLE_PROJECT } from '@/lib/ide/sample'
+import { createProjectRobust, postJson } from '@/lib/ide/create'
+import { normalizeProjectName } from '@/lib/ide/names'
+import { fmt, timeAgo } from '@/lib/utils'
+import { scrollToEnd, scrollChildIntoView } from '@/lib/dom/scroll'
+// shadcn-space @shadcn-space/button-group-12 — the Execute button group, with
+// its animated chevron and staggered menu. Here it is the coding toolbar's
+// run/save pair: the primary button runs the project, the menu holds the things
+// you would otherwise hunt for (save, save and run, open the preview).
+import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/button-group-12'
+// R24 chrome: Xcode 26's grouped glass controls, Zed's quiet status buttons,
+// Cursor 3's agent rows. Presentation only — see the file for the motion rules.
+import { GlassBar, GlassGroup, GlassButton, GlassTabs, Breadcrumbs, StatusItem } from './IdeChrome'
+import { CodingTabs } from '@/components/codersa/CodingTabs'
+import { TreeView, type TreeNode as KitTreeNode } from '@/components/ui/kit/interior/TreeView'
+
+/* ================================================================== */
+/* Coding entry — project list ⇄ workbench ⇄ design studio            */
+/* ================================================================== */
+/**
+ * The chat a task belongs to lives on its own route, and the IDE sits inside
+ * the app's HashRouter — so this is a hash move, not a router hook. That also
+ * keeps Workbench mountable on its own (tests, previews) with no Router above
+ * it.
+ */
+function openAgentChat(chatId: string) {
+  window.location.hash = `#/chat/${chatId}`
+}
+
+export function CodingView() {
+  const [projects, setProjects] = useState<ProjectInfo[] | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+  const [design, setDesign] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [err, setErr] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [tree, setTree] = useState<TreeNode[]>([])
+  const uploadRef = useRef<HTMLInputElement>(null)
+  const ui = useUI()
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ide/projects')
+      setProjects((await res.json()).projects ?? [])
+    } catch { setProjects([]) }
+  }, [])
+  useEffect(() => { void refresh() }, [refresh])
+
+  // ?project=<name> opens that project straight away — how a research chat
+  // that turned into coding ("start_coding_mode") hands the user a workspace
+  // rather than a list to search in. ?hub=<query> is the Library's UI vertical
+  // handing a component over to design mode: straight into the hub, searching.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
+    const want = params.get('project')
+    const hub = params.get('hub')
+    if (hub) {
+      setDesign(true)
+      setOpen((cur) => cur ?? want ?? '')
+    } else if (want) {
+      setOpen((cur) => cur ?? want)
+    }
+  }, [])
+
+  // Keep the tree in sync with reality (AI edits files, terminal commands, …).
+  const loadTree = useCallback(async (project: string) => {
+    try {
+      const res = await fetch(`/api/ide/tree?project=${encodeURIComponent(project)}`)
+      if (res.ok) setTree((await res.json()).tree ?? [])
+    } catch { /* tree stays as-is */ }
+  }, [])
+  useEffect(() => {
+    if (!open) return
+    void loadTree(open)
+    const h = () => void loadTree(open)
+    window.addEventListener('re:ide-changed', h)
+    return () => window.removeEventListener('re:ide-changed', h)
+  }, [open, loadTree])
+
+  // Opening a project selects its coding chat (creating one on first use), so
+  // the IDE panel and the Chats page agree about where the work lives.
+  useEffect(() => {
+    if (!open) return
+    useStore.getState().setActiveChat(chatIdFor(open))
+  }, [open])
+
+  /** Live preview of the folder name the user will actually get. */
+  const nameCheck = normalizeProjectName(newName)
+  const [sampleBusy, setSampleBusy] = useState(false)
+
+  const create = async () => {
+    const check = nameCheck
+    // A blank name — or one made only of characters no filesystem can store —
+    // is not an error to argue about: we name the project and open it. The
+    // helper retries with a client-chosen name if the server dislikes this one.
+    const requested = check.name || 'untitled-project'
+    setErr('')
+    const outcome = await createProjectRobust(postJson, {
+      name: requested,
+      fallback: 'untitled-project',
+      files: {
+        'README.md': `# ${requested}\n\nCreated with Research Engine Coding.\n`,
+        'AGENTS.md': projectInstructionsTemplate(requested),
+        'main.py': 'print("hello")\n',
+      },
+      taken: projects?.map((p) => p.name) ?? [],
+      unique: true,
+    })
+    if (!outcome.ok) { setErr(outcome.error ?? 'Could not create the project.'); return }
+    const finalName = outcome.name ?? requested
+    setCreating(false); setNewName(''); setOpen(finalName); void refresh()
+    if (!check.name) ui.toast('Project created', `Named it “${finalName}” — click the title to rename it.`, 'success')
+    else if (outcome.renamed || finalName !== requested) ui.toast('Project created', `Saved in a folder named “${finalName}”.`, 'success')
+  }
+
+  /** The sample button must always work — the server picks the next free name. */
+  const createSample = async () => {
+    setSampleBusy(true)
+    // Two chances, then a name chosen here, so an older server (or one that
+    // dislikes the name for any reason) still ends with a working project.
+    const outcome = await createProjectRobust(postJson, {
+      name: 'sample-landing',
+      fallback: 'sample-app',
+      files: SAMPLE_PROJECT,
+      taken: projects?.map((p) => p.name) ?? [],
+      unique: true,
+    })
+    setSampleBusy(false)
+    if (!outcome.ok) {
+      ui.toast(
+        'Could not create the sample',
+        `${outcome.error ?? 'Unknown error'} — Settings → Developer → “Test: create the sample app” shows exactly what the server said.`,
+        'danger',
+      )
+      return
+    }
+    const name = outcome.name ?? 'sample-landing'
+    setOpen(name); setDesign(true); void refresh()
+    ui.toast('Sample ready', `${name} — Design mode is opening; the AI can audit and fix this page live.`, 'success')
+  }
+
+  const importArchive = async (file: File) => {
+    const name = normalizeProjectName(file.name.replace(/\.(zip|tar\.gz|tgz|tar)$/i, '')).name || 'imported-project'
+    if (file.size > 24 * 1024 * 1024) { ui.toast('Too large', 'Project archives are capped at 24 MB.', 'warning'); return }
+    const dataBase64 = await new Promise<string>((resolve) => {
+      const r = new FileReader(); r.onload = () => resolve(String(r.result).split(',')[1] ?? ''); r.readAsDataURL(file)
+    })
+    const res = await fetch('/api/ide/import', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name, fileName: file.name, dataBase64 }),
+    })
+    const j = await res.json()
+    if (!res.ok) { ui.toast('Import failed', j.error ?? 'Unknown error', 'danger'); return }
+    const finalName = j.name ?? name
+    ui.toast('Project imported', `${finalName} is ready — the AI can now read, fix and refine it.`, 'success')
+    setOpen(finalName); void refresh()
+  }
+
+  const del = async (name: string) => {
+    setConfirmDelete(null)
+    await fetch(`/api/ide/projects/${encodeURIComponent(name)}`, { method: 'DELETE' })
+    if (open === name) setOpen(null)
+    ui.toast('Project deleted', name, 'info')
+    void refresh()
+  }
+
+  if (open && design) {
+    return <DesignStudio project={open} tree={tree} onExit={() => setDesign(false)} />
+  }
+  if (open) {
+    return (
+      <Workbench
+        project={open}
+        tree={tree}
+        onTreeRefresh={() => loadTree(open)}
+        onBack={() => { setOpen(null); setDesign(false); void refresh() }}
+        onDesign={() => setDesign(true)}
+        onRenamed={(next) => { setOpen(next); void loadTree(next); void refresh() }}
+      />
+    )
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-[900px] mx-auto px-6 py-10">
+        <div className="mb-6"><CodingTabs active="projects" /></div>
+        <div className="flex items-center gap-3 mb-1.5">
+          <FolderGit2 size={22} style={{ color: 'var(--primary)' }} />
+          <h1 className="text-[22px] font-semibold tracking-tight">Coding</h1>
+        </div>
+        <p className="text-[13px] mb-6" style={{ color: 'var(--text-2)' }}>
+          A real workbench for local projects: edit code, run guarded commands, use git — and switch to
+          Design mode so the AI can see the running app, test it, and fix it. Everything stays on this machine.
+        </p>
+
+        <BuildFromPrompt
+          taken={projects?.map((p) => p.name) ?? []}
+          onCreated={(name) => { setOpen(name); void refresh() }}
+        />
+
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <button onClick={() => setCreating(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
+            style={{ background: 'var(--primary)', color: '#fff' }}>
+            <Plus size={14} /> New project
+          </button>
+          <button onClick={() => uploadRef.current?.click()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium"
+            style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }}>
+            <Upload size={14} /> Upload .zip / .tar.gz
+          </button>
+          <button onClick={() => void createSample()} disabled={sampleBusy}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[12px] text-[13px] font-medium disabled:opacity-60"
+            style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
+            {sampleBusy ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} {sampleBusy ? 'Building the sample…' : 'Try a sample app'}
+          </button>
+          <input ref={uploadRef} type="file" accept=".zip,.tar.gz,.tgz,.tar" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) void importArchive(f); e.target.value = '' }} />
+        </div>
+
+        <AnimatePresence>
+          {creating && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-5">
+              <div className="surface p-4 flex items-center gap-2">
+                <FolderPlus size={15} style={{ color: 'var(--primary)' }} />
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && create()} maxLength={160}
+                  placeholder="Name your project" aria-label="Project name"
+                  className="flex-1 px-3 py-1.5 rounded-[10px] text-[13px] outline-none"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
+                <button onClick={create} className="px-3 py-1.5 rounded-[10px] text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Create</button>
+                <button onClick={() => setCreating(false)} className="p-1.5 rounded-[10px]" style={{ color: 'var(--text-3)' }}><X size={14} /></button>
+              </div>
+              <div className="flex items-center justify-between mt-1.5 px-1 gap-3">
+                <p className="text-[11px] truncate" style={{ color: 'var(--text-3)' }}>
+                  {!newName.trim() ? 'Anything you like — spaces, capitals, punctuation, emoji. Leave it blank and it is named for you.'
+                    : !nameCheck.name ? (nameCheck.reason ?? '')
+                    : nameCheck.changed ? <>Saved as <span style={{ color: 'var(--text-2)' }}>“{nameCheck.name}”</span> — characters Windows cannot store are cleaned up</>
+                    : 'Press Enter to create it.'}
+                </p>
+                <p className="text-[11px] tabular-nums shrink-0" style={{ color: 'var(--text-3)' }}>{nameCheck.name.length}/128</p>
+              </div>
+              {err && <p className="text-[12px] mt-1.5" style={{ color: 'var(--danger)' }}>{err}</p>}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {projects === null ? (
+          <div className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--text-3)' }}><Loader2 size={14} className="animate-spin" /> Loading projects…</div>
+        ) : projects.length === 0 ? (
+          <div className="surface p-8 text-center">
+            <Code2 size={22} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
+            <p className="text-[13.5px] mb-1">No projects yet.</p>
+            <p className="text-[12px] mb-4" style={{ color: 'var(--text-3)' }}>Create one, upload an archive — or drop in the sample app to see Design mode work end to end.</p>
+            <button onClick={() => void createSample()} disabled={sampleBusy} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium disabled:opacity-60" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
+              {sampleBusy ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />} {sampleBusy ? 'Building the sample…' : 'Create the sample app'}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {projects.map((p) => (
+              <div key={p.name} className="surface p-4 group relative card-hover">
+                <button onClick={() => setOpen(p.name)} className="text-left w-full">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FolderGit2 size={16} style={{ color: 'var(--primary)' }} />
+                    <span className="font-medium text-[13.5px] truncate">{p.name}</span>
+                    {p.git && <span className="text-[9.5px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}>git</span>}
+                  </div>
+                  <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>{p.files} files · {fmt(p.size)} · {timeAgo(p.mtime)}</div>
+                </button>
+                <button onClick={() => setConfirmDelete(p.name)} aria-label={`Delete ${p.name}`}
+                  className="absolute top-3 right-3 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--danger)' }}>
+                  <Trash2 size={13} />
+                </button>
+                {confirmDelete === p.name && (
+                  <div className="absolute inset-0 rounded-[inherit] flex flex-col items-center justify-center gap-2 p-3 text-center"
+                    style={{ background: 'color-mix(in srgb, var(--surface) 92%, transparent)', backdropFilter: 'blur(6px)' }}>
+                    <span className="text-[12px]">Delete <strong>{p.name}</strong>?</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => void del(p.name)} className="px-2.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--danger)', color: '#fff' }}>Delete</button>
+                      <button onClick={() => setConfirmDelete(null)} className="px-2.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--elevated)', color: 'var(--text-2)', border: '1px solid var(--surface-border)' }}>Keep</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ================================================================== */
+/* Workbench                                                          */
+/* ================================================================== */
+type Activity = 'explorer' | 'search' | 'git' | 'deps' | 'mcp' | 'shot' | 'pentest' | 'design'
+type PanelTab = 'terminal' | 'problems' | 'git' | 'preview' | 'safety' | 'frameworks'
+
+function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }: {
+  project: string
+  tree: TreeNode[]
+  onTreeRefresh: () => void
+  onBack: () => void
+  onDesign: () => void
+  onRenamed: (next: string) => void
+}) {
+  const ui = useUI()
+  const [activity, setActivity] = useState<Activity>('explorer')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [agentOpen, setAgentOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 1180)
+  const [files, setFiles] = useState<OpenFile[]>([])
+  const [active, setActive] = useState<string | null>(null)
+  const [gotoLine, setGotoLine] = useState(0)
+  const [panel, setPanel] = useState<PanelTab>('terminal')
+  // Every clone, install and download the agent starts is announced as it lands.
+  useDownloadNotices(true)
+  const [panelOpen, setPanelOpen] = useState(true)
+  // The panel's height belongs to the user, the way it does in every editor
+  // worth the name: drag the gutter above it, double-click it to go back, and
+  // it is remembered per machine.
+  const [panelH, setPanelH] = useState(() => {
+    const saved = Number(typeof localStorage !== 'undefined' ? localStorage.getItem('re.ide.panelH') : 0)
+    return saved >= 140 && saved <= 560 ? saved : 220
+  })
+  useEffect(() => { try { localStorage.setItem('re.ide.panelH', String(Math.round(panelH))) } catch { /* private mode */ } }, [panelH])
+  const startPanelDrag = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = panelH
+    const move = (ev: PointerEvent) => setPanelH(Math.max(140, Math.min(560, startH + (startY - ev.clientY))))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  const [newFile, setNewFile] = useState('')
+  const [searchQ, setSearchQ] = useState('')
+  const [results, setResults] = useState<{ path: string; line: number; text: string }[]>([])
+  const [searching, setSearching] = useState(false)
+  const [preview, setPreview] = useState<{ running: boolean; port?: number; kind?: string; ready?: boolean; error?: string | null }>({ running: false })
+  // The right dock is a workspace of its own now: the chat, the parallel agent
+  // pool, and a live "what did the AI just touch" feed.
+  const [dockTab, setDockTab] = useState<'ai' | 'agents' | 'activity' | 'changes'>('ai')
+  const [activityView, setActivityView] = useState<'list' | 'timeline'>('list')
+  // Branch and change count for the status bar, refreshed while the project is open.
+  const [gitSummary, setGitSummary] = useState<{ branch: string; files: number } | null>(null)
+  useEffect(() => {
+    let live = true
+    const read = () => fetch(`/api/ide/git/status?project=${encodeURIComponent(project)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!live) return
+        if (!j || j.repo === false) { setGitSummary(null); return }
+        setGitSummary({ branch: j.branch ?? '', files: (j.files ?? []).length })
+      })
+      .catch(() => {})
+    void read()
+    const t = window.setInterval(() => void read(), 15000)
+    return () => { live = false; window.clearInterval(t) }
+  }, [project])
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [sessionActivity, setSessionActivity] = useState<IdeActivity[]>([])
+  const agentTasks = useAgents((st) => st.tasks.filter((t) => t.project === project))
+  const agentRunning = agentTasks.filter((t) => t.status === 'running' || t.status === 'forking').length
+  const agentReady = agentTasks.filter((t) => t.status === 'ready' || t.status === 'conflict').length
+
+  // Agent tasks keep their tool calls; the chat's own calls land here too, so
+  // the Activity tab covers "what has the AI done to this project".
+  useEffect(() => { wireAgentActivity() }, [])
+  useEffect(() => subscribeActivity((line) => {
+    if (line.agent) return
+    if (line.project && line.project !== project) return
+    setSessionActivity((list) => [...list.slice(-80), { ...line, id: `${line.at}-${line.kind}-${line.path ?? line.command ?? ''}` }])
+  }), [project])
+
+  // ⌘K on the IDE, the way every editor does it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen((v) => !v) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const allFiles = useMemo(() => {
+    const out: string[] = []
+    const walk = (nodes: TreeNode[]) => { for (const n of nodes) { if (n.dir) walk(n.children ?? []); else out.push(n.path) } }
+    walk(tree)
+    return out
+  }, [tree])
+
+  // Actions for ⌘K. Cheap to build, so it is made per render rather than
+  // memoised (which would have to capture `save` before it is defined).
+  const paletteActions = (): PaletteAction[] => ideActions({
+    onDesign,
+    onTerminal: () => { setPanel('terminal'); setPanelOpen(true) },
+    onProblems: () => { setPanel('problems'); setPanelOpen(true) },
+    onGit: () => { setPanel('git'); setPanelOpen(true) },
+    onSave: () => void save(),
+    onSpawnAgent: () => { openDock('agents'); setAgentOpen(true) },
+    onHandoffCloud: () => { openDock('agents'); setAgentOpen(true) },
+    onHandoffLocal: () => { openDock('ai'); setAgentOpen(true); window.dispatchEvent(new CustomEvent('re:ide-handoff', { detail: { to: 'local' } })) },
+    onTogglePanel: () => setPanelOpen((v) => !v),
+  })
+  const [starting, setStarting] = useState(false)
+  const [confirmClose, setConfirmClose] = useState<string | null>(null)
+  // Full-screen (focus) mode: the canvas fills the window and the assistant
+  // collapses into the floating pill.
+  const [focus, setFocus] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [nameDraft, setNameDraft] = useState(project)
+  const nameRef = useRef<HTMLInputElement>(null)
+
+  // Live mirrors of the tab state: callbacks (opened by the AI, the terminal,
+  // or a disk-change event) must never read a stale snapshot of `files`.
+  const filesRef = useRef<OpenFile[]>(files)
+  filesRef.current = files
+  const activeRef = useRef<string | null>(active)
+  activeRef.current = active
+
+  const chatId = useMemo(() => chatIdFor(project), [project])
+  const streaming = isStreamingChat(chatId)
+  const current = files.find((f) => f.path === active) ?? null
+  const dirty = !!current && current.content !== current.disk
+  const anyDirty = files.some((f) => f.content !== f.disk)
+
+  /* ---------------- files ---------------- */
+  // Tabs are keyed by path and must never appear twice: a click on an
+  // already-loading file (or a fast double-click) used to add it a second time,
+  // which made the active tab and the editor disagree.
+  const opening = useRef(new Set<string>())
+  /** Paths we wrote ourselves — their own disk-change event is ours to ignore. */
+  const justSaved = useRef(new Set<string>())
+  const openFile = useCallback(async (path: string, line = 0) => {
+    setGotoLine(line)
+    if (filesRef.current.some((f) => f.path === path)) { setActive(path); return }
+    if (opening.current.has(path)) { setActive(path); return }
+    opening.current.add(path)
+    try {
+      const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`)
+      if (!res.ok) { ui.toast('Cannot open', (await res.json()).error ?? 'File error', 'danger'); return }
+      const j = await res.json()
+      setFiles((f) => (f.some((x) => x.path === path) ? f : [...f, { path, content: j.content, disk: j.content }]))
+      setActive(path)
+    } finally {
+      opening.current.delete(path)
+    }
+  }, [project, ui])
+
+  const closeFile = (path: string) => {
+    const f = filesRef.current.find((x) => x.path === path)
+    if (f && f.content !== f.disk) { setConfirmClose(path); return }
+    doClose(path)
+  }
+  /** Closing the active tab moves the selection to its neighbour — computed
+   *  outside the state updater so the two can never disagree. */
+  const doClose = (path: string) => {
+    setConfirmClose(null)
+    const list = filesRef.current
+    const idx = list.findIndex((x) => x.path === path)
+    const next = list.filter((x) => x.path !== path)
+    setFiles(next)
+    if (active === path) setActive(next.length ? (next[Math.min(idx, next.length - 1)]?.path ?? null) : null)
+  }
+
+  /** Pull disk changes into the tabs: clean buffers reload silently, dirty ones
+   *  are flagged so the user can choose. Files that vanished close themselves. */
+  const syncFromDisk = useCallback(async () => {
+    const list = filesRef.current
+    if (!list.length) return
+    // Drop the paths this workbench just wrote; only external writes matter.
+    const own = justSaved.current
+    justSaved.current = new Set()
+    const results = await Promise.all(list.map(async (f) => {
+      const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(f.path)}`)
+      if (!res.ok) return { path: f.path, gone: true as const }
+      const j = await res.json()
+      return { path: f.path, content: String(j.content ?? ''), gone: false as const }
+    }))
+    const byPath = new Map(results.map((x) => [x.path, x]))
+    const gone = results.filter((x) => x.gone).map((x) => x.path)
+    setFiles((current) => current
+      .filter((f) => !gone.includes(f.path))
+      .map((f) => {
+        const fresh = byPath.get(f.path)
+        if (!fresh || fresh.gone) return f
+        if (fresh.content === f.disk) return { ...f, stale: false }
+        if (own.has(f.path)) return { ...f, content: f.content === f.disk ? fresh.content : f.content, disk: fresh.content, stale: false }
+        // Changed on disk. Keep unsaved edits, flag them; otherwise adopt it.
+        if (f.content !== f.disk) return { ...f, disk: fresh.content, stale: true }
+        return { ...f, content: fresh.content, disk: fresh.content, stale: false }
+      }))
+    if (gone.length) {
+      const first = gone[0]
+      if (activeRef.current && gone.includes(activeRef.current)) setActive(null)
+      ui.toast(gone.length === 1 ? 'File deleted' : 'Files deleted', `${first} was removed outside the editor.`, 'info')
+    }
+  }, [project, ui])
+
+  const reloadFromDisk = async (path = active) => {
+    if (!path) return
+    const res = await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`)
+    if (!res.ok) { ui.toast('Cannot reload', (await res.json()).error ?? 'File error', 'danger'); return }
+    const j = await res.json()
+    setFiles((list) => list.map((f) => (f.path === path ? { path, content: j.content, disk: j.content, stale: false } : f)))
+    ui.toast('Reloaded from disk', path, 'success')
+  }
+
+  const save = useCallback(async (path?: string) => {
+    const target = files.find((f) => f.path === (path ?? active))
+    if (!target || target.content === target.disk) return
+    const res = await fetch('/api/ide/file', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project, path: target.path, content: target.content }),
+    })
+    if (res.ok) {
+      setFiles((list) => list.map((f) => (f.path === target.path ? { ...f, disk: f.content, stale: false } : f)))
+      ui.toast('Saved', target.path, 'success')
+      justSaved.current.add(target.path)
+      window.dispatchEvent(new CustomEvent('re:ide-changed'))
+    } else {
+      ui.toast('Save failed', (await res.json()).error ?? 'Unknown error', 'danger')
+    }
+  }, [active, files, project, ui])
+
+  const addFile = async () => {
+    const p = newFile.trim()
+    if (!p) return
+    const res = await fetch('/api/ide/file', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project, path: p, content: '' }),
+    })
+    if (!res.ok) { ui.toast('Could not create file', (await res.json()).error ?? '', 'danger'); return }
+    setNewFile(''); onTreeRefresh(); void openFile(p)
+  }
+
+  const deleteFile = async (path: string) => {
+    await fetch(`/api/ide/file?project=${encodeURIComponent(project)}&path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+    doClose(path); onTreeRefresh()
+  }
+
+  // Anything that writes files (the AI, the terminal, git) announces itself —
+  // the open tabs catch up instead of drifting out of sync with disk.
+  useEffect(() => {
+    const h = () => { void syncFromDisk() }
+    window.addEventListener('re:ide-changed', h)
+    return () => window.removeEventListener('re:ide-changed', h)
+  }, [syncFromDisk])
+
+  /* ---------------- search ---------------- */
+  const runSearch = useCallback(async (q: string) => {
+    if (q.trim().length < 2) { setResults([]); return }
+    setSearching(true)
+    try {
+      const res = await fetch(`/api/ide/search?project=${encodeURIComponent(project)}&q=${encodeURIComponent(q.trim())}`)
+      const j = await res.json()
+      setResults((j.results ?? []).filter((r: any) => r.line > 0))
+    } finally { setSearching(false) }
+  }, [project])
+
+  useEffect(() => {
+    const t = setTimeout(() => { if (activity === 'search') void runSearch(searchQ) }, 300)
+    return () => clearTimeout(t)
+  }, [searchQ, activity, runSearch])
+
+  // ⌘⇧F / Ctrl⇧F toggles full screen — the AI dock folds into the floating pill.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setFocus((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const tabStripRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * The editor reports its caret into a ref, not into state: the readout at the
+   * bottom right is its own component, so a keystroke re-renders one line of
+   * text instead of this whole workbench.
+   */
+  const caretSink = useRef<((c: { line: number; col: number }) => void) | null>(null)
+  const registerCaret = useCallback((fn: (c: { line: number; col: number }) => void) => { caretSink.current = fn }, [])
+
+  // Keep the active tab in view — a tab opened by the AI used to land offscreen.
+  // Only the tab strip moves; the app frame must never scroll for this.
+  useEffect(() => {
+    if (!active) return
+    const el = document.querySelector(`[data-tab="${CSS.escape(active)}"]`)
+    scrollChildIntoView(tabStripRef.current, el as HTMLElement | null, { block: 'nearest' })
+  }, [active, files.length])
+
+  /* ---------------- rename (inline, from the title bar) ---------------- */
+  const startRename = () => { setNameDraft(project); setRenaming(true); setTimeout(() => nameRef.current?.select(), 0) }
+  const commitRename = async () => {
+    const next = nameDraft.trim().replace(/\s+/g, ' ')
+    setRenaming(false)
+    if (!next || next === project) return
+    try {
+      // The preview is bound to the old folder — stop it before the move.
+      await fetch('/api/ide/preview/stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project }) }).catch(() => null)
+      const res = await fetch('/api/ide/projects/rename', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ from: project, to: next }),
+      })
+      const j = await res.json()
+      if (!res.ok) { ui.toast('Rename failed', j.error ?? 'Unknown error', 'danger'); return }
+      // The server names the project: it keeps the old name when the new one has
+      // nothing a folder can be made of, and frees up a taken one.
+      const finalName = j.name ?? next
+      if (j.kept || finalName === project) {
+        ui.toast('Name kept', `“${next}” has no letters or numbers — the project is still called ${project}.`, 'info')
+        return
+      }
+      // Keep the conversation attached to the renamed project.
+      const store = useStore.getState()
+      const oldChat = [...store.chats].reverse().find((c) => c.title === `Coding · ${project}`)
+      if (oldChat) store.renameChat(oldChat.id, `Coding · ${finalName}`)
+      onRenamed(finalName)
+      ui.toast('Project renamed', `${project} → ${finalName}`, 'success')
+    } catch (e: any) {
+      ui.toast('Rename failed', String(e?.message ?? e), 'danger')
+    }
+  }
+
+  // The shell reads this: the focus timer says "Coding" while a project is open.
+  useEffect(() => {
+    useUI.getState().setActivity({ kind: 'coding', label: 'Coding', detail: project })
+    return () => { if (useUI.getState().activity.kind === 'coding') useUI.getState().setActivity({ kind: 'idle' }) }
+  }, [project])
+
+  /* ---------------- preview ---------------- */
+  const refreshPreview = useCallback(async () => {
+    setPreview(await previewStatus(project))
+  }, [project])
+  useEffect(() => {
+    void refreshPreview()
+    const iv = setInterval(() => { void refreshPreview() }, 5000)
+    return () => clearInterval(iv)
+  }, [refreshPreview])
+
+  const startPreview = async () => {
+    setStarting(true)
+    try {
+      const info = await ensurePreviewServer(project)
+      setPreview(info)
+      if (info.error) ui.toast('Preview failed', info.error, 'danger')
+      else { setPanel('preview'); setPanelOpen(true); void refreshPreview() }
+    } finally { setStarting(false) }
+  }
+
+  // The AI (or a design tool) can ask for the preview pane at any time: switch
+  // the workbench into Design mode, which owns the iframe and the bridge.
+  useEffect(() => {
+    designSession.onOpenRequest = (proj, done) => {
+      if (proj !== project) { done(); return }
+      onDesign()
+      done()
+    }
+    return () => { designSession.onOpenRequest = null }
+  }, [project, onDesign])
+
+  /* ---------------- keyboard ---------------- */
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod) return
+      if (e.key.toLowerCase() === 's') { e.preventDefault(); void save() }
+      if (e.key.toLowerCase() === 'b') { e.preventDefault(); setSidebarOpen((v) => !v) }
+      if (e.key.toLowerCase() === 'j') { e.preventDefault(); setPanelOpen((v) => !v) }
+      if (e.key === '`') { e.preventDefault(); setPanel('terminal'); setPanelOpen(true) }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [save])
+
+  const breadcrumb = current?.path.split('/') ?? []
+  /**
+   * Which way the dock's panel will slide. Set by the tab handler rather than
+   * derived, because "left of the one you were on" is the only thing the motion
+   * needs to know — and it must be decided *before* the tab state changes.
+   */
+  const dockDir = useRef(96)
+  const order = { ai: 0, agents: 1, activity: 2, changes: 3 } as const
+  const openDock = (tab: 'ai' | 'agents' | 'activity' | 'changes') => {
+    dockDir.current = order[tab] >= order[dockTab] ? 96 : -96
+    setDockTab(tab)
+  }
+  // A prompt typed on the Coding start screen is waiting for this project:
+  // open the AI dock so its agent panel mounts and takes the prompt.
+  useEffect(() => {
+    if (hasBuild(project)) { openDock('ai'); setAgentOpen(true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project])
+  const previewLive = preview.running && preview.ready
+
+  return (
+    <div className="ide-shell h-full flex flex-col min-h-0">
+      {/* ---------- title bar ---------- */}
+      <GlassBar data-ui="ide-toolbar">
+        <GlassGroup>
+          <GlassButton motionKind="grow" onClick={onBack} title="Back to projects">
+            <ChevronRight size={12} style={{ transform: 'rotate(180deg)' }} /> Projects
+          </GlassButton>
+        </GlassGroup>
+        <GlassGroup>
+        <FolderGit2 size={13} style={{ color: 'var(--ide-accent)' }} />
+        {renaming ? (
+          <input
+            ref={nameRef}
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={() => void commitRename()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); void commitRename() }
+              if (e.key === 'Escape') { e.preventDefault(); setRenaming(false) }
+            }}
+            maxLength={128}
+            aria-label="Project name"
+            className="ide-input ios-pop"
+            style={{ width: 200, height: 24, fontWeight: 500 }}
+          />
+        ) : (
+          <button onClick={startRename} title="Click to rename this project"
+            className="text-[12.5px] font-medium truncate max-w-[240px] px-1.5 py-0.5 rounded-md ios-press"
+            style={{ color: 'var(--ide-text)' }}>
+            {project}
+          </button>
+        )}
+        {dirty && <span className="ide-badge warn">unsaved</span>}
+        </GlassGroup>
+
+        {/* The path, as a strip of its own: Zed's editor toolbar, which is the
+            closest thing any of the three references has to a breadcrumb row.
+            Every segment is a button — the project opens the picker, a folder
+            jumps the explorer to that directory. */}
+        {current && (
+          <div className="hidden md:flex items-center min-w-0 flex-1">
+            <Breadcrumbs
+              project={project}
+              path={current.path}
+              onOpenProject={onBack}
+              onPickSegment={() => { setActivity('explorer'); setSidebarOpen(true) }}
+            />
+          </div>
+        )}
+        <div className="flex-1" />
+
+        {/* run / save — one grouped control, with the rest of the pair's
+            actions one click away in the menu */}
+        <GlassGroup>
+        <ActionExecuteButtonGroup
+          disabled={starting}
+          label={previewLive ? 'Run again' : 'Run'}
+          icon={starting
+            ? <Loader2 size={12} className="animate-spin" />
+            : <Play size={12} />}
+          onPrimary={() => void startPreview()}
+          menuLabel="More actions — save, save and run, terminal"
+          items={[
+            { id: 'save', label: dirty ? 'Save the active file' : 'Nothing to save', icon: <Save size={12} />, disabled: !dirty },
+            { id: 'save-run', label: 'Save, then run', icon: <Play size={12} />, disabled: !dirty && !previewLive },
+            { id: 'terminal', label: 'Run a command in the terminal', icon: <TerminalSquare size={12} /> },
+            ...(previewLive && preview.port
+              ? [{ id: 'open', label: 'Open the preview in a tab', icon: <ExternalLink size={12} /> }]
+              : []),
+          ]}
+          onAction={(id: string) => {
+            if (id === 'save') void save()
+            else if (id === 'save-run') void (async () => { await save(); await startPreview() })()
+            else if (id === 'terminal') { setPanel('terminal'); setPanelOpen(true) }
+            else if (id === 'open' && preview.port) window.open(previewUrlFor(preview.port, designSession.token), '_blank')
+          }}
+        />
+        </GlassGroup>
+        <GlassTabs
+          ariaLabel="Workspace mode"
+          value="code"
+          onChange={(id) => { if (id === 'design') onDesign() }}
+          options={[
+            { id: 'code' as const, label: 'Code', title: 'Edit the code' },
+            { id: 'design' as const, label: <><MonitorUp size={11} /> Design</>, title: 'Let the AI see and fix the running app' },
+          ]}
+        />
+        <FocusButton focus={focus} onToggle={() => setFocus((v) => !v)} />
+      </GlassBar>
+
+      {/* From here down the page is a canvas with panels nested on it, the way
+          Tahoe draws a Finder window: the rail, the explorer, the editor and the
+          assistant are each their own rounded surface with a gutter between
+          them, instead of four columns sharing one hairline grid. */}
+      <div className="ide-canvas flex-1 min-h-0 flex">
+        {/* ---------- activity bar ---------- */}
+        {!focus && (
+        <div className="ide-pane ide-rail w-11 shrink-0 flex flex-col items-center py-2 gap-1">
+          <ActivityBtn active={activity === 'explorer'} onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} icon={<Files size={17} />} label="Explorer" />
+          <ActivityBtn active={activity === 'search'} onClick={() => { setActivity('search'); setSidebarOpen(true) }} icon={<SearchIcon size={17} />} label="Search" />
+          <ActivityBtn active={activity === 'git'} onClick={() => { setActivity('git'); setSidebarOpen(true); setPanel('git'); setPanelOpen(true) }} icon={<GitBranch size={17} />} label="Source control" />
+          <ActivityBtn active={activity === 'deps'} onClick={() => { setActivity('deps'); setSidebarOpen(true) }} icon={<Package size={17} />} label="Dependencies" />
+          <ActivityBtn active={activity === 'mcp'} onClick={() => { setActivity('mcp'); setSidebarOpen(true) }} icon={<Plug size={17} />} label="MCP servers" />
+          <ActivityBtn active={activity === 'shot'} onClick={() => { setActivity('shot'); setSidebarOpen(true) }} icon={<Camera size={17} />} label="Screenshot to code" />
+          <ActivityBtn active={activity === 'pentest'} onClick={() => { setActivity('pentest'); setSidebarOpen(true) }} icon={<ShieldAlert size={17} />} label="Pentest" />
+          <ActivityBtn active={false} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalIcon size={17} />} label="Terminal" />
+          <ActivityBtn active={false} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={17} />} label="Problems" />
+          <div className="flex-1" />
+          <ActivityBtn active={activity === 'design'} onClick={onDesign} icon={<MonitorUp size={17} />} label="Design mode" />
+          <ActivityBtn
+            active={agentOpen && dockTab === 'agents'}
+            badge={agentRunning || agentReady || undefined}
+            onClick={() => { openDock('agents'); setAgentOpen(true) }}
+            icon={<Bot size={17} />} label={`Agents${agentRunning ? ` · ${agentRunning} running` : ''}`} />
+          <ActivityBtn
+            active={agentOpen && dockTab === 'activity'}
+            onClick={() => { openDock('activity'); setAgentOpen(true) }}
+            icon={<ActivityIcon size={17} />} label="What the AI did" />
+          <ActivityBtn active={false} onClick={() => setPaletteOpen(true)} icon={<CommandIcon size={17} />} label="Commands (⌘K)" />
+          <ActivityBtn active={agentOpen && dockTab === 'ai'} onClick={() => { openDock('ai'); setAgentOpen((v) => !v) }} icon={agentOpen && dockTab === 'ai' ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />} label="AI assistant" />
+        </div>
+        )}
+
+        {/* ---------- side bar ---------- */}
+        {sidebarOpen && !focus && (
+          <div className="ide-pane w-[250px] shrink-0 min-h-0 flex flex-col">
+            {activity === 'explorer' && (
+              <>
+                <div className="shrink-0 flex items-center gap-1 px-3 py-2">
+                  <span className="ide-section flex-1">Explorer</span>
+                  <button title="New file" onClick={() => setNewFile('src/')} className="ide-icon-btn" style={{ width: 22, height: 22 }}><FilePlus2 size={12} /></button>
+                  <button title="Refresh the file tree" onClick={onTreeRefresh} className="ide-icon-btn" style={{ width: 22, height: 22 }}><RefreshCw size={12} /></button>
+                </div>
+                <div className="px-2 pb-1.5">
+                  <input value={newFile} onChange={(e) => setNewFile(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && void addFile()}
+                    placeholder="new/file.tsx + Enter" aria-label="New file path"
+                    className="ide-input" style={{ fontSize: 11 }} />
+                </div>
+                <div className="flex-1 overflow-y-auto pb-3">
+                  {/* The project tree as a keyboard-navigable tree view: arrows move, Right/Left open
+                      and close folders, Enter opens a file. Delete stays on each file row. */}
+                  <TreeView
+                    key={project}
+                    label="Project files"
+                    nodes={toTreeNodes(tree)}
+                    selectedId={active ?? undefined}
+                    initialOpen={tree.filter((n) => n.dir && n.name === 'src').map((n) => n.path)}
+                    onSelect={(n) => { if (!n.children) void openFile(n.id) }}
+                    renderTrailing={(n) => (n.children ? null : (
+                      <button onClick={() => void deleteFile(n.id)} title={`Delete ${n.id}`} aria-label={`Delete ${n.id}`}
+                        className="p-1 rounded" style={{ color: 'var(--ide-faint)' }}><Trash2 size={10} /></button>
+                    ))}
+                  />
+                  {!tree.length && <p className="px-3 text-[11px]" style={{ color: 'var(--ide-faint)' }}>Empty project — create a file above.</p>}
+                </div>
+              </>
+            )}
+
+            {activity === 'search' && (
+              <>
+                <div className="shrink-0 px-3 py-2">
+                  <div className="ide-section mb-1.5">Search in project</div>
+                  <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)} autoFocus
+                    placeholder="text or file name…" aria-label="Search project" className="ide-input" />
+                </div>
+                <div className="flex-1 overflow-y-auto px-1.5">
+                  {searching && <div className="flex items-center gap-2 px-2 text-[11px]" style={{ color: 'var(--ide-faint)' }}><Loader2 size={11} className="animate-spin" /> searching…</div>}
+                  {!searching && searchQ.trim().length > 1 && !results.length && <p className="px-2 text-[11px]" style={{ color: 'var(--ide-faint)' }}>No matches.</p>}
+                  {results.map((r, i) => (
+                    <button key={i} onClick={() => void openFile(r.path, r.line)}
+                      className="w-full text-left px-2 py-1.5 rounded-[6px] mb-0.5 hover:bg-[var(--ide-hover)]">
+                      <span className="block text-[10.5px] font-mono truncate" style={{ color: 'var(--ide-accent)' }}>{r.path}:{r.line}</span>
+                      <span className="block text-[10.5px] truncate" style={{ color: 'var(--ide-dim)' }}>{r.text}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {activity === 'git' && <GitSidebar project={project} />}
+            {activity === 'deps' && <DepsPanel project={project} />}
+            {activity === 'mcp' && <McpPanel />}
+            {activity === 'pentest' && <PentestPanel project={project} />}
+            {activity === 'shot' && <ScreenshotPanel project={project} />}
+          </div>
+        )}
+
+        {/* ---------- editor column: the editor and the panel below it, each a
+            pane of its own, so the terminal never shares a surface with the
+            code you are reading ---------- */}
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5 min-h-0">
+          <div className="ide-pane ide-pane-elev flex-1 min-h-0 flex flex-col">
+          {/* tabs */}
+          <div
+            ref={tabStripRef}
+            className="shrink-0 flex items-stretch overflow-x-auto ide-tabstrip px-1.5"
+            style={{ borderBottom: '1px solid var(--ide-border)' }}
+            onWheel={(e) => { if (e.deltaY) e.currentTarget.scrollLeft += e.deltaY }}
+          >
+            {files.map((f, i) => (
+              /* Each tab arrives from the left with a 18 ms stagger, and the
+                 active one is the only thing in the strip with a lift — the
+                 movement a tab makes when you open it is not the movement the
+                 panel tabs make when you switch them. */
+              <motion.div key={f.path} data-tab={f.path} className="ide-tab group" data-active={f.path === active} data-stale={f.stale || undefined}
+                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2, delay: Math.min(0.16, i * 0.018) }}>
+                <button onClick={() => { setActive(f.path); setGotoLine(0) }} className="flex items-center gap-1.5"
+                  title={f.stale ? `${f.path} — changed on disk` : f.path}>
+                  <FileGlyph path={f.path} size={11} />
+                  {f.path.split('/').pop()}
+                  {f.content !== f.disk && <Circle size={6} fill="currentColor" className="name-dirty" />}
+                  {f.stale && <span className="ide-stale-dot" title="Changed on disk" />}
+                </button>
+                <button onClick={() => closeFile(f.path)} aria-label={`Close ${f.path}`}
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-100" style={{ color: 'var(--ide-faint)' }}>
+                  <X size={11} />
+                </button>
+              </motion.div>
+            ))}
+            {!files.length && <div className="flex items-center px-3 h-8 text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>No file open</div>}
+            <div className="flex-1" />
+            {/* The path lives in the toolbar now (Zed's editor toolbar sits
+                above the tabs, not inside them), so the strip ends with the
+                open-file count instead of repeating it. */}
+            <div className="hidden md:flex items-center gap-2 px-2.5 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
+              <span>{files.length} open</span>
+              {anyDirty && <span style={{ color: 'var(--ide-warn)' }}>· unsaved changes</span>}
+            </div>
+          </div>
+
+          {/* changed-on-disk banner: never silently overwrite unsaved work */}
+          {current?.stale && (
+            <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 text-[11px] ios-rise"
+              style={{ background: 'color-mix(in srgb, var(--warning) 12%, var(--ide-panel))', color: 'var(--ide-dim)', borderBottom: '1px solid var(--ide-border)' }}>
+              <AlertTriangle size={12} style={{ color: 'var(--ide-warn)' }} />
+              <span className="flex-1 truncate">This file changed on disk while you were editing it.</span>
+              <button onClick={() => void reloadFromDisk(current.path)} className="ide-btn">Reload from disk</button>
+              <button onClick={() => setFiles((list) => list.map((f) => (f.path === current.path ? { ...f, stale: false } : f)))}
+                className="ide-btn">Keep my version</button>
+            </div>
+          )}
+
+          {/* editor */}
+          {current ? (
+            <CodeEditor
+              path={current.path}
+              value={current.content}
+              gotoLine={gotoLine}
+              onCaret={(c) => caretSink.current?.(c)}
+              onChange={(v) => setFiles((list) => list.map((f) => (f.path === current.path ? { ...f, content: v } : f)))}
+              onSave={() => void save()}
+            />
+          ) : (
+            /* Nothing open: a welcome window, the way Xcode opens one, with
+               three rows that each do something rather than a sentence about
+               what you could do. */
+            <div className="flex-1 min-h-0 flex items-center justify-center px-6" style={{ background: 'var(--ide-code-bg)' }}>
+              <div className="w-full max-w-[430px]">
+                <div className="flex items-center gap-2">
+                  <Code2 size={15} style={{ color: 'var(--ide-accent)' }} />
+                  <span className="text-[13px] font-medium truncate" style={{ color: 'var(--ide-text)' }}>{project}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--ide-accent-soft)', color: 'var(--ide-accent)' }}>local</span>
+                </div>
+                <p className="text-[11.5px] mt-1 mb-3" style={{ color: 'var(--ide-dim)' }}>
+                  Nothing is open yet. Start with a file, ask the AI for the change you want, or run what is already here.
+                </p>
+                <div className="ide-pane flex flex-col">
+                  <WelcomeRow icon={<Files size={13} />} label="Open a file" hint="⌘B"
+                    onClick={() => { setActivity('explorer'); setSidebarOpen(true) }} />
+                  <WelcomeRow icon={<Sparkles size={13} />} label="Ask the AI to change this project" hint="⌘K"
+                    onClick={() => { openDock('ai'); setAgentOpen(true) }} />
+                  <WelcomeRow icon={<Play size={13} />}
+                    label={previewLive ? 'The preview is running' : starting ? 'Starting the preview…' : 'Run the app and see it'}
+                    hint={previewLive && preview.port ? `:${preview.port}` : 'run'}
+                    onClick={() => void startPreview()} />
+                </div>
+                <p className="text-[10.5px] mt-2" style={{ color: 'var(--ide-faint)' }}>
+                  ⌘S saves · ⌘J opens the panel · ⌘⇧F goes full screen on the editor.
+                </p>
+              </div>
+            </div>
+          )}
+
+          </div>
+
+          {/* the gutter above the panel is its handle: drag to resize, double
+              click to put it back to a sensible height */}
+          {!focus && panelOpen && (
+            <div onPointerDown={startPanelDrag} onDoubleClick={() => setPanelH(220)}
+              className="re-split-handle-h" role="separator" aria-orientation="horizontal" data-ui="panel-handle"
+              title="Drag to resize the panel · double-click for the default height" />
+          )}
+
+          {/* bottom panel */}
+          {!focus && (
+          <div className="ide-pane ide-panel-strip shrink-0 flex flex-col min-w-0 overflow-hidden" style={{ height: panelOpen ? panelH : undefined }}>
+            {/* The tabs scroll sideways rather than wrap: a two-line tab strip is
+                what a wrapped label looks like, and it eats the terminal. The
+                guard note that used to sit at the end of this row now lives in
+                the status bar, where a long sentence cannot change a layout. */}
+            <div className="flex items-center gap-1 px-2 pt-1.5 pb-2 shrink-0 min-w-0">
+              <div className="flex items-center gap-1 min-w-0 overflow-x-auto ide-tabscroll">
+                <PanelTabBtn group="bottom" active={panel === 'terminal'} onClick={() => { setPanel('terminal'); setPanelOpen(true) }} icon={<TerminalSquare size={12} />} label="Terminal" />
+                <PanelTabBtn group="bottom" active={panel === 'problems'} onClick={() => { setPanel('problems'); setPanelOpen(true) }} icon={<Bug size={12} />} label="Problems" />
+                <PanelTabBtn group="bottom" active={panel === 'git'} onClick={() => { setPanel('git'); setPanelOpen(true) }} icon={<GitCommitHorizontal size={12} />} label="Git" />
+                <PanelTabBtn group="bottom" active={panel === 'preview'} onClick={() => { setPanel('preview'); setPanelOpen(true) }} icon={<MonitorUp size={12} />} label="Preview" />
+                <PanelTabBtn group="bottom" active={panel === 'safety'} onClick={() => { setPanel('safety'); setPanelOpen(true) }} icon={<ShieldCheck size={12} />} label="Agent access" />
+                <PanelTabBtn group="bottom" active={panel === 'frameworks'} onClick={() => { setPanel('frameworks'); setPanelOpen(true) }} icon={<Boxes size={12} />} label="Frameworks" />
+              </div>
+              <div className="flex-1" />
+              <button onClick={() => setPanelOpen((v) => !v)} className="ide-icon-btn shrink-0" style={{ width: 22, height: 22 }} aria-label="Toggle panel">
+                <ChevronDown size={12} style={{ transform: panelOpen ? undefined : 'rotate(180deg)' }} />
+              </button>
+            </div>
+            {panelOpen && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {panel === 'terminal' && <TerminalPanel project={project} />}
+                {panel === 'safety' && <AgentSafety />}
+                {panel === 'frameworks' && <FrameworksPanel project={project} files={tree.map((t) => t.path)} />}
+                {panel === 'git' && <GitPanel project={project} />}
+                {panel === 'problems' && <ProblemsPanel project={project} onDesign={onDesign} />}
+                {panel === 'preview' && <PreviewLogPanel project={project} preview={preview} onStart={() => void startPreview()} starting={starting} onDesign={onDesign} />}
+              </div>
+            )}
+          </div>
+          )}
+        </div>
+
+        {/* ---------- AI dock (a floating pill once the canvas goes full screen) ---------- */}
+        {focus && <AIFloat project={project} tree={tree} />}
+        {/* Unmount the whole dock (rather than animating it out) the moment the
+            canvas goes full screen, so the pill is the only assistant on screen. */}
+        {!focus && (
+        <AnimatePresence initial={false}>
+          {agentOpen && (
+            <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 428, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="ide-pane shrink-0 min-h-0 overflow-hidden flex flex-col">
+              <div className="w-[428px] h-full flex flex-col min-h-0">
+                {/* The dock's own tab strip: the chat, the agent pool, and the
+                    live record of what the AI touched. */}
+                <div className="px-2 py-1.5" style={{ borderBottom: '1px solid var(--ide-border)' }}>
+                  <GlassTabs
+                    ariaLabel="Assistant workspace"
+                    value={dockTab}
+                    onChange={(id) => openDock(id)}
+                    options={[
+                      { id: 'ai' as const, label: <><Sparkles size={11} /> AI</>, title: 'Talk to the assistant in this project' },
+                      {
+                        id: 'agents' as const,
+                        title: 'The agents working on this project',
+                        label: (
+                          <>
+                            <Bot size={11} /> Agents
+                            {agentRunning > 0 && <span className="re-tab-dot" data-live="true" />}
+                            {!agentRunning && agentReady > 0 && <span className="re-tab-dot" />}
+                          </>
+                        ),
+                      },
+                      {
+                        id: 'changes' as const,
+                        title: 'Uncommitted changes, per-file diffs, one-click commit',
+                        label: (<><GitCompareArrows size={11} /> Changes</>),
+                      },
+                      {
+                        id: 'activity' as const,
+                        title: 'Every file the AI touched',
+                        label: (
+                          <>
+                            <ActivityIcon size={11} /> Activity
+                            {sessionActivity.length > 0 && <span className="re-tab-count">{sessionActivity.length}</span>}
+                          </>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
+                <div className="flex-1 min-h-0">
+                  {/* The panel you are arriving at slides in from the side you
+                      came from — three tabs, two directions, never a cross-fade. */}
+                  <AnimatePresence mode="wait" initial={false}>
+                  {dockTab === 'ai' && (
+                    <motion.div key="ai" className="h-full" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
+                      <AgentPanel project={project} tree={tree} onClose={() => setAgentOpen(false)} />
+                    </motion.div>
+                  )}
+                  {dockTab === 'agents' && (
+                    <motion.div key="agents" className="h-full" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
+                      <AgentsDock project={project} onOpenFile={(p) => void openFile(p)}
+                        onOpenChat={openAgentChat} />
+                    </motion.div>
+                  )}
+                  {dockTab === 'activity' && (
+                    <motion.div key="activity" className="h-full flex flex-col min-h-0" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
+                      <div className="shrink-0 flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--ide-border)' }}>
+                        <ActivityIcon size={13} style={{ color: 'var(--ide-accent)' }} />
+                        <span className="text-[12px] font-medium flex-1">What the AI did</span>
+                        <VelocityTabs
+                          aria-label="Activity view"
+                          value={activityView}
+                          onValueChange={(v) => setActivityView(v)}
+                          tabs={[{ value: 'list', label: 'List' }, { value: 'timeline', label: 'Timeline' }]}
+                          className="text-[11px]"
+                          tabClassName="px-2 py-0.5"
+                        />
+                        {streaming && <span className="ide-badge accent"><span className="re-orb re-orb-sm" aria-hidden /> live</span>}
+                        <button onClick={() => setSessionActivity([])} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Clear">
+                          <X size={11} />
+                        </button>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto">
+                        {activityView === 'timeline' ? (
+                          <AgentChangeTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
+                            empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        ) : (
+                          <AgentTimeline lines={sessionActivity} live={streaming} onOpen={(p) => void openFile(p)}
+                            empty="Nothing yet. Ask the AI to read or change something and every step lands here — the file it opened, the lines it added, the command it ran." />
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                  {dockTab === 'changes' && (
+                    <motion.div key="changes" className="h-full" initial={{ opacity: 0, x: dockDir.current }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dockDir.current }} transition={{ duration: 0.2 }}>
+                      <ChangesPanel project={project} />
+                    </motion.div>
+                  )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+        )}
+      </div>
+
+      {/* ---------- status bar — two floating pills, the way Tahoe groups its
+          toolbar controls: what this workspace is on the left, what it is doing
+          on the right, and the canvas visible between them ---------- */}
+      {!focus && (
+      <div className="shrink-0 flex items-center gap-1.5 px-2 pt-1.5 pb-2 text-[10.5px]" style={{ color: 'var(--ide-faint)' }}>
+        <div className="ide-statuspill min-w-0">
+          <StatusItem motionKind="grow" icon={<FolderOpen size={10} />} onClick={onBack} title="Back to projects">{project}</StatusItem>
+          <StatusItem icon={<GitBranch size={10} />} title="This project runs on your machine. Nothing is pushed anywhere.">local</StatusItem>
+          {gitSummary?.branch && (
+            <StatusItem icon={<GitBranch size={10} />} title={gitSummary.files ? `${gitSummary.files} changed files on ${gitSummary.branch}` : `On ${gitSummary.branch}, nothing changed`}>
+              {gitSummary.branch}{gitSummary.files ? ` · ${gitSummary.files} changed` : ''}
+            </StatusItem>
+          )}
+          <StatusItem icon={<ShieldCheck size={10} />}
+            title="Commands run inside the project folder, destructive commands are blocked, and mutating ones need your approval."
+            onClick={() => { setPanel('safety'); setPanelOpen(true) }}>
+            guarded
+          </StatusItem>
+          {current && (
+            <StatusItem icon={null} title={current.path}>
+              <span className="font-mono truncate max-w-[300px]" style={{ color: 'var(--ide-dim)' }}>{current.path}</span>
+            </StatusItem>
+          )}
+          {dirty && <StatusItem icon={<Circle size={6} fill="currentColor" />} tone="var(--ide-warn)">unsaved</StatusItem>}
+          {anyDirty && files.filter((f) => f.content !== f.disk).length > 1 && <span className="px-1">{files.filter((f) => f.content !== f.disk).length} files unsaved</span>}
+        </div>
+        <div className="flex-1" />
+        <div className="ide-statuspill shrink-0">
+          {agentReady > 0 && (
+            <StatusItem motionKind="pulse" icon={<Bot size={10} />} tone="var(--ide-cyan)"
+              title="An agent finished — open the review"
+              onClick={() => { openDock('agents'); setAgentOpen(true) }}>
+              {agentReady} ready to review
+            </StatusItem>
+          )}
+          {agentRunning > 0 && (
+            <StatusItem icon={<Bot size={10} />} tone="var(--ide-accent)" title="Agents working right now"
+              onClick={() => { openDock('agents'); setAgentOpen(true) }}>
+              {agentRunning} working
+            </StatusItem>
+          )}
+          {!agentRunning && !agentReady && (
+            <StatusItem icon={<Bot size={10} />} onClick={() => { setDockTab('agents'); setAgentOpen(true) }} title="Open the agent pool">
+              agents idle
+            </StatusItem>
+          )}
+          {current && <CaretReadout register={registerCaret} />}
+          <StatusItem motionKind="pulse" icon={<CommandIcon size={10} />} onClick={() => setPaletteOpen(true)} title="Command palette">⌘K</StatusItem>
+          {streaming && <StatusItem icon={<span className="re-orb re-orb-sm" />} tone="var(--ide-accent)">AI working</StatusItem>}
+          <StatusItem icon={<Circle size={6} fill="currentColor" />} tone={previewLive ? 'var(--ide-accent)' : undefined}
+            onClick={() => { setPanel('terminal'); setPanelOpen(true) }}
+            title={previewLive ? `The preview is live on port ${preview.port}` : 'Open the terminal panel'}>
+            {previewLive ? `preview :${preview.port}` : preview.running ? 'preview booting' : 'preview stopped'}
+          </StatusItem>
+          <StatusItem icon={null} title={`${files.length} file${files.length === 1 ? '' : 's'} open`}>{files.length} open</StatusItem>
+        </div>
+      </div>
+      )}
+
+      <IDECommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        files={allFiles}
+        actions={paletteActions()}
+        onOpenFile={(p) => void openFile(p)}
+        onCommand={(id) => { openDock('ai'); setAgentOpen(true); setTimeout(() => window.dispatchEvent(new CustomEvent('re:ide-command', { detail: { id } })), 60) }}
+      />
+
+      {/* unsaved-changes guard */}
+      {confirmClose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'color-mix(in srgb, var(--bg) 55%, transparent)' }}>
+          <div className="p-4 max-w-[380px] rounded-[12px]" style={{ background: 'var(--ide-elevated)', border: '1px solid var(--ide-border-strong)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={14} style={{ color: 'var(--ide-warn)' }} />
+              <span className="text-[13px] font-medium">Discard unsaved changes?</span>
+            </div>
+            <p className="text-[12px] mb-3" style={{ color: 'var(--ide-dim)' }}><span className="font-mono">{confirmClose}</span> has edits that are not saved.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { const p = confirmClose; doClose(p) }} className="ide-btn outlined" style={{ color: 'var(--ide-danger)' }}>Discard</button>
+              <button onClick={() => { void save(confirmClose); doClose(confirmClose) }} className="ide-btn primary">Save</button>
+              <button onClick={() => setConfirmClose(null)} className="ide-btn outlined">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================== */
+/* small building blocks                                              */
+/* ================================================================== */
+
+/**
+ * One row of the welcome window. A whole row is the target, because the thing
+ * you want is "open the explorer", not "find the 12-pixel icon".
+ */
+export function WelcomeRow({ icon, label, hint, onClick }: { icon: React.ReactNode; label: string; hint: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="w-full text-left flex items-center gap-2.5 px-3 py-2 transition-colors ide-welcomerow">
+      <span className="shrink-0" style={{ color: 'var(--ide-accent)' }}>{icon}</span>
+      <span className="flex-1 text-[12px] truncate" style={{ color: 'var(--ide-text)' }}>{label}</span>
+      <span className="text-[10.5px] font-mono shrink-0" style={{ color: 'var(--ide-faint)' }}>{hint}</span>
+    </button>
+  )
+}
+
+/**
+ * The line and column of the caret, where Xcode and Zed both put it. It
+ * subscribes to the editor through the register callback so that typing costs
+ * one small re-render here and nothing anywhere else.
+ */
+export function CaretReadout({ register }: { register: (fn: (c: { line: number; col: number }) => void) => void }) {
+  const [caret, setCaret] = useState({ line: 1, col: 1 })
+  useEffect(() => { register(setCaret) }, [register])
+  return (
+    <StatusItem icon={null} title="Cursor position">
+      <span className="font-mono tabular-nums">{caret.line}:{caret.col}</span>
+    </StatusItem>
+  )
+}
+function ActivityBtn({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
+  return (
+    <button onClick={onClick} title={label} aria-label={label}
+      className="relative w-9 h-9 rounded-[8px] flex items-center justify-center transition-colors"
+      style={{ color: active ? 'var(--ide-accent)' : 'var(--ide-faint)' }}>
+      {/* The rail's active background glides between buttons instead of
+          blinking on and off — the only thing in the workspace that does. */}
+      {active && (
+        <motion.span layoutId="ide-rail-active" className="absolute inset-0 rounded-[8px]"
+          style={{ background: 'var(--ide-active)' }} transition={{ type: 'spring', stiffness: 520, damping: 40 }} />
+      )}
+      <span className="relative z-10">{icon}</span>
+      {active && (
+        <motion.span layoutId="ide-rail-mark" className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full"
+          style={{ background: 'var(--ide-accent)' }} transition={{ type: 'spring', stiffness: 520, damping: 40 }} />
+      )}
+      {badge ? <span className="re-rail-badge">{badge > 9 ? '9+' : badge}</span> : null}
+    </button>
+  )
+}
+
+/**
+ * The bottom panel's tabs get the third tab treatment in this workspace, on
+ * purpose: the dock's tabs glide a pill, the file tabs stagger in and lift, and
+ * these slide a hairline along the bottom edge. Three strips, three movements —
+ * a workspace where every tab behaves identically is a workspace with no
+ * hierarchy.
+ */
+function PanelTabBtn({ active, onClick, icon, label, group }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; group: string }) {
+  return (
+    <button onClick={onClick} className="relative shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-[11.5px] whitespace-nowrap transition-colors"
+      style={{ background: active ? 'var(--ide-active)' : 'transparent', color: active ? 'var(--ide-text)' : 'var(--ide-faint)' }}>
+      <span className="relative z-10 flex items-center gap-1.5 whitespace-nowrap">{icon}{label}</span>
+      {active && (
+        <motion.span layoutId={`ide-panel-underline-${group}`}
+          className="absolute left-1.5 right-1.5 -bottom-[7px] h-[2px] rounded-full"
+          style={{ background: 'var(--ide-accent)' }}
+          transition={{ type: 'spring', stiffness: 520, damping: 42 }} />
+      )}
+    </button>
+  )
+}
+
+/** The project tree in the shape the tree view takes: `id` is the file path. */
+function toTreeNodes(nodes: TreeNode[]): KitTreeNode[] {
+  return nodes.map((n) => ({ id: n.path, label: n.name, children: n.dir ? toTreeNodes(n.children ?? []) : undefined }))
+}
+
+/* ================================================================== */
+/* Terminal                                                           */
+/* ================================================================== */
+function TerminalPanel({ project }: { project: string }) {
+  const [lines, setLines] = useState<{ kind: 'cmd' | 'out' | 'err' | 'info'; text: string }[]>([
+    { kind: 'info', text: 'Guarded terminal — commands run only inside this project, with secrets stripped from the environment.' },
+  ])
+  const [cmd, setCmd] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState<{ command: string } | null>(null)
+  const [history, setHistory] = useState<string[]>([])
+  const [histIdx, setHistIdx] = useState(-1)
+  const logRef = useRef<HTMLDivElement>(null)
+  // Scroll the terminal's own viewport (see lib/dom/scroll for why).
+  useEffect(() => { scrollToEnd(logRef.current, { smooth: true }) }, [lines])
+
+  const run = async (command: string, confirmed = false) => {
+    setBusy(true)
+    setLines((l) => [...l, { kind: 'cmd', text: `$ ${command}` }])
+    setHistory((h) => (h[h.length - 1] === command ? h : [...h, command]))
+    try {
+      const res = await fetch('/api/ide/exec', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ project, command, confirmed, timeoutMs: commandTimeoutMs() }),
+      })
+      const j = await res.json()
+      if (j.blocked) { setLines((l) => [...l, { kind: 'err', text: `BLOCKED: ${j.reason}` }]); return }
+      if (j.requiresConfirm && !confirmed) { setConfirm({ command }); setLines((l) => [...l, { kind: 'info', text: 'This command needs your approval below.' }]); return }
+      if (j.download) setLines((l) => [...l, { kind: 'info', text: `DOWNLOAD: ${j.downloadNote}` }])
+      if (j.stdout) setLines((l) => [...l, { kind: 'out', text: String(j.stdout).slice(0, 20000) }])
+      if (j.stderr) setLines((l) => [...l, { kind: 'err', text: String(j.stderr).slice(0, 8000) }])
+      setLines((l) => [...l, { kind: 'info', text: `exit ${j.exit} · ${j.ms}ms${j.timedOut ? ' · TIMED OUT' : ''}` }])
+      window.dispatchEvent(new CustomEvent('re:ide-changed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-3 py-2 font-mono text-[11.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)' }} ref={logRef}>
+        {lines.map((l, i) => (
+          <div key={i} className="whitespace-pre-wrap" style={{ color: l.kind === 'cmd' ? 'var(--ide-accent)' : l.kind === 'err' ? 'var(--ide-danger)' : l.kind === 'info' ? 'var(--ide-faint)' : 'var(--ide-text)' }}>{l.text}</div>
+        ))}
+        {confirm && (
+          <div className="flex items-center gap-2 mt-2">
+            <AlertTriangle size={13} style={{ color: 'var(--ide-warn)' }} />
+            <span className="text-[11px]" style={{ color: 'var(--ide-dim)' }}>Approve “{confirm.command}”?</span>
+            <button onClick={() => { const c = confirm.command; setConfirm(null); void run(c, true) }} className="ide-btn primary" style={{ height: 20 }}>
+              <Check size={11} /> Run
+            </button>
+            <button onClick={() => setConfirm(null)} className="ide-btn outlined" style={{ height: 20 }}>
+              <X size={11} /> Skip
+            </button>
+          </div>
+        )}
+
+      </div>
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 min-w-0" style={{ borderTop: '1px solid var(--ide-border)' }}>
+        <span className="font-mono text-[11.5px]" style={{ color: 'var(--ide-accent)' }}>$</span>
+        <input value={cmd} onChange={(e) => setCmd(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && cmd.trim() && !busy) { const c = cmd.trim(); setCmd(''); setHistIdx(-1); void run(c) }
+            if (e.key === 'ArrowUp' && history.length) { e.preventDefault(); const i = Math.min(history.length - 1, histIdx + 1); setHistIdx(i); setCmd(history[history.length - 1 - i]) }
+            if (e.key === 'ArrowDown' && histIdx >= 0) { e.preventDefault(); const i = histIdx - 1; setHistIdx(i); setCmd(i < 0 ? '' : history[history.length - 1 - i]) }
+          }}
+          disabled={busy}
+          placeholder={busy ? 'running…' : 'npm test, git status, ls — Enter to run'}
+          aria-label="Terminal command"
+          className="flex-1 bg-transparent outline-none font-mono text-[11.5px]" style={{ color: 'var(--ide-text)' }} />
+        {busy && <Loader2 size={13} className="animate-spin" style={{ color: 'var(--ide-faint)' }} />}
+      </div>
+    </div>
+  )
+}
+
+/* ================================================================== */
+/* Git                                                                */
+/* ================================================================== */
+function useGit(project: string) {
+  const [status, setStatus] = useState('')
+  const [log, setLog] = useState('')
+  const [isRepo, setIsRepo] = useState(true)
+  const [out, setOut] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const refresh = useCallback(async () => {
+    try {
+      const s = await fetch(`/api/ide/git?project=${encodeURIComponent(project)}&op=status`)
+      const sj = await s.json()
+      if (sj.norepo) { setIsRepo(false); return }
+      setIsRepo(true)
+      setStatus(sj.stdout ?? '')
+      const l = await fetch(`/api/ide/git?project=${encodeURIComponent(project)}&op=log`)
+      setLog((await l.json()).stdout ?? '')
+    } catch { /* offline */ }
+  }, [project])
+
+  useEffect(() => { void refresh() }, [refresh])
+  useEffect(() => {
+    const h = () => void refresh()
+    window.addEventListener('re:ide-changed', h)
+    return () => window.removeEventListener('re:ide-changed', h)
+  }, [refresh])
+
+  const git = useCallback(async (op: string, message?: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/ide/git', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ project, op, message, confirmed: true }),
+      })
+      const j = await res.json()
+      setOut(j.stderr || j.stdout || j.error || '')
+      await refresh()
+      window.dispatchEvent(new CustomEvent('re:ide-changed'))
+      return j
+    } finally { setBusy(false) }
+  }, [project, refresh])
+
+  return { status, log, isRepo, out, busy, refresh, git, setOut }
+}
+
+function GitSidebar({ project }: { project: string }) {
+  const { status, isRepo, refresh, git, busy } = useGit(project)
+  const [msg, setMsg] = useState('')
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 flex items-center gap-1 px-3 py-2">
+        <span className="ide-section flex-1">Source control</span>
+        <button onClick={() => void refresh()} className="ide-icon-btn" style={{ width: 22, height: 22 }} title="Refresh git status"><RefreshCw size={12} /></button>
+      </div>
+      {!isRepo ? (
+        <div className="px-3 flex flex-col gap-2">
+          <p className="text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>Not a git repository yet.</p>
+          <button onClick={() => void git('init')} className="ide-btn primary" style={{ justifyContent: 'center' }}>
+            <GitBranch size={12} /> git init
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="px-3 pb-2">
+            <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={2} placeholder="Commit message…"
+              className="ide-input resize-none" style={{ height: 'auto', padding: '6px 8px', fontSize: 11.5 }} />
+            <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }}
+              disabled={busy || !msg.trim()}
+              className="ide-btn primary mt-1.5" style={{ width: '100%', justifyContent: 'center' }}>
+              {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Commit all
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 font-mono text-[10.5px] leading-relaxed">
+            <div className="ide-section mb-1">changes</div>
+            <div className="whitespace-pre-wrap" style={{ color: 'var(--ide-dim)' }}>{status || 'working tree clean'}</div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function GitPanel({ project }: { project: string }) {
+  const { status, log, isRepo, out, busy, refresh, git } = useGit(project)
+  const [msg, setMsg] = useState('')
+  if (!isRepo) {
+    return (
+      <div className="h-full flex items-center justify-center gap-3">
+        <span className="text-[12px]" style={{ color: 'var(--ide-faint)' }}>Not a git repository yet.</span>
+        <button onClick={() => void git('init')} className="ide-btn primary">
+          <GitBranch size={13} /> git init
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="h-full min-h-0 grid grid-cols-2">
+      <div className="overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed" style={{ borderRight: '1px solid var(--ide-border)' }}>
+        <div className="ide-section mb-1">status</div>
+        <div className="whitespace-pre-wrap" style={{ color: 'var(--ide-dim)' }}>{status || 'working tree clean'}</div>
+        <div className="ide-section mt-3 mb-1">log</div>
+        <div className="whitespace-pre-wrap" style={{ color: 'var(--ide-dim)' }}>{log || 'no commits yet'}</div>
+      </div>
+      <div className="p-3 flex flex-col gap-2">
+        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={3} placeholder="Commit message…"
+          className="ide-input resize-none" style={{ height: 'auto', padding: '6px 8px' }} />
+        <button onClick={async () => { if (!msg.trim()) return; await git('commit', msg.trim()); setMsg('') }} disabled={busy || !msg.trim()}
+          className="ide-btn primary" style={{ justifyContent: 'center' }}>
+          {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Stage all &amp; commit
+        </button>
+        {out && <div className="text-[10.5px] font-mono" style={{ color: 'var(--ide-faint)' }}>{out.slice(0, 400)}</div>}
+        <button onClick={() => void refresh()} className="ide-btn self-start">
+          <RefreshCw size={11} /> refresh
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ================================================================== */
+/* Problems + preview log                                             */
+/* ================================================================== */
+function ProblemsPanel({ project, onDesign }: { project: string; onDesign: () => void }) {
+  const [findings, setFindings] = useState<{ kind: string; msg: string; sel: string }[] | null>(null)
+  const [consoleErrs, setConsoleErrs] = useState<{ level: string; text: string }[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const scan = useCallback(async () => {
+    setLoading(true)
+    try {
+      await ensurePreviewServer(project)
+      const [audit, cons] = await Promise.all([
+        designSession.call('audit', {}, 12_000),
+        designSession.call('console', {}, 8000),
+      ])
+      setFindings(audit.findings ?? [])
+      setConsoleErrs((cons.entries ?? []).filter((e: any) => e.level === 'error' || e.level === 'warn'))
+    } catch (e: any) {
+      setFindings([{ kind: 'preview', msg: `Preview not reachable: ${e?.message ?? e}`, sel: '' }])
+    } finally { setLoading(false) }
+  }, [project])
+
+  return (
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
+        <span className="text-[11px] flex-1" style={{ color: 'var(--ide-faint)' }}>
+          Scan the running app for layout, contrast, accessibility and console problems.
+        </span>
+        <button onClick={() => void scan()} disabled={loading} className="ide-btn outlined">
+          {loading ? <Loader2 size={11} className="animate-spin" /> : <Bug size={11} />} scan
+        </button>
+        <button onClick={onDesign} className="ide-btn outlined" style={{ color: 'var(--ide-accent)' }}>
+          <MonitorUp size={11} /> open design mode
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 pb-2">
+        {findings === null && <p className="text-[11.5px]" style={{ color: 'var(--ide-faint)' }}>Press scan to look at the running app.</p>}
+        {findings?.length === 0 && <p className="text-[11.5px]" style={{ color: 'var(--ide-accent)' }}>No problems found.</p>}
+        {findings?.map((f, i) => (
+          <div key={i} className="flex items-start gap-2 py-1 text-[11.5px]">
+            <AlertTriangle size={12} className="mt-[2px] shrink-0" style={{ color: f.kind === 'console' || f.kind === 'network' ? 'var(--ide-danger)' : 'var(--ide-warn)' }} />
+            <div className="min-w-0">
+              <div style={{ color: 'var(--ide-dim)' }}>{f.msg}</div>
+              {f.sel && <div className="font-mono text-[10px]" style={{ color: 'var(--ide-faint)' }}>{f.sel}</div>}
+            </div>
+          </div>
+        ))}
+        {!!consoleErrs.length && (
+          <>
+            <div className="ide-section mt-2 mb-1">console</div>
+            {consoleErrs.map((c, i) => (
+              <div key={i} className="font-mono text-[10.5px] py-0.5 break-words" style={{ color: c.level === 'error' ? 'var(--ide-danger)' : 'var(--ide-warn)' }}>{c.text}</div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PreviewLogPanel({ project, preview, onStart, starting, onDesign }: {
+  project: string
+  preview: { running: boolean; port?: number; kind?: string; ready?: boolean }
+  onStart: () => void
+  starting: boolean
+  onDesign: () => void
+}) {
+  const [logs, setLogs] = useState<string[]>([])
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/ide/preview/logs?project=${encodeURIComponent(project)}`)
+        setLogs((await res.json()).logs ?? [])
+      } catch { /* ignore */ }
+    }
+    void load()
+    const iv = setInterval(load, 2500)
+    return () => clearInterval(iv)
+  }, [project])
+
+  return (
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 text-[11px]" style={{ color: 'var(--ide-faint)' }}>
+        <span className="flex-1">
+          {preview.running
+            ? `running (${preview.kind}) on port ${preview.port ?? '—'}${preview.ready ? '' : ' · booting'}`
+            : 'no preview running for this project'}
+        </span>
+        <button onClick={onStart} disabled={starting || preview.running} className="ide-btn outlined">
+          {starting ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />} start
+        </button>
+        <button onClick={onDesign} className="ide-btn outlined" style={{ color: 'var(--ide-accent)' }}>
+          <MonitorUp size={11} /> design mode
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 pb-2 font-mono text-[10.5px] leading-relaxed" style={{ background: 'var(--ide-code-bg)', color: 'var(--ide-dim)' }}>
+        {logs.slice(-80).map((l, i) => <div key={i} className="whitespace-pre-wrap break-words">{l}</div>)}
+        {!logs.length && <div>no output yet — the dev server's stdout and stderr land here</div>}
+      </div>
+    </div>
+  )
+}
