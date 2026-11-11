@@ -48,3 +48,20 @@ Implemented as `frontend/src/components/ui/apple/AppleCard.tsx`.
   and circles or capsules for single actions. Keep these two apart.
 - Blur and glow appear behind floating controls, not behind dense text.
 - Selection and active state use the accent colour. Nothing else is coloured.
+
+## Batch 3 — Apple Pay sheet, Home Screen widgets, App Store (20 results, 3 studied)
+
+- **Apple Pay sheet:** a bottom sheet with a generous top corner and the wordmark
+  at top left. The close control is a small grey circle at top right. Options
+  are rounded white rows, each with a chevron on the right. Secondary text is
+  grey, and a tag such as "Pay Later" is an outlined capsule.
+- **Home Screen:** widgets are rounded glass tiles, sized to the grid. Icons are
+  rounded squares with depth, and labels sit under them in small type.
+- **App Store listing:** iOS 26 replaces opaque bars with floating glass bars.
+  Content runs under them, so the bars need blur and a soft edge.
+
+## Totals
+
+- Batch 1: 5 results, 2 studied. Batch 2: 20 results, 3 studied.
+  Batch 3: 20 results, 3 studied.
+- Trimmed from the original 100 target to 4 extra batches, as agreed.
