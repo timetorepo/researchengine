@@ -49,7 +49,7 @@ export function ArticlesView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-[900px] mx-auto px-5 py-8">
+      <div className="max-w-[1080px] mx-auto px-5 py-7">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-semibold" style={{ letterSpacing: '-0.02em' }}>Articles</h1>
@@ -76,40 +76,48 @@ export function ArticlesView() {
             <p className="text-[12px] mt-1" style={{ color: 'var(--text-3)' }}>Convert a chat, or start from scratch.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <AnimatePresence mode="popLayout">
-            {articles.map((a, i) => {
-              const hue = hashHue(a.title)
-              const words = a.blocks.reduce((n, b) => n + b.content.split(/\s+/).length, 0)
-              return (
-                <motion.div key={a.id}
-                  layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: removing === a.id ? 0 : 1, y: removing === a.id ? -10 : 0, scale: removing === a.id ? 0.96 : 1 }} exit={{ opacity: 0, scale: 0.94, height: 0, margin: 0 }} transition={{ type: 'spring', damping: 26, stiffness: 320, delay: removing === a.id ? 0 : i * 0.04 }}
-                  className="group relative rounded-[18px] overflow-hidden cursor-pointer card-hover"
-                  onClick={() => navigate(`/articles/${a.id}`)}>
-                  <div className="h-24 w-full relative" style={{ background: `linear-gradient(135deg, hsl(${hue} 45% 32%), hsl(${(hue + 40) % 360} 40% 22%))` }}>
-                    {a.coverImage && (
-                      <>
-                        <img src={a.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.7))' }} />
-                      </>
-                    )}
-                    <div className="relative p-3.5 h-full flex flex-col justify-end">
-                      <div className="text-white/90 font-semibold text-[14px] leading-tight line-clamp-2" style={{ fontFamily: 'var(--font-serif)' }}>{a.title}</div>
+          // One table, like Chats and Workflows: a row is an article, its title
+          // in the serif face it is written in, and the rest is quiet metadata.
+          <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+            <div className="grid items-center gap-3 px-3 h-8 text-[10.5px] uppercase tracking-wider md:grid-cols-[minmax(0,1fr)_120px_120px_32px] grid-cols-[minmax(0,1fr)_32px]"
+              style={{ color: 'var(--text-3)', background: 'var(--elevated)' }} aria-hidden="true">
+              <span>Title</span>
+              <span className="hidden md:block">Reading time</span>
+              <span className="hidden md:block">Updated</span>
+              <span />
+            </div>
+            <AnimatePresence mode="popLayout" initial={false}>
+              {articles.map((a) => {
+                const hue = hashHue(a.title)
+                const leaving = removing === a.id
+                return (
+                  <motion.div key={a.id} layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: leaving ? 0 : 1 }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="group grid items-center gap-3 px-3 h-[52px] cursor-pointer hover:bg-[var(--elevated)] transition-colors md:grid-cols-[minmax(0,1fr)_120px_120px_32px] grid-cols-[minmax(0,1fr)_32px]"
+                    style={{ borderTop: '1px solid var(--surface-border)' }}
+                    onClick={() => navigate(`/articles/${a.id}`)}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="relative shrink-0 w-7 h-7 rounded-[8px] overflow-hidden"
+                        style={{ background: `linear-gradient(135deg, hsl(${hue} 45% 32%), hsl(${(hue + 40) % 360} 40% 22%))` }}>
+                        {a.coverImage && <img src={a.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13.5px] font-medium" style={{ fontFamily: 'var(--font-serif)' }}>{a.title}</span>
+                        {a.description && <span className="block truncate text-[11.5px]" style={{ color: 'var(--text-3)' }}>{a.description}</span>}
+                      </span>
                     </div>
-                  </div>
-                  <div className="p-3.5" style={{ background: 'var(--surface)' }}>
-                    {a.description && <p className="mb-2 text-[12px] leading-relaxed line-clamp-2" style={{ color: 'var(--text-2)' }}>{a.description}</p>}
-                  </div>
-                  <div className="px-3.5 pb-3.5 -mt-2 flex items-center justify-between" style={{ background: 'var(--surface)' }}>
-                    <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{readingTime(a.blocks.map((b) => b.content).join(' '))} · {timeAgo(a.updatedAt)}</span>
+                    <span className="hidden md:block text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{readingTime(a.blocks.map((b) => b.content).join(' '))}</span>
+                    <span className="hidden md:block text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{timeAgo(a.updatedAt)}</span>
                     <button onClick={(e) => { e.stopPropagation(); removeArticle(a.id) }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded" style={{ color: 'var(--text-3)' }} aria-label="Delete article">
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded justify-self-end" style={{ color: 'var(--text-3)' }} aria-label="Delete article">
                       <Trash2 size={12} />
                     </button>
-                  </div>
-                </motion.div>
-              )
-            })}
+                  </motion.div>
+                )
+              })}
             </AnimatePresence>
           </div>
         )}
