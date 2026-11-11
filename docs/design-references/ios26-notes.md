@@ -28,3 +28,23 @@ photos); only the observations are recorded here.
 - Explanatory text goes under the group, in grey.
 
 Implemented as `frontend/src/components/ui/apple/AppleCard.tsx`.
+
+## Batch 2 — Wallet, Control Center, Photos tab bar (20 results, 3 studied closely)
+
+- **Wallet card details (sheet):** a large bold title with a grey subtitle beneath,
+  a round grey close button top left, and a round blue confirm button top right.
+  Form fields sit in one grouped rounded card with inset hairlines, the label on
+  the left and the value on the right.
+- **Control Center (dark):** tiles are translucent glass with a faint coloured
+  glow behind them (blue, violet) rather than a solid fill. Toggles are round
+  buttons, and sliders are tall capsules.
+- **Photos tab bar:** a floating glass capsule holds the two tabs. The search
+  control sits apart in its own round glass button. The active tab is tinted
+  blue, and the inactive one is black.
+
+## Pattern so far
+
+- Two shapes do most of the work: large rounded rectangles for groups and tiles,
+  and circles or capsules for single actions. Keep these two apart.
+- Blur and glow appear behind floating controls, not behind dense text.
+- Selection and active state use the accent colour. Nothing else is coloured.
