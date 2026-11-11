@@ -6,6 +6,7 @@ import { useStore } from '@/stores/useStore'
 import { runChat } from '@/lib/chat/runChat'
 import { timeAgo } from '@/lib/utils'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
+import { APPLE_RADIUS, APPLE_SHADOW } from '@/components/ui/apple/AppleCard'
 import { BorderBeam } from 'border-beam'
 import { themeKind } from '@/lib/themes/meta'
 import { useUI } from '@/stores/useUI'
@@ -151,13 +152,15 @@ export function SuggestedForYou({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * i, duration: DUR.slow, ease: EASE_OUT }}
             onClick={() => run(s)}
-            className="ios-lift group relative isolate overflow-hidden text-left p-3.5 rounded-[16px] flex flex-col gap-2"
+            className="ios-lift group relative isolate overflow-hidden text-left p-3.5 flex flex-col gap-2"
             style={{
               background: wallpaper
                 ? 'color-mix(in srgb, var(--surface) 62%, transparent)'
                 : 'var(--surface)',
               backdropFilter: wallpaper ? 'blur(18px) saturate(1.2)' : undefined,
               border: '1px solid var(--surface-border)',
+              borderRadius: APPLE_RADIUS,
+              boxShadow: APPLE_SHADOW,
             }}
           >
             {/* Border Beam by Jakub Antalik — the same travelling light the
@@ -168,7 +171,7 @@ export function SuggestedForYou({
                 size="sm"
                 colorVariant="ocean"
                 theme={themeKind(theme)}
-                borderRadius={16}
+                borderRadius={APPLE_RADIUS}
                 duration={8}
                 brightness={1.2}
                 saturation={1.25}

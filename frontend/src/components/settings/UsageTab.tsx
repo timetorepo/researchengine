@@ -11,6 +11,7 @@ import { useStore } from '@/stores/useStore'
 import { AnimatedCounter } from '@/components/ui/kit/rareui/AnimatedCounter'
 import { ReceiptPrinter } from '@/components/ui/kit/dqnamo/ReceiptPrinter'
 import { localDay } from '@/lib/usage/day'
+import { APPLE_RADIUS, APPLE_SHADOW } from '@/components/ui/apple/AppleCard'
 import {
   columnHeights, compactTokens, summarizeUsage, usageColumns, USAGE_COLUMNS, type UsageMetric,
 } from '@/lib/usage/history'
@@ -60,7 +61,7 @@ export function UsageTab() {
         </p>
       </div>
 
-      <section className="surface p-4" style={{ borderRadius: 'var(--radius-card)' }}>
+      <section className="relative overflow-hidden p-4" style={{ borderRadius: APPLE_RADIUS, background: 'var(--surface)', boxShadow: APPLE_SHADOW }}>
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <div className="flex-1 min-w-[160px]">
             <div className="text-[12px]" style={{ color: 'var(--text-3)' }}>{meta.label}, last 12 months</div>
@@ -129,7 +130,7 @@ export function UsageTab() {
         )}
       </section>
 
-      <section className="surface p-4" style={{ borderRadius: 'var(--radius-card)' }}>
+      <section className="relative overflow-hidden p-4" style={{ borderRadius: APPLE_RADIUS, background: 'var(--surface)', boxShadow: APPLE_SHADOW }}>
         <h3 className="text-[14px] font-semibold mb-2">Today</h3>
         <p className="text-[12.5px]" style={{ color: 'var(--text-2)' }}>
           {compactTokens(byDay[today] ?? 0)} tokens today. Average on an active day: {compactTokens(summary.averagePerActiveDay)}.
