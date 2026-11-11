@@ -60,51 +60,51 @@ export const CHANGELOG: Release[] = [
         "items": [
           {
             "label": "Apple-style cards and sheets.",
-            "text": "Cards use a larger corner and a softer depth. Sheets have one centred title, and their close button is a small grey round control, as in Apple's sheets."
+            "text": "Cards have a larger corner and a softer depth. Sheets have one centred title, and their close button is a small grey round control."
           },
           {
-            "label": "Toggles like iOS.",
-            "text": "Every switch is the iOS size, is green when on, and rows are at least 44px tall for comfortable tapping."
+            "label": "Switches like iOS.",
+            "text": "Every switch is the iOS size and turns green when on. Rows are at least 44px tall, so they are comfortable to tap."
           },
           {
             "label": "Grouped Settings lists.",
-            "text": "The switches on the Appearance, Updates and Developer pages sit in grouped lists with hairlines inset from the edge. Saved memories are an Apple-style list too."
+            "text": "The switches on the Appearance, Updates and Developer pages sit in grouped lists, with hairlines inset from the edge. Saved memories are an Apple-style list too."
           },
           {
             "label": "An experimental floating tab bar.",
-            "text": "A glass capsule with Home, Chats, Coding, Library and Workflows at the bottom of the screen. It is off by default; turn it on in Settings → Appearance. It is hidden on Chat and Coding, where the composer and the editor need the space."
+            "text": "A glass capsule with Home, Chats, Coding, Library and Workflows at the bottom of the screen. It is off by default. Turn it on in Settings → Appearance. It is hidden on Chat and Coding, where the composer and the editor need the space."
           },
           {
             "label": "Faster saving.",
-            "text": "The database now uses SQLite's NORMAL sync setting with WAL, which made single-row writes about 20 times faster in measurement. A power cut can lose the last few changes, but the database cannot be corrupted."
+            "text": "The database uses SQLite's NORMAL sync setting with WAL. In measurement, single-row writes became about 20 times faster. After a power cut you can lose the last few changes, but the database cannot be corrupted."
           },
           {
             "label": "ChatGPT and Claude style chat.",
-            "text": "It is the default chat layout."
+            "text": "This is the default chat layout."
           },
           {
             "label": "Tables for Chats, Workflows and Articles.",
-            "text": "Each list is a dense table with actions on hover."
+            "text": "Each list is a dense table, with actions that appear on hover."
           },
           {
             "label": "Persistent memory.",
-            "text": "Facts you keep are carried into later replies, and the Memory tab lists them."
+            "text": "Facts you keep are carried into later replies. The Memory tab lists them."
           },
           {
             "label": "A new update card.",
-            "text": "A large Update button, a README reader that loads the release notes, and progress and completion views."
+            "text": "It has a large Update button, a README reader for the version you are looking at, and separate progress and completion views."
           },
           {
-            "label": "Lightpanda for headless browsing.",
-            "text": "A browse_page tool reads web pages without a full browser, and it has its own installer step."
+            "label": "Headless browsing with Lightpanda.",
+            "text": "A browse_page tool reads web pages without a full browser. A script installs the browser on request."
           },
           {
             "label": "A bird's-eye graph.",
-            "text": "Agents save to it, with a preview window and a notice in chat."
+            "text": "Agents save to it. It has a preview window and a notice in chat."
           },
           {
             "label": "An optional home picture.",
-            "text": "Off by default, with a switch in Settings → Appearance."
+            "text": "It is off by default. The switch is in Settings → Appearance."
           }
         ]
       },
@@ -112,10 +112,10 @@ export const CHANGELOG: Release[] = [
         "title": "Notes",
         "items": [
           {
-            "text": "The desktop installers for Windows and Linux are built by the tag's CI run and attached to this release."
+            "text": "The Windows and Linux installers are attached to this release."
           },
           {
-            "text": "The installer size is unchanged: the server runtime is most of it. See docs/research/installer-size.md."
+            "text": "The installers are about the same size as 1.7.0. The server runtime makes up most of the download. See docs/research/installer-size.md for the breakdown."
           }
         ]
       }
