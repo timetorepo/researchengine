@@ -1,4 +1,5 @@
 import { Switch } from '@/components/ui/heroui/Switch'
+import { AppleCard } from '@/components/ui/apple/AppleCard'
 import { useMemo } from 'react'
 import { Route, Pin, PinOff, Check } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
@@ -56,7 +57,7 @@ export function SnaffyTab() {
         a different agent.
       </p>
 
-      <div className="surface p-4 mb-5">
+      <AppleCard className="mb-5">
         <div className="flex items-start gap-2.5">
           <Route size={15} className="mt-1 shrink-0" style={{ color: snaffy.enabled ? 'var(--primary)' : 'var(--text-3)' }} />
           <div className="flex-1 min-w-0">
@@ -68,7 +69,7 @@ export function SnaffyTab() {
             />
           </div>
         </div>
-      </div>
+      </AppleCard>
 
       <div className="text-[13px] font-semibold mb-2">Persona</div>
       <p className="text-[12px] mb-3" style={{ color: 'var(--text-2)' }}>

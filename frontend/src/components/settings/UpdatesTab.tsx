@@ -11,6 +11,7 @@ import { smoothCaretProps } from '@/components/input/SmoothText'
 import HoldButton from '@/components/ui/reactbits/micro/HoldButton'
 import BellToggle from '@/components/ui/reactbits/micro/BellToggle'
 import { Switch } from '@/components/ui/heroui/Switch'
+import { AppleGroup } from '@/components/ui/apple/AppleCard'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { useUpdates, formatBytes, phaseLabel } from '@/lib/updates/client'
@@ -422,13 +423,13 @@ export function UpdatesTab() {
             label="Notify me of updates"
           />
         </div>
+        <AppleGroup>
         <Switch
           checked={autoCheck}
           onChange={(v) => update({ updates: { ...(settings.updates ?? {}), autoCheck: v } })}
           label="Check quietly when the app opens"
           description="One request to GitHub when the app opens."
         />
-        <div className="mt-3">
           <Switch
             checked={autoDownload}
             disabled={!autoCheck}
@@ -438,7 +439,7 @@ export function UpdatesTab() {
               ? 'When a newer release is found on launch, it is downloaded and verified in the background. It is installed only when you press Restart now.'
               : 'Only for the portable build. The desktop app and source checkouts keep the download button.'}
           />
-        </div>
+        </AppleGroup>
         {!canSelfUpdate && kind === 'checkout' && (
           <p className="text-[11.5px] mt-3" style={{ color: 'var(--text-3)' }}>
             In a source checkout the updater still tells you when something newer exists. Run the packaged build

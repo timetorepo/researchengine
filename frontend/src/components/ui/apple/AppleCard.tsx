@@ -85,6 +85,19 @@ export function AppleRow({
   )
 }
 
+/**
+ * A grouped list: one card with a row per child, hairlines inset from the edge.
+ * Each child is wrapped in an AppleRow, so the children themselves do not change.
+ */
+export function AppleGroup({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const items = React.Children.toArray(children)
+  return (
+    <AppleCard padded={false} className={className}>
+      {items.map((c, i) => <AppleRow key={i} first={i === 0}>{c}</AppleRow>)}
+    </AppleCard>
+  )
+}
+
 /** A capsule button. `prominent` is the one filled action; the rest are quiet. */
 export function ApplePill({
   children,

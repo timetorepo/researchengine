@@ -4,6 +4,7 @@ import { Terminal, PlayCircle, CheckCircle2, XCircle, Loader2, Copy, Trash2, Ref
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Switch } from '@/components/ui/heroui/Switch'
+import { AppleGroup } from '@/components/ui/apple/AppleCard'
 import { BUNDLE_BUILD as BUILD_ID } from '@/lib/appVersion'
 import { runningVersion, useRunningVersion } from '@/lib/appVersion'
 import { Button } from '@/components/ui/heroui/Button'
@@ -204,12 +205,14 @@ export function DeveloperTab() {
           this repository builds, at any width and theme), keeps the create-project test bench, and shows
           the raw status and response body in failure messages instead of a summary.
         </p>
+        <AppleGroup>
         <Switch
           checked={!!settings.developerMode}
           onChange={(v) => { update({ developerMode: v }); useUI.getState().toast(v ? 'Developer Mode on' : 'Developer Mode off', v ? 'Build fingerprint and raw errors are visible.' : 'Back to the quiet interface.', 'info') }}
           label="Enable Developer Mode"
           description="Same app, more of its working parts showing."
         />
+        </AppleGroup>
       </section>
 
       {/* The UI lab. It is shown only while Developer Mode is on: it swaps
