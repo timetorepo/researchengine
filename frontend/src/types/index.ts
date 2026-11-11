@@ -789,6 +789,8 @@ export interface Settings {
   chatsGooey?: boolean
   /** Carry the user's saved memories into replies. On by default; Settings → Memory turns it off. */
   useMemories?: boolean
+  /** Experimental: a floating glass tab bar at the bottom of the screen. Off by default. */
+  experimentalTabBar?: boolean
   /** AIFlowEngine speed booster applied to API model output. */
   flowBoost: boolean
   mcpServers: McpServerConfig[]

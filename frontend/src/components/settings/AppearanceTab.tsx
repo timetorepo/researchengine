@@ -478,6 +478,13 @@ export function AppearanceTab() {
           </p>
         )}
 
+        {/* Experimental: a floating glass tab bar. Off until someone asks for it. */}
+        <div className="surface p-4">
+          <Switch label="Floating tab bar (experimental)"
+            description="A glass capsule of five main screens at the bottom. Hidden on Chat and Coding, where the composer and editor need the space."
+            checked={settings.experimentalTabBar === true} onChange={(v) => update({ experimentalTabBar: v })} />
+        </div>
+
         {/* The Chats kind switch: gooey by default, plain tabs when turned off. */}
         <div className="surface p-4">
           <Switch label="Gooey tab switch in Chats"
