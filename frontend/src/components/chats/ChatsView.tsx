@@ -150,81 +150,98 @@ export function ChatsView() {
     { id: 'coding', label: 'Coding', n: codingTotal },
   ]
 
+  const ROW_GRID = 'grid items-center gap-3 px-3 md:grid-cols-[minmax(0,1fr)_150px_110px_76px_32px_32px] grid-cols-[minmax(0,1fr)_32px_32px]'
+
   const section = (title: string, kindOf: 'research' | 'coding', icon: React.ReactNode, list: typeof filtered) => {
     if (!list.length) return null
     return (
-      <section className="mb-7">
-        <div className="flex items-center gap-2 mb-2.5 px-0.5">
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-2 px-1">
           <span style={{ color: kindOf === 'coding' ? 'var(--primary)' : 'var(--text-3)' }}>{icon}</span>
-          <h2 className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>{title}</h2>
+          <h2 className="text-[11.5px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-3)' }}>{title}</h2>
           <span className="text-[11px] tabular-nums" style={{ color: 'var(--text-3)' }}>{list.length}</span>
           <span className="flex-1" />
           {kindOf === 'coding' && (
-            <button onClick={() => navigate('/code')} className="text-[11px] px-2 py-1 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--primary)' }}>
+            <button onClick={() => navigate('/code')} className="text-[11.5px] px-2 py-1 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--primary)' }}>
               Open coding →
             </button>
           )}
         </div>
-        <AnimatePresence mode="popLayout">
-          {list.map((chat, i) => (
-            <motion.div
-              key={chat.id} layout
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: removing === chat.id ? 0 : 1, y: removing === chat.id ? -8 : 0, scale: removing === chat.id ? 0.98 : 1 }}
-              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              transition={{ type: 'spring', damping: 26, stiffness: 320, delay: removing === chat.id ? 0 : i * .02 }}
-              className="surface p-4 mb-2.5 flex items-center gap-3 group"
-            >
-              <button className="flex-1 min-w-0 text-left" onClick={() => { if (renaming !== chat.id) open(chat.id) }}
-                onDoubleClick={() => { setDraft(chat.title); setRenaming(chat.id) }}>
-                <div className="font-medium text-[14px] truncate flex items-center gap-1.5">
-                  {chat.kind === 'coding' && <CodeIcon size={13} className="shrink-0" style={{ color: 'var(--primary)' }} />}
-                  {chat.pinned && <Pin size={12} className="shrink-0" style={{ color: 'var(--warning)' }} />}
-                  {renaming === chat.id ? (
-                    <input
-                      autoFocus value={draft} maxLength={60}
-                      onChange={(e) => setDraft(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') commitRename(chat.id, chat.title)
-                        if (e.key === 'Escape') setRenaming(null)
-                      }}
-                      onBlur={() => commitRename(chat.id, chat.title)}
-                      className="flex-1 min-w-0 bg-transparent outline-none text-[14px]"
-                      style={{ borderBottom: '1px solid var(--primary)' }}
-                    />
-                  ) : chat.title}
-                </div>
-                <div className="flex items-center gap-2 mt-1 text-[11px]" style={{ color: 'var(--text-3)' }}>
-                  <Clock3 size={11} /> {timeAgo(chat.updatedAt)} · {chat.messages.length} messages
-                  {chat.kind === 'coding' && chat.settings?.project && (
-                    <span className="flex items-center gap-1 px-1.5 py-[1px] rounded-full" style={{ background: 'var(--elevated)' }}>
-                      <FolderKanban size={9} /> {chat.settings.project}
-                    </span>
-                  )}
-                </div>
-              </button>
-              <IsolationButton chatId={chat.id} />
-              <OverflowActions label={`Actions for ${chat.title}`} items={[
-                { id: 'pin', label: chat.pinned ? 'Unpin' : 'Pin to the top', onSelect: () => setPinned(chat.id, !chat.pinned) },
-                { id: 'rename', label: 'Rename', onSelect: () => { setDraft(chat.title); setRenaming(chat.id) } },
-                { id: 'export', label: 'Export as JSON', onSelect: () => exportChat(chat.id) },
-                { id: 'delete', label: 'Delete chat', danger: true, onSelect: () => remove(chat.id) },
-              ]} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+        {/* One table, not a stack of cards: a row is one line of information, and
+            the eye can scan a long history without being slowed by padding. */}
+        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+          <div className={`${ROW_GRID} h-8 text-[10.5px] uppercase tracking-wider`} style={{ color: 'var(--text-3)', background: 'var(--elevated)' }} aria-hidden="true">
+            <span>Title</span>
+            <span className="hidden md:block">Project</span>
+            <span className="hidden md:block">Updated</span>
+            <span className="hidden md:block text-right">Msgs</span>
+            <span className="hidden md:block" />
+            <span />
+          </div>
+          <AnimatePresence mode="popLayout" initial={false}>
+            {list.map((chat) => {
+              const leaving = removing === chat.id
+              return (
+                <motion.div
+                  key={chat.id} layout
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: leaving ? 0 : 1 }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className={`group ${ROW_GRID} h-[44px] hover:bg-[var(--elevated)] transition-colors`}
+                  style={{ borderTop: '1px solid var(--surface-border)' }}
+                >
+                  <button className="min-w-0 text-left flex items-center gap-2" onClick={() => { if (renaming !== chat.id) open(chat.id) }}
+                    onDoubleClick={() => { setDraft(chat.title); setRenaming(chat.id) }}>
+                    {chat.kind === 'coding' && <CodeIcon size={13} className="shrink-0" style={{ color: 'var(--primary)' }} />}
+                    {chat.pinned && <Pin size={12} className="shrink-0" style={{ color: 'var(--warning)' }} />}
+                    {renaming === chat.id ? (
+                      <input
+                        autoFocus value={draft} maxLength={60}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitRename(chat.id, chat.title)
+                          if (e.key === 'Escape') setRenaming(null)
+                        }}
+                        onBlur={() => commitRename(chat.id, chat.title)}
+                        className="flex-1 min-w-0 bg-transparent outline-none text-[13.5px]"
+                        style={{ borderBottom: '1px solid var(--primary)' }}
+                      />
+                    ) : <span className="truncate text-[13.5px] font-medium">{chat.title}</span>}
+                  </button>
+                  <span className="hidden md:flex items-center gap-1 min-w-0 text-[12px] truncate" style={{ color: 'var(--text-2)' }}>
+                    {chat.kind === 'coding' && chat.settings?.project ? (<><FolderKanban size={11} className="shrink-0" /> <span className="truncate">{chat.settings.project}</span></>) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+                  </span>
+                  <span className="hidden md:block text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{timeAgo(chat.updatedAt)}</span>
+                  <span className="hidden md:block text-[12px] tabular-nums text-right" style={{ color: 'var(--text-3)' }}>{chat.messages.length}</span>
+                  <span className="hidden md:flex justify-center"><IsolationButton chatId={chat.id} /></span>
+                  <span className="flex justify-center">
+                    <OverflowActions label={`Actions for ${chat.title}`} items={[
+                      { id: 'pin', label: chat.pinned ? 'Unpin' : 'Pin to the top', onSelect: () => setPinned(chat.id, !chat.pinned) },
+                      { id: 'rename', label: 'Rename', onSelect: () => { setDraft(chat.title); setRenaming(chat.id) } },
+                      { id: 'export', label: 'Export as JSON', onSelect: () => exportChat(chat.id) },
+                      { id: 'delete', label: 'Delete chat', danger: true, onSelect: () => remove(chat.id) },
+                    ]} />
+                  </span>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+        </div>
       </section>
     )
   }
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-[900px] mx-auto px-5 pt-8 pb-16">
-        <div className="flex items-end justify-between gap-4 mb-5 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2"><MessageSquare size={20} style={{ color: 'var(--primary)' }} /><h1 className="text-[24px] font-semibold tracking-tight">Chats</h1></div>
-            <p className="text-[13px] mt-1" style={{ color: 'var(--text-2)' }}>Research and coding conversations, kept apart and on this device.</p>
+      <div className="max-w-[1080px] mx-auto px-5 pt-7 pb-16">
+        {/* Header: the page's title and its one search. Counts sit with the title so the
+            scale of the history is visible before any row is. */}
+        <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+          <div className="flex items-baseline gap-3">
+            <div className="flex items-center gap-2"><MessageSquare size={18} style={{ color: 'var(--primary)' }} /><h1 className="text-[20px] font-semibold tracking-tight">Chats</h1></div>
+            <span className="text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{chats.length} total · on this device</span>
           </div>
           {/* Search: pick it up and it opens. The input carries the app's own
               surface through `classNames`, so the gooey blob is themed. */}
@@ -246,7 +263,7 @@ export function ChatsView() {
         {/* GooeyNav (ReactBits): the kind switch. The pill slides and stretches
             between All, Research and Coding; keyboard and screen-reader
             selection stay on the same index. */}
-        <div className="flex items-center gap-2 mb-5 max-w-[420px]">
+        <div className="flex items-center gap-2 mb-6 max-w-[420px]">
           <div className="flex-1 min-w-0">
             {/* Settings → Appearance can turn the gooey pill off; plain HeroUI tabs
                 then do the same job with the same selection. */}
