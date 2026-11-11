@@ -1,3 +1,4 @@
+import { useHeroArt } from '@/components/home/heroArtPrefs'
 import React, { useMemo, useState, useEffect, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
@@ -41,6 +42,7 @@ const SUGGESTIONS = [
 const PatternWaves = lazy(() => import('@/components/ui/reactbits/micro/PatternWaves'))
 
 export function HomeScreen() {
+  const [heroArt] = useHeroArt()
   const navigate = useNavigate()
   const chats = useStore((s) => s.chats)
   const articles = useStore((s) => s.articles)
@@ -142,8 +144,10 @@ export function HomeScreen() {
             slot width instead of being clipped, and the line scales down rather
             than wrapping (which used to shove the composer south). */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.base, ease: EASE_OUT }}>
-          <PaintedBackdrop src="/art/home-hero.jpg" focus="50% 50%" strength={0.95}
-            className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center">
+          {/* The painted picture is optional (Settings → Appearance), and off by default. */}
+          {heroArt ? (
+            <PaintedBackdrop src="/art/home-hero.jpg" focus="50% 50%" strength={0.95}
+              className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center" data-ui="home-hero">
             <RevolvingText
               items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
               prefix="What do you want to"
@@ -151,7 +155,18 @@ export function HomeScreen() {
               maxFontPx={46}
               intervalMs={2200}
             />
-          </PaintedBackdrop>
+            </PaintedBackdrop>
+          ) : (
+            <div data-ui="home-hero" className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center">
+            <RevolvingText
+              items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
+              prefix="What do you want to"
+              suffix="Today?"
+              maxFontPx={46}
+              intervalMs={2200}
+            />
+            </div>
+          )}
         </motion.div>
 
         {/* Input */}

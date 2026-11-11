@@ -22,6 +22,7 @@ import { TYPEFACES } from '@/lib/themes/typeface'
 import { ArcPicker } from '@/components/ui/kit/beui/ArcPicker'
 import { usePrefFlag } from '@/components/ui/kit/prefs'
 import { useTrafficLights } from '@/components/topbar/windowControlsPrefs'
+import { useHeroArt } from '@/components/home/heroArtPrefs'
 import { FAN_GALLERY_PREF } from '@/components/ui/reactdrops/fanPrefs'
 import * as engine from '@/lib/music/engine'
 import { useMusic } from '@/stores/useMusic'
@@ -525,6 +526,7 @@ function BubbleSection() {
   const [introEvery, setIntroEveryState] = useState<boolean>(readIntroEvery)
   const [fanOn, setFanOn] = usePrefFlag(FAN_GALLERY_PREF, false)
   const [trafficOn, setTrafficOn] = useTrafficLights()
+  const [heroArtOn, setHeroArtOn] = useHeroArt()
   const [kbAsk, setKbAsk] = useState(false)
   const [chatBackdrop, setChatBackdrop] = useChatBackdrop()
   const [kbPersp, setKbPersp] = useState<'fixed' | 'custom'>(() => {
@@ -620,6 +622,12 @@ function BubbleSection() {
       <section className="surface p-4 mt-4" aria-label="Experimental fan gallery" style={{ borderRadius: 'var(--radius-card)' }}>
         <Switch label="Fan gallery for several images (experimental)" description="When you attach two or more images to a message, show them as a fan you can hover through. Off by default."
           checked={fanOn} onChange={(v: boolean) => { setFanOn(v) }} />
+      </section>
+
+      {/* Home screen: the painted picture behind the headline. Off by default. */}
+      <section className="surface p-4 mt-4" aria-label="Home screen picture" style={{ borderRadius: 'var(--radius-card)' }}>
+        <Switch label="Show the painted picture behind the home headline" description="The landscape behind “What do you want to … Today?” on the home screen. Off by default, so the headline sits on the plain surface."
+          checked={heroArtOn} onChange={(v: boolean) => setHeroArtOn(v)} />
       </section>
 
       {/* Window controls: the usual icon buttons, or macOS-style traffic lights in the top bar. */}
