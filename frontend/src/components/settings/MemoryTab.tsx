@@ -4,6 +4,7 @@ import { useStore } from '@/stores/useStore'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { addMemory, removeMemory, MEMORY_LIMITS, type Memory } from '@/lib/memory/memory'
 import { timeAgo } from '@/lib/utils'
+import { AppleCard, AppleRow, AppleSectionTitle } from '@/components/ui/apple/AppleCard'
 
 /**
  * Persistent memory, in one place: what Research Engine remembers about you,
@@ -78,46 +79,41 @@ export function MemoryTab() {
         </div>
       </div>
 
-      <div className="surface overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="text-[13px] font-medium">Saved memories</div>
-          {memories.length > 0 && (
-            confirmClear ? (
-              <div className="flex items-center gap-2 text-[12px]">
-                <span style={{ color: 'var(--text-3)' }}>Delete all {memories.length}?</span>
-                <button onClick={clearAll} className="px-2 py-1 rounded-[8px]" style={{ color: 'var(--danger)' }}>Delete all</button>
-                <button onClick={() => setConfirmClear(false)} className="px-2 py-1 rounded-[8px]" style={{ color: 'var(--text-2)' }}>Cancel</button>
-              </div>
-            ) : (
-              <button onClick={() => setConfirmClear(true)} className="text-[12px] px-2 py-1 rounded-[8px] hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
-                Clear all
-              </button>
-            )
-          )}
-        </div>
+      <AppleSectionTitle trailing={memories.length > 0 && (
+        confirmClear ? (
+          <span className="flex items-center gap-2 text-[12px]">
+            <span style={{ color: 'var(--text-3)' }}>Delete all {memories.length}?</span>
+            <button onClick={clearAll} className="px-2 py-1 rounded-full" style={{ color: 'var(--danger)' }}>Delete all</button>
+            <button onClick={() => setConfirmClear(false)} className="px-2 py-1 rounded-full" style={{ color: 'var(--text-2)' }}>Cancel</button>
+          </span>
+        ) : (
+          <button onClick={() => setConfirmClear(true)} className="text-[12px] px-2 py-1 rounded-full hover:bg-[var(--elevated)]" style={{ color: 'var(--primary)' }}>
+            Clear all
+          </button>
+        )
+      )}>Saved</AppleSectionTitle>
+      <AppleCard padded={false}>
         {memories.length === 0 ? (
-          <div className="px-4 pb-5 text-[12.5px]" style={{ color: 'var(--text-3)', borderTop: '1px solid var(--surface-border)', paddingTop: 14 }}>
+          <div className="px-4 py-5 text-[13px]" style={{ color: 'var(--text-3)' }}>
             Nothing saved yet. Use “Remember” on one of your messages, or type a fact above.
           </div>
         ) : (
-          <ul>
-            {memories.map((m) => (
-              <li key={m.id} className="group flex items-start gap-3 px-4 py-2.5 hover:bg-[var(--elevated)]" style={{ borderTop: '1px solid var(--surface-border)' }}>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] leading-snug break-words">{m.text}</div>
-                  <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-3)' }}>
-                    {m.source === 'chat' ? 'From a chat' : 'Typed here'} · {timeAgo(m.createdAt)}
-                  </div>
+          memories.map((m, i) => (
+            <AppleRow key={m.id} first={i === 0} className="group">
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="text-[14px] leading-snug break-words" style={{ color: 'var(--text)' }}>{m.text}</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-3)' }}>
+                  {m.source === 'chat' ? 'From a chat' : 'Typed here'} · {timeAgo(m.createdAt)}
                 </div>
-                <button onClick={() => remove(m)} aria-label="Delete this memory" title="Delete"
-                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-[8px] hover:bg-[var(--surface)]" style={{ color: 'var(--danger)' }}>
-                  <Trash2 size={13} />
-                </button>
-              </li>
-            ))}
-          </ul>
+              </div>
+              <button onClick={() => remove(m)} aria-label="Delete this memory" title="Delete"
+                className="opacity-0 group-hover:opacity-100 focus:opacity-100 w-8 h-8 rounded-full grid place-items-center hover:bg-[var(--elevated)]" style={{ color: 'var(--danger)' }}>
+                <Trash2 size={14} />
+              </button>
+            </AppleRow>
+          ))
         )}
-      </div>
+      </AppleCard>
     </div>
   )
 }
