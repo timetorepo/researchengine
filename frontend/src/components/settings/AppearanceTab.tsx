@@ -538,6 +538,7 @@ function BubbleSection() {
     useStore.setState((s) => ({ settings: { ...s.settings, bubbles: { ...(s.settings.bubbles ?? DEFAULT_BUBBLES), ...patch } } }))
 
   const styles: { id: BubblePrefs['style']; name: string; desc: string }[] = [
+    { id: 'chat', name: 'Chat', desc: 'Your messages as a compact block, replies as plain prose. The default.' },
     { id: 'classic', name: 'Classic', desc: 'The app card. Wide, soft, reversed text for you.' },
     { id: 'imessage', name: 'iMessage', desc: 'Grouped runs, a tail on the last bubble, your fill on the right.' },
     { id: 'square', name: 'Square', desc: 'Flat corners, no rounding at all.' },

@@ -13,7 +13,7 @@
  * a chat you cannot read is not a chat.
  */
 
-export type BubbleStyle = 'classic' | 'imessage' | 'square' | 'pill'
+export type BubbleStyle = 'chat' | 'classic' | 'imessage' | 'square' | 'pill'
 export type FillChoice = 'theme' | 'blue' | 'green' | 'purple' | 'orange' | 'gray' | 'custom'
 
 export interface BubblePrefs {
@@ -37,7 +37,7 @@ export interface BubblePrefs {
 }
 
 export const DEFAULT_BUBBLES: BubblePrefs = {
-  style: 'classic',
+  style: 'chat',
   senderFill: 'theme',
   aiFill: 'theme',
   tails: true,
@@ -153,6 +153,31 @@ export function bubbleShape({ prefs, from, position, themeFill }: BubbleInput): 
       else style.borderTopLeftRadius = first ? IMESSAGE_TAIL : IMESSAGE_RADIUS
     }
     rowStyle.justifyContent = isUser ? 'flex-end' : 'flex-start'
+  } else if (prefs.style === 'chat') {
+    // ChatGPT/Claude grammar: your message is a compact, right-aligned rounded
+    // block; the assistant's reply is plain prose with no fill, so long answers
+    // read as a document rather than a stack of cards.
+    if (isUser) {
+      const userFill = choice === 'theme' ? 'var(--elevated)' : fill
+      style.background = userFill
+      style.color = choice === 'theme' ? 'var(--text)' : (light ? '#fff' : '#000')
+      style.padding = '10px 16px'
+      style.borderRadius = 20
+      style.borderBottomRightRadius = position === 'solo' || position === 'last' ? 6 : 20
+      style.fontSize = '14.5px'
+      style.maxWidth = prefs.width === 'narrow' ? '70%' : prefs.width === 'wide' ? '88%' : '80%'
+      style.width = 'fit-content'
+      rowStyle.justifyContent = 'flex-end'
+    } else {
+      style.width = '100%'
+      style.maxWidth = '100%'
+      style.padding = '0'
+      style.background = 'transparent'
+      style.color = 'var(--text)'
+      style.fontSize = '15px'
+      style.lineHeight = 1.7
+      rowStyle.justifyContent = 'flex-start'
+    }
   } else if (prefs.style === 'square') {
     style.background = fill
     style.color = light ? '#fff' : '#000'
