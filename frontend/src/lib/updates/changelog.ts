@@ -6,7 +6,7 @@
  * Updates tab has to work offline. Re-run the generator when a release is cut —
  * a version missing from this file is a version the Updates tab cannot show.
  *
- * 56 versions, 1.7.0 back to 0.10.0.
+ * 57 versions, 1.8.0 back to 0.10.0.
  */
 
 export type ChangeKind = 'added' | 'fixed' | 'changed' | 'polish' | 'removed'
@@ -47,6 +47,84 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    "version": "1.8.0",
+    "tag": "v1.8.0",
+    "name": "An Apple-style interface, a floating tab bar, and faster saving",
+    "date": "2026-11-11",
+    "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.8.0",
+    "summary": "An Apple-style interface, a floating tab bar, and faster saving",
+    "sections": [
+      {
+        "title": "What changed",
+        "items": [
+          {
+            "label": "Apple-style cards and sheets.",
+            "text": "Cards use a larger corner and a softer depth. Sheets have one centred title, and their close button is a small grey round control, as in Apple's sheets."
+          },
+          {
+            "label": "Toggles like iOS.",
+            "text": "Every switch is the iOS size, is green when on, and rows are at least 44px tall for comfortable tapping."
+          },
+          {
+            "label": "Grouped Settings lists.",
+            "text": "The switches on the Appearance, Updates and Developer pages sit in grouped lists with hairlines inset from the edge. Saved memories are an Apple-style list too."
+          },
+          {
+            "label": "An experimental floating tab bar.",
+            "text": "A glass capsule with Home, Chats, Coding, Library and Workflows at the bottom of the screen. It is off by default; turn it on in Settings → Appearance. It is hidden on Chat and Coding, where the composer and the editor need the space."
+          },
+          {
+            "label": "Faster saving.",
+            "text": "The database now uses SQLite's NORMAL sync setting with WAL, which made single-row writes about 20 times faster in measurement. A power cut can lose the last few changes, but the database cannot be corrupted."
+          },
+          {
+            "label": "ChatGPT and Claude style chat.",
+            "text": "It is the default chat layout."
+          },
+          {
+            "label": "Tables for Chats, Workflows and Articles.",
+            "text": "Each list is a dense table with actions on hover."
+          },
+          {
+            "label": "Persistent memory.",
+            "text": "Facts you keep are carried into later replies, and the Memory tab lists them."
+          },
+          {
+            "label": "A new update card.",
+            "text": "A large Update button, a README reader that loads the release notes, and progress and completion views."
+          },
+          {
+            "label": "Lightpanda for headless browsing.",
+            "text": "A browse_page tool reads web pages without a full browser, and it has its own installer step."
+          },
+          {
+            "label": "A bird's-eye graph.",
+            "text": "Agents save to it, with a preview window and a notice in chat."
+          },
+          {
+            "label": "An optional home picture.",
+            "text": "Off by default, with a switch in Settings → Appearance."
+          }
+        ]
+      },
+      {
+        "title": "Notes",
+        "items": [
+          {
+            "text": "The desktop installers for Windows and Linux are built by the tag's CI run and attached to this release."
+          },
+          {
+            "text": "The installer size is unchanged: the server runtime is most of it. See docs/research/installer-size.md."
+          }
+        ]
+      }
+    ],
+    "counts": {
+      "items": 14,
+      "sections": 2
+    }
+  },
   {
     "version": "1.7.0",
     "tag": "v1.7.0",
