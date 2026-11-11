@@ -92,6 +92,22 @@
 }
 [role="dialog"] button[aria-label="Close"]:active { transform: scale(0.94); }
 
+/* Sheet headers: one centred title in the Apple sheet style, with the close
+   control kept clear of it at the top right. */
+[role="dialog"] > header {
+  padding: 18px 56px 10px !important;
+  text-align: center;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+[role="dialog"] button[aria-label="Close"] {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
 /* ============================================================
    RESEARCH ENGINE — DESIGN TOKENS
    Shape scale (MD3): chip 8 / card 14 / modal 24 / pill 999
