@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "playwright-design": {
+      "command": "node",
+      "args": [
+        "tools/design/node_modules/@playwright/mcp/cli.js",
+        "--headless",
+        "--isolated",
+        "--block-service-workers",
+        "--no-webmcp",
+        "--sandbox"
+      ]
+    }
+  }
+}

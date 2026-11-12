@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "apple-design",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/apple-design",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "77bb63b7043bb93aca2ff4ab040c249484eef35682bb6ff7163433c31d30adc7"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "emil-design-eng",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/emil-design-eng",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "965cc3108047a1f68e504977ae7816c66115b202a32e7509c0b8305314839c54"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "animation-performance",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/animation-performance",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "6c60f45ab416ff3f7d7765a5427beead77fab0d82487fe610d2a298397558d0a"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "animation-vocabulary",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/animation-vocabulary",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "40d2b27adfdfeb0570a9f20e7d0255109d9233c50603878bcd0dcd04c923fd94"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "review-animations",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/review-animations",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "5f9fb98b69cace7107af8b393a4196fd42fa42d98bce0e5afc1f866ff3b8a41c",
+        "STANDARDS.md": "8f5fe3f5a04537556dd4e6a37f7a8d6f616d840eb80f2f68b5b594febb170657"
+      },
+      "status": "withheld"
+    },
+    {
+      "name": "improve-animations",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/improve-animations",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "AUDIT.md": "63fa8fcf7e7b3a3e252938e55c60e1f399f607e73553163e8dacf9df40f3ebed",
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "PLAN-TEMPLATE.md": "0a08ac8e23fd2082d7ffb86aeed7b789de77328c3cf874b16f1a755f2ef0a6ad",
+        "SKILL.md": "73962447464433476343e2c12cd08ab39cc99a9e5f3c118c5fb54ed897574ef6"
+      },
+      "status": "withheld"
+    },
+    {
+      "name": "remove-animations",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/remove-animations",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "dea95b7a7ef81cba312c7f70a3c5c67d7e06a287cb16b16d2f90f2b1fb0afff9"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "gestures",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/gestures",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "0835dddc0ce4f4257fdc707ec137d75810f0bdbd8d4eaf69d1de55bfbbf260c2"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "break-ui",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/break-ui",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "CATALOG.md": "7358efcc6bb48e35187be1c064cf60022dcb18c72c18fab58b606dfc5f421f15",
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "e7eec1d70ac56a04255e9c0dbe98084ea3d544cc04aaad34f32c95d6fa9dff5e"
+      },
+      "status": "withheld"
+    },
+    {
+      "name": "pick-ui-library",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/pick-ui-library",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "675fdce308683256ed617351a9b74d23457a5fbd0a562d9831b9c764b8c5e682"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "animate",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/animate",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "RECIPES.md": "21ff63d84391db8d96ecdf9170095f55a42c836ccc36fd3269c4772bab031ba2",
+        "SKILL.md": "39138996033e0dbe53e73217514116eaeca774bae84a0687c80d445a4e0cc3a6"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "choreograph",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/choreograph",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "RECIPES.md": "b61f03b5c47398cf71ce9db4157cc919617228981b1d74a72d6a5fa27e4aaad2",
+        "SKILL.md": "815c7d889230bafc72c03bb0769087aeede310130e8795c7949b3e3a1684e464"
+      },
+      "status": "withheld"
+    },
+    {
+      "name": "unslop",
+      "repository": "https://github.com/heydamir/unslop.git",
+      "commit": "97daa3eb365670ea3f87ed85356cbfcee18105a5",
+      "source": "skills/unslop",
+      "profile": "instruction-only",
+      "omitted": [
+        "references/refs/beacon-engraving.webp",
+        "references/refs/meadow-3d.webp",
+        "references/refs/story-dashboard-frames.webp",
+        "references/refs/unslop-dashboard-after.webp",
+        "references/refs/unslop-hero-after.webp",
+        "scripts/snapshot.mjs",
+        "scripts/story.mjs"
+      ],
+      "sha256": {
+        "LICENSE": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411",
+        "SKILL.md": "19afd7f1841316ddff3f854ea8ead675c738e08b30c41e51a8f1822fa0111947",
+        "agents/openai.yaml": "170d0b33a418d9d82beb7d15f8a91e314adef2edf53a81c37155b6f40dd52f06",
+        "references/effects.md": "ded4f679e22843a8f68860e6cda0396fa8b8fa27202400e08337143b485c86a4",
+        "references/refs.md": "12a70ce17d574914ea69eb0809e5a9605de044df1b66619159c6d0b38d6b8353",
+        "references/signs.md": "6250d3c222c2aaa4ef4f31557d99d249e5be86d8720cd1157df14798caf1c8c4",
+        "references/tokens.md": "988b754612b3e2d42d87b1bbaca0b4a61f3e07a2b2eef782d3614e8fdb6db5b0",
+        "references/visuals.md": "7247da579d2d95ace1e051b867c757bd1e05aa02f3ab8dea0ead4cd4bf14d7d7"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "impeccable",
+      "repository": "https://github.com/pbakaus/impeccable.git",
+      "commit": "b4bff1626c344067788c2679f048a20057c7cc5a",
+      "source": ".agents/skills/impeccable",
+      "profile": "instruction-only",
+      "omitted": [
+        "agents/impeccable_asset_producer.toml",
+        "agents/impeccable_documenter.toml",
+        "agents/impeccable_finish_reviewer.toml",
+        "agents/impeccable_manual_edit_applier.toml",
+        "scripts/VERSION",
+        "scripts/command-metadata.json",
+        "scripts/engine-checksums.txt",
+        "scripts/impeccable",
+        "scripts/impeccable.cmd",
+        "scripts/live-browser-dom.js",
+        "scripts/live-browser-ignores.js",
+        "scripts/live-browser-session.js",
+        "scripts/live-browser.js",
+        "scripts/modern-screenshot.umd.js",
+        "scripts/data/font-index-failures.json",
+        "scripts/data/font-index.json"
+      ],
+      "sha256": {
+        "LICENSE": "02bb8c3b4e70190e3986c0404ad2fd8d639b4f534252d82379cc1b502b6d1812",
+        "SKILL.md": "c6921e830b7a565ebbe9aabe11516d34092062cd7fa2b442f030134857bf86a8",
+        "agents/openai.yaml": "ce9967ad70f99cf04456f3347c266723c2fbbb600267d10a822b7cd20562c321",
+        "reference/adapt.md": "f68b42ac3ba8d0953bcf43a93c9fca0d8a603e05230abdbf09096d3a53f7abcc",
+        "reference/adapt.native.md": "2455a2613e1fa29b986521c73cbad9424ccda70ef6cbe505779dbca5e16272a2",
+        "reference/android.md": "43780abcf10ac12a569d98001ae38af2b337727a0f7ce66268246ac1d54b5d34",
+        "reference/animate.md": "d658c48ffbe0031e8e3b318996cad6ceafe29e40aa50d5bb25e4bf1d6839dc7c",
+        "reference/audit.md": "c1cc198c61bf4cc32416210f490e9245ecf58d57c17d4a0659f79da0f6ffac2b",
+        "reference/audit.native.md": "6cc2f43ba8f8642292b59093c54d53fa5c45cd6813773dc5a08ed527dbd91346",
+        "reference/bolder.md": "05b78fb0595e4d5afbf5f17470c84e89cf82f205fea3a6e9b6d8d779b7c4aab1",
+        "reference/clarify.md": "173dd66abe65633910dcb04a51f40d6ff2a793f87088f022a02fc4cad24dd133",
+        "reference/colorize.md": "bc5f71f1129d0f2c310d913d07c8dc609a1d25644121bd78c308f42d52a0b9e9",
+        "reference/component-review.md": "10489e5265e49a4ef2737cd0e674c149ed41e1f703efe922e53ea3c91e833427",
+        "reference/craft-floor.md": "808a50e0e6c74617a07b0eaf7fd80f58d8e48a13f48e47c658c7534b1724e5c2",
+        "reference/craft.md": "9205e222bc6565b37fb504ceec93233c2d2a456802b69d16e6b1c44723907c4c",
+        "reference/critique.md": "0b1fef797791eb6ef968a5d5b628c0c5b630ddd7926c83d5b942bf9494aee509",
+        "reference/degraded/asset-producer.md": "cf726ce0c7dd1005078fbf560745d4114afe363319648cc9de42d1536370d117",
+        "reference/degraded/documenter.md": "17b6328d809c86622789dcbe1bb1b12ec8937118ef6aa4b37bfd9130d79a205c",
+        "reference/degraded/finish-reviewer.md": "cb47276e5195f65b42c54b693f8f9b2078f93b6aa55a301ada797790df2bf37b",
+        "reference/degraded/manual-edit-applier.md": "357b19acc7ef688c337a4f020633a49db23c84620b13636f9ff20d3ab934df1a",
+        "reference/delight.md": "098a891028ce59c212b747d3c70468dd750aff7053a703d1336045ed31e0da7c",
+        "reference/distill.md": "dcf3b5ccf15d5d048114291129685faf9639d15f4def15ab0a68e4acdc1ef94a",
+        "reference/doctor.md": "33aff200de6f76a74b333d7ae4f7d2f4fc2a0da4c1a57264567d88eb8f33b52b",
+        "reference/document.md": "7e7e97388cac7b5af7afa5b6fec19a6576c89ce6a998c973cb007b8e5494a8c9",
+        "reference/extract.md": "5477ae97189e5c1236cee71a25a5ae50014429a5a2e6da28355c8021a6cdeddd",
+        "reference/generate.md": "11385badfb532196cec249e73bac2b7f58ada033ed8c4b02b9f0d64ddb46f0dc",
+        "reference/harden.md": "4167eb7fc456cdfe09ff0ac2dbcb5e59cee57e590137aab6cc8ec08aafb6d775",
+        "reference/hooks.md": "22f99dc8f891dcc620fb6dc670eab09b84585c1810bf7a3c2063a6e6f7f42152",
+        "reference/init.md": "c2826a6369f86a325e84edb324021753fa8331b86f22a23c884b0b36b7a15488",
+        "reference/ios.md": "40c87038b5f75147a5952a96237acf312a327bf70c1bcd8e0a5f064625ae9668",
+        "reference/layout.md": "0bc7d7971b3edf2acd0580e847458dc6d84129d90715b452799ace3bed815c7c",
+        "reference/live-setup.md": "2b5b2fbf5f658f34ea1997fb1aeebe01604d05187f75c6a4f1f55a5bc78520a4",
+        "reference/live.md": "b8ff9aaf183187e52eb10a24b1036b4725ff51eb11abd97a360d5678e32561dc",
+        "reference/mode-operate.md": "7a52dd7a94ee75f6ae89542c86a1b6e1d306812b16e0d9dbf12d4acad44d148b",
+        "reference/mode-persuade.md": "21e78c8a77badb3f83290cd4577ed3b24bd4dd3b57136d7da75733d4f3ee9ac0",
+        "reference/mode-read.md": "a569989e6a3d6453b4c45e9474e162a15cc54e11732ac6baa7990a6e7cccc0b5",
+        "reference/new-work.md": "1bdd209c4799e1aedbf5a564900c05f6e1f88f0aaf9449025dd1bec804b59d43",
+        "reference/onboard.md": "fde093391d5b8ce6a68c99c60be993f14486ec6be0bc12415fdc93b39c56c192",
+        "reference/operate.md": "a9d2203acd45ca33a13d5c68b02b23ed512425ac15f0e8438318ed124b43729d",
+        "reference/optimize.md": "092c85e5a644e6e528aaff0f341ee1ed57e012c195162fef0a5fc97605f9bb73",
+        "reference/overdrive.md": "ad0465df104431974d2cca39a910c84c72afad3addb1ddd4c8bf418dffdb653c",
+        "reference/polish.md": "81666fc7f783b4e3514db6554e713dc0479bd9cdedb06e93d15f8b579aae869a",
+        "reference/quieter.md": "e3bfcb08302cf14347f2a09de6460b1ec8df12dbf2c7d8474bede9a159298c3a",
+        "reference/region-map.md": "778cedc9199b407d3e23fa1041e38d548b00b1101a33517aa2a2eb299f9d0edc",
+        "reference/routing.md": "77ae09542fbc10aa4e8b119d6fd19359908a47c13c30068d6a150bfdb50e3e10",
+        "reference/shape.md": "a55f016c046cb6a27c55bd7f346375aeb506a755c4fbca19a5f92dbd42309c23",
+        "reference/typeset.md": "c26c5b4524f3ccb650ed0680c10c25fd18083f8ebfd00a54c4d983c4747aab70",
+        "reference/visualize.md": "0c431d0dafbcac7ae8bde70ffa622f9ee542c44ec12e14b48bb44b269bef67eb"
+      },
+      "status": "withheld"
+    },
+    {
+      "name": "find-animation-opportunities",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/find-animation-opportunities",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "d52a377819b84a71930f0c822cfe2849f40301605a2d5c7eccbfa3b257700df2"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "mobile-native",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/mobile-native",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "888b7651d66d66dbac4e72b7c554638eb19bd971d686d6cbdf030a5ef3788f55"
+      },
+      "status": "withheld"
+    },
+    {
+      "name": "ask-sonner",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/ask-sonner",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "API.md": "4bb06f482c5757529e3d7a672a30fbeed42d24919a63e2571384a9ce1549aa7f",
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "SKILL.md": "39f3ee185b3aa2cf70a689052ff078953ce7ba5915ed7a9391d232e9d4dcf57f"
+      },
+      "status": "installed"
+    },
+    {
+      "name": "prototype",
+      "repository": "https://github.com/emilkowalski/skills.git",
+      "commit": "4061b67b8d976a186aca118594f54b638c5f718a",
+      "source": "skills/prototype",
+      "profile": "instruction-only",
+      "omitted": [],
+      "sha256": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b",
+        "PICKER.md": "31a55eec94715cc79942e91e172e539e3031dcd5e2e5ee7c1446cf2caee960a6",
+        "SKILL.md": "bba39c955eb1871c5a02733976ceec5d0324198e0812e667604756489c89f7b9"
+      },
+      "status": "installed"
+    }
+  ],
+  "scanner": {
+    "repository": "https://github.com/NVIDIA/SkillSpector",
+    "commit": "3c2c5d7a1ee148d228398070b91d3beaf0d73b11",
+    "version": "2.12.0",
+    "mode": "static --no-llm"
+  },
+  "adaptations": [
+    {
+      "name": "impeccable",
+      "profile": "project-authored instruction-only adaptation",
+      "upstream": "b4bff1626c344067788c2679f048a20057c7cc5a",
+      "sha256": {
+        "SKILL.md": "769c7b92326d07a144024a18918812824dbdbb3480d5b9ccf8730f79c70f7169",
+        "LICENSE": "02bb8c3b4e70190e3986c0404ad2fd8d639b4f534252d82379cc1b502b6d1812"
+      }
+    }
+  ]
+}
