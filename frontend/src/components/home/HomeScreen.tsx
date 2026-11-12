@@ -1,3 +1,4 @@
+import { WorkspaceActivity } from './WorkspaceActivity'
 import { useHeroArt } from '@/components/home/heroArtPrefs'
 import React, { useMemo, useState, useEffect, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -68,6 +69,7 @@ export function HomeScreen() {
     return () => clearInterval(iv)
   }, [])
 
+  const layout = useStore((s) => s.settings.workspaceLayout ?? 'focused')
   const recentChats = useMemo(() => [...chats].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3), [chats])
   const hasHistory = chats.length > 0 || articles.length > 0
 
@@ -136,7 +138,7 @@ export function HomeScreen() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
+      <div className="re-home-content relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
         {/* A welcome for the AI-product themes; off in Settings → Appearance. */}
         <AIThemeWelcome onFocusInput={() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus()} />
 
@@ -178,6 +180,8 @@ export function HomeScreen() {
         {/* Suggestions: drawn from your recent chats when there is history,
             otherwise the generic research prompts. */}
         <SuggestedForYou chats={recentChats} onAsk={(prompt, opts) => sendFromHome(prompt, opts)} fallback={chips} />
+
+        {layout === 'overview' && <div className="mt-8"><WorkspaceActivity /></div>}
 
         {/* The streak: days with real work in them, not days the app was open. */}
         <div className="mt-6 max-w-[420px] mx-auto">
