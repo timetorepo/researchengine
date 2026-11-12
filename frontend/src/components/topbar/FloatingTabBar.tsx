@@ -30,6 +30,8 @@ const TABS: { key: TabKey; to: string; label: string; icon: React.ReactNode; mat
 ]
 
 export function FloatingTabBar() {
+  const material = useStore((s) => s.settings.glassMode ?? 'off')
+  const strength = useStore((s) => Math.max(0, Math.min(100, s.settings.navigationGlassStrength ?? 60)))
   const on = useStore((s) => s.settings.experimentalTabBar === true)
   const { pathname } = useLocation()
   const workbenchOpen = useUI((s) => s.codingWorkbenchOpen)
@@ -42,8 +44,9 @@ export function FloatingTabBar() {
   return (
     <nav
       aria-label="Main"
+      data-material={material}
       className="re-floating-navigation absolute left-1/2 -translate-x-1/2 z-[25] max-w-[calc(100%-16px)]"
-      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)', '--re-nav-opacity': String(1 - strength * 0.006), '--re-nav-blur': `${strength * 0.3}px` } as React.CSSProperties}
       data-testid="floating-navigation"
     >
       <TabBar

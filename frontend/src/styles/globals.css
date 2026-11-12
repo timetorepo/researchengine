@@ -3755,3 +3755,38 @@ html[data-perf="eco"] [style*="backdrop-filter"] {
 .re-floating-navigation .lg-tab-bar[data-icons] {
   --lg-tab-width: clamp(48px, calc((100vw - 32px) / 5), 72px);
 }
+
+/* Structural workspace presets: independent of palette and feature opt-ins. */
+.re-layout-choice { background: var(--surface); border: 1px solid var(--surface-border); }
+.re-layout-choice[aria-pressed="true"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+.re-layout-choice:focus-visible, .re-sidebar-resizer:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.re-sidebar-resizer { position: absolute; z-index: 30; top: 0; bottom: 0; right: -4px; width: 8px; cursor: col-resize; touch-action: none; }
+.re-sidebar-resizer:hover, .re-sidebar-resizer:focus-visible { background: color-mix(in srgb, var(--primary) 35%, transparent); }
+.re-studio-panel { display: none; }
+.re-workspace-activity { padding: 20px; background: var(--surface); border: 1px solid var(--surface-border); border-radius: 16px; }
+.re-workspace-entry { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 6px; border-radius: 8px; }
+.re-workspace-entry:hover { background: var(--elevated); }
+.re-workspace-entry:focus-visible { outline: 2px solid var(--primary); }
+.re-history-list-row { min-height: 64px; }
+.compact .re-history-list-row { min-height: 52px; }
+.compact .re-workspace-entry { padding-block: 6px; }
+[data-layout="overview"] .re-home-content, [data-layout="studio"] .re-home-content { padding-top: 24px; }
+[data-layout="overview"] [data-ui="home-hero"], [data-layout="studio"] [data-ui="home-hero"] { min-height: 100px; padding-block: 12px; }
+@media (min-width: 1280px) {
+  .re-studio-panel { display: block; width: 288px; flex-shrink: 0; padding: 16px 12px; overflow-y: auto; border-left: 1px solid var(--surface-border); }
+  .re-studio-panel .re-workspace-activity { padding: 12px; background: transparent; border: 0; }
+}
+/* Material overrides are local to Glisse. Reading surfaces remain unchanged.
+   Only the bar's backdrop is opaque: its lens sits above duplicated labels. */
+.re-floating-navigation { --lg-glass: color-mix(in srgb, var(--surface) calc(var(--re-nav-opacity, .64) * 100%), transparent); --lg-blur: var(--re-nav-blur, 18px); }
+.re-floating-navigation[data-material="off"] .lg-tab-bar-glass { background: var(--surface) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.re-floating-navigation[data-material="off"] .lg-tab-lens { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.re-floating-navigation[data-material="blur"] .lg-tab-bar-glass { backdrop-filter: blur(var(--re-nav-blur, 18px)) saturate(1.3) !important; -webkit-backdrop-filter: blur(var(--re-nav-blur, 18px)) saturate(1.3) !important; }
+.re-floating-navigation[data-material="blur"] .lg-tab-lens { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+@supports not (backdrop-filter: blur(1px)) {
+  .re-floating-navigation .lg-tab-bar-glass { background: var(--surface) !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .re-floating-navigation .lg-tab-bar-glass { background: var(--surface) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  .re-floating-navigation .lg-tab-lens { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+}

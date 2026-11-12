@@ -22,6 +22,7 @@ import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_D
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
 import { Bot as BotIcon, Briefcase, CalendarDays, Store } from 'lucide-react'
+import { sidebarWidth } from '@/lib/shell/preferences'
 import { PRIMARY_ROUTES, matchesSection } from '@/lib/shell/navigation'
 import { openMarketplace } from '@/lib/composio/sync'
 
@@ -83,9 +84,36 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   // full history all live on the Chats page (where there is room to search and
   // filter), and recent conversations are one hover away on the Chats item.
 
-  const width = collapsed ? 60 : 248
-  const primary = PRIMARY_ROUTES.map((to) => NAV.find((n) => n.to === to)!)
-  const secondary = NAV.filter((n) => !PRIMARY_ROUTES.some((to) => to === n.to))
+  const savedWidth = useStore((s) => s.settings.sidebarWidth)
+  const pinnedTools = useStore((s) => s.settings.sidebarPinnedTools)
+  const [dragWidth, setDragWidth] = useState<number | null>(null)
+  const resizeCleanup = useRef<(() => void) | null>(null)
+  useEffect(() => () => resizeCleanup.current?.(), [])
+  const commitWidth = (value: number) => useStore.setState((s) => ({ settings: { ...s.settings, sidebarWidth: sidebarWidth(value) } }))
+  const beginResize = (event: React.PointerEvent) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    resizeCleanup.current?.()
+    const start = event.clientX
+    const original = sidebarWidth(savedWidth)
+    let next = original
+    const move = (e: PointerEvent) => { next = sidebarWidth(original + e.clientX - start); setDragWidth(next) }
+    const cleanup = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', cancel)
+      setDragWidth(null)
+    }
+    const end = () => { cleanup(); commitWidth(next) }
+    const cancel = () => cleanup()
+    resizeCleanup.current = cleanup
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end, { once: true })
+    window.addEventListener('pointercancel', cancel, { once: true })
+  }
+  const width = collapsed ? 60 : mobileOpen ? 248 : dragWidth ?? sidebarWidth(savedWidth)
+  const primary = [...PRIMARY_ROUTES.map((to) => NAV.find((n) => n.to === to)!), ...NAV.filter((n) => !PRIMARY_ROUTES.some((to) => to === n.to) && pinnedTools?.includes(n.to))]
+  const secondary = NAV.filter((n) => !primary.some((p) => p.to === n.to))
   const [moreOpen, setMoreOpen] = useState(false)
   const secondaryActive = secondary.some((n) => matchesSection(location.pathname, n.to))
   const showMore = moreOpen
@@ -225,7 +253,16 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   return (
     <>
       {/* Desktop */}
-      <aside className="h-full hidden md:block shrink-0">{!mobileOpen && body}</aside>
+      <aside className="h-full hidden md:block shrink-0 relative">{!mobileOpen && body}
+        {!collapsed && !mobileOpen && <div role="separator" aria-label="Sidebar width" aria-orientation="vertical"
+          aria-valuemin={216} aria-valuemax={360} aria-valuenow={width} tabIndex={0}
+          className="re-sidebar-resizer" onPointerDown={beginResize}
+          onDoubleClick={() => commitWidth(248)}
+          onKeyDown={(e) => {
+            const next = e.key === 'ArrowLeft' ? width - 8 : e.key === 'ArrowRight' ? width + 8 : e.key === 'Home' ? 216 : e.key === 'End' ? 360 : null
+            if (next !== null) { e.preventDefault(); commitWidth(next) }
+          }} />}
+      </aside>
       {/* The existing HeroUI sheet primitive supplies focus containment,
           Escape dismissal and focus restoration rather than a bespoke scrim. */}
       <Modal isOpen={mobileOpen} onOpenChange={(open) => ui.set({ sidebarOpenMobile: open })}

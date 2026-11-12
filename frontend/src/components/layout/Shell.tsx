@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import { WorkspaceActivity } from '@/components/home/WorkspaceActivity'
+import { workspaceLayout, studioPanelVisible } from '@/lib/shell/preferences'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { SessionSwitcher } from '@/components/sessions/SessionSwitcher'
 import { FloatingTabBar } from '@/components/topbar/FloatingTabBar'
@@ -49,6 +51,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     window.addEventListener('re-navigate', h)
     return () => window.removeEventListener('re-navigate', h)
   }, [nav])
+  const layout = workspaceLayout(useStore((s) => s.settings.workspaceLayout))
+  const systemReducedMotion = useReducedMotion()
+  const reduceMotionPreference = useStore((s) => s.settings.reduceMotion)
+  const reducedMotion = reduceMotionPreference || systemReducedMotion
   const theme = useStore((s) => s.settings.theme)
   const osMinimized = useUI((s) => s.osMinimized)
   const location = useLocation()
@@ -96,7 +102,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const content = (
     <motion.div
       key={location.pathname}
-      initial={{ opacity: 0, y: 8 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       className="h-full min-h-0"
@@ -149,7 +155,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="re-focused-shell h-full w-full relative overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
+    <div data-layout={layout} className="re-focused-shell h-full w-full relative overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
       <GuestStrip />
       <BackgroundLayer />
       <div className="relative z-10 flex-1 min-h-0 flex">
@@ -161,6 +167,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <FloatingTabBar />
           </main>
         </div>
+        {studioPanelVisible(location.pathname, layout, workbenchOpen) && <aside className="re-studio-panel" aria-label="Workspace panel"><WorkspaceActivity supporting /></aside>}
       </div>
       {/* Optional everywhere: the island floats over any theme when enabled. */}
       {dynamicIsland && <DynamicIsland />}

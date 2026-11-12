@@ -110,7 +110,8 @@ const defaultSettings: Settings = {
   theme: 'dark',
   fontScale: 1,
   typeface: 'default',
-  compact: false,
+  // Fresh profiles start compact; persisted comfortable preferences win in merge.
+  compact: true,
   reduceMotion: false,
   flowEnabled: true,
   flowMode: 'balanced',

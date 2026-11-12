@@ -494,6 +494,12 @@ export interface Settings {
     /** Pin one model and skip the routing, when you know better than it does. */
     pinned?: string
   }
+  workspaceLayout?: 'focused' | 'overview' | 'studio'
+  sidebarWidth?: number
+  sidebarPinnedTools?: string[]
+  chatHistoryView?: 'list' | 'table'
+  /** Strength of floating navigation glass, 0–100. */
+  navigationGlassStrength?: number
   compact: boolean
   reduceMotion: boolean
   /** Show the music control in the top bar. On by default; the music is generated in the browser. */
