@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { OverflowActions } from '@/components/ui/kit/beui/OverflowActions'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { MessageSquare, Search, Clock3, Code as CodeIcon, FolderKanban, NotebookPen, Pin, Box, Monitor, ServerCog } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import GooeyNav from '@/components/reactbits/GooeyNav/GooeyNav'
@@ -17,14 +17,14 @@ import { GooeyInput } from '@/components/ui/aceternity/GooeyInput'
 type Kind = 'all' | 'research' | 'coding'
 
 /**
- * Every conversation, with the coding ones kept apart.
+ * Pinned/recent history by default; the detailed table groups by kind.
  *
  * Coding chats are the IDE's own conversations — one per project, carrying a
  * project name and a different tool surface. Mixing them into research history
  * made both harder to find, so they are a section of their own.
  *
  * This page is also where a conversation is managed now that the sidebar is
- * navigation-only: pin, rename (double-click a title), export, delete.
+ * navigation-only: pin, rename from the actions menu, export, delete.
  */
 
 /**
@@ -98,6 +98,11 @@ function IsolationButton({ chatId }: { chatId: string }) {
 export function ChatsView() {
   const navigate = useNavigate()
   const chats = useStore((s) => s.chats)
+  const view = useStore((s) => s.settings.chatHistoryView ?? 'list')
+  const isList = view === 'list'
+  const systemReducedMotion = useReducedMotion()
+  const reduceMotionPreference = useStore((s) => s.settings.reduceMotion)
+  const reducedMotion = reduceMotionPreference || systemReducedMotion
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<Kind>('all')
   const isLight = useStore((st) => getPropsForTheme(st.settings.theme).isLight)
@@ -105,6 +110,7 @@ export function ChatsView() {
   const [removing, setRemoving] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const cancelRename = useRef(false)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -129,6 +135,7 @@ export function ChatsView() {
     chats: s.chats.map((c) => c.id === id ? { ...c, pinned: v } : c),
   }))
   const commitRename = (id: string, fallback: string) => {
+    if (cancelRename.current) { cancelRename.current = false; return }
     const next = draft.trim()
     if (next && next !== fallback) useStore.getState().renameChat(id, next)
     setRenaming(null)
@@ -150,7 +157,7 @@ export function ChatsView() {
     { id: 'coding', label: 'Coding', n: codingTotal },
   ]
 
-  const ROW_GRID = 'grid items-center gap-3 px-3 md:grid-cols-[minmax(0,1fr)_150px_110px_76px_32px_32px] grid-cols-[minmax(0,1fr)_32px_32px]'
+  const ROW_GRID = isList ? 'grid grid-cols-[minmax(0,1fr)_32px_32px] items-center gap-3 px-3' : 'grid items-center gap-3 px-3 md:grid-cols-[minmax(0,1fr)_150px_110px_76px_32px_32px] grid-cols-[minmax(0,1fr)_32px_32px]'
 
   const section = (title: string, kindOf: 'research' | 'coding', icon: React.ReactNode, list: typeof filtered) => {
     if (!list.length) return null
@@ -169,57 +176,54 @@ export function ChatsView() {
         </div>
         {/* One table, not a stack of cards: a row is one line of information, and
             the eye can scan a long history without being slowed by padding. */}
-        <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-          <div className={`${ROW_GRID} h-8 text-[10.5px] uppercase tracking-wider`} style={{ color: 'var(--text-3)', background: 'var(--elevated)' }} aria-hidden="true">
+        <div className="rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
+          {!isList && <div className={`${ROW_GRID} h-8 text-[10.5px] uppercase tracking-wider`} style={{ color: 'var(--text-3)', background: 'var(--elevated)' }} aria-hidden="true">
             <span>Title</span>
             <span className="hidden md:block">Project</span>
             <span className="hidden md:block">Updated</span>
             <span className="hidden md:block text-right">Msgs</span>
             <span className="hidden md:block" />
             <span />
-          </div>
+          </div>}
           <AnimatePresence mode="popLayout" initial={false}>
-            {list.map((chat) => {
+            {list.map((chat, index) => {
               const leaving = removing === chat.id
               return (
                 <motion.div
-                  key={chat.id} layout
-                  initial={{ opacity: 0 }}
+                  key={chat.id} layout={!reducedMotion}
+                  initial={reducedMotion ? false : { opacity: 0 }}
                   animate={{ opacity: leaving ? 0 : 1 }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.18 }}
-                  className={`group ${ROW_GRID} h-[44px] hover:bg-[var(--elevated)] transition-colors`}
-                  style={{ borderTop: '1px solid var(--surface-border)' }}
+                  className={`re-history-row group ${ROW_GRID} ${isList ? 're-history-list-row' : 'h-[44px]'} hover:bg-[var(--elevated)] transition-colors`}
+                  style={{ borderTop: isList && index === 0 ? undefined : '1px solid var(--surface-border)' }}
                 >
-                  <button className="min-w-0 text-left flex items-center gap-2" onClick={() => { if (renaming !== chat.id) open(chat.id) }}
-                    onDoubleClick={() => { setDraft(chat.title); setRenaming(chat.id) }}>
+                  <div className="min-w-0">{renaming === chat.id ? <input
+                    aria-label="Rename chat" autoFocus value={draft} maxLength={60}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') commitRename(chat.id, chat.title); if (e.key === 'Escape') { cancelRename.current = true; setRenaming(null) } }}
+                    onBlur={() => commitRename(chat.id, chat.title)}
+                    className="w-full bg-transparent outline-none text-[13px] border-b border-[var(--primary)]"
+                  /> : <button className="w-full min-w-0 text-left flex items-center gap-2" onClick={() => { if (renaming !== chat.id) open(chat.id) }}
+                    >
                     {chat.kind === 'coding' && <CodeIcon size={13} className="shrink-0" style={{ color: 'var(--primary)' }} />}
                     {chat.pinned && <Pin size={12} className="shrink-0" style={{ color: 'var(--warning)' }} />}
-                    {renaming === chat.id ? (
-                      <input
-                        autoFocus value={draft} maxLength={60}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitRename(chat.id, chat.title)
-                          if (e.key === 'Escape') setRenaming(null)
-                        }}
-                        onBlur={() => commitRename(chat.id, chat.title)}
-                        className="flex-1 min-w-0 bg-transparent outline-none text-[13.5px]"
-                        style={{ borderBottom: '1px solid var(--primary)' }}
-                      />
-                    ) : <span className="truncate text-[13.5px] font-medium">{chat.title}</span>}
-                  </button>
+                    <span className="min-w-0 flex-1"><span className="block truncate text-[13.5px] font-medium">{chat.title}</span>
+                      {isList && <span className="block text-[11px] mt-0.5" style={{ color: 'var(--text-3)' }}>{chat.kind === 'coding' ? 'Coding' : 'Research'} · {timeAgo(chat.updatedAt)}{chat.settings?.project ? ` · ${chat.settings.project}` : ''}</span>}
+                    </span>
+                  </button>}</div>
+                  {!isList && <>
                   <span className="hidden md:flex items-center gap-1 min-w-0 text-[12px] truncate" style={{ color: 'var(--text-2)' }}>
                     {chat.kind === 'coding' && chat.settings?.project ? (<><FolderKanban size={11} className="shrink-0" /> <span className="truncate">{chat.settings.project}</span></>) : <span style={{ color: 'var(--text-3)' }}>—</span>}
                   </span>
                   <span className="hidden md:block text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{timeAgo(chat.updatedAt)}</span>
                   <span className="hidden md:block text-[12px] tabular-nums text-right" style={{ color: 'var(--text-3)' }}>{chat.messages.length}</span>
-                  <span className="hidden md:flex justify-center"><IsolationButton chatId={chat.id} /></span>
+                  </>}
+                  <span className="flex justify-center"><IsolationButton chatId={chat.id} /></span>
                   <span className="flex justify-center">
                     <OverflowActions label={`Actions for ${chat.title}`} items={[
                       { id: 'pin', label: chat.pinned ? 'Unpin' : 'Pin to the top', onSelect: () => setPinned(chat.id, !chat.pinned) },
-                      { id: 'rename', label: 'Rename', onSelect: () => { setDraft(chat.title); setRenaming(chat.id) } },
+                      { id: 'rename', label: 'Rename', onSelect: () => { cancelRename.current = false; setDraft(chat.title); setRenaming(chat.id) } },
                       { id: 'export', label: 'Export as JSON', onSelect: () => exportChat(chat.id) },
                       { id: 'delete', label: 'Delete chat', danger: true, onSelect: () => remove(chat.id) },
                     ]} />
@@ -267,7 +271,7 @@ export function ChatsView() {
           <div className="flex-1 min-w-0">
             {/* Settings → Appearance can turn the gooey pill off; plain HeroUI tabs
                 then do the same job with the same selection. */}
-            {chatsGooey ? (
+            {chatsGooey && !reducedMotion ? (
               <GooeyNav
                 theme={isLight ? 'light' : 'dark'}
                 items={tabs.map((t) => ({ label: `${t.label} ${t.n}` }))}
@@ -294,13 +298,22 @@ export function ChatsView() {
           <span className="text-[11px]" style={{ color: 'var(--text-3)' }}>{filtered.length} shown</span>
         </div>
 
-        {section('Coding', 'coding', <CodeIcon size={13} />, coding)}
-        {section('Research', 'research', <NotebookPen size={13} />, research)}
+        <div className="flex justify-end gap-1 mb-4" role="group" aria-label="History presentation">
+          {(['list', 'table'] as const).map((mode) => <button key={mode} aria-pressed={view === mode}
+            className="re-layout-choice text-xs px-3 py-1.5 rounded-lg" onClick={() => useStore.setState((s) => ({ settings: { ...s.settings, chatHistoryView: mode } }))}>{mode === 'list' ? 'List' : 'Table'}</button>)}
+        </div>
+        {isList ? <>
+          {section('Pinned', 'research', <Pin size={13} />, filtered.filter((c) => c.pinned))}
+          {section('Recent', 'research', <Clock3 size={13} />, filtered.filter((c) => !c.pinned))}
+        </> : <>
+          {section('Coding', 'coding', <CodeIcon size={13} />, coding)}
+          {section('Research', 'research', <NotebookPen size={13} />, research)}
+        </>}
 
         {filtered.length === 0 && (
           <div className="py-16 text-center" style={{ color: 'var(--text-3)' }}>
             <MessageSquare size={24} className="mx-auto mb-2" />
-            <p className="text-[13px]">No chats found{kind !== 'all' ? ` in ${kind}` : ''}.</p>
+            <p className="text-[13px]">{chats.length === 0 ? 'No conversations yet' : 'No chats found'}{kind !== 'all' ? ` in ${kind}` : ''}.</p>
           </div>
         )}
       </div>
