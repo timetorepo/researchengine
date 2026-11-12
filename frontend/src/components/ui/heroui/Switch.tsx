@@ -53,6 +53,10 @@ export function Switch({
             className="absolute rounded-full bg-white transition-transform duration-200"
             style={{
               width: knob, height: knob, top: (h - knob) / 2, left: 2,
+              // HeroUI's selected state also adds a logical margin. We own
+              // positioning here: combining that margin with translate clips
+              // the thumb outside the track (especially obvious when on).
+              marginInlineStart: 0, marginInlineEnd: 0,
               transform: `translateX(${checked ? travel : 0}px)`,
               boxShadow: '0 3px 8px rgba(0,0,0,0.28), 0 1px 1px rgba(0,0,0,0.12)',
             }}
