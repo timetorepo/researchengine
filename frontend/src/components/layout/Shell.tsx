@@ -5,6 +5,8 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { SessionSwitcher } from '@/components/sessions/SessionSwitcher'
+import { FloatingTabBar } from '@/components/topbar/FloatingTabBar'
+import { floatingNavigationVisible } from '@/lib/shell/navigation'
 import { TopBar } from '@/components/topbar/TopBar'
 import { TitleBar } from '@/components/os/TitleBar'
 import { DynamicIsland } from '@/components/os/DynamicIsland'
@@ -50,10 +52,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const theme = useStore((s) => s.settings.theme)
   const osMinimized = useUI((s) => s.osMinimized)
   const location = useLocation()
+  const workbenchOpen = useUI((s) => s.codingWorkbenchOpen)
   const isOS = theme === 're-os'
   const dynamicIsland = useStore((s) => s.settings.dynamicIsland)
   const themeGradients = useStore((s) => s.settings.themeGradients)
   const glassMode = useStore((s) => s.settings.glassMode)
+  const floatingEnabled = useStore((s) => s.settings.experimentalTabBar === true)
+  const showFloating = floatingNavigationVisible(location.pathname, floatingEnabled, workbenchOpen)
 
   // Gradient style lives on <html> so every gradient surface follows.
   //
@@ -144,14 +149,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="h-full w-full relative overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
+    <div className="re-focused-shell h-full w-full relative overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
       <GuestStrip />
       <BackgroundLayer />
       <div className="relative z-10 flex-1 min-h-0 flex">
         <Sidebar />
         <div className="flex-1 min-w-0 flex flex-col">
           <TopBar />
-          <main className="flex-1 min-h-0 relative">{content}</main>
+          <main className="flex-1 min-h-0 relative" style={{ paddingBottom: showFloating ? 'calc(88px + env(safe-area-inset-bottom, 0px))' : undefined }}>
+            {content}
+            <FloatingTabBar />
+          </main>
         </div>
       </div>
       {/* Optional everywhere: the island floats over any theme when enabled. */}

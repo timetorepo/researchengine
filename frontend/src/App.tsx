@@ -62,7 +62,6 @@ const DiagnosticsOverlay = React.lazy(() => import('@/components/easter/Diagnost
 import { ScrollProgress } from '@/components/ui/skiper/ScrollProgress'
 import { AppContextMenu } from '@/components/shared/AppContextMenu'
 import { UpdateModal } from '@/components/updates/UpdateModal'
-import { FloatingTabBar } from '@/components/topbar/FloatingTabBar'
 import { startConnectorSync, consumeComposioReturn, openMarketplace } from '@/lib/composio/sync'
 import { ArtifactPanel } from '@/components/chat/ArtifactPanel'
 import { VaultUnlock } from '@/components/vault/VaultUnlock'
@@ -338,8 +337,6 @@ function RoutedApp() {
       <UpdateModal />
       <ArtifactPanel />
       <ScrollProgress />
-      {/* Experimental floating tab bar: renders nothing unless it is turned on in Settings. */}
-      <FloatingTabBar />
       {/* Each overlay mounts only once its own flag is on, so the chunk is
           fetched when it is actually wanted (and the idle preload has usually
           fetched it already). */}

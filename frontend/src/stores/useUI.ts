@@ -27,6 +27,8 @@ export interface FlowPipelineState {
 interface UIState {
   sidebarCollapsed: boolean
   sidebarOpenMobile: boolean
+  /** /code hosts both the project list and an embedded workbench. */
+  codingWorkbenchOpen: boolean
   /** Route path whose chunk is being fetched for a navigation in flight. */
   routeLoading: string | null
   settingsOpen: boolean
@@ -97,6 +99,14 @@ interface UIState {
   dismissToast: (id: string) => void
 }
 
+function initialSidebarCollapsed(): boolean {
+  try {
+    const saved = localStorage.getItem('re.sidebar.collapsed')
+    if (saved === 'true' || saved === 'false') return saved === 'true'
+  } catch { /* Storage may be disabled. */ }
+  return typeof window !== 'undefined' && window.innerWidth < 1200
+}
+
 let toastN = 0
 
 /** A toast plus when it happened; survives a reload via sessionStorage. */
@@ -117,8 +127,9 @@ function saveNotices(list: Notice[]) {
 }
 
 export const useUI = create<UIState>((set, get) => ({
-  sidebarCollapsed: typeof window !== 'undefined' && window.innerWidth < 1200,
+  sidebarCollapsed: initialSidebarCollapsed(),
   sidebarOpenMobile: false,
+  codingWorkbenchOpen: false,
   routeLoading: null,
   settingsOpen: false,
   settingsClosing: false,
@@ -148,7 +159,11 @@ export const useUI = create<UIState>((set, get) => ({
   activity: { kind: 'idle' },
 
   set: (patch) => set(patch),
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  toggleSidebar: () => set((s) => {
+    const sidebarCollapsed = !s.sidebarCollapsed
+    try { localStorage.setItem('re.sidebar.collapsed', String(sidebarCollapsed)) } catch { /* Optional preference. */ }
+    return { sidebarCollapsed }
+  }),
 
   /**
    * Settings lives on its own route, but the buttons that open it are scattered

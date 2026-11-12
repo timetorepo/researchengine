@@ -63,6 +63,10 @@ export function CodingView() {
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null)
   const [open, setOpen] = useState<string | null>(null)
   const [design, setDesign] = useState(false)
+  useEffect(() => {
+    useUI.setState({ codingWorkbenchOpen: open !== null })
+    return () => { useUI.setState({ codingWorkbenchOpen: false }) }
+  }, [open])
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [err, setErr] = useState('')

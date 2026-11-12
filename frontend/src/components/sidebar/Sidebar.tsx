@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
+import { Modal, ModalContent } from '@heroui/modal'
 import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus, UserRound,
   ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, Check, Swords,
   Sun, Moon, RotateCcw, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon, ScanText, MessageSquarePlus,
-  ChevronRight,
+  ChevronRight, Search, ChevronDown,
 } from 'lucide-react'
 import { download } from '@/lib/utils'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
@@ -21,6 +22,7 @@ import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_D
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
 import { Bot as BotIcon, Briefcase, CalendarDays, Store } from 'lucide-react'
+import { PRIMARY_ROUTES, matchesSection } from '@/lib/shell/navigation'
 import { openMarketplace } from '@/lib/composio/sync'
 
 const NAV = [
@@ -43,9 +45,10 @@ const NAV = [
 ]
 
 export function Sidebar({ floating = false }: { floating?: boolean }) {
-  const collapsed = useUI((s) => s.sidebarCollapsed)
+  const collapsedPreference = useUI((s) => s.sidebarCollapsed)
   const mobileOpen = useUI((s) => s.sidebarOpenMobile)
-  const ui = useUI()
+  const collapsed = collapsedPreference && !mobileOpen
+  const ui = { set: useUI((s) => s.set), toggleSidebar: useUI((s) => s.toggleSidebar) }
   const navigate = useNavigate()
   const location = useLocation()
   // The route whose chunk is being fetched. The row you clicked says so, so a
@@ -80,21 +83,29 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   // full history all live on the Chats page (where there is room to search and
   // filter), and recent conversations are one hover away on the Chats item.
 
-  const width = collapsed ? 60 : 264
+  const width = collapsed ? 60 : 248
+  const primary = PRIMARY_ROUTES.map((to) => NAV.find((n) => n.to === to)!)
+  const secondary = NAV.filter((n) => !PRIMARY_ROUTES.some((to) => to === n.to))
+  const [moreOpen, setMoreOpen] = useState(false)
+  const secondaryActive = secondary.some((n) => matchesSection(location.pathname, n.to))
+  const showMore = moreOpen
+  useEffect(() => {
+    if (secondaryActive) setMoreOpen(true)
+  }, [location.pathname, secondaryActive])
 
   const body = (
-    <div className={clsx('re-vt-sidebar h-full flex flex-col', floating && 'h-full rounded-2xl overflow-hidden')}
+    <div className={clsx('re-vt-sidebar re-focused-sidebar h-full min-h-0 flex flex-col', floating && 'h-full rounded-2xl overflow-hidden')}
       style={{
         width,
         background: floating ? 'var(--glass)' : undefined,
         backdropFilter: floating ? 'blur(20px) saturate(1.3)' : undefined,
         borderRight: floating ? 'none' : '1px solid var(--surface-border)',
-        transition: 'width 240ms var(--spring)',
+        // Frequent navigation should not wait for a width animation.
       }}>
 
       {/* Header */}
       <div className={clsx('flex items-center px-3 pt-3 pb-2 gap-2', collapsed && 'justify-center')}>
-        {!collapsed && <div className="min-w-0 flex-1 overflow-hidden"><AppLogo size={26} /></div>}
+        {!collapsed && <div className="min-w-0 flex-1 overflow-hidden"><div className="flex items-center gap-2"><AppLogo size={26} withName={false} /><span className="text-[12px] font-medium whitespace-nowrap">Research Engine</span></div></div>}
         {collapsed && <AppLogo size={26} withName={false} />}
         {!collapsed && (
           <>
@@ -106,8 +117,8 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             <button
               className="shrink-0 p-1.5 rounded-lg hover:bg-[var(--elevated)]"
               style={{ color: 'var(--text-3)' }}
-              onClick={() => ui.toggleSidebar()}
-              aria-label="Collapse sidebar"
+              onClick={() => mobileOpen ? ui.set({ sidebarOpenMobile: false }) : ui.toggleSidebar()}
+              aria-label={mobileOpen ? 'Close menu' : 'Collapse sidebar'}
             >
               <PanelLeftClose size={16} strokeWidth={1.5} />
             </button>
@@ -120,11 +131,11 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
           <DockItem index={0} label="Expand sidebar" onClick={() => ui.toggleSidebar()}>
             <PanelLeftOpen size={18} strokeWidth={1.5} />
           </DockItem>
-          <DockItem index={1} label="New research" onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}>
+          <DockItem index={1} label="New chat" onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}>
             <Plus size={18} strokeWidth={1.5} />
           </DockItem>
           <DockDivider />
-          {NAV.map((n, i) => {
+          {primary.map((n, i) => {
             const active = n.to === '/' ? location.pathname === '/' : location.pathname.startsWith(n.to)
             return (
               <DockItem key={n.to} index={i + 2} label={n.label} active={active} pending={pendingFor(n.to)}
@@ -137,6 +148,9 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
               </DockItem>
             )
           })}
+          <DockItem index={primary.length + 2} label="More tools" onClick={() => { setMoreOpen(true); ui.toggleSidebar() }}>
+            <ChevronDown size={18} strokeWidth={1.5} />
+          </DockItem>
           <DockItem index={NAV.length + 2} label="Marketplace" onClick={() => openMarketplace()}>
             <Store size={18} strokeWidth={1.5} />
           </DockItem>
@@ -161,28 +175,37 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
           <div className="px-3 mt-1">
             <button
               onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}
-              className="re-new-research w-full flex items-center gap-2 px-3 py-2 rounded-[14px] text-[13px] font-medium transition-all duration-200 hover:shadow-[0_10px_28px_-12px_rgba(0,0,0,0.6)] hover:-translate-y-px active:translate-y-0"
-              style={{ background: 'var(--primary)', color: '#fff' }}
+              className="re-shell-create w-full flex items-center gap-2 px-3 h-9 rounded-lg text-[13px] font-medium"
+              style={{ background: 'var(--elevated)', color: 'var(--text)', border: '1px solid var(--surface-border)' }}
             >
-              <Plus size={16} strokeWidth={2} /> New research
+              <Plus size={16} strokeWidth={1.8} /> New chat
             </button>
           </div>
 
-          {/* Nav. Hover lifts the row, grows its icon and slides the label; the
-              active marker carries `re-nav-indicator`, so navigating animates it
-              from the item you left to the item you arrived at. */}
-          <nav className="px-3 mt-3 flex flex-col gap-0.5 re-icon-stagger">
-            {NAV.map((n) => (
-              n.to === '/chats'
-                ? <ChatsRow key={n.to} label={n.label} icon={n.icon} onBefore={closeMobile} warm={() => warm(n.to)} pending={pendingFor(n.to)} />
-                : <NavRow key={n.to} to={n.to} label={n.label} icon={n.icon} end={n.end} onBefore={closeMobile} warm={() => warm(n.to)} pending={pendingFor(n.to)} />
-            ))}
+          <button type="button" className="re-shell-search mx-3 mt-2 flex items-center gap-2 px-3 h-8 rounded-lg text-[12px]"
+            onClick={() => ui.set({ paletteOpen: true })} aria-label="Search Research Engine">
+            <Search size={15} /><span className="flex-1 text-left">Search</span><kbd className="text-[10px]">⌘ / Ctrl K</kbd>
+          </button>
+          <nav aria-label="Workspace" className="px-3 mt-4 flex-1 min-h-0 overflow-y-auto pb-3">
+            <div className="flex flex-col gap-0.5">
+              {primary.map((n) => (
+                <NavRow key={n.to} to={n.to} label={n.label} icon={n.icon} end={n.end}
+                  onBefore={closeMobile} warm={() => warm(n.to)} pending={pendingFor(n.to)} />
+              ))}
+            </div>
+            <button type="button" className="re-shell-more w-full flex items-center gap-2 px-2.5 h-9 mt-4 text-[12px] rounded-lg"
+              aria-expanded={showMore} aria-controls="re-secondary-navigation"
+              onClick={() => setMoreOpen((open) => !open)}>
+              <span className="flex-1 text-left">More tools</span><ChevronDown size={14} style={{ transform: showMore ? 'rotate(180deg)' : undefined }} />
+            </button>
+            {showMore && <div id="re-secondary-navigation" className="flex flex-col gap-0.5 mt-1">
+              {secondary.map((n) => <NavRow key={n.to} to={n.to} label={n.label} icon={n.icon} end={n.end}
+                onBefore={closeMobile} warm={() => warm(n.to)} pending={pendingFor(n.to)} />)}
+            </div>}
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--surface-border)' }}>
+              <MarketplaceRow onBefore={closeMobile} />
+            </div>
           </nav>
-
-          {/* Marketplace: one row; the apps page opens from it. */}
-          <div className="px-3 mt-2 pt-2" style={{ borderTop: '1px solid var(--surface-border)' }}>
-            <MarketplaceRow onBefore={closeMobile} />
-          </div>
         </>
       )}
 
@@ -202,26 +225,18 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   return (
     <>
       {/* Desktop */}
-      <aside className="h-full hidden md:block shrink-0">{body}</aside>
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-40 md:hidden sheet-scrim"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => ui.set({ sidebarOpenMobile: false })}
-            />
-            <motion.aside
-              className="fixed left-0 top-0 bottom-0 z-50 md:hidden surface-elevated"
-              initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            >
-              {body}
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      <aside className="h-full hidden md:block shrink-0">{!mobileOpen && body}</aside>
+      {/* The existing HeroUI sheet primitive supplies focus containment,
+          Escape dismissal and focus restoration rather than a bespoke scrim. */}
+      <Modal isOpen={mobileOpen} onOpenChange={(open) => ui.set({ sidebarOpenMobile: open })}
+        aria-label="Navigation" hideCloseButton
+        classNames={{
+          wrapper: '!items-stretch !justify-start !p-0',
+          base: '!m-0 !rounded-none !h-[100dvh] !max-h-none !w-[248px] !max-w-[calc(100vw-32px)]',
+          backdrop: 'sheet-scrim',
+        }}>
+        <ModalContent>{body}</ModalContent>
+      </Modal>
     </>
   )
 }
@@ -258,7 +273,6 @@ function MarketplaceRow({ onBefore }: { onBefore: () => void }) {
       <Store size={17} strokeWidth={1.5} />
       <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">Marketplace</span>
       {count > 0 && <span className="text-[10.5px] tabular-nums" style={{ color: 'var(--text-3)' }}>{count} connected</span>}
-      <ChevronRight size={14} aria-hidden className="re-nav-arrow ml-auto shrink-0 opacity-30 group-hover:opacity-80 transition-all duration-200" />
     </button>
   )
 }
@@ -294,25 +308,12 @@ export function NavRow({ to, label, icon: Icon, end, pending, warm, onBefore }: 
     >
       {({ isActive }) => (
         <>
-          {isActive && (
-            <motion.span
-              layoutId="re-nav-marker"
-              transition={{ type: 'spring', damping: 26, stiffness: 380 }}
-              className="re-nav-indicator absolute w-[3px] rounded-full"
-              style={{ left: 0, top: '50%', marginTop: -9, height: 18, background: 'var(--primary)' }}
-              aria-hidden
-            />
-          )}
           <Icon size={17} strokeWidth={1.5} className="transition-transform" />
           {/* `nowrap` + `truncate` matters more than it looks: the rail animates
               its own width, and a label allowed to reflow mid-animation wraps to
               a second line — the "doubled label" ghost that kept coming back. */}
           <span className="flex-1 min-w-0 truncate whitespace-nowrap group-hover:translate-x-0.5 transition-transform duration-200">{label}</span>
-          {/* Dim while you are elsewhere, bright while you point at it — and
-              always present, so the row reads as a door rather than a label. */}
-          <ChevronRight size={14} aria-hidden
-            className={clsx('re-nav-arrow ml-auto shrink-0 transition-all duration-200',
-              isActive ? 'opacity-70' : 'opacity-30 group-hover:opacity-80 group-hover:translate-x-0.5')} />
+
         </>
       )}
     </NavLink>

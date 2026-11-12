@@ -3,7 +3,7 @@
     "playwright-design": {
       "command": "node",
       "args": [
-        "tools/design/node_modules/@playwright/mcp/cli.js",
+        "tools/design/browser-mcp.mjs",
         "--headless",
         "--isolated",
         "--block-service-workers",

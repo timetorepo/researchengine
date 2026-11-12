@@ -3701,3 +3701,57 @@ html[data-perf="eco"] [style*="backdrop-filter"] {
   backdrop-filter: blur(6px) saturate(1.1) !important;
   -webkit-backdrop-filter: blur(6px) saturate(1.1) !important;
 }
+
+/* Focused shell: quiet chrome, stable labels, one selected surface. Content
+   retains each theme's tokens; no hard-coded palette or new motion engine. */
+.re-focused-sidebar { background: var(--bg); }
+.re-focused-sidebar .re-nav-item {
+  min-height: 34px;
+  transition: background-color 100ms ease-out, color 100ms ease-out;
+}
+.re-focused-sidebar .re-nav-item:hover,
+.re-focused-sidebar .re-nav-item:active,
+.re-focused-sidebar .re-nav-item:hover svg.lucide,
+.re-focused-sidebar .re-nav-item:hover span { transform: none; }
+.re-focused-sidebar .re-nav-item[aria-current="page"] { font-weight: 500; }
+.re-focused-sidebar .re-nav-item svg { flex-shrink: 0; }
+.re-shell-search, .re-shell-more { color: var(--text-2); }
+.re-shell-create:hover, .re-shell-search:hover, .re-shell-more:hover { background: var(--elevated); }
+.re-shell-create:active { opacity: .8; }
+.re-focused-shell :is(a, button):focus-visible,
+.re-shell-tools-panel :is(a, button):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.re-shell-tools-panel {
+  width: min(320px, calc(100vw - 24px));
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / .35);
+  z-index: 60;
+}
+.re-floating-navigation { width: max-content; }
+@media (max-width: 639px) {
+  .re-focused-topbar { gap: 4px; padding-inline: 8px; }
+  .re-focused-topbar > * { flex-shrink: 0; }
+  .re-focused-topbar > :first-child { flex-shrink: 1; }
+  .re-floating-navigation { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .re-focused-sidebar *, .re-shell-tools-panel { transition: none !important; animation: none !important; }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .re-floating-navigation { background: var(--surface); border-radius: 24px; }
+  .re-floating-navigation * { backdrop-filter: none !important; filter: none !important; }
+}
+
+/* Keep the compact rail still; hover should reveal a name, not magnify a dock. */
+.re-focused-sidebar .re-dock-item > div { transform: none !important; }
+.re-focused-sidebar .re-dock-reflection { display: none; }
+.re-focused-sidebar .re-nav-indicator { box-shadow: none; }
+.re-floating-navigation .lg-tab-bar[data-icons] {
+  --lg-tab-width: clamp(48px, calc((100vw - 32px) / 5), 72px);
+}

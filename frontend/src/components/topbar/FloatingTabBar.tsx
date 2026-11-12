@@ -7,34 +7,34 @@
  * draws the glass, the spring between tabs and the lens while a tab is held.
  *
  * It is off by default and turned on in Settings → Appearance. It is hidden on
- * the chat and coding screens, where the bottom of the window belongs to the
- * composer and the editor. The sidebar stays available everywhere.
+ * active chat and Codersa screens, where the composer/editor owns the window.
+ * The coding project list keeps the bar. Shell reserves space below content.
  */
 import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Home, Library, MessageSquare, Code, Workflow } from 'lucide-react'
 import { TabBar } from 'glisse'
 import 'glisse/styles.css'
+import { floatingNavigationVisible, matchesSection } from '@/lib/shell/navigation'
+import { useUI } from '@/stores/useUI'
 import { useStore } from '@/stores/useStore'
 
 type TabKey = 'home' | 'chats' | 'coding' | 'library' | 'workflows'
 
 const TABS: { key: TabKey; to: string; label: string; icon: React.ReactNode; match: (p: string) => boolean }[] = [
   { key: 'home', to: '/', label: 'Home', icon: <Home size={18} strokeWidth={1.8} />, match: (p) => p === '/' },
-  { key: 'chats', to: '/chats', label: 'Chats', icon: <MessageSquare size={18} strokeWidth={1.8} />, match: (p) => p.startsWith('/chats') },
-  { key: 'coding', to: '/code', label: 'Coding', icon: <Code size={18} strokeWidth={1.8} />, match: (p) => p.startsWith('/code') },
-  { key: 'library', to: '/library', label: 'Library', icon: <Library size={18} strokeWidth={1.8} />, match: (p) => p.startsWith('/library') },
-  { key: 'workflows', to: '/workflows', label: 'Workflows', icon: <Workflow size={18} strokeWidth={1.8} />, match: (p) => p.startsWith('/workflows') },
+  { key: 'chats', to: '/chats', label: 'Chats', icon: <MessageSquare size={18} strokeWidth={1.8} />, match: (p) => matchesSection(p, '/chats') },
+  { key: 'coding', to: '/code', label: 'Coding', icon: <Code size={18} strokeWidth={1.8} />, match: (p) => matchesSection(p, '/code') },
+  { key: 'library', to: '/library', label: 'Library', icon: <Library size={18} strokeWidth={1.8} />, match: (p) => matchesSection(p, '/library') },
+  { key: 'workflows', to: '/workflows', label: 'Workflows', icon: <Workflow size={18} strokeWidth={1.8} />, match: (p) => matchesSection(p, '/workflows') },
 ]
-
-/** Screens where a bottom bar would sit on top of the composer or the editor. */
-const HIDDEN_ON = (p: string) => p === '/chat' || p.startsWith('/chat/') || p.startsWith('/code')
 
 export function FloatingTabBar() {
   const on = useStore((s) => s.settings.experimentalTabBar === true)
   const { pathname } = useLocation()
+  const workbenchOpen = useUI((s) => s.codingWorkbenchOpen)
   const navigate = useNavigate()
-  if (!on || HIDDEN_ON(pathname)) return null
+  if (!floatingNavigationVisible(pathname, on, workbenchOpen)) return null
 
   const active = TABS.find((t) => t.match(pathname))?.key ?? null
   const routes = Object.fromEntries(TABS.map((t) => [t.key, t.to])) as Record<TabKey, string>
@@ -42,8 +42,9 @@ export function FloatingTabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed left-1/2 -translate-x-1/2 z-[45]"
+      className="re-floating-navigation absolute left-1/2 -translate-x-1/2 z-[25] max-w-[calc(100%-16px)]"
       style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}
+      data-testid="floating-navigation"
     >
       <TabBar
         aria-label="Main sections"
