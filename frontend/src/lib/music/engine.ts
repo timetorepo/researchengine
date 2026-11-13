@@ -197,7 +197,7 @@ export function position(): number {
   return Math.min(dur, Math.max(0, p))
 }
 
-/** What the player shows: read fresh from the engine, so it is never stale. Null when nothing is playing. */
+/** What the player shows: read fresh from the engine, so it is never stale. Null until the engine has been initialized by a user action; paused tracks remain available. */
 export interface NowPlaying {
   title: string
   artist: string
@@ -213,7 +213,7 @@ export interface NowPlaying {
 }
 
 export function nowPlaying(): NowPlaying | null {
-  if (!eng?.playing) return null
+  if (!eng) return null
   const index = eng.track
   const t = TRACKS[index]
   return {

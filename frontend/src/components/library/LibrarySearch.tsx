@@ -1,3 +1,5 @@
+import { Seek } from '@/components/ui/bencho/seek/Seek'
+import '@/components/ui/bencho/seek/Seek.css'
 /**
  * Library search.
  *
@@ -499,15 +501,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
       {/* the front door — tucks away while you scroll down a long result list */}
       <HideOnScroll>
       <div className="flex flex-wrap items-center gap-3 pb-1 bg-[var(--bg)]">
-        <GooeyInput
-          placeholder="Search everything…"
-          collapsedWidth={200}
-          expandedWidth={440}
-          expandedOffset={44}
-          onSubmit={submitSearch}
-          value={query}
-          onValueChange={changeQuery}
-        />
+        <div className="re-bencho"><Seek width={280} label="Search Library" onSubmit={() => submitSearch(query)} value={query} onValueChange={changeQuery} /></div>
         <span className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
           Wikipedia · trusted sources · your own documents
         </span>

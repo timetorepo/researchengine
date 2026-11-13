@@ -63,7 +63,7 @@ check('prev goes back when near the start', (() => { eng.prev(); return eng.curr
 // Now-playing details: the top bar shows them only while music plays.
 check('every track is credited to an artist and album', eng.TRACKS.every((t) => t.artist && t.album))
 eng.pause()
-check('paused: no now-playing details, so the control hides', eng.nowPlaying() === null)
+check('paused: metadata remains available for resume', eng.nowPlaying() !== null && eng.isPlaying() === false)
 await eng.play()
 const np = eng.nowPlaying()
 check('playing: details come from the current track', !!np && np.title === eng.TRACKS[eng.currentIndex()].title && np.artist === 'Research Engine', np ? `${np.title} · ${np.artist}` : 'null')

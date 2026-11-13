@@ -1,3 +1,5 @@
+import { Seek } from '@/components/ui/bencho/seek/Seek'
+import '@/components/ui/bencho/seek/Seek.css'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { OverflowActions } from '@/components/ui/kit/beui/OverflowActions'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
@@ -249,19 +251,7 @@ export function ChatsView() {
           </div>
           {/* Search: pick it up and it opens. The input carries the app's own
               surface through `classNames`, so the gooey blob is themed. */}
-          <GooeyInput
-            aria-label="Search chats"
-            className="shrink-0"
-            classNames={{
-              root: 'text-[12.5px]',
-              trigger: 'text-[var(--text-2)]',
-              input: 'bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--text-3)] ring-[var(--surface-border)]',
-              bubbleSurface: 'bg-[var(--primary)] text-white',
-            }}
-            onValueChange={setQuery}
-            placeholder="Search chats"
-            value={query}
-          />
+          <div className="re-bencho"><Seek width={240} value={query} onValueChange={setQuery} label="Search chats" /></div>
         </div>
 
         {/* GooeyNav (ReactBits): the kind switch. The pill slides and stretches
