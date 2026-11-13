@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/ui/bencho/bridge.css";
 
 /*
  * HeroUI v3 (@heroui/react 3.x, used by Accordion, ButtonGroup, Button, Tabs,
