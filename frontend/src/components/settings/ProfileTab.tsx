@@ -1,3 +1,4 @@
+import { ProfileSignature } from './ProfileSignature'
 import React, { useState } from 'react'
 import { Check, Dices, RotateCcw, Sparkles } from 'lucide-react'
 import { Blobatar } from '@blobatar/react'
@@ -79,6 +80,7 @@ export function ProfileTab() {
       {/* The same facts the form below edits, as a card you can read at a
           glance — collapsed it answers "who is this?", expanded it shows the
           details and hobbies. */}
+      <ProfileSignature />
       <ProfileCard
         name={profile.name || 'Researcher'}
         handle={handle}

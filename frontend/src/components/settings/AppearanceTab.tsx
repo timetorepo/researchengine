@@ -1,3 +1,4 @@
+import { PaletteWorkshop } from './PaletteWorkshop'
 import { WorkspacePreferences } from './WorkspacePreferences'
 import React, { useRef, useState } from 'react'
 import { ArtBanner, ART } from '@/components/ui/kit/community/ArtBanner'
@@ -99,6 +100,7 @@ export function AppearanceTab() {
     <div>
       <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Appearance</h2>
       <WorkspacePreferences />
+      <PaletteWorkshop />
       <ArtBanner art={ART.monet} position="center 45%" className="mt-3" />
       <p className="text-[13px] mb-5" style={{ color: 'var(--text-2)' }}>
         Fully themeable via CSS custom properties. ResearchEngineOS turns the app into a desktop-like environment.

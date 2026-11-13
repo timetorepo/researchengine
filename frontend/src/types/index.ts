@@ -494,6 +494,9 @@ export interface Settings {
     /** Pin one model and skip the routing, when you know better than it does. */
     pinned?: string
   }
+  workspaceEffects?: boolean
+  profileSignature?: string
+  customPaletteTheme?: { enabled: boolean; name: string; colours: string[] }
   workspaceLayout?: 'focused' | 'overview' | 'studio'
   sidebarWidth?: number
   sidebarPinnedTools?: string[]

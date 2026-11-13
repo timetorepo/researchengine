@@ -1,3 +1,4 @@
+import { paletteTokens } from '@/lib/design/paletteTheme'
 import React, { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'motion/react'
@@ -51,6 +52,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
     window.addEventListener('re-navigate', h)
     return () => window.removeEventListener('re-navigate', h)
   }, [nav])
+  const customPalette = useStore((s) => s.settings.customPaletteTheme)
+  useEffect(() => {
+    const tokens = customPalette?.enabled ? paletteTokens(customPalette.colours) : null
+    if (!tokens) return
+    const root = document.documentElement
+    for (const [key, value] of Object.entries(tokens)) root.style.setProperty(key, value)
+    return () => { for (const key of Object.keys(tokens)) root.style.removeProperty(key) }
+  }, [customPalette])
   const layout = workspaceLayout(useStore((s) => s.settings.workspaceLayout))
   const systemReducedMotion = useReducedMotion()
   const reduceMotionPreference = useStore((s) => s.settings.reduceMotion)

@@ -28,6 +28,7 @@ export function WorkspacePreferences() {
       <input aria-label="Sidebar width" className="block w-full mt-2 accent-[var(--primary)]" type="range" min={216} max={360} step={8} value={sidebarWidth(settings.sidebarWidth)} onChange={(e) => update({ sidebarWidth: Number(e.target.value) })} />
       <span className="block mt-1" style={{ color: 'var(--text-3)' }}>Or drag the sidebar edge. Arrow keys resize it; double-click resets it.</span>
     </label>
+    <Switch label="Workspace effects" description="Optional ASCII interaction in empty coding projects and particles after successful workflows. Off by default; disabled with reduced motion." checked={settings.workspaceEffects === true} onChange={(workspaceEffects) => update({ workspaceEffects })} />
     <h4 className="text-xs font-medium mb-2">Pin tools to navigation</h4>
     <AppleGroup>
       {PINNABLE_TOOLS.map((tool) => <Switch key={tool.to} label={tool.label} checked={settings.sidebarPinnedTools?.includes(tool.to) ?? false}

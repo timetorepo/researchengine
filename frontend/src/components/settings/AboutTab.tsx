@@ -122,6 +122,7 @@ function StaleBuildCard() {
 
 /** The UI component libraries the interface is assembled from. */
 const UI_LIBRARIES: { name: string; href: string; author?: string; used: string }[] = [
+  { name: 'Bencho', href: 'https://github.com/cabralorenzo/bencho', author: 'Lorenzo Cabra', used: 'Eighteen MIT-licensed blocks adapted for live controls, workflows, palettes, image generation, profile artwork and usage. Copyright (c) 2026 Lorenzo Cabra; licence and pinned provenance retained in the source.' },
   { name: 'Glisse', href: 'https://glisse.kelvinzhang.ca', author: 'Kelvin Zhang', used: 'The liquid-glass segmented control that switches between Projects and Codersa. MIT-licensed.' },
   { name: 'Hyperiux Vault', href: 'https://21st.dev/@hyperiux/library/hyperiux-vault', used: 'Ideas for the portal carousel, card flip, block transition, pixel headline, typing loader, scramble link and stack loader. Rebuilt in-app; the upstream source is not copied.' },
   { name: 'badtzx0 (21st.dev)', href: 'https://21st.dev/@badtzx0', used: 'Ideas for the animated card chart and card diagram on the onboarding steps. Rebuilt in-app; the upstream source is not copied.' },

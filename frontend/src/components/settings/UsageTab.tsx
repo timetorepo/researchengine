@@ -1,3 +1,5 @@
+import { StackedBars } from '@/components/ui/bencho/stacked-bars/StackedBars'
+import '@/components/ui/bencho/stacked-bars/StackedBars.css'
 /**
  * Settings → Usage: tokens per day over the last year, drawn as a column chart.
  *
@@ -61,6 +63,10 @@ export function UsageTab() {
         </p>
       </div>
 
+      <section className="surface p-4" aria-label="Recent token usage">
+        <div className="re-bencho overflow-x-auto"><StackedBars byDay={byDay} bars={14} /></div>
+        <details className="mt-3 text-xs"><summary>Recorded daily totals</summary><ul>{Object.entries(byDay).sort(([a], [b]) => b.localeCompare(a)).slice(0, 30).map(([day, tokens]) => <li key={day}>{day}: {tokens.toLocaleString()} tokens</li>)}</ul>{Object.keys(byDay).length === 0 && <p>No usage recorded yet.</p>}</details>
+      </section>
       <section className="relative overflow-hidden p-4" style={{ borderRadius: APPLE_RADIUS, background: 'var(--surface)', boxShadow: APPLE_SHADOW }}>
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <div className="flex-1 min-w-[160px]">
