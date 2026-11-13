@@ -1,5 +1,14 @@
+import { WorkspaceEffect } from '@/components/ui/bencho/WorkspaceEffects'
+import { Create } from '@/components/ui/bencho/liq-create/Create'
+import '@/components/ui/bencho/liq-create/Create.css'
+import { ActionNode } from '@/components/ui/bencho/action-node/ActionNode'
+import '@/components/ui/bencho/action-node/ActionNode.css'
+import { SlideConfirm } from '@/components/ui/bencho/slide-confirm/SlideConfirm'
+import '@/components/ui/bencho/slide-confirm/SlideConfirm.css'
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/modal'
+import { Share2, Square, FileText, Folder, LayoutTemplate } from 'lucide-react'
 // Workflows home: your workflows, one-click run, and the template gallery.
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { Workflow as WorkflowIcon, Plus, Upload, Play, Trash2, Download, Pencil, CircleCheck, CircleX, Loader2 } from 'lucide-react'
@@ -12,6 +21,11 @@ import { WorkflowExecutor } from '@/lib/workflows/executor'
 export function WorkflowsList() {
   const navigate = useNavigate()
   const workflows = useStore((s) => s.workflows)
+  const [completed, setCompleted] = useState<string | null>(null)
+  useEffect(() => { if (!completed) return; const timer = window.setTimeout(() => setCompleted(null), 4000); return () => window.clearTimeout(timer) }, [completed])
+  const [deleteTarget, setDeleteTarget] = useState<Workflow | null>(null)
+  const executor = useRef<WorkflowExecutor | null>(null)
+  useEffect(() => () => executor.current?.stop(), [])
   const [runningId, setRunningId] = useState<string | null>(null)
 
   const createBlank = () => {
@@ -32,17 +46,19 @@ export function WorkflowsList() {
     const ex = new WorkflowExecutor(wf, {
       onNodeStart: () => {}, onNodeEnd: () => {}, onEdge: () => {}, onLog: () => {},
       onDone: (rec) => {
-        setRunningId(null)
+        setRunningId(null); executor.current = null
         useStore.getState().addWorkflowRun(rec)
         useStore.setState((s: any) => ({
           workflows: s.workflows.map((w: Workflow) => (w.id === wf.id
             ? { ...w, lastRun: { status: rec.status === 'error' ? 'error' : rec.status === 'stopped' ? 'stopped' : 'ok', at: Date.now(), ms: (rec.finishedAt ?? Date.now()) - rec.startedAt } }
             : w)),
         }))
-        if (rec.status === 'ok') useUI.getState().toast('Workflow finished', `${wf.name} completed.`, 'success')
+        if (rec.status === 'ok') { setCompleted(wf.name); useUI.getState().toast('Workflow finished', `${wf.name} completed.`, 'success') }
+        else if (rec.status === 'stopped') useUI.getState().toast('Workflow stopped', wf.name, 'info')
         else useUI.getState().toast('Workflow failed', rec.error ?? 'Check the editor log for details.', 'danger')
       },
     })
+    executor.current = ex
     ex.start()
   }
 
@@ -78,63 +94,46 @@ export function WorkflowsList() {
             </div>
             <span className="text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{workflows.length} {workflows.length === 1 ? 'workflow' : 'workflows'} · run against real systems</span>
           </div>
-          <div className="flex gap-2">
-            <button onClick={importFile} className="flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] text-[12.5px]" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
-              <Upload size={13} /> Import
-            </button>
-            <button onClick={createBlank} className="press-tap flex items-center gap-1.5 px-3 py-1.5 rounded-[9px] text-[12.5px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>
-              <Plus size={13} /> New workflow
-            </button>
-          </div>
+          <div className="re-bencho re-create-workflow"><Create items={[
+            { label: 'Blank workflow', icon: FileText, onSelect: createBlank },
+            { label: 'Import workflow', icon: Folder, onSelect: importFile },
+            ...WORKFLOW_TEMPLATES.slice(0, 2).map((template, index) => ({ label: template.name, icon: LayoutTemplate, onSelect: () => createFromTemplate(index) })),
+          ]} /></div>
         </motion.div>
 
         {/* My workflows: one table. A row is a workflow; its actions sit at the
             right, and the last run is a status mark, not a sentence. */}
-        <section className="mb-10">
-          <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-            <div className="grid items-center gap-3 px-3 h-8 text-[10.5px] uppercase tracking-wider md:grid-cols-[minmax(0,1fr)_110px_170px_150px] grid-cols-[minmax(0,1fr)_150px]"
-              style={{ color: 'var(--text-3)', background: 'var(--elevated)' }} aria-hidden="true">
-              <span>Name</span>
-              <span className="hidden md:block">Size</span>
-              <span className="hidden md:block">Last run</span>
-              <span className="text-right">Actions</span>
-            </div>
-            {workflows.length === 0 && (
-              <div className="px-4 py-10 text-center" style={{ borderTop: '1px solid var(--surface-border)' }}>
-                <p className="text-[13.5px]" style={{ color: 'var(--text-2)' }}>No workflows yet.</p>
-                <p className="text-[12px] mt-1" style={{ color: 'var(--text-3)' }}>Start from a blank canvas or pick a template below.</p>
+        <section className="mb-10" aria-label="Your automations">
+          {!workflows.length && <p className="surface p-6 text-sm">No workflows yet. Create a blank canvas or pick a template below.</p>}
+          <div className="re-bencho grid gap-x-10 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 pt-12 px-3">
+            {workflows.map((wf) => <div key={wf.id} className="min-w-0">
+              <ActionNode title={wf.name} description={`${wf.nodes.length} steps · ${wf.lastRun ? `Last run: ${wf.lastRun.status}` : 'Not run yet'}`} actions={[
+                { id: 'export', label: `Export ${wf.name}`, Icon: Download, onSelect: () => download(wf) },
+                { id: 'share', label: `Share ${wf.name}`, Icon: Share2, onSelect: () => { void (async () => {
+                  try { if (navigator.share) await navigator.share({ title: wf.name, text: exportWorkflow(wf) }); else { await navigator.clipboard.writeText(exportWorkflow(wf)); useUI.getState().toast('Workflow copied', 'Paste it only where you intend to share its configuration.') } }
+                  catch (error) { if ((error as Error).name !== 'AbortError') useUI.getState().toast('Could not share workflow', 'Use Export to save a JSON file instead.', 'warning') }
+                })() } },
+                { id: 'start', label: `Start ${wf.name}`, Icon: Play, disabled: !!runningId, onSelect: () => runNow(wf) },
+                { id: 'stop', label: `Stop ${wf.name}`, Icon: Square, disabled: runningId !== wf.id, onSelect: () => executor.current?.stop() },
+              ]} />
+              <div className="flex items-center justify-between gap-3 mt-2 text-xs">
+                <button className="underline py-2" onClick={() => navigate(`/workflows/${wf.id}`)}>Open editor</button>
+                <button className="py-2" disabled={runningId === wf.id} onClick={() => setDeleteTarget(wf)} aria-label={`Delete ${wf.name}`}>Delete</button>
               </div>
-            )}
-            <AnimatePresence initial={false}>
-              {workflows.map((wf) => (
-                <motion.div key={wf.id} layout
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="group grid items-center gap-3 px-3 h-[46px] hover:bg-[var(--elevated)] transition-colors md:grid-cols-[minmax(0,1fr)_110px_170px_150px] grid-cols-[minmax(0,1fr)_150px]"
-                  style={{ borderTop: '1px solid var(--surface-border)' }}>
-                  <WorkflowName wf={wf} running={runningId === wf.id} onOpen={() => navigate(`/workflows/${wf.id}`)} />
-                  <span className="hidden md:block text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{wf.nodes.length} nodes · {wf.edges.length} links</span>
-                  <span className="hidden md:flex items-center gap-1.5 text-[12px] min-w-0" style={{ color: 'var(--text-3)' }}>
-                    <LastRunMark last={wf.lastRun} />
-                    <span className="truncate">{wf.lastRun ? `${wf.lastRun.status === 'ok' ? 'Succeeded' : wf.lastRun.status === 'error' ? 'Failed' : 'Stopped'} ${relTime(wf.lastRun.at)}` : 'Never run'}</span>
-                  </span>
-                  <span className="flex items-center justify-end gap-1">
-                    <button onClick={() => runNow(wf)} disabled={runningId !== null} aria-label={`Run ${wf.name}`} title="Run"
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-[8px] text-[11.5px] font-medium disabled:opacity-50"
-                      style={{ background: 'color-mix(in srgb, var(--primary) 16%, transparent)', color: 'var(--primary)' }}>
-                      {runningId === wf.id ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
-                      {runningId === wf.id ? 'Running' : 'Run'}
-                    </button>
-                    <IconBtn label="Open editor" onClick={() => navigate(`/workflows/${wf.id}`)}><Pencil size={13} /></IconBtn>
-                    <IconBtn label="Export" onClick={() => download(wf)}><Download size={13} /></IconBtn>
-                    <IconBtn label="Delete" danger onClick={() => useStore.getState().deleteWorkflow(wf.id)}><Trash2 size={13} /></IconBtn>
-                  </span>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            </div>)}
           </div>
         </section>
+        <Modal isOpen={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+          <ModalContent>
+            <ModalHeader>Delete {deleteTarget?.name}?</ModalHeader>
+            <ModalBody><p className="text-sm">This removes the workflow and its saved run history. It cannot be undone.</p>
+              <div className="re-bencho"><SlideConfirm width={240} onConfirm={() => { if (deleteTarget) useStore.getState().deleteWorkflow(deleteTarget.id); setDeleteTarget(null) }} /></div>
+            </ModalBody>
+            <ModalFooter><button onClick={() => setDeleteTarget(null)}>Cancel</button><button className="ml-4 text-[var(--danger)]" onClick={() => { if (deleteTarget) useStore.getState().deleteWorkflow(deleteTarget.id); setDeleteTarget(null) }}>Confirm deletion</button></ModalFooter>
+          </ModalContent>
+        </Modal>
 
+        {completed && <section aria-label="Workflow completion" className="mb-4"><p role="status" className="text-sm">{completed} finished.</p><WorkspaceEffect kind="particles" /></section>}
         {/* Templates: a denser grid than before, one line of description each. */}
         <h2 className="text-[11.5px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-3)' }}>Templates</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pb-10">

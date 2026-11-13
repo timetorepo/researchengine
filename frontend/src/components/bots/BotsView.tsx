@@ -1,3 +1,6 @@
+import { Scrub } from '@/components/ui/bencho/time-scrubber/Scrub'
+import '@/components/ui/bencho/time-scrubber/Scrub.css'
+import { useStore } from '@/stores/useStore'
 import { useBotDrafts } from '@/lib/bots/drafts'
 /**
  * Bots: named teammates that keep their own conversation, memory and routines.
@@ -356,14 +359,23 @@ function RoutinesPanel({ bot }: { bot: Bot }) {
   const [title, setTitle] = useState('')
   const [instructions, setInstructions] = useState('')
   const [every, setEvery] = useState(60)
+  const [firstTime, setFirstTime] = useState<number | null>(null)
+  const [timeKey, setTimeKey] = useState(0)
+  const reduced = useStore((s) => s.settings.reduceMotion)
   const ui = useUI()
   const atLimit = bot.routines.length >= MAX_ROUTINES
   const paused = useBots((s) => s.settings.paused)
 
   const add = () => {
-    const err = useBots.getState().addRoutine(bot.id, { title, instructions, everyMinutes: every })
+    let firstRunAt: number | undefined
+    if (firstTime !== null) {
+      const date = new Date(); date.setHours(Math.floor(firstTime / 60), firstTime % 60, 0, 0)
+      if (date.getTime() <= Date.now()) date.setDate(date.getDate() + 1)
+      firstRunAt = date.getTime()
+    }
+    const err = useBots.getState().addRoutine(bot.id, { title, instructions, everyMinutes: every, firstRunAt })
     if (err) { ui.toast('Routine not added', err, 'warning'); return }
-    setTitle(''); setInstructions('')
+    setTitle(''); setInstructions(''); setFirstTime(null)
     ui.toast('Routine added', `${title.trim()} runs every ${every} minutes while the app is open.`, 'success')
   }
 
@@ -384,6 +396,15 @@ function RoutinesPanel({ bot }: { bot: Bot }) {
             className="w-[70px] px-2 py-0.5 rounded-[8px] bg-transparent outline-none tabular-nums" style={{ border: '1px solid var(--surface-border)' }} />
           <span style={{ color: 'var(--text-3)' }}>minutes (at least {MIN_EVERY_MINUTES})</span>
         </div>
+        <Switch label="Choose the first run time" description="After the first run, the routine repeats at the interval above. Only runs while the app is open."
+          checked={firstTime !== null} disabled={atLimit} onChange={(on) => setFirstTime(on ? 9 * 60 : null)} />
+        {firstTime !== null && <div className="re-bencho overflow-hidden">
+          <Scrub key={timeKey} start={firstTime} onTimeChange={setFirstTime} format="24h" reduced={reduced} />
+          <label className="block text-xs mb-2">First run · {Intl.DateTimeFormat().resolvedOptions().timeZone}
+            <input aria-label="First routine run time" type="time" value={`${String(Math.floor(firstTime / 60)).padStart(2, '0')}:${String(firstTime % 60).padStart(2, '0')}`}
+              onChange={(e) => { const [h, m] = e.target.value.split(':').map(Number); if (Number.isFinite(h) && Number.isFinite(m)) { setFirstTime(h * 60 + m); setTimeKey((key) => key + 1) } }} className="block bg-[var(--surface)] rounded-lg p-2 mt-1" />
+          </label>
+        </div>}
         <button type="button" onClick={add} disabled={atLimit} className="w-full px-3 py-1.5 rounded-full text-[12px] disabled:opacity-40" style={{ background: 'var(--primary)', color: '#fff' }}>
           {atLimit ? `Limit of ${MAX_ROUTINES} reached` : 'Add routine'}
         </button>
