@@ -1,3 +1,5 @@
+import { BoardTaskList } from '@/components/ui/boardui/TaskList'
+import { BoardQuestionnaire } from '@/components/ui/boardui/Questionnaire'
 import { AttachmentCarousel } from './AttachmentCarousel'
 import React, { useState } from 'react'
 import { motion } from 'motion/react'
@@ -13,6 +15,7 @@ import { openBirdsEye } from '@/components/graph/BirdsEyeWindow'
 
 /* ---------- tool activity chips ---------- */
 export function ToolTraceChips({ msg, streaming = false }: { msg: ChatMessage; streaming?: boolean }) {
+  if (msg.toolActivity?.length) return <BoardTaskList activities={msg.toolActivity} />
   if (!msg.toolTrace?.length) return null
   // Deduplicate consecutive identical labels.
   const chips: typeof msg.toolTrace = []
@@ -103,76 +106,10 @@ export function ExecApproval({ chatId, msg }: { chatId: string; msg: ChatMessage
 
 /* ---------- AI-generated questionnaire ---------- */
 export function QuestionnaireCard({ chatId, msg }: { chatId: string; msg: ChatMessage }) {
-  const q = msg.questionnaire
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  if (!q) return null
-  const toolCallId = q.toolCallId
-
-  if (q.submitted) {
-    return (
-      <div className="p-3.5 rounded-[14px] mb-3" style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>
-        <div className="flex items-center gap-2 text-[12.5px] font-medium mb-2">
-          <CheckCircle2 size={14} style={{ color: 'var(--success)' }} /> {q.title ?? 'Your answers'}
-        </div>
-        <div className="space-y-1.5">
-          {q.items.map((it) => (
-            <div key={it.id} className="text-[11.5px]">
-              <span style={{ color: 'var(--text-3)' }}>{it.question}</span>
-              <div style={{ color: 'var(--text)' }}>{q.answers?.[it.id] || '—'}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  const ready = q.items.every((it) => (answers[it.id] ?? '').trim().length > 0)
-  return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="p-4 rounded-[16px] mb-3"
-      style={{ background: 'color-mix(in srgb, var(--primary) 6%, var(--surface))', border: '1px solid color-mix(in srgb, var(--primary) 30%, var(--surface-border))' }}>
-      <div className="flex items-center gap-2 mb-1">
-        <ClipboardList size={15} style={{ color: 'var(--primary)' }} />
-        <span className="text-[13px] font-semibold">{q.title ?? 'A few quick questions'}</span>
-      </div>
-      {q.intro && <p className="text-[12px] mb-3" style={{ color: 'var(--text-2)' }}>{q.intro}</p>}
-      <div className="space-y-3.5 mt-2">
-        {q.items.map((it, idx) => (
-          <div key={it.id}>
-            <div className="text-[12.5px] font-medium mb-1.5">{idx + 1}. {it.question}</div>
-            {it.options && it.options.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-1.5">
-                {it.options.map((op) => (
-                  <button key={op} onClick={() => setAnswers((a) => ({ ...a, [it.id]: op }))}
-                    className="px-2.5 py-1 rounded-full text-[11.5px] transition-colors"
-                    style={{
-                      background: answers[it.id] === op ? 'var(--primary)' : 'var(--elevated)',
-                      color: answers[it.id] === op ? '#fff' : 'var(--text-2)',
-                      border: '1px solid var(--surface-border)',
-                    }}>
-                    {op}
-                  </button>
-                ))}
-              </div>
-            )}
-            {it.allowText && (
-              <input value={answers[it.id] ?? ''} onChange={(e) => setAnswers((a) => ({ ...a, [it.id]: e.target.value }))}
-                placeholder={it.options?.length ? 'Or write your own answer…' : 'Your answer…'}
-                className="w-full px-3 py-1.5 rounded-[10px] text-[12.5px] outline-none"
-                style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)', color: 'var(--text)' }} />
-            )}
-          </div>
-        ))}
-      </div>
-      <button
-        disabled={!ready || !toolCallId}
-        onClick={() => toolCallId && submitQuestionnaire(chatId, msg.id, toolCallId, answers)}
-        className="mt-3.5 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12.5px] font-medium disabled:opacity-40"
-        style={{ background: 'var(--primary)', color: '#fff' }}>
-        <Send size={12} /> Send answers
-      </button>
-    </motion.div>
-  )
+  if (!msg.questionnaire) return null
+  return <BoardQuestionnaire key={msg.questionnaire.toolCallId ?? msg.id} questionnaire={msg.questionnaire} onSubmit={(answers) => {
+    if (msg.questionnaire?.toolCallId) submitQuestionnaire(chatId, msg.id, msg.questionnaire.toolCallId, answers)
+  }} />
 }
 
 /* ---------- attachment strip (vision) ---------- */

@@ -51,6 +51,15 @@ export interface Source {
 
 export type MessageRole = 'user' | 'assistant'
 
+export interface ToolActivity {
+  id: string
+  tool: string
+  status: 'queued' | 'running' | 'waiting' | 'completed' | 'failed' | 'blocked' | 'cancelled'
+  startedAt: number
+  endedAt?: number
+  resource?: string
+}
+
 export interface ChatMessage {
   id: string
   role: MessageRole
@@ -96,6 +105,7 @@ export interface ChatMessage {
     facts: number
   }
   /** Tool activity for this answer (shown as chips above the text). */
+  toolActivity?: ToolActivity[]
   toolTrace?: { tool: string; label: string; status: 'ok' | 'error' | 'blocked' | 'confirm' }[]
   /** One rich card per tool call, drawn from its catalog entry. Raw tool output is never kept. */
   toolCards?: import('@/lib/cards/types').CardPayload[]
@@ -136,6 +146,8 @@ export interface ChatMessage {
 }
 
 export interface QuestionnaireItem {
+  /** Permit multiple option selections in this question. */
+  multiple?: boolean
   id: string
   question: string
   options?: string[]
@@ -143,6 +155,7 @@ export interface QuestionnaireItem {
 }
 
 export interface Questionnaire {
+  cancelled?: boolean
   title?: string
   intro?: string
   items: QuestionnaireItem[]

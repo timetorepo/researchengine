@@ -45,7 +45,7 @@ import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/but
 // Cursor 3's agent rows. Presentation only — see the file for the motion rules.
 import { GlassBar, GlassGroup, GlassButton, GlassTabs, Breadcrumbs, StatusItem } from './IdeChrome'
 import { CodingTabs } from '@/components/codersa/CodingTabs'
-import { TreeView, type TreeNode as KitTreeNode } from '@/components/ui/kit/interior/TreeView'
+import { TreeView, type TreeNode as KitTreeNode } from '@/components/ui/boardui/TreeView'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
@@ -885,6 +885,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                   <TreeView
                     key={project}
                     label="Project files"
+                    persistenceKey={project ?? undefined}
                     nodes={toTreeNodes(tree)}
                     selectedId={active ?? undefined}
                     initialOpen={tree.filter((n) => n.dir && n.name === 'src').map((n) => n.path)}
