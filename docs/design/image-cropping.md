@@ -42,3 +42,9 @@ reported separately, not inferred from the frontend build.
 
 The pre-existing cold settings performance limitation from boardui-progress.md
 remains unresolved. Package description claims are not a 60fps certification.
+
+Release outcome: GitHub Actions desktop run 43560611453 succeeded for Windows
+(8m21s) and Linux (4m48s) at tagged commit
+8b0da2f2b91281a58c44e0ad8eabd379adcdbfa7. Both sidecar boot checks and installer
+format checks passed; the .exe and .deb assets are published on release v1.9.0.
+See docs/releases/v1.9.0.md. Interactive native installation remains untested.
