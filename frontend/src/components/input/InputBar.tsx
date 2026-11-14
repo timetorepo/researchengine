@@ -1,3 +1,4 @@
+import { cropImage, imageDataUrl } from '@/lib/images/crop'
 import { DocumentUpload } from '@/components/ui/boardui/DocumentUpload'
 import { EffortSlider } from './EffortSlider'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -263,12 +264,14 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     setConnOpen(false)
   }
 
-  const attachImage = (file: File) => {
+  const attachImage = async (file: File) => {
     if (imgs.length >= 3) { ui().toast('Attachment limit', 'Up to 3 images per message.', 'warning'); return }
-    if (file.size > 4 * 1024 * 1024) { ui().toast('Image too large', 'Images are capped at 4 MB.', 'warning'); return }
-    const r = new FileReader()
-    r.onload = () => setImgs((cur) => [...cur, { name: file.name, dataUrl: String(r.result) }])
-    r.readAsDataURL(file)
+    try {
+      const edited = await cropImage(file)
+      if (!edited) return
+      const dataUrl = await imageDataUrl(edited)
+      setImgs((cur) => cur.length >= 3 ? cur : [...cur, { name: edited.name, dataUrl }])
+    } catch { ui().toast('Could not attach image', 'Try another image.', 'danger') }
   }
 
   const pills: ModeOption[] = [
@@ -481,7 +484,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
               <ImagePlus size={15} strokeWidth={1.5} />
             </button>
             <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden"
-              onChange={(e) => { Array.from(e.target.files ?? []).forEach(attachImage); e.target.value = '' }} />
+              onChange={(e) => { void (async (files: File[]) => { for (const file of files.slice(0, Math.max(0, 3 - imgs.length))) await attachImage(file) })(Array.from(e.target.files ?? [])); e.target.value = '' }} />
 
             {/* Connected data: local files, Drive, Gmail, Calendar, GitHub,
                 Notion, Slack — search it, read it in, or connect an account. */}

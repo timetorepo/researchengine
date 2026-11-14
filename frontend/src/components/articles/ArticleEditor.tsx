@@ -1,3 +1,4 @@
+import { cropImage } from '@/lib/images/crop'
 import { ButtonGroup } from '@/components/ui/uiarc/button-group/button-group'
 import { ActionButton } from '@/components/ui/uiarc/action-button/action-button'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -98,7 +99,9 @@ export function ArticleEditor() {
 
   const onDropImage = async (bid: string, file: File) => {
     if (!file.type.startsWith('image/')) { ui.toast('Not an image', 'Drop a PNG, JPG, WEBP or GIF file.', 'warning'); return }
-    const dataUrl = await fileToDataUrl(file)
+    let dataUrl: string
+    try { const edited = await cropImage(file); if (!edited) return; dataUrl = await fileToDataUrl(edited) }
+    catch { ui.toast('Could not read image', 'Try another image.', 'danger'); return }
     patchBlock(bid, { imageUrl: dataUrl, caption: file.name, attribution: 'Local upload', alt: file.name })
     ui.toast('Image replaced', 'Using your local file — stored inside this article.', 'success')
   }

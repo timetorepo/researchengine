@@ -1,3 +1,5 @@
+import { useUI } from '@/stores/useUI'
+import { cropImage, imageDataUrl } from '@/lib/images/crop'
 import { ProfileSignature } from './ProfileSignature'
 import React, { useState } from 'react'
 import { Check, Dices, RotateCcw, Sparkles } from 'lucide-react'
@@ -56,8 +58,11 @@ export function ProfileTab() {
     window.setTimeout(() => setSaved(false), 1400)
   }
 
-  const updateAvatar = (patch: Partial<typeof profile.avatar>) =>
-    update({ avatar: { ...profile.avatar, ...patch } })
+  const updateAvatar = (patch: Partial<typeof profile.avatar>) => {
+    useStore.setState((s) => { const current = withProfileDefaults(s.settings.profile); return { settings: { ...s.settings, profile: { ...current, avatar: { ...current.avatar, ...patch } } } } })
+    setSaved(true)
+    window.setTimeout(() => setSaved(false), 1400)
+  }
 
   const onName = (name: string) => {
     // A fresh profile takes its handle from the name, the way a username does.
@@ -85,7 +90,7 @@ export function ProfileTab() {
         name={profile.name || 'Researcher'}
         handle={handle}
         bio={profile.bio || 'No bio yet — add one line below.'}
-        longBio={`Everything here lives in your own data directory. The avatar is a blobatar derived from @${handle}, so the same handle always draws the same creature.`}
+        longBio={`Everything here lives in your own data directory. The generated avatar is a blobatar derived from @${handle}, so the same handle always draws the same creature.`}
         avatar={<UserAvatar size={56} />}
         hobbies={profile.hobbies?.length ? profile.hobbies : DEFAULT_PROFILE.hobbies}
         facts={[
@@ -207,6 +212,17 @@ export function ProfileTab() {
         </Field>
       </div>
 
+      <div className="flex flex-wrap gap-3 items-center mb-4">
+        <label className="bui-button cursor-pointer">Upload profile photo
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" className="sr-only" aria-label="Upload profile photo" onChange={async (e) => {
+            const file = e.target.files?.[0]; e.target.value = ''
+            if (!file) return
+            try { const cropped = await cropImage(file, true); if (cropped) updateAvatar({ kind: 'photo', photo: await imageDataUrl(cropped) }) }
+            catch { useUI.getState().toast('Photo could not be saved', 'Try another image.', 'danger') }
+          }} />
+        </label>
+        {profile.avatar.photo && <button className="bui-button" onClick={() => updateAvatar({ kind: 'blobatar', photo: undefined })}>Remove photo</button>}
+      </div>
       {/* Avatar */}
       <div className="rounded-[16px] p-4 space-y-4"
         style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)' }}>

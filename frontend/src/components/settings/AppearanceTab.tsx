@@ -1,3 +1,4 @@
+import { cropImage } from '@/lib/images/crop'
 import { PaletteWorkshop } from './PaletteWorkshop'
 import { WorkspacePreferences } from './WorkspacePreferences'
 import React, { useRef, useState } from 'react'
@@ -88,7 +89,9 @@ export function AppearanceTab() {
 
   const pickImage = (blur: boolean) => async (f: File) => {
     try {
-      const dataUrl = await fileToBackgroundUrl(f)
+      const edited = await cropImage(f)
+      if (!edited) return
+      const dataUrl = await fileToBackgroundUrl(edited)
       setBg(blur ? { kind: 'blur', dataUrl } : { kind: 'image', dataUrl })
       saveNotice('Background updated', 'Stored locally, downscaled to stay light.')
     } catch {
@@ -154,8 +157,8 @@ export function AppearanceTab() {
         ))}
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={async (e) => {
           const f = e.target.files?.[0]
-          if (f) await pickImage(activeKind === 'blur')(f)
           e.target.value = ''
+          if (f) await pickImage(activeKind === 'blur')(f)
         }} />
       </div>
 

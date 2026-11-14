@@ -1,3 +1,5 @@
+import { useUI } from '@/stores/useUI'
+import { cropImage, imageDataUrl } from '@/lib/images/crop'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { generatePalette } from '@usespaceui/gradients'
@@ -26,11 +28,10 @@ export function CardEditor({ card, onClose }: { card: WalletCard; onClose: () =>
   const setField = (i: number, patch: Partial<WalletField>) =>
     setDraft((d) => ({ ...d, fields: d.fields.map((f, j) => (j === i ? { ...f, ...patch } : f)) }))
 
-  const onImage = (file: File | undefined) => {
-    if (!file || file.size > 2 * 1024 * 1024) return
-    const r = new FileReader()
-    r.onload = () => setStyle({ image: String(r.result), background: 'image' })
-    r.readAsDataURL(file)
+  const onImage = async (file: File | undefined) => {
+    if (!file) return
+    try { const edited = await cropImage(file); if (edited) setStyle({ image: await imageDataUrl(edited), background: 'image' }) }
+    catch { useUI.getState().toast('Could not read image', 'Try another image.', 'danger') }
   }
 
   const [fontError, setFontError] = useState('')

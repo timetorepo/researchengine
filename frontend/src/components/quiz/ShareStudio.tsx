@@ -1,3 +1,4 @@
+import { cropImage, imageDataUrl } from '@/lib/images/crop'
 /**
  * Share studio — the results card, yours.
  *
@@ -83,14 +84,10 @@ export function ShareStudio({ data, onClose }: { data: ShareData; onClose: () =>
     return () => { cancelled = true }
   }, [opts, data, ui])
 
-  const pickFile = (f: File | undefined) => {
+  const pickFile = async (f: File | undefined) => {
     if (!f) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const url = String(reader.result)
-      setOpts((o) => ({ ...o, style: 'image', imageDataUrl: url }))
-    }
-    reader.readAsDataURL(f)
+    try { const edited = await cropImage(f); if (edited) { const url = await imageDataUrl(edited); setOpts((o) => ({ ...o, style: 'image', imageDataUrl: url })) } }
+    catch { useUI.getState().toast('Could not read image', 'Try another image.', 'danger') }
   }
 
   // `toBlob` is the cheap path; a canvas the browser refuses to encode (or a
