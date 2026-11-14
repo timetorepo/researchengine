@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/BoardUI/boardui",
+  "commit": "ec5c5eb3e29c2441be63b9422cd54f411ef23466",
+  "license": "MIT",
+  "originalSourceHashes": {
+    "components/application/settings/settings-modal.tsx": "cbb66140687f4f85872e555ad40c9692f23983fabc4f8585513ca21c8c1fc8c4",
+    "components/base/file-upload/file-upload.tsx": "6179a624eae9ff79ad5e5bc07caa2901c242a07929c564ebec99cdc65b6b49c3",
+    "components/base/social-button/social-button.tsx": "7fa65c53903b43e1dd714373cf6c68ccda0ac8432e0aced07d9481f0a3debba1",
+    "components/base/select/select.tsx": "c56abf0ad7b554a363a6e2b46045489b6a94c18718324cbf06e64edf0540b116",
+    "components/base/tree-view/tree-view.tsx": "56de13008fe9543f9518a2a4bf9c78790098caa49e2c467f1da98c1ffe5c8989",
+    "components/base/date-picker/date-picker.tsx": "08ba4676019f47f2fb06eb535b52519b53369ce650aa7f1eeec8d8ba36ff158f",
+    "components/application/notification-center/notification-center.tsx": "484e14fb2e4c10d9f9bb83315817affd706c00013efd94e4eca6e97e073e78fe",
+    "components/base/notification/notification.tsx": "53ace7b0f014998de1f25c9c1d14ecc60d9301dd1b0975d17054388f1abba06c"
+  },
+  "adaptation": "Product-specific adaptations of public layouts; accessibility uses installed Base UI. Pro equivalents are original. Missing public components are explicitly recorded in progress notes."
+}
