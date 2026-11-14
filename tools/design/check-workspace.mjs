@@ -25,6 +25,7 @@ try {
   await workspace.waitFor()
   await workspace.getByRole('button', { name: /^Overview/ }).click()
   await workspace.getByText('Learn', { exact: true }).click()
+  await page.getByRole('button', { name: 'Close settings', exact: true }).click()
   const nav = page.getByRole('navigation', { name: 'Workspace', exact: true })
   assert.equal(await nav.getByRole('link', { name: 'Learn', exact: true }).count(), 1)
   const resizer = page.getByRole('separator', { name: 'Sidebar width' })

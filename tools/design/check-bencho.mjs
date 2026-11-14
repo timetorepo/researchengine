@@ -50,6 +50,7 @@ try {
   await page.screenshot({ path: '.cache/bencho-review-results/palette.png' })
 
   await page.evaluate(async () => (await import('/src/stores/useUI.ts')).useUI.setState({ island: { kind: 'focus', remaining: 123, total: 1500 } }))
+  await page.getByRole('button', { name: 'Close settings', exact: true }).click()
   await page.getByRole('button', { name: 'Expand activity island' }).click()
   await page.getByText('Focus session', { exact: true }).waitFor()
   await page.keyboard.press('Escape')
