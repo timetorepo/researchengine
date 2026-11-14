@@ -1,171 +1,39 @@
-/**
- * The bell.
- *
- * SmoothUI's Notification Badge does the counting (it animates the number
- * rather than swapping it, and drops to a dot when motion is reduced), so the
- * badge is the component the round asked for and the panel is this app's own.
- *
- * Everything shown here was produced locally: a release the update check found,
- * or recommendations pulled from the tags and feeds the user chose to watch.
- * There is no push service, and the recommendation notices do not exist at all
- * unless they were switched on in Settings → Notifications.
- */
-import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
-import { Bell, Download, Sparkles, Info, CheckCheck, Trash2, X } from 'lucide-react'
-import NotificationBadge from '@/components/smoothui/notification-badge'
-import { useNotifications, notifications, type AppNotification, type NotificationKind } from '@/lib/notifications/store'
+/* BoardUI notification-center layout adaptation, MIT (2026 Mertcan Dundar Esmergul).
+ * Real existing local store only; no demonstration people or notifications. */
+import { useState } from 'react'
+import { Popover } from '@base-ui/react/popover'
+import { Bell, CheckCheck, Download, Info, BookOpen, X } from 'lucide-react'
+import { useNotifications, notifications, type NotificationKind } from '@/lib/notifications/store'
 import { timeAgo } from '@/lib/utils'
-import { Portal } from '@/lib/dom/portal'
-
-const KIND_ICON: Record<NotificationKind, React.ComponentType<any>> = {
-  update: Download,
-  recommendations: Sparkles,
-  info: Info,
-}
-
-const KIND_TONE: Record<NotificationKind, string> = {
-  update: 'var(--primary)',
-  recommendations: 'var(--secondary)',
-  info: 'var(--text-3)',
-}
-
+const ICONS = { update: Download, recommendations: BookOpen, info: Info }
 export function NotificationBell({ compact = false }: { compact?: boolean }) {
   const items = useNotifications()
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  // In the minimised dock the panel cannot live inside the rail: the rail is a
-  // narrow column, so an absolutely positioned panel rendered on top of the
-  // neighbouring dock items and the chat surface. The dock variant is drawn in a
-  // portal, anchored to the bell's screen position and clamped to the viewport.
-  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null)
-  const unread = items.filter((i) => !i.read).length
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return
-      setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  const openPanel = () => {
-    if (!open && compact && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      const maxTop = Math.max(12, window.innerHeight - 440)
-      setAnchor({ left: r.right + 12, top: Math.min(Math.max(12, r.top - 6), maxTop) })
-    }
-    setOpen((v) => {
-      const next = !v
-      // Opening the panel is reading it — a badge that stays lit after you have
-      // looked at the list is a badge that lies.
-      if (next) setTimeout(() => notifications.markAllRead(), 900)
-      return next
-    })
-  }
-
-  const panel = (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          ref={panelRef}
-          initial={{ opacity: 0, y: -6, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -4, scale: 0.99 }}
-          transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-          className={compact ? 'fixed w-[320px] rounded-[14px] overflow-hidden z-[90]' : 'absolute left-0 top-[38px] w-[320px] rounded-[14px] overflow-hidden z-[80]'}
-          style={{
-            ...(compact && anchor ? { left: anchor.left, top: anchor.top } : {}),
-            background: 'var(--surface)', border: '1px solid var(--surface-border)', boxShadow: '0 20px 50px -20px rgba(0,0,0,0.55)',
-          }}>
-          <PanelBody items={items} setOpen={setOpen} />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-
-  return (
-    <div ref={wrapRef} className="relative">
-      <button
-        ref={btnRef}
-        onClick={openPanel}
-        aria-label={unread ? `Notifications (${unread} unread)` : 'Notifications'}
-        aria-expanded={open}
-        className={compact ? 're-notify-btn compact' : 're-notify-btn'}
-        title="Notifications"
-      >
-        <NotificationBadge count={unread} max={9} variant="count" position="top-right" ping={false} showZero={false}>
-          <Bell size={compact ? 17 : 16} strokeWidth={1.5} />
-        </NotificationBadge>
-      </button>
-
-      {compact ? <Portal>{panel}</Portal> : panel}
-    </div>
-  )
-}
-
-function PanelBody({ items, setOpen }: { items: AppNotification[]; setOpen: (v: boolean) => void }) {
-  return (
-    <>
-            <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid var(--surface-border)' }}>
-              <span className="text-[12px] font-medium flex-1">Notifications</span>
-              {items.length > 0 && (
-                <>
-                  <button onClick={() => notifications.markAllRead()} title="Mark everything read" className="p-1 rounded-md hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
-                    <CheckCheck size={13} />
-                  </button>
-                  <button onClick={() => notifications.clear()} title="Clear the list" className="p-1 rounded-md hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
-                    <Trash2 size={13} />
-                  </button>
-                </>
-              )}
-              <button onClick={() => setOpen(false)} aria-label="Close notifications" className="p-1 rounded-md hover:bg-[var(--elevated)]" style={{ color: 'var(--text-3)' }}>
-                <X size={13} />
-              </button>
-            </div>
-
-            <div className="max-h-[340px] overflow-y-auto">
-              {items.length === 0 ? (
-                <p className="px-3 py-4 text-[11.5px] leading-relaxed" style={{ color: 'var(--text-3)' }}>
-                  Nothing yet. When a new release is found it lands here, and recommendations can be switched on in Settings → Notifications.
-                </p>
-              ) : (
-                items.map((n) => <Row key={n.id} n={n} onNavigate={() => setOpen(false)} />)
-              )}
-            </div>
-    </>
-  )
-}
-
-function Row({ n, onNavigate }: { n: AppNotification; onNavigate: () => void }) {
-  const Icon = KIND_ICON[n.kind] ?? Info
-  return (
-    <div className="flex items-start gap-2.5 px-3 py-2.5" style={{ borderBottom: '1px solid var(--surface-border)', background: n.read ? 'transparent' : 'color-mix(in srgb, var(--primary) 7%, transparent)' }}>
-      <Icon size={13} className="mt-0.5 shrink-0" style={{ color: KIND_TONE[n.kind] }} />
-      <div className="min-w-0 flex-1">
-        <a
-          href={n.href ?? '#'}
-          onClick={() => { notifications.markRead(n.id); onNavigate() }}
-          className="text-[12px] font-medium leading-snug hover:underline block"
-          style={{ color: 'var(--text)' }}>
-          {n.title}
-        </a>
-        {n.body && <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-2)' }}>{n.body}</p>}
-        <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>{timeAgo(n.at)}</span>
-      </div>
-      <button onClick={() => notifications.remove(n.id)} title="Dismiss" className="p-1 rounded-md hover:bg-[var(--elevated)] shrink-0" style={{ color: 'var(--text-3)' }}>
-        <X size={11} />
-      </button>
-    </div>
-  )
+  const [tab, setTab] = useState<'all' | 'unread' | NotificationKind>('all')
+  const unread = items.filter((item) => !item.read).length
+  const shown = items.filter((item) => tab === 'all' || (tab === 'unread' ? !item.read : item.kind === tab))
+  const tabs = [['all', 'All'], ['unread', 'Unread'], ['update', 'Updates'], ['recommendations', 'Reading'], ['info', 'Info']] as const
+  return <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Trigger aria-label={unread ? `Notifications (${unread} unread)` : 'Notifications'} className={compact ? 're-notify-btn compact relative' : 're-notify-btn relative'}>
+      <Bell size={compact ? 17 : 16} strokeWidth={1.5} />{unread > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-[var(--primary)] text-white text-[9px] px-1 min-w-3">{unread}</span>}
+    </Popover.Trigger>
+    <Popover.Portal><Popover.Positioner side="right" align="start" sideOffset={10} className="z-[210]">
+      <Popover.Popup className="bui-popover !p-0 w-[360px]" aria-label="Notification center">
+        <header className="p-4 flex items-center gap-2 border-b border-[var(--surface-border)]"><div className="flex-1"><h2 className="font-semibold text-sm">Notifications</h2><p className="text-xs text-[var(--text-3)]">{unread} unread</p></div>
+          <button className="bui-icon-button" onClick={() => notifications.markAllRead()} aria-label="Mark all notifications read" disabled={!unread}><CheckCheck size={16} /></button>
+          <Popover.Close className="bui-icon-button" aria-label="Close notifications"><X size={16} /></Popover.Close>
+        </header>
+        <div className="flex gap-1 overflow-x-auto p-2" role="group" aria-label="Notification filters">{tabs.map(([id, label]) => <button key={id} className="px-2 py-1.5 rounded-lg text-xs whitespace-nowrap" aria-pressed={tab === id} style={{ background: tab === id ? 'var(--elevated)' : undefined }} onClick={() => setTab(id)}>{label}</button>)}</div>
+        <div className="max-h-[min(420px,60dvh)] overflow-auto">
+          {!shown.length && <p className="p-5 text-xs text-[var(--text-3)]">{items.length ? 'No notifications in this filter.' : 'No notifications yet. Updates and enabled reading recommendations appear here.'}</p>}
+          {shown.map((item, index) => { const Icon = ICONS[item.kind]; const group = new Date(item.at).toDateString() === new Date().toDateString() ? 'Today' : 'Earlier'; const previousGroup = index > 0 && (new Date(shown[index - 1].at).toDateString() === new Date().toDateString() ? 'Today' : 'Earlier'); return <div key={item.id}>{group !== previousGroup && <h3 className="px-4 py-2 text-[11px] text-[var(--text-3)]">{group}</h3>}<article key={item.id} className="flex gap-3 p-4 border-t border-[var(--surface-border)]" style={{ background: item.read ? undefined : 'color-mix(in srgb,var(--primary) 6%,transparent)' }}>
+            <Icon size={16} className="shrink-0 mt-0.5 text-[var(--text-2)]" /><div className="min-w-0 flex-1">
+              {item.href ? <a href={item.href} className="font-medium hover:underline" onClick={() => { notifications.markRead(item.id); setOpen(false) }}>{item.title}</a> : <button className="font-medium text-left" onClick={() => notifications.markRead(item.id)}>{item.title}</button>}
+              {item.body && <p className="text-[var(--text-2)] mt-1">{item.body}</p>}<p className="text-[10px] text-[var(--text-3)] mt-2">{timeAgo(item.at)}</p>
+            </div><button className="shrink-0 self-start p-1" aria-label={`Dismiss ${item.title}`} onClick={() => notifications.remove(item.id)}><X size={14} /></button>
+          </article></div> })}
+        </div>
+      </Popover.Popup>
+    </Popover.Positioner></Popover.Portal>
+  </Popover.Root>
 }

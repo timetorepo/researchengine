@@ -1,10 +1,10 @@
+import { BoardNotification } from '@/components/ui/boardui/Notification'
 import React, { useEffect } from 'react'
 import { Toaster as SonnerToaster, toast as sonner } from 'sonner'
 import { Toast } from '@heroui/react'
-import { CheckCircle2, Info, AlertTriangle, XCircle } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
-import { setToastSink, type ToastTone } from '@/lib/notify'
+import { setToastSink } from '@/lib/notify'
 
 /**
  * Toasts, by Sonner (emilkowalski).
@@ -29,22 +29,6 @@ import { setToastSink, type ToastTone } from '@/lib/notify'
  * used.
  */
 
-const TONE: Record<ToastTone, typeof sonner.info> = {
-  info: sonner.info,
-  success: sonner.success,
-  warning: sonner.warning,
-  danger: sonner.error,
-}
-
-/** The same four glyphs the hand-rolled stack used, at the same size. Colour is
- *  applied per tone in CSS so a theme can tint them. */
-const ICONS = {
-  success: <CheckCircle2 size={16} strokeWidth={1.8} />,
-  info: <Info size={16} strokeWidth={1.8} />,
-  warning: <AlertTriangle size={16} strokeWidth={1.8} />,
-  error: <XCircle size={16} strokeWidth={1.8} />,
-}
-
 export function AppToaster() {
   const theme = useStore((s) => s.settings.theme)
   const reduceMotion = useStore((s) => s.settings.reduceMotion)
@@ -53,18 +37,9 @@ export function AppToaster() {
   useEffect(() => {
     // One host per app: the sink is the bridge from the store to Sonner.
     setToastSink(({ id, title, body, tone }) => {
-      const fire = TONE[tone] ?? sonner.info
-      const done = () => useUI.getState().dismissToast(id)
-      fire(title, {
-        id,
-        description: body,
-        // The glass surface (chatbox / island look) is mirrored in globals.css
-        // rather than borrowed from `.glass-chat`, because that class sets
-        // `position: relative` in liquid mode and Sonner stacks its toasts
-        // absolutely.
-        className: `re-toast re-toast-${tone}`,
-        onDismiss: done,
-        onAutoClose: done,
+      const done = () => { sonner.dismiss(id); useUI.getState().dismissToast(id) }
+      sonner.custom(() => <BoardNotification title={title} body={body} tone={tone} onDismiss={done} />, {
+        id, onDismiss: () => useUI.getState().dismissToast(id), onAutoClose: () => useUI.getState().dismissToast(id),
       })
     })
     return () => setToastSink(null)
@@ -93,7 +68,7 @@ export function AppToaster() {
       duration={4200}
       closeButton
       expand
-      icons={ICONS}
+
       // The app has 20+ palettes; Sonner's own dark/light is only a hint. The
       // real colours come from CSS variables in globals.css (.re-toast).
       theme={light ? 'light' : 'dark'}

@@ -1,3 +1,7 @@
+import { BoardSocialButton } from '@/components/ui/boardui/SocialButton'
+import { BoardOverlay } from '@/components/ui/boardui/Overlay'
+import { BoardAccordion } from '@/components/ui/boardui/Accordion'
+import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 /**
  * Marketplace: every app Composio supports, one page per app. The list is the
  * front door: featured coding apps first, then search and categories. Each app
@@ -18,7 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { Accordion, Button, ButtonGroup, Spinner, toast } from '@heroui/react'
-import { ArrowLeft, CheckCircle2, Check, ChevronLeft, ChevronRight, Loader2, Plug, Search, Unplug, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Check, ChevronLeft, ChevronRight, Loader2, Plug, SlidersHorizontal, Search, Unplug, X } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import {
@@ -118,6 +122,8 @@ export function MarketplacePage() {
   const [accounts, setAccounts] = useState<ComposioAccount[]>([])
   const [q, setQ] = useState('')
   const [category, setCategory] = useState<string | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [draftCategory, setDraftCategory] = useState<string | null>(null)
   const [shown, setShown] = useState(PAGE)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -676,22 +682,19 @@ export function MarketplacePage() {
               </Button>
             </div>
 
-            {chips.length > 0 && (
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Categories">
-                {[null, ...chips].map((c) => (
-                  <button key={c ?? 'all'} type="button" onClick={() => { setCategory(c); setShown(PAGE) }}
-                    aria-pressed={category === c}
-                    className="px-2.5 py-1 rounded-full text-[11px] transition-colors"
-                    style={{
-                      background: category === c ? 'color-mix(in srgb, var(--primary) 14%, transparent)' : 'var(--elevated)',
-                      border: `1px solid ${category === c ? 'var(--primary)' : 'var(--surface-border)'}`,
-                      color: category === c ? 'var(--text-1)' : 'var(--text-2)',
-                    }}>
-                    {c ?? 'All'}
-                  </button>
-                ))}
+            <div className="flex items-center gap-2">
+              <button className="bui-button" onClick={() => { setDraftCategory(category); setFiltersOpen(true) }}><SlidersHorizontal size={14} />Filters{category ? ' (1)' : ''}</button>
+              {category && <span className="text-xs">{category}</span>}
+            </div>
+            <BoardOverlay title="Marketplace filters" open={filtersOpen} onClose={() => setFiltersOpen(false)} drawer>
+              <div className="p-5 flex-1 overflow-auto"><label className="text-xs block mb-2" id="market-category-label">Category</label>
+                <ModernSelect aria-label="Marketplace category" value={draftCategory ?? ''} onChange={(e) => setDraftCategory(e.target.value || null)}><option value="">All categories</option>{chips.map((c) => <option key={c} value={c}>{c}</option>)}</ModernSelect>
               </div>
-            )}
+              <footer className="p-4 border-t border-[var(--surface-border)] flex gap-2 flex-wrap">
+                <button className="bui-button" onClick={() => setDraftCategory(null)}>Clear</button><button className="bui-button" onClick={() => setFiltersOpen(false)}>Cancel</button>
+                <button className="bui-button bui-button-primary ml-auto" onClick={() => { setCategory(draftCategory); setShown(PAGE); setFiltersOpen(false) }}>Apply filters</button>
+              </footer>
+            </BoardOverlay>
 
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2" aria-label="Supported apps">
               {filtered.slice(0, shown).map((app) => (
@@ -960,28 +963,10 @@ function AppDetail({
           <p className="text-[12.5px]" style={muted}>No tool matches{tq ? ` “${tq}”` : ' this filter'}.</p>
         ) : (
           <div className="rounded-[14px] overflow-hidden" style={card}>
-        <Accordion allowsMultipleExpanded>
-            {visible.slice(0, 200).map((t) => (
-              <Accordion.Item key={t.slug} id={t.slug} className="px-4 border-b last:border-b-0 border-[var(--surface-border)]">
-                <Accordion.Heading>
-                  <Accordion.Trigger className="flex w-full items-center gap-3 py-3 text-left">
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-[13px] font-medium truncate" style={{ color: 'var(--text-1)' }}>{toolTitle(t)}</span>
-                      {t.description && <span className="block text-[11.5px] truncate" style={muted}>{t.description}</span>}
-                    </span>
-                    <span className="text-[10.5px] px-2 py-0.5 rounded-full shrink-0" style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}>{toolKind(t.slug)}</span>
-                    <Accordion.Indicator />
-                  </Accordion.Trigger>
-                </Accordion.Heading>
-                <Accordion.Panel>
-                  <Accordion.Body className="pb-4 space-y-2">
-                    {t.description && <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--text-2)' }}>{t.description}</p>}
-                    <p className="text-[11px] font-mono" style={muted}>{t.slug}</p>
-                  </Accordion.Body>
-                </Accordion.Panel>
-              </Accordion.Item>
-            ))}
-          </Accordion>
+        <BoardAccordion items={visible.slice(0, 200).map((t) => ({ id: t.slug,
+          title: <><span className="flex-1 min-w-0"><span className="block font-medium truncate">{toolTitle(t)}</span>{t.description && <span className="block text-xs truncate" style={muted}>{t.description}</span>}</span><span className="text-[11px] shrink-0" style={muted}>{toolKind(t.slug)}</span></>,
+          content: <div className="space-y-2">{t.description && <p style={{ color: 'var(--text-2)' }}>{t.description}</p>}<p className="text-[11px] font-mono" style={muted}>{t.slug}</p></div>,
+        }))} />
         </div>
         )}
       </section>
@@ -1195,40 +1180,13 @@ function ConnectButton({ flight, disabled, onConnect, size = 'sm' }: { flight?: 
   const idle = status === 'idle'
   const failed = status === 'failed'
   const color = failed ? 'var(--danger)' : status === 'connected' ? 'var(--success)' : undefined
-  return (
-    <motion.button
-      layout
-      type="button"
-      aria-live="polite"
-      disabled={disabled || status === 'connecting' || status === 'connected'}
-      onClick={() => { if (idle || failed) onConnect() }}
-      title={failed ? (flight?.message ?? 'Try again') : undefined}
-      className={`${size === 'lg' ? 'px-4 py-2 text-[13px] gap-2' : 'px-2.5 py-1 text-[11px] gap-1.5'} rounded-full font-medium inline-flex items-center transition-transform active:scale-95 disabled:cursor-default disabled:active:scale-100`}
-      style={idle ? primary : { background: 'var(--elevated)', border: `1px solid ${color ?? 'var(--surface-border)'}`, color: color ?? 'var(--text-2)' }}
-    >
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={status}
-          layout
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.85 }}
-          transition={{ duration: 0.16 }}
-          className="inline-flex items-center gap-1.5"
-        >
-          {idle && 'Connect'}
-          {status === 'connecting' && <><Spinner size="sm" aria-label="Connecting" /> Connecting</>}
-          {status === 'connected' && <><CheckCircle2 size={13} strokeWidth={2} aria-hidden /> Connected</>}
-          {failed && (
-            <>
-              <span className="w-[15px] h-[15px] rounded-full border flex items-center justify-center shrink-0" style={{ borderColor: 'var(--danger)' }} aria-hidden>
-                <X size={9} strokeWidth={2.6} />
-              </span>
-              Failed
-            </>
-          )}
-        </motion.span>
-      </AnimatePresence>
-    </motion.button>
-  )
+  return <BoardSocialButton
+    disabled={disabled || status === 'connecting' || status === 'connected'}
+    onClick={() => { if (idle || failed) onConnect() }}
+    title={failed ? (flight?.message ?? 'Try again') : undefined}
+    style={{ color, ...(idle ? {} : { borderColor: color }) }}
+    className={size === 'lg' ? 'text-sm' : 'text-xs'}
+    icon={status === 'connecting' ? <Loader2 size={14} className="animate-spin" /> : status === 'connected' ? <CheckCircle2 size={14} /> : failed ? <X size={14} /> : <Plug size={14} />}>
+    {status === 'connecting' ? 'Connecting…' : status === 'connected' ? 'Connected' : failed ? 'Retry connection' : 'Connect'}
+  </BoardSocialButton>
 }
