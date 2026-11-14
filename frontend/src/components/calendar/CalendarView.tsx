@@ -1,3 +1,4 @@
+import { BoardDatePicker } from '@/components/ui/boardui/DatePicker'
 /**
  * Calendar: your own events, plus any calendar you bring in. Events made here
  * stay on this device. A calendar can come in as an .ics file, or as a Google
@@ -234,8 +235,7 @@ function EventForm({ initial, defaultDay, onClose }: { initial: CalEvent | null;
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Title" disabled={isImported}
           className="w-full px-3 py-2 rounded-[12px] outline-none text-[13px] disabled:opacity-60" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
         <div className="flex flex-wrap items-center gap-2">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" disabled={isImported}
-            className="px-2 py-1.5 rounded-[10px] text-[12.5px] bg-transparent" style={{ border: '1px solid var(--surface-border)' }} />
+          <BoardDatePicker value={date} onChange={setDate} label="Date" disabled={isImported} />
           {!allDay && <>
             <input type="time" value={startT} onChange={(e) => setStartT(e.target.value)} aria-label="Start time" disabled={isImported}
               className="px-2 py-1.5 rounded-[10px] text-[12.5px] bg-transparent" style={{ border: '1px solid var(--surface-border)' }} />

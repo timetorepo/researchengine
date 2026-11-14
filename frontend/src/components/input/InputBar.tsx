@@ -1,3 +1,4 @@
+import { DocumentUpload } from '@/components/ui/boardui/DocumentUpload'
 import { EffortSlider } from './EffortSlider'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -468,10 +469,10 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
 
             <EffortPill />
 
-            <button className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors" style={{ color: 'var(--text-3)' }} aria-label="Attach document"
-              onClick={() => { navigate('/quiz'); ui().toast('Learn', 'Drop a PDF, DOCX, TXT or Markdown file to study it.') }}>
-              <Paperclip size={15} strokeWidth={1.5} />
-            </button>
+            <DocumentUpload label="Attach document" actionLabel="Add text to draft" onConfirm={(file, content) => {
+              setText((current) => `${current}${current.trim() ? '\n\n' : ''}Document: ${file.name}\n${content}`)
+              ui().toast('Document added to draft', 'Review the text before sending it to the selected model.', 'info')
+            }} />
 
             {/* Vision: attach images for models that can see them */}
             <button className="p-1.5 rounded-full hover:bg-[var(--elevated)] transition-colors" style={{ color: imgs.length ? 'var(--primary)' : 'var(--text-3)' }} aria-label="Attach image"
