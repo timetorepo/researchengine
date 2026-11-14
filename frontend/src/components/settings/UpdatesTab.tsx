@@ -1,3 +1,4 @@
+import { BoardProgress } from '@/components/ui/boardui/Progress'
 import React, { useState } from 'react'
 import { ArtBanner, ART } from '@/components/ui/kit/community/ArtBanner'
 import { NotificationList } from '@/components/ui/kit/community/NotificationList'
@@ -238,14 +239,7 @@ export function UpdatesTab() {
                 </span>
               )}
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--elevated)' }}>
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: 'var(--primary)' }}
-                animate={{ width: `${Math.max(3, progress.pct)}%` }}
-                transition={{ type: 'spring', stiffness: 140, damping: 22 }}
-              />
-            </div>
+            <BoardProgress label={progress.message || phaseLabel(progress.phase)} value={progress.total > 0 ? progress.pct : undefined} />
           </div>
         )}
 

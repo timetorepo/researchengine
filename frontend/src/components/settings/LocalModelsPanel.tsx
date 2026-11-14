@@ -1,3 +1,4 @@
+import { BoardProgress } from '@/components/ui/boardui/Progress'
 /**
  * Local models: find a GGUF on Hugging Face, see whether it fits this machine,
  * and download it into Ollama without leaving Research Engine.
@@ -277,9 +278,7 @@ export function LocalModelsPanel() {
               </div>
               {p && (
                 <div className="mt-2">
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-border)' }} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.pct ?? undefined} aria-label={`Downloading ${m.repo}`}>
-                    <div className="h-full transition-[width] duration-300" style={{ width: `${p.pct ?? 8}%`, background: 'var(--primary)' }} />
-                  </div>
+                  <BoardProgress label={`Downloading ${m.repo}`} value={p.pct ?? undefined} />
                   <div className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>{p.status}{p.pct !== null ? ` · ${p.pct}%` : ''}</div>
                 </div>
               )}

@@ -1,3 +1,4 @@
+import { BoardProgress } from '@/components/ui/boardui/Progress'
 import React from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check } from 'lucide-react'
@@ -118,10 +119,7 @@ export function InstallFilm({ progress, done, lastNote }: { progress: number; do
       </div>
 
       {/* Bar: moves only when a real check finishes */}
-      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-border)' }}>
-        <motion.div className="h-full rounded-full" style={{ background: 'var(--primary)' }}
-          initial={false} animate={{ width: `${pct}%` }} transition={{ duration: reduce ? 0 : 0.4, ease: 'easeOut' }} />
-      </div>
+      <BoardProgress className="mt-4" label="Setup checks" value={pct} />
       <div className="mt-2 flex justify-between text-[11px] tabular-nums" style={{ color: 'var(--text-3)' }}>
         <span>{done ? 'Finished' : 'Working'}</span>
         <span>{pct}%</span>

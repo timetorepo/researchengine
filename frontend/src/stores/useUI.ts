@@ -183,12 +183,9 @@ export const useUI = create<UIState>((set, get) => ({
       settingsOpen: true,
       settingsClosing: false,
       settingsTab: tab ?? s.settingsTab,
-      settingsSheet: false,
+      settingsSheet: true,
       sidebarOpenMobile: false,
     }))
-    if (typeof window !== 'undefined' && !window.location.hash.startsWith('#/settings')) {
-      window.location.hash = '#/settings'
-    }
   },
   // Views claim the activity; the last one to mount owns the label, and an
   // unmount only clears it if it is still the one that set it (so a route

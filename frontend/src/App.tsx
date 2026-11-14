@@ -2,10 +2,10 @@ import { WalletWatcher } from '@/components/wallet/WalletWatcher'
 import { ExamGate } from '@/components/exam/Exam'
 import { BugFinder } from '@/components/dev/BugFinder'
 import { ActivityTracker } from '@/components/activity/ActivityTracker'
-import React, { Suspense, useEffect, useMemo } from 'react'
+import React, { Suspense, useEffect, useMemo, useRef } from 'react'
 import { lensMapDataUrl, refractionSupported } from '@/lib/glass/lensMap'
 import { FpsCounter } from '@/components/shared/FpsCounter'
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
@@ -19,7 +19,6 @@ import { NotFound404 } from '@/components/easter/NotFound404'
 // Route-level code splitting: every heavy screen streams in on demand so the
 // initial bundle stays lean. HomeScreen stays eager — it is the landing view.
 const ChatView = React.lazy(() => import('@/components/chat/ChatView').then((m) => ({ default: m.ChatView })))
-const SettingsView = React.lazy(() => import('@/components/settings/SettingsView').then((m) => ({ default: m.SettingsView })))
 const FloodView = React.lazy(() => import('@/components/agents/FloodView').then((m) => ({ default: m.FloodView })))
 const QuizHub = React.lazy(() => import('@/components/quiz/QuizHub').then((m) => ({ default: m.QuizHub })))
 const ArticlesView = React.lazy(() => import('@/components/articles/ArticlesView').then((m) => ({ default: m.ArticlesView })))
@@ -91,7 +90,6 @@ function useRoutePreload() {
     const queue: Array<() => Promise<unknown>> = [
       () => import('@/components/chat/ChatView'),
       () => import('@/components/quiz/QuizHub'),
-      () => import('@/components/settings/SettingsView'),
       () => import('@/components/library/LibraryView'),
       () => import('@/components/articles/ArticlesView'),
       () => import('@/components/compare/CompareView'),
@@ -244,6 +242,10 @@ function RoutedApp() {
   // First run only — a returning user never pays for the tour's chunk.
   const firstRun = useStore((s) => s.settings.onboarded !== true)
   const location = useLocation()
+  const navigate = useNavigate()
+  const backgroundLocation = useRef(location.pathname.startsWith('/settings') ? { ...location, pathname: '/', search: '', hash: '' } : location)
+  const settingsRoute = location.pathname.startsWith('/settings')
+  if (!settingsRoute) backgroundLocation.current = location
   useGlobalShortcuts()
 
   // The app frame is a fixed, non-scrolling box. Anything that scrolls it — a
@@ -300,10 +302,9 @@ function RoutedApp() {
             reads that mark; a route is never animated into before then, because
             flushing a render that suspends loses the navigation. */}
         <RouteLatch />
-        <Routes>
+        <Routes location={settingsRoute ? backgroundLocation.current : location}>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/chat/:id" element={<ChatView />} />
-          <Route path="/settings/*" element={<SettingsView />} />
           <Route path="/flood" element={<FloodView />} />
           <Route path="/quiz" element={<QuizHub />} />
           <Route path="/articles" element={<ArticlesView />} />
@@ -343,7 +344,7 @@ function RoutedApp() {
       <Suspense fallback={null}>
         {overlay && (
           <>
-            {overlay.settingsSheet && <SettingsSheet />}
+            {(overlay.settingsSheet || settingsRoute) && <SettingsSheet routeOpen={settingsRoute} onRouteClose={() => navigate(backgroundLocation.current.pathname + backgroundLocation.current.search, { replace: true })} />}
             {overlay.tasksPanel && <TasksPanel />}
             {overlay.paletteOpen && <CommandPalette />}
             {overlay.shortcutsOpen && <ShortcutsOverlay />}

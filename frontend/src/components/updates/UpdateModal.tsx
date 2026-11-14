@@ -1,3 +1,4 @@
+import { BoardProgressCircle } from '@/components/ui/boardui/Progress'
 /**
  * "A new version is out" — as a real popup, using HeroUI's Modal.
  *
@@ -189,7 +190,7 @@ export function UpdateModal() {
         {/* While an install runs, the card is only its progress. Nothing else. */}
         {busyInstall ? (
           <div className="flex flex-col items-center text-center px-8 py-12" data-update-progress aria-live="polite">
-            <UpdateRing pct={progress?.pct ?? 0} />
+            <BoardProgressCircle value={progress && progress.total > 0 ? progress.pct : undefined} label={progress?.message || 'Installing update'} size={96} />
             <div className="mt-7 text-[18px] font-semibold" style={{ color: 'var(--text)', letterSpacing: '-0.015em' }}>
               {progress?.message || phaseLabel(progress?.phase ?? 'downloading')}
             </div>

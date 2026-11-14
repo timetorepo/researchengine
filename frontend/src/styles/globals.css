@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/ui/boardui/boardui.css";
 @import "../components/ui/bencho/bridge.css";
 
 /*
@@ -95,7 +96,7 @@
 
 /* Sheet headers: one centred title in the Apple sheet style, with the close
    control kept clear of it at the top right. */
-[role="dialog"] > header {
+[role="dialog"]:not(.bui-dialog) > header {
   padding: 18px 56px 10px !important;
   text-align: center;
   align-items: center;
