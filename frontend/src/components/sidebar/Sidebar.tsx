@@ -6,7 +6,7 @@ import {
   Home, MessageSquare, BookOpen, GraduationCap, Library, Users, Settings, Plus, UserRound,
   ShieldCheck, PanelLeftClose, PanelLeftOpen, Compass, Check, Swords,
   Sun, Moon, RotateCcw, Download, FolderInput, Workflow as WorkflowIcon, Code as CodeIcon, ScanText, MessageSquarePlus,
-  ChevronRight, Search, ChevronDown,
+  ChevronRight, Search, ChevronDown, LayoutDashboard,
 } from 'lucide-react'
 import { download } from '@/lib/utils'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
@@ -34,6 +34,7 @@ const NAV = [
   { to: '/chats', label: 'Chats', icon: MessageSquare },
   { to: '/quiz', label: 'Learn', icon: GraduationCap },
   { to: '/articles', label: 'Articles', icon: BookOpen },
+  { to: '/board', label: 'Board', icon: LayoutDashboard },
   { to: '/library', label: 'Library', icon: Library },
   { to: '/compare', label: 'Compare', icon: Swords },
   { to: '/workflows', label: 'Workflows', icon: WorkflowIcon },

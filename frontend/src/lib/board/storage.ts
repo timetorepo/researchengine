@@ -1,4 +1,8 @@
 /** Local Board storage. No provider calls, server sync, or HTML execution. */
+let frozen = false
+/** Wipe barrier: never resurrect deleted Boards from a late UI save/draft. */
+export function freezeBoardWrites() { frozen = true }
+export function boardWritesFrozen() { return frozen }
 export type BoardItem = {
   id: string; kind: 'note' | 'reference' | 'image' | 'pdf' | 'drawing' | 'shape' | 'connector' | 'frame'
   x: number; y: number; width: number; height: number; text: string
@@ -36,10 +40,25 @@ export function validateBoard(value: unknown): asserts value is BoardDocument {
 }
 function request<T>(req: IDBRequest<T>): Promise<T> { return new Promise((resolve,reject) => { req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error) }) }
 function completed(tx: IDBTransaction): Promise<void> { return new Promise((resolve,reject) => { tx.oncomplete=()=>resolve(); tx.onabort=()=>reject(tx.error ?? new Error('Board save aborted.')); tx.onerror=()=>{ /* abort carries the final failure */ } }) }
+export function boardDatabaseName(namespace: string) { return `research-engine-boards-v1:${namespace}` }
+/** Deleting a Board database closes our open connections through onversionchange. */
+export async function deleteBoardDatabase(name: string) {
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(name)
+    req.onsuccess = () => resolve()
+    req.onerror = () => reject(req.error)
+    req.onblocked = () => reject(new Error('Close other app windows to finish deleting local Board data.'))
+  })
+}
 export async function openBoardStore(name = 'research-engine-boards-v1') {
   const req = indexedDB.open(name,1)
   req.onupgradeneeded=()=>{ for (const store of ['boards','previous','attachments']) req.result.createObjectStore(store,{keyPath:'id'}) }
-  const db = await request(req)
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    let blocked = false
+    req.onblocked = () => { blocked = true; reject(new Error('Close other app windows, then reload to open local Board storage.')) }
+    req.onerror = () => reject(req.error)
+    req.onsuccess = () => { if (blocked) req.result.close(); else resolve(req.result) }
+  })
   db.onversionchange=()=>db.close()
   return {
     close: () => db.close(),
@@ -61,6 +80,7 @@ export async function openBoardStore(name = 'research-engine-boards-v1') {
     },
     /** Resolve only after transaction commits. Existing attachment IDs are immutable. */
     async save(document: BoardDocument, expectedRevision: number, attachments: BoardAttachment[] = []): Promise<BoardDocument> {
+      if (frozen) throw new Error('Board writes are disabled after a data wipe. Reload the app to start a new workspace.')
       validateBoard(document)
       if (document.revision !== expectedRevision || !Number.isSafeInteger(expectedRevision + 1)) throw new BoardConflict()
       const snapshot = structuredClone(document); const incoming = new Map(attachments.map(a=>[a.id,a]))

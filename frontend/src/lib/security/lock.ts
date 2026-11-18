@@ -26,6 +26,8 @@
  * make the honest case work: a locked app that a stranger cannot open.
  */
 
+import { boardDatabaseName, deleteBoardDatabase, freezeBoardWrites } from '@/lib/board/storage'
+
 const enc = new TextEncoder()
 
 /** Where the lock's own configuration lives. Never holds a code. */
@@ -301,6 +303,7 @@ export interface WipeReport {
 export async function wipeEverything(): Promise<WipeReport> {
   // Nothing batched may write back after this point (see deferredJson.ts).
   freezePendingWrites()
+  freezeBoardWrites()
   const before = localStorage.length + sessionStorage.length
   const keys = readNamespaceKeys(MAIN_NAMESPACE).length + readNamespaceKeys(GUEST_NAMESPACE).length
 
@@ -320,6 +323,12 @@ export async function wipeEverything(): Promise<WipeReport> {
   for (const k of leftovers) localStorage.removeItem(k)
   sessionStorage.clear()
 
+  // Board databases are namespace-separated and are not in localStorage.
+  let boardNote = ''
+  try {
+    await Promise.all([MAIN_NAMESPACE, GUEST_NAMESPACE].map(ns => deleteBoardDatabase(boardDatabaseName(ns))))
+    await deleteBoardDatabase('research-engine-boards-v1')
+  } catch { boardNote = ' Local Board deletion could not finish; close other app windows and clear this origin’s browser storage.' }
   let server: WipeReport['server'] = 'skipped'
   try {
     const res = await fetch('/api/data/wipe', { method: 'POST' })
@@ -332,9 +341,9 @@ export async function wipeEverything(): Promise<WipeReport> {
   return {
     keys: removed,
     server,
-    note: server === 'wiped'
+    note: (server === 'wiped'
       ? `${removed} stored item${removed === 1 ? '' : 's'} and the server-side store were deleted.`
-      : `${removed} stored item${removed === 1 ? '' : 's'} were deleted. The server-side store could not be reached, so remove its data folder by hand.`,
+      : `${removed} stored item${removed === 1 ? '' : 's'} were deleted. The server-side store could not be reached, so remove its data folder by hand.`) + boardNote,
   }
 }
 

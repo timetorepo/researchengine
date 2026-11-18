@@ -1,0 +1,45 @@
+import { chromium } from './node_modules/playwright-core/index.mjs'
+import assert from 'node:assert/strict'
+const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE,headless:true})
+try {
+ const p=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept())
+ await p.addInitScript(()=>{localStorage.setItem('intro.logo.seen','1');if(!localStorage.getItem('re.data.main:research-engine-v1'))localStorage.setItem('re.data.main:research-engine-v1',JSON.stringify({state:{settings:{onboarded:true,reduceMotion:true,updates:{autoCheck:false}}},version:0}))})
+ await p.route('**/api/**',r=>r.fulfill({json:{}}));await p.goto('http://127.0.0.1:5173/#/board')
+ await p.getByRole('heading',{name:'Your thinking, in one place',exact:true}).waitFor();await p.screenshot({path:'.cache/board-empty.png'})
+ await p.getByRole('button',{name:'Create your first board',exact:true}).click();await p.waitForURL('**/#/board/*');const boardURL=p.url();const id=decodeURIComponent(boardURL.split('/').pop());
+ await p.getByRole('textbox',{name:'Board title',exact:true}).fill('Coastal fieldwork')
+ await p.getByRole('button',{name:'Note',exact:true}).click();await p.getByRole('textbox',{name:'Item text',exact:true}).fill('Sampling plan\nCompare field notes with the source paper.')
+ await p.getByRole('spinbutton',{name:'X position',exact:true}).fill('80')
+ await p.getByRole('button',{name:'Reference',exact:true}).click();await p.getByRole('textbox',{name:'Item text',exact:true}).fill('Source paper\nCheck the methods before quoting.')
+ await p.getByRole('textbox',{name:'Source URL',exact:true}).fill('javascript:alert(1)');assert.equal(await p.getByRole('link',{name:'Open source in new tab'}).count(),0)
+ await p.getByRole('textbox',{name:'Source URL',exact:true}).fill('https://example.com/research');await p.getByRole('link',{name:'Open source in new tab'}).waitFor()
+ await p.getByRole('button',{name:'Save revision',exact:true}).click();await p.getByRole('status').filter({hasText:'Saved revision 2'}).waitFor()
+ await p.getByRole('button',{name:'Undo board edit'}).isDisabled().then(v=>assert.equal(v,true))
+ await p.getByRole('textbox',{name:'Item text',exact:true}).fill('Unsaved source annotation')
+ await p.getByRole('button',{name:'Undo board edit'}).click();assert.match(await p.getByRole('textbox',{name:'Item text',exact:true}).inputValue(),/^Source paper/)
+ await p.getByRole('button',{name:'Redo board edit'}).click();assert.equal(await p.getByRole('textbox',{name:'Item text',exact:true}).inputValue(),'Unsaved source annotation')
+ await p.reload();await p.getByRole('button',{name:'Load recovery draft',exact:true}).click()
+ const outline=p.getByRole('complementary',{name:'Board outline'});await outline.getByRole('button',{name:'Unsaved source annotation',exact:true}).click();assert.equal(await p.getByRole('textbox',{name:'Item text',exact:true}).inputValue(),'Unsaved source annotation')
+ await p.getByRole('searchbox',{name:'Search board items',exact:true}).fill('Sampling');assert.equal(await outline.getByRole('listitem').count(),1);await outline.getByRole('button',{name:'Sampling plan',exact:true}).click();assert.equal(await p.getByRole('spinbutton',{name:'X position',exact:true}).inputValue(),'80');await p.getByRole('searchbox',{name:'Search board items',exact:true}).fill('')
+ await p.getByRole('button',{name:'Save revision',exact:true}).click();await p.getByRole('status').filter({hasText:'Saved revision 3'}).waitFor()
+ await p.getByText('Previous saved revision',{exact:true}).click();await p.getByRole('button',{name:'Load previous revision into draft',exact:true}).click();await outline.getByRole('button',{name:'Source paper',exact:true}).click();assert.match(await p.getByRole('textbox',{name:'Item text',exact:true}).inputValue(),/^Source paper/)
+ await p.getByRole('button',{name:'Save revision',exact:true}).click();await p.getByRole('status').filter({hasText:'Saved revision 4'}).waitFor()
+ await p.getByRole('button',{name:'Zoom in',exact:true}).click();assert.equal(await p.getByLabel('Board zoom',{exact:true}).textContent(),'125%');await p.getByRole('button',{name:'Zoom out',exact:true}).click();assert.equal(await p.getByLabel('Board zoom',{exact:true}).textContent(),'100%')
+ await p.screenshot({path:'.cache/board-desktop.png',animations:'disabled'})
+ await p.setViewportSize({width:390,height:844});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await p.getByRole('textbox',{name:'Item text',exact:true}).scrollIntoViewIfNeeded();await p.screenshot({path:'.cache/board-narrow.png',animations:'disabled'})
+ // Storage-full failure must stay visibly unsaved without hiding typed text.
+ await p.evaluate(()=>{window.__boardSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key.includes(':board-draft:'))throw new DOMException('full','QuotaExceededError');return window.__boardSetItem.call(this,key,value)}})
+ await p.getByRole('textbox',{name:'Item text',exact:true}).fill('Draft under storage pressure');await p.getByRole('alert').filter({hasText:'Recovery draft could not be stored'}).waitFor();await p.getByRole('status').filter({hasText:'recovery draft unavailable'}).waitFor();assert.equal(await p.getByRole('textbox',{name:'Item text',exact:true}).inputValue(),'Draft under storage pressure')
+ await p.evaluate(()=>{Storage.prototype.setItem=window.__boardSetItem;delete window.__boardSetItem})
+ // Simulate another window committing, then ensure UI refuses to overwrite it.
+ await p.evaluate(async id=>{const {openBoardStore,boardDatabaseName}=await import('/src/lib/board/storage.ts');const db=await openBoardStore(boardDatabaseName('re.data.main'));const value=await db.load(id);await db.save({...value,title:'Other window title'},value.revision);db.close()},id)
+ await p.getByRole('textbox',{name:'Board title',exact:true}).fill('Stale local title');await p.getByRole('button',{name:'Save revision',exact:true}).click();await p.getByRole('alert').filter({hasText:'another window'}).waitFor();assert.equal(await p.getByRole('textbox',{name:'Board title',exact:true}).inputValue(),'Stale local title')
+ const stored=await p.evaluate(async id=>{const {openBoardStore,boardDatabaseName}=await import('/src/lib/board/storage.ts');const db=await openBoardStore(boardDatabaseName('re.data.main'));const value=await db.load(id);const guest=await openBoardStore(boardDatabaseName('re.data.guest'));const isolated=await guest.load(id);db.close();guest.close();return {title:value.title,isolated:!isolated}},id);assert.deepEqual(stored,{title:'Other window title',isolated:true})
+ await p.getByRole('link',{name:'All boards',exact:true}).click();await p.getByRole('link',{name:/Other window title/}).waitFor();await p.getByRole('searchbox',{name:'Search boards',exact:true}).fill('no-such-board');await p.getByRole('status').filter({hasText:'No boards match'}).waitFor()
+ // Existing wipe path must remove main and guest Board databases too, not just localStorage.
+ const wipe=await p.evaluate(async()=>{const {wipeEverything}=await import('/src/lib/security/lock.ts');return wipeEverything()});assert.ok(!wipe.note.includes('Board deletion could not finish'))
+ const barrier=await p.evaluate(async()=>{const {openBoardStore,boardDatabaseName,newBoard}=await import('/src/lib/board/storage.ts');const db=await openBoardStore(boardDatabaseName('re.data.main'));try{await db.save(newBoard(),0);return false}catch{return true}finally{db.close()}});assert.equal(barrier,true)
+ const count=await p.evaluate(async()=>{const {openBoardStore,boardDatabaseName}=await import('/src/lib/board/storage.ts');const db=await openBoardStore(boardDatabaseName('re.data.main'));const all=await db.list();db.close();return all.length});assert.equal(count,0)
+ assert.deepEqual(errors,[])
+ console.log('PASS visible Board create/edit/save/reload, per-tab recovery, search/outline, position, undo/redo, source URL safety, previous restore, narrow layout, stale writer UI, namespace isolation, wipe integration; no page errors')
+} finally {await browser.close()}
