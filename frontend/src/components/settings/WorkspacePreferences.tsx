@@ -1,3 +1,4 @@
+import { Slider } from '@/components/ui/native/Slider'
 import React from 'react'
 import { useStore } from '@/stores/useStore'
 import { LAYOUTS, PINNABLE_TOOLS, sidebarWidth, workspaceLayout } from '@/lib/shell/preferences'
@@ -25,7 +26,7 @@ export function WorkspacePreferences() {
       </ModernSelect>
     </label>
     <label className="block text-xs mb-4">Sidebar width · {sidebarWidth(settings.sidebarWidth)} px
-      <input aria-label="Sidebar width" className="block w-full mt-2 accent-[var(--primary)]" type="range" min={216} max={360} step={8} value={sidebarWidth(settings.sidebarWidth)} onChange={(e) => update({ sidebarWidth: Number(e.target.value) })} />
+      <Slider aria-label="Sidebar width" className="block w-full mt-2 accent-[var(--primary)]"  min={216} max={360} step={8} value={sidebarWidth(settings.sidebarWidth)} onValueChange={value => update({ sidebarWidth: value })} />
       <span className="block mt-1" style={{ color: 'var(--text-3)' }}>Or drag the sidebar edge. Arrow keys resize it; double-click resets it.</span>
     </label>
     <Switch label="Workspace effects" description="Optional ASCII interaction in empty coding projects and particles after successful workflows. Off by default; disabled with reduced motion." checked={settings.workspaceEffects === true} onChange={(workspaceEffects) => update({ workspaceEffects })} />

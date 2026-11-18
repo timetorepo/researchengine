@@ -74,3 +74,19 @@ html[data-liquid-redesign=on] .lg-segmented { max-width:100%; }
 html[data-liquid-redesign=on] .lg-switch { --lg-scale:.30; }
 @media(prefers-reduced-transparency:reduce),(forced-colors:active) { html[data-liquid-redesign] :is(.lg-glass,.bui-popover,.bui-select-popup) { backdrop-filter:none!important; background:var(--surface)!important; } }
 html[data-liquid-redesign=on] .lg-input { max-width:none; }
+/* Popup surfaces stay more opaque than controls so arbitrary backdrops do not
+   compromise option text. Base UI continues to own focus and dismissal. */
+html[data-liquid-redesign=on] :is(.bui-select-popup,.bui-popover) { background:color-mix(in srgb,var(--surface) 96%,transparent); }
+html[data-liquid-redesign=on] .lg-input:focus-within { outline:2px solid var(--primary); outline-offset:2px; }
+html[data-liquid-redesign=on] .lg-slider { min-width:0; }
+html[data-liquid-redesign=on] .lg-slider input:focus-visible { outline:2px solid var(--primary); outline-offset:2px; border-radius:8px; }
+/* Theme IDs include named palettes, not only light/dark. Derive all secondary
+   Glisse materials from app tokens instead of the operating system palette. */
+html[data-liquid-redesign=on] {
+  --lg-glass-active:var(--elevated); --lg-selection:color-mix(in srgb,var(--text) 12%,transparent);
+  --lg-lens:color-mix(in srgb,var(--surface) 30%,transparent); --lg-segment-track:var(--surface);
+  --lg-segment-lens:var(--elevated); --lg-surface-edge:var(--surface-border);
+  --lg-highlight:var(--elevated); --lg-separator:var(--surface-border);
+  --lg-track:color-mix(in srgb,var(--text) 30%,var(--surface)); --lg-rail:var(--surface-border);
+  --lg-shadow:#0003; --lg-drop:#0001; --lg-lens-drop:#0002;
+}

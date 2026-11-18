@@ -1,3 +1,4 @@
+import { Slider } from '@/components/ui/native/Slider'
 import { ditherMaskStyle } from '@/lib/dither/pattern'
 import { cropImage } from '@/lib/images/crop'
 import { PaletteWorkshop } from './PaletteWorkshop'
@@ -196,8 +197,8 @@ export function AppearanceTab() {
               {Math.round(bg.opacity * 100)}%
             </span>
           </div>
-          <input type="range" min={0.15} max={0.8} step={0.05} value={bg.opacity}
-            onChange={(e) => setBg({ kind: 'veil', opacity: Number(e.target.value) })}
+          <Slider min={0.15} max={0.8} step={0.05} value={bg.opacity}
+            onValueChange={value => setBg({ kind: 'veil', opacity: value })}
             className="w-full accent-[var(--primary)]" aria-label="Veil intensity" />
         </div>
       )}
@@ -292,8 +293,8 @@ export function AppearanceTab() {
         </div>
         <div className="flex items-center gap-4 mb-2">
           <label className="flex flex-col gap-2 text-xs min-w-[160px]">Text size · {Math.round(settings.fontScale * 100)}%
-            <input type="range" aria-label="Text size" min={80} max={140} step={1} value={Math.round(settings.fontScale * 100)}
-              onChange={(e) => update({ fontScale: Number(e.target.value) / 100 })} className="accent-[var(--primary)]" />
+            <Slider aria-label="Text size" min={80} max={140} step={1} value={Math.round(settings.fontScale * 100)}
+              onValueChange={value => update({ fontScale: value / 100 })} className="accent-[var(--primary)]" />
           </label>
           <div className="flex-1">
             <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Fine text size</div>
@@ -494,8 +495,8 @@ export function AppearanceTab() {
         )}
 
         <label className="block surface p-4 mb-3 text-xs">Floating navigation glass strength · {settings.navigationGlassStrength ?? 60}%
-          <input aria-label="Floating navigation glass strength" className="block w-full mt-3 accent-[var(--primary)]" type="range" min={0} max={100} step={5}
-            value={settings.navigationGlassStrength ?? 60} onChange={(e) => update({ navigationGlassStrength: Number(e.target.value) })} />
+          <Slider aria-label="Floating navigation glass strength" className="block w-full mt-3 accent-[var(--primary)]"  min={0} max={100} step={5}
+            value={settings.navigationGlassStrength ?? 60} onValueChange={value => update({ navigationGlassStrength: value })} />
           <span className="block mt-2" style={{ color: 'var(--text-3)' }}>Controls the floating capsule, not reading surfaces. Solid and reduced-transparency modes remain opaque.</span>
         </label>
 

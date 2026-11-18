@@ -1,7 +1,7 @@
 import { searchSettings, normalize } from '@/lib/settings/search'
 /* Layout adapted from BoardUI settings-modal. Copyright (c) 2026 Mertcan Dundar Esmergul, MIT. */
 import { Suspense, useEffect, useState, useRef } from 'react'
-import { Search } from 'lucide-react'
+import { SearchField } from '@/components/ui/native/SearchField'
 import { useUI } from '@/stores/useUI'
 import { TABS, TAB_GROUPS, renderTab } from './settingsTabs'
 import { SettingsNotices } from './SettingsNotices'
@@ -37,8 +37,9 @@ export function SettingsSheet({ routeOpen = false, onRouteClose }: { routeOpen?:
   useEffect(() => { window.addEventListener('re:close-settings', close); return () => window.removeEventListener('re:close-settings', close) }, [routeOpen, onRouteClose])
   const matching = TABS.filter((item) => item.label.toLowerCase().includes(query.trim().toLowerCase()))
   return <BoardOverlay open={open} onClose={close} title="Settings" header={
-    <label className="relative flex-1 max-w-[320px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
-      <input className="bui-field w-full" style={{ paddingInlineStart: 36 }} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search settings…" aria-label="Find a settings category" type="search" maxLength={100} /></label>
+    <div className="flex-1 min-w-0 max-w-[320px]">
+      <SearchField value={query} onValueChange={setQuery} placeholder="Search settings…" aria-label="Find a settings category" maxLength={100} />
+    </div>
   }>
     <div className="bui-settings-layout">
       <nav aria-label="Settings categories" className="bui-settings-rail pane-scroll">

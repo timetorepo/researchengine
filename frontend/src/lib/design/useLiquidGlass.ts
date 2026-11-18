@@ -6,7 +6,7 @@ const snapshot = () => matchMedia(query).matches
 /** Preserve the saved request; accessibility preferences can temporarily override material. */
 export function useLiquidGlass() {
   const requested = useStore(s => s.settings.liquidGlassRedesign === true)
-  const reduced = useStore(s => s.settings.reduceMotion)
+  const reduced = useStore(s => s.settings.reduceMotion || s.settings.theme === 'high-contrast')
   const opaque = useSyncExternalStore(subscribe, snapshot, () => true)
   return requested && !opaque && !reduced
 }

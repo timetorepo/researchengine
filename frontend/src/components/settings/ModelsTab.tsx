@@ -1,3 +1,4 @@
+import { Slider as RangeSlider } from '@/components/ui/native/Slider'
 import React, { useState } from 'react'
 import { ScrollText, RotateCcw, GitBranch } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
@@ -145,7 +146,7 @@ function Slider({ label, value, min, max, step, onChange, hint }: {
         <span className="text-[13px] font-medium">{label}</span>
         <span className="text-[12px] font-mono px-2 py-0.5 rounded" style={{ background: 'var(--elevated)' }}>{value}</span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))}
+      <RangeSlider min={min} max={max} step={step} value={value} onValueChange={value => onChange(value)}
         className="w-full accent-[var(--primary)]" aria-label={label} />
       {hint && <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>{hint}</p>}
     </div>

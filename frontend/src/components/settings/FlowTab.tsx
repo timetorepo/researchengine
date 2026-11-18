@@ -1,3 +1,4 @@
+import { Slider } from '@/components/ui/native/Slider'
 import React, { useEffect, useState } from 'react'
 import { Wind } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
@@ -188,8 +189,8 @@ export function FlowTab() {
                 <div className="text-[12px] font-medium">Pacing sensitivity</div>
                 <div className="text-[11px]" style={{ color: 'var(--primary)' }}>{Math.round((settings.pacingSensitivity ?? 0.5) * 100)}%</div>
               </div>
-              <input type="range" min={0} max={100} value={Math.round((settings.pacingSensitivity ?? 0.5) * 100)}
-                onChange={(e) => update({ pacingSensitivity: Number(e.target.value) / 100 })}
+              <Slider aria-label="Pacing sensitivity" min={0} max={100} value={Math.round((settings.pacingSensitivity ?? 0.5) * 100)}
+                onValueChange={value => update({ pacingSensitivity: value / 100 })}
                 className="w-full" style={{ accentColor: 'var(--primary)' }} />
               <div className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>Higher = the stream speeds up faster when the buffer fills.</div>
             </div>

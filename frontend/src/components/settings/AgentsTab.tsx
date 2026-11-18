@@ -1,3 +1,4 @@
+import { Slider } from '@/components/ui/native/Slider'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, ArrowRight } from 'lucide-react'
@@ -23,8 +24,8 @@ export function AgentsTab() {
           <span className="text-[13px] font-medium">Hard budget cap (all agents)</span>
           <span className="text-[12px] font-mono px-2 py-0.5 rounded" style={{ background: 'var(--elevated)' }}>{fmt(budget)} tok</span>
         </div>
-        <input type="range" min={10000} max={1000000} step={10000} value={budget}
-          onChange={(e) => useStore.setState((s) => ({ settings: { ...s.settings, floodBudget: Number(e.target.value) } }))}
+        <Slider min={10000} max={1000000} step={10000} value={budget}
+          onValueChange={value => useStore.setState((s) => ({ settings: { ...s.settings, floodBudget: value } }))}
           className="w-full accent-[var(--secondary)]" aria-label="Flood budget cap" />
         <p className="text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>Agents halt when the combined token budget is hit.</p>
       </div>

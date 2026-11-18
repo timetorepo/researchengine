@@ -1,3 +1,4 @@
+import { Slider } from '@/components/ui/native/Slider'
 /**
  * Developer Mode → UI lab.
  *
@@ -498,8 +499,8 @@ export function UILab() {
                   )}
                   {k.type === 'range' && (
                     <>
-                      <input type="range" min={k.min} max={k.max} step={k.step} value={Number(v[k.id])}
-                        onChange={(e) => setKnob(k.id, Number(e.target.value))} />
+                      <Slider aria-label={k.label} min={k.min} max={k.max} step={k.step} value={Number(v[k.id])}
+                        onValueChange={value => setKnob(k.id, value)} />
                       <span className="font-mono w-[46px]">{String(v[k.id])}</span>
                     </>
                   )}
