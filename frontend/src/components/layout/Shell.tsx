@@ -1,3 +1,4 @@
+import { useDocumentActivity } from '@/lib/documents/activity'
 import { BrandMark } from '@/components/shared/BrandMark'
 import { paletteTokens } from '@/lib/design/paletteTheme'
 import React, { useEffect } from 'react'
@@ -70,6 +71,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const workbenchOpen = useUI((s) => s.codingWorkbenchOpen)
   const isOS = theme === 're-os'
+  const hasDocumentActivity = useDocumentActivity(s => s.jobs.length > 0)
   const dynamicIsland = useStore((s) => s.settings.dynamicIsland)
   const themeGradients = useStore((s) => s.settings.themeGradients)
   const glassMode = useStore((s) => s.settings.glassMode)
@@ -177,7 +179,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {studioPanelVisible(location.pathname, layout, workbenchOpen) && <aside className="re-studio-panel" aria-label="Workspace panel"><WorkspaceActivity supporting /></aside>}
       </div>
       {/* Optional everywhere: the island floats over any theme when enabled. */}
-      {dynamicIsland && <DynamicIsland />}
+      {(dynamicIsland || hasDocumentActivity) && <DynamicIsland />}
       <PrivacyPanel />
       <SessionSwitcher />
     </div>

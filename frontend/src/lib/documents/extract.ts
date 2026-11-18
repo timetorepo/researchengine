@@ -1,6 +1,7 @@
+import { startDocumentActivity } from './activity'
 // Document extraction. Runs async so the main thread stays responsive;
 // PDF parsing happens in the pdf.js worker.
-export async function extractText(file: File, options: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<string> {
+async function extractDocumentText(file: File, options: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<string> {
   const check = () => { if (options.signal?.aborted) throw new DOMException('Processing cancelled', 'AbortError') }
   check()
   const name = file.name.toLowerCase()
@@ -10,6 +11,7 @@ export async function extractText(file: File, options: { signal?: AbortSignal; o
   }
 
   if (name.endsWith('.pdf')) {
+    options.onProgress?.(0, 0)
     const pdfjs: any = await import('pdfjs-dist')
     const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
     pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
@@ -61,6 +63,27 @@ export async function extractText(file: File, options: { signal?: AbortSignal; o
   }
 
   throw new Error('Unsupported file type. Use PDF, DOCX, TXT, or Markdown.')
+}
+
+/** Tracks actual extraction across all existing intake paths, without sending data. */
+export async function extractText(file: File, options: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<string> {
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  if (options.signal?.aborted) controller.abort()
+  options.signal?.addEventListener('abort', abort, { once: true })
+  const activity = startDocumentActivity(file.name, abort)
+  try {
+    const text = await extractDocumentText(file, { signal: controller.signal, onProgress: (done, total) => {
+      activity.update({ stage: 'extracting', done: total > 0 ? done : undefined, total: total > 0 ? total : undefined })
+      if (total > 0) options.onProgress?.(done, total)
+    } })
+    if (controller.signal.aborted) throw new DOMException('Processing cancelled', 'AbortError')
+    activity.update({ stage: 'ready' })
+    return text
+  } catch (error) {
+    activity.update({ stage: controller.signal.aborted ? 'cancelled' : 'failed', error: controller.signal.aborted ? undefined : error instanceof Error ? error.message : 'Could not read this document.' })
+    throw error
+  } finally { options.signal?.removeEventListener('abort', abort) }
 }
 
 /** Split into sentences for quiz generation. */

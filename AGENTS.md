@@ -31,6 +31,6 @@ Report measured results separately from assumptions. A successful build is not v
 ## Release notes
 
 Every shipped update must include user-facing release notes: changes, fixes,
-known limitations and any upgrade steps. Keep an unreleased draft under
-`docs/releases/`, finalise a versioned note before shipping, and publish those
-notes with the GitHub release. Never imply an unreleased draft has shipped.
+known limitations and any upgrade steps. Write release notes only when a release is being prepared, not for each
+implementation change. Finalise a versioned note before shipping and publish
+those notes with the GitHub release. Never imply an unreleased draft has shipped.

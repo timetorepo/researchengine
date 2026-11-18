@@ -56,3 +56,9 @@ html[data-typeface=allo] { font-optical-sizing: auto; }
 .re-islandcn-actions button { display:inline-flex; align-items:center; gap:6px; background:#29292e; color:white; border:1px solid #505058; border-radius:8px; min-height:32px; padding:6px 10px; font-size:12px; }
 .re-islandcn-actions button:focus-visible { outline:2px solid #a3b3ff; outline-offset:3px; }
 .re-setting-search-target { outline:2px solid var(--primary); outline-offset:5px; border-radius:4px; }
+/* Extra tools grow inside the narrow rail, never the workspace width. */
+.re-collapsed-tools { width:100%; display:flex; flex-direction:column; align-items:center; max-height:min(288px,32dvh); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; flex-shrink:1!important; min-height:36px; border-block:1px solid var(--surface-border); }
+.re-collapsed-tools .re-dock-item { flex-shrink:0; }
+/* islandcn expanded geometry is bounded: long filenames/import lists scroll
+   inside its measured bottom region instead of placing actions outside the hit surface. */
+.re-islandcn-detail { max-height:112px; overflow-y:auto; overscroll-behavior:contain; padding:4px 3px 8px; scrollbar-width:thin; }

@@ -176,9 +176,14 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
               </DockItem>
             )
           })}
-          <DockItem index={primary.length + 2} label="More tools" onClick={() => { setMoreOpen(true); ui.toggleSidebar() }}>
+          <DockItem index={primary.length + 2} label="More tools" expanded={showMore} controls="re-collapsed-tools" onClick={() => setMoreOpen(open => !open)}>
             <ChevronDown size={18} strokeWidth={1.5} />
           </DockItem>
+          {showMore && <div id="re-collapsed-tools" role="group" aria-label="More workspace tools" className="re-collapsed-tools">
+            {secondary.map((n, i) => <DockItem key={n.to} index={primary.length + 3 + i} label={n.label}
+              active={matchesSection(location.pathname, n.to)} onHover={() => warm(n.to)}
+              onClick={() => { closeMobile(); navigate(n.to) }}><n.icon size={18} strokeWidth={1.5} /></DockItem>)}
+          </div>}
           <DockItem index={NAV.length + 2} label="Marketplace" onClick={() => openMarketplace()}>
             <Store size={18} strokeWidth={1.5} />
           </DockItem>
@@ -222,7 +227,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
             <button type="button" className="re-shell-more w-full flex items-center gap-2 px-2.5 h-9 mt-4 text-[12px] rounded-lg"
               aria-expanded={showMore} aria-controls="re-secondary-navigation"
               onClick={() => setMoreOpen((open) => !open)}>
-              <span className="flex-1 text-left">More tools</span><ChevronDown size={14} style={{ transform: showMore ? 'rotate(180deg)' : undefined }} />
+              <span className="flex-1 text-left">More tools</span><ChevronDown size={14} />
             </button>
             {showMore && <div id="re-secondary-navigation" className="flex flex-col gap-0.5 mt-1">
               {secondary.map((n) => <NavRow key={n.to} to={n.to} label={n.label} icon={n.icon} end={n.end}
@@ -482,7 +487,9 @@ function DockRail({ children }: { children: React.ReactNode }) {
   )
 }
 
-function DockItem({ index, label, active = false, pending = false, onClick, onHover, children, tone, dwellMs = 0, flyout, pillMorph = false }: {
+function DockItem({ index, label, active = false, pending = false, onClick, onHover, children, tone, dwellMs = 0, flyout, pillMorph = false, expanded, controls }: {
+  expanded?: boolean
+  controls?: string
   index: number
   label: string
   active?: boolean
@@ -559,7 +566,8 @@ function DockItem({ index, label, active = false, pending = false, onClick, onHo
           aria-label={label}
           title={label}
           aria-current={active ? 'page' : undefined}
-          aria-expanded={dwellMs > 0 ? dwell.armed : undefined}
+          aria-expanded={expanded ?? (dwellMs > 0 ? dwell.armed : undefined)}
+          aria-controls={controls}
           initial={false}
           animate={{ borderRadius: morphed ? 18 : 11 }}
           transition={{ type: 'spring', stiffness: 380, damping: 28 }}
