@@ -32,9 +32,7 @@ export const BUILD_ID = BUNDLE_BUILD
 const REPO = 'https://github.com/timetorepo/researchengine'
 
 /** The maker's avatar: the app's own mark, inline, so it renders offline. */
-const MAKER_AVATAR = `data:image/svg+xml;utf8,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#131316"/><path d="M32 13 L49 24 L32 35 L15 24 Z" fill="#6C8EEF"/><path d="M32 27 L49 38 L32 49 L15 38 Z" fill="#A78BFA" opacity="0.85"/></svg>`,
-)}`
+const MAKER_AVATAR = '/brand/app-icon.svg'
 
 interface ServerWeb {
   served: { version: string; buildId: string; builtAt: string } | null
@@ -122,6 +120,8 @@ function StaleBuildCard() {
 
 /** The UI component libraries the interface is assembled from. */
 const UI_LIBRARIES: { name: string; href: string; author?: string; used: string }[] = [
+  { name: 'BoardUI', href: 'https://github.com/BoardUI/boardui', author: 'Mertcan Dundar Esmergul', used: 'MIT-licensed layout adaptations for settings, documents, selects, dates, connections and notifications. Other primitives and the Pro questionnaire/task-log equivalents are original implementations of public interaction patterns using installed accessibility libraries. Licence and provenance retained in source.' },
+  { name: 'Bencho', href: 'https://github.com/cabralorenzo/bencho', author: 'Lorenzo Cabra', used: 'Eighteen MIT-licensed blocks adapted for live controls, workflows, palettes, image generation, profile artwork and usage. Copyright (c) 2026 Lorenzo Cabra; licence and pinned provenance retained in the source.' },
   { name: 'Glisse', href: 'https://glisse.kelvinzhang.ca', author: 'Kelvin Zhang', used: 'The liquid-glass segmented control that switches between Projects and Codersa. MIT-licensed.' },
   { name: 'Hyperiux Vault', href: 'https://21st.dev/@hyperiux/library/hyperiux-vault', used: 'Ideas for the portal carousel, card flip, block transition, pixel headline, typing loader, scramble link and stack loader. Rebuilt in-app; the upstream source is not copied.' },
   { name: 'badtzx0 (21st.dev)', href: 'https://21st.dev/@badtzx0', used: 'Ideas for the animated card chart and card diagram on the onboarding steps. Rebuilt in-app; the upstream source is not copied.' },
@@ -430,6 +430,10 @@ export function AboutTab() {
       {/* Changelog ----------------------------------------------------- */}
       <div className="pt-4 text-[11px] leading-relaxed" style={{ borderTop: '1px solid var(--surface-border)', color: 'var(--text-3)' }}>
         <div className="font-medium mb-1" style={{ color: 'var(--text-2)' }}>Changelog</div>
+        <p>Activity island: islandcn, MIT © 2026 Leo (opencoredev/islandcn). Original engine source is included with its licence; real ResearchEngine activities replace demo presets.</p>
+        <p>Native Studio identity: original ResearchEngine mark and wordmark. Interface typography: Allo by Josh Puckett and the Inter authors; Work Sans by the Work Sans Project Authors; Bricolage Grotesque by its project authors. Distributed under the SIL Open Font License, with licence copies bundled in <code>/fonts/native-studio/</code>. Existing named typeface choices remain available.</p>
+        <p><b>1.9.0 — Local image cropping and integrated workspace controls:</b> Profile photos and image uploads use zriz for local crop, rotate, flip and straighten. Settings now open as a searchable modal; Marketplace filters, notifications, questionnaires and real agent execution logs use the integrated component adapters. Cold settings-open performance remains under investigation.</p>
+        <p><a href="https://github.com/pqoqubbw/zriz" target="_blank" rel="noreferrer">zriz</a> — MIT, Copyright (c) 2026 Dmytro. Image cropper used through pinned @zriz/react and @zriz/core packages.</p>
         <p><b>1.8.0: An Apple-style interface, a floating tab bar, faster saving:</b> Cards, toggles and sheets follow the Apple references. Settings lists are grouped the way iOS groups them. An experimental floating tab bar is off by default, in Settings → Appearance. Saving to the database is about 20 times faster per write.</p>
         <p><b>1.7.0: A liquid-glass intro, a streaming fix that bills every answer, nine new effects:</b> The first launch opens on a liquid-glass logo, and Settings can show it on every launch. Answers that stop, fail or break off mid-way are now counted in the usage and the daily budget. Codersa's tabs use a glass control. Typing is a new loading style. Experiential Labs is a provider. Several attached images can open as a fan (experimental). Onboarding has new effects.</p>
         <p><b>1.6.0: Music that shows while it plays, a consented 3D keyboard, faster startup:</b> The top-bar player appears only while a track plays and shows its artist and album. The 3D keyboard asks before it listens to keys, and only listens while it is on. The welcome screen has a 3D marquee of the app. Startup loads less code up front, and the personas are rewritten.</p>

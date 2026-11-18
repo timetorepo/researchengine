@@ -1,12 +1,12 @@
+import { WorkspaceActivity } from './WorkspaceActivity'
 import { useHeroArt } from '@/components/home/heroArtPrefs'
-import React, { useMemo, useState, useEffect, lazy, Suspense } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { MessageSquare, BookOpen, GraduationCap, Users, Compass, ArrowRight, Sparkles, UploadCloud, Search, Code2, Swords, Calculator } from 'lucide-react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { InputBar } from '@/components/input/InputBar'
-import { AuroraBackground } from '@/components/ui/aceternity/AuroraBackground'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
 import { Magnetic } from '@/components/ui/reactbits/Magnetic'
@@ -39,7 +39,6 @@ const SUGGESTIONS = [
 ]
 
 // The pattern backdrop is decorative and uses its own WebGL program; it loads on its own chunk.
-const PatternWaves = lazy(() => import('@/components/ui/reactbits/micro/PatternWaves'))
 
 export function HomeScreen() {
   const [heroArt] = useHeroArt()
@@ -68,6 +67,7 @@ export function HomeScreen() {
     return () => clearInterval(iv)
   }, [])
 
+  const layout = useStore((s) => s.settings.workspaceLayout ?? 'focused')
   const recentChats = useMemo(() => [...chats].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3), [chats])
   const hasHistory = chats.length > 0 || articles.length > 0
 
@@ -115,11 +115,9 @@ export function HomeScreen() {
       onDragLeave={(e) => { if (hasFiles(e) && e.currentTarget === e.target) setDragOver(false) }}
       onDrop={onDrop}
     >
-      {/* Aurora is the theme's own light show; a chosen wallpaper takes its
-          place rather than sitting under it. The drifting waves sit above the
-          aurora at low strength — a second layer of motion, not a replacement. */}
-      {!wallpaper && <AuroraBackground className="absolute inset-0 pointer-events-none" />}
-      {!wallpaper && <div className="absolute inset-0 pointer-events-none"><Suspense fallback={null}><PatternWaves opacity={0.35} interactive={false} /></Suspense></div>}
+      {/* A still light field keeps the default workspace quiet. User-selected
+          wallpapers and opt-in animated backgrounds remain independent. */}
+      {!wallpaper && <div className="re-studio-home-light absolute inset-0 pointer-events-none" aria-hidden="true" />}
       <AnimatePresence>
         {dragOver && (
           <motion.div
@@ -136,7 +134,7 @@ export function HomeScreen() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
+      <div className="re-home-content relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
         {/* A welcome for the AI-product themes; off in Settings → Appearance. */}
         <AIThemeWelcome onFocusInput={() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus()} />
 
@@ -178,6 +176,8 @@ export function HomeScreen() {
         {/* Suggestions: drawn from your recent chats when there is history,
             otherwise the generic research prompts. */}
         <SuggestedForYou chats={recentChats} onAsk={(prompt, opts) => sendFromHome(prompt, opts)} fallback={chips} />
+
+        {layout === 'overview' && <div className="mt-8"><WorkspaceActivity /></div>}
 
         {/* The streak: days with real work in them, not days the app was open. */}
         <div className="mt-6 max-w-[420px] mx-auto">

@@ -26,7 +26,7 @@ export interface BotsState {
   say: (botId: string, msg: Omit<BotMessage, 'id' | 'at'>) => void
   remember: (botId: string, text: string) => string | undefined
   forget: (botId: string, index: number) => void
-  addRoutine: (botId: string, input: { title: string; instructions: string; everyMinutes: number }) => string | undefined
+  addRoutine: (botId: string, input: { title: string; instructions: string; everyMinutes: number; firstRunAt?: number }) => string | undefined
   patchRoutine: (botId: string, routineId: string, patch: Partial<Pick<Routine, 'enabled' | 'title' | 'instructions' | 'everyMinutes'>>) => void
   deleteRoutine: (botId: string, routineId: string) => void
   recordRun: (botId: string, routineId: string, run: Omit<RoutineRun, 'id'>) => void

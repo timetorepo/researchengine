@@ -1,3 +1,4 @@
+import { Balance } from '@/components/ui/bencho/pull/Balance'
 /**
  * CRM: a dashboard over Twenty. It reads the latest records live (totals, the
  * newest people and companies, a 14-day chart and how complete the records
@@ -99,6 +100,7 @@ export function CrmPage() {
 
   return (
     <div className="h-full overflow-y-auto">
+      <Balance busy={loading} onRefresh={load}>
       <div className="mx-auto w-full max-w-6xl px-5 py-6 md:px-8 space-y-5">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-0 flex-1">
@@ -191,6 +193,7 @@ export function CrmPage() {
           </>
         )}
       </div>
+      </Balance>
     </div>
   )
 }

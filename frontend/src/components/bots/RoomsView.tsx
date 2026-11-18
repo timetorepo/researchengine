@@ -1,3 +1,5 @@
+import { Picker } from '@/components/ui/bencho/picker/Picker'
+import '@/components/ui/bencho/picker/Picker.css'
 import { useBotDrafts } from '@/lib/bots/drafts'
 /**
  * Group chats. Bots in a group answer in turn: a bot called on with @Name answers
@@ -8,7 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Loader2, Send, Trash2 } from 'lucide-react'
 import { useBots } from '@/lib/bots/store'
 import { runRoomTurn } from '@/lib/bots/runner'
-import { MAX_ROOM_MEMBERS, roomMembers, type Room } from '@/lib/bots/logic'
+import { MAX_ROOM_MEMBERS, roomMembers, botAvatar, type Room } from '@/lib/bots/logic'
 import { useUI } from '@/stores/useUI'
 import { BotFace } from './BotFace'
 
@@ -64,15 +66,13 @@ function NewRoomForm({ onDone }: { onDone: (id: string) => void }) {
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. Launch team" aria-label="Group name"
         className="w-full px-2.5 py-1.5 rounded-[10px] text-[12.5px] outline-none" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }} />
       {bots.length < 2 && <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>Create at least two bots first.</p>}
-      <fieldset className="space-y-1">
-        <legend className="text-[11px] mb-1" style={{ color: 'var(--text-3)' }}>Members (up to {MAX_ROOM_MEMBERS})</legend>
-        {bots.map((b) => (
-          <label key={b.id} className="flex items-center gap-2 text-[12px] cursor-pointer">
-            <input type="checkbox" checked={picked.includes(b.id)} onChange={() => toggle(b.id)} />
-            <BotFace bot={b} size={20} /> {b.name}
-          </label>
-        ))}
-      </fieldset>
+      <div className="re-bencho">
+        <p className="text-xs mb-2">Members · {picked.length}/{MAX_ROOM_MEMBERS}</p>
+        <Picker picked={picked} onPickedChange={setPicked} limit={MAX_ROOM_MEMBERS} items={bots.map((bot) => {
+          const { letter, hue } = botAvatar(bot.name)
+          return { id: bot.id, name: bot.name, role: bot.job, avatar: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="hsl(${hue},40%,35%)"/><text x="32" y="42" text-anchor="middle" fill="white" font-size="28">&#${letter.codePointAt(0)};</text></svg>`)}` }
+        })} />
+      </div>
       <button type="button" onClick={create} className="w-full px-3 py-1.5 rounded-full text-[12px] font-medium" style={{ background: 'var(--primary)', color: '#fff' }}>Create group</button>
     </div>
   )

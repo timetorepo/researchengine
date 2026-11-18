@@ -1,3 +1,4 @@
+import { BrandMark } from '@/components/shared/BrandMark'
 // The first screen of first run, laid out as a website rather than a dashboard.
 //
 // It scrolls: a hero, a short "why" section, the three ways in, and a closing
@@ -62,10 +63,7 @@ export function Welcome({ onTear }: { onTear: () => void }) {
           className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] mb-7"
           style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}
         >
-          <svg width="34" height="34" viewBox="0 0 32 32" fill="none" aria-hidden>
-            <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-            <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-          </svg>
+          <BrandMark size={34} />
         </motion.div>
         <motion.h1
           initial={reduce ? false : { opacity: 0, y: 10 }}

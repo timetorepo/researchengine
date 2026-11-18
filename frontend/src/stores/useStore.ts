@@ -109,8 +109,9 @@ const defaultSettings: Settings = {
   scrollProgress: { enabled: true, unlocked: false, perSurface: {} },
   theme: 'dark',
   fontScale: 1,
-  typeface: 'default',
-  compact: false,
+  typeface: 'allo',
+  // Fresh profiles start compact; persisted comfortable preferences win in merge.
+  compact: true,
   reduceMotion: false,
   flowEnabled: true,
   flowMode: 'balanced',

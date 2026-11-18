@@ -1,3 +1,4 @@
+import { BrandMark } from '@/components/shared/BrandMark'
 import React, { memo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
@@ -274,10 +275,7 @@ export const Message = memo(function Message({ chatId, msg, streaming, onRegener
         <AIMessage
           avatar={prefs.avatars ? (
             <span className="grid h-7 w-7 place-items-center rounded-full" style={{ background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-              <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
-                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-              </svg>
+              <BrandMark size={14} />
             </span>
           ) : undefined}
           bubble={plainAssistant}

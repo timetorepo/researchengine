@@ -1,14 +1,5 @@
-/**
- * Typefaces for the interface.
- *
- * Every family here is already bundled through @fontsource in main.tsx, so a
- * choice costs no network request. `default` keeps the stack the app shipped
- * with, so existing users see no change until they pick something else.
- *
- * Some families are only bundled at a few weights (Plus Jakarta Sans at 600,
- * Poppins at 500 and 600). The browser then synthesises the rest, which is why
- * `note` says so for each one.
- */
+/** Locally bundled interface families. Saved IDs retain their original stacks;
+ * Allo is the fresh-profile recommendation, never a migration over a saved choice. */
 
 export interface TypefaceOption {
   id: string
@@ -24,6 +15,10 @@ export interface TypefaceOption {
 const SANS_FALLBACK = 'ui-sans-serif, system-ui, sans-serif'
 
 export const TYPEFACES: TypefaceOption[] = [
+  { id: 'allo', label: 'Allo', stack: '"Allo", ' + SANS_FALLBACK,
+    feel: 'Native Studio: warm, compact and legible.', note: 'Local variable font, weights 100–900. SIL OFL.' },
+  { id: 'work-sans', label: 'Work Sans', stack: '"Work Sans", ' + SANS_FALLBACK,
+    feel: 'A quieter screen-oriented alternative.', note: 'Local variable font, weights 100–900. SIL OFL.' },
   {
     id: 'default',
     label: 'Research Engine',
@@ -81,7 +76,7 @@ export const TYPEFACES: TypefaceOption[] = [
 export const TYPEFACE_IDS = TYPEFACES.map((t) => t.id)
 
 export function typefaceFor(id: string | undefined): TypefaceOption {
-  return TYPEFACES.find((t) => t.id === id) ?? TYPEFACES[0]
+  return TYPEFACES.find((t) => t.id === id) ?? TYPEFACES.find((t) => t.id === 'default')!
 }
 
 /** Write the chosen stack to the page. Unknown ids fall back to the default. */

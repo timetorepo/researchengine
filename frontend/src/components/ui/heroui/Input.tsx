@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useId, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
 /** HeroUI-style input with floating label slot, radius and focus tint. */
@@ -19,20 +19,24 @@ export function Input({
   onKeyDown?: (e: React.KeyboardEvent) => void
   endContent?: React.ReactNode
 }) {
+  const id = useId()
   const [show, setShow] = useState(false)
   const isPassword = type === 'password'
 
   return (
-    <label className={`block ${className}`}>
-      {label && <span className="block text-[12.5px] font-medium mb-1.5">{label}</span>}
+    <div className={`block ${className}`}>
+      {label && <label htmlFor={id} className="block text-[12.5px] font-medium mb-1.5">{label}</label>}
       <div
-        className="relative flex items-center rounded-[14px] transition-colors focus-within:border-[var(--primary)]"
+        className="relative flex items-center rounded-[8px] transition-colors focus-within:border-[var(--primary)]"
         style={{
           background: 'var(--elevated)',
           border: `1px solid ${isInvalid ? 'var(--danger)' : 'var(--surface-border)'}`,
         }}
       >
         <input
+          id={id}
+          aria-invalid={isInvalid || undefined}
+          aria-describedby={description || (isInvalid && errorMessage) ? `${id}-help` : undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -49,8 +53,8 @@ export function Input({
         )}
         {endContent && <span className="px-3 shrink-0">{endContent}</span>}
       </div>
-      {description && !isInvalid && <span className="block text-[11px] mt-1" style={{ color: 'var(--text-3)' }}>{description}</span>}
-      {isInvalid && errorMessage && <span className="block text-[11px] mt-1" style={{ color: 'var(--danger)' }}>{errorMessage}</span>}
-    </label>
+      {description && !isInvalid && <span id={`${id}-help`} className="block text-[12px] mt-1" style={{ color: 'var(--text-3)' }}>{description}</span>}
+      {isInvalid && errorMessage && <span id={`${id}-help`} className="block text-[12px] mt-1" style={{ color: 'var(--danger)' }}>{errorMessage}</span>}
+    </div>
   )
 }

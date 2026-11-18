@@ -1,0 +1,1 @@
+{"name":"researchengine-design-tools","private":true,"version":"1.0.0","description":"Development-only browser MCP; not an app dependency","dependencies":{"@playwright/mcp":"0.0.85"}}

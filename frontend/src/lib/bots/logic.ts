@@ -206,7 +206,7 @@ export function removeMemory(bot: Bot, index: number): Bot {
 
 export function addRoutine(
   bot: Bot,
-  input: { title: string; instructions: string; everyMinutes: number; enabled?: boolean },
+  input: { title: string; instructions: string; everyMinutes: number; enabled?: boolean; firstRunAt?: number },
   now: number,
   id: string,
 ): { bot: Bot; error?: string } {
@@ -222,7 +222,7 @@ export function addRoutine(
     instructions,
     everyMinutes: every,
     enabled: input.enabled ?? true,
-    nextRunAt: now + every * 60000,
+    nextRunAt: typeof input.firstRunAt === 'number' && Number.isFinite(input.firstRunAt) && input.firstRunAt > now ? input.firstRunAt : now + every * 60000,
     runs: [],
   }
   return { bot: { ...bot, routines: [...bot.routines, routine] } }

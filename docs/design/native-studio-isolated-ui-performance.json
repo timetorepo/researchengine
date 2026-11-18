@@ -1,0 +1,61 @@
+{
+  "environment": {
+    "intro": "already-seen: isolated UI",
+    "browser": "153.0.8010.0",
+    "viewport": "1440x1000",
+    "headless": true,
+    "productionBuild": true,
+    "cpuThrottle": "none",
+    "services": "explicitly mocked",
+    "physicalDevice": false,
+    "motion": "enabled",
+    "caveat": "Sandbox rAF intervals are not physical-device FPS certification. Samples include first-use chunk work and idle tail."
+  },
+  "results": [
+    {
+      "name": "settings-first-open",
+      "frames": 48,
+      "p95FrameMs": 16.799999999999955,
+      "maxFrameMs": 50,
+      "over25ms": 2,
+      "longTaskCount": 1,
+      "maxLongTaskMs": 50
+    },
+    {
+      "name": "settings-profile-tab",
+      "frames": 87,
+      "p95FrameMs": 16.800000000000182,
+      "maxFrameMs": 33.30000000000018,
+      "over25ms": 1,
+      "longTaskCount": 0,
+      "maxLongTaskMs": 0
+    },
+    {
+      "name": "settings-warm-open-close",
+      "frames": 29,
+      "p95FrameMs": 33.30000000000018,
+      "maxFrameMs": 33.399999999999636,
+      "over25ms": 3,
+      "longTaskCount": 1,
+      "maxLongTaskMs": 51
+    },
+    {
+      "name": "marketplace-filter-drawer",
+      "frames": 41,
+      "p95FrameMs": 16.800000000000182,
+      "maxFrameMs": 16.800000000000182,
+      "over25ms": 0,
+      "longTaskCount": 0,
+      "maxLongTaskMs": 0
+    },
+    {
+      "name": "1000-file-tree-keyboard-scroll",
+      "frames": 24,
+      "p95FrameMs": 33.30000000000018,
+      "maxFrameMs": 50,
+      "over25ms": 3,
+      "longTaskCount": 0,
+      "maxLongTaskMs": 0
+    }
+  ]
+}

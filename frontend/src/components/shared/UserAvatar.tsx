@@ -51,6 +51,8 @@ export function UserAvatar({
     </span>
   )
 
+  if (profile.avatar.kind === 'photo' && profile.avatar.photo) return <img className={className} src={profile.avatar.photo} alt={title ?? `${profile.name || 'Your'} profile photo`} width={size} height={size} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', ...style }} />
+
   if (!useBlobatar) return <span className={className} title={title}>{initialsFace}</span>
 
   return (

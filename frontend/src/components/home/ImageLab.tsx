@@ -1,3 +1,7 @@
+import { Generate } from '@/components/ui/bencho/generate/Generate'
+import '@/components/ui/bencho/generate/Generate.css'
+import { Aspect } from '@/components/ui/bencho/aspect/Aspect'
+import '@/components/ui/bencho/aspect/Aspect.css'
 import React, { useState } from 'react'
 import { useStore } from '@/stores/useStore'
 import ImageGenerationPanel, { type ImageGenerationImage } from '@/components/smoothui/image-generation-panel'
@@ -14,6 +18,7 @@ import { GridReveal } from '@/components/ui/kit/rareui/GridReveal'
  * and a picture you did not ask to keep is not one to keep.
  */
 export function ImageLab() {
+  const reduced = useStore((s) => s.settings.reduceMotion)
   const providerId = imageProviderId()
   const providerName = PROVIDERS.find((p) => p.id === providerId)?.name ?? 'your provider'
   const model = imageModelFor(providerId, (useStore.getState().settings.defaultModel ?? '').split(':')[1])
@@ -41,7 +46,10 @@ export function ImageLab() {
   return (
     <div className="surface p-3">
       {/* While the picture is being made, a grid of tiles stands in for it. */}
-      {status === 'generating' && <div className="mb-3"><GridReveal ready={false} label={`Generating with ${providerName}`} /></div>}
+      <div className="re-bencho flex flex-wrap gap-4 mb-3">
+        <Aspect value={ratio} onValueChange={setRatio} src={images[0]?.src} />
+        {(status === 'generating' || images.length > 0) && <Generate src={images[0]?.src} label={images[0]?.alt ?? 'AI-generated image'} pending={status === 'generating'} reduced={reduced} />}
+      </div>
       <ImageGenerationPanel
         aspectRatio={ratio}
         className="border-0 bg-transparent"

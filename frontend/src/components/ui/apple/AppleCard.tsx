@@ -15,9 +15,9 @@
  */
 import React from 'react'
 
-export const APPLE_RADIUS = 22
+export const APPLE_RADIUS = 12
 /** The depth every Apple card uses: a faint top highlight and a tight contact shadow. */
-export const APPLE_SHADOW = 'inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(0 0 0 / 0.18)'
+export const APPLE_SHADOW = 'inset 0 0 0 1px var(--surface-border)'
 
 /** The card surface. Pass `interactive` for a card that is also a button. */
 export function AppleCard({
@@ -75,7 +75,7 @@ export function AppleRow({
   return (
     <Tag
       onClick={onClick}
-      className={`relative flex w-full items-center gap-3 px-4 min-h-[52px] py-2.5 text-left ${onClick ? 'hover:bg-[var(--elevated)] transition-colors' : ''} ${className}`}
+      className={`relative flex w-full items-center gap-3 px-4 min-h-[44px] py-2 text-left ${onClick ? 'hover:bg-[var(--elevated)] transition-colors' : ''} ${className}`}
     >
       {!first && (
         <span aria-hidden className="absolute left-4 right-0 top-0 h-px" style={{ background: 'var(--surface-border)' }} />
@@ -113,7 +113,7 @@ export function ApplePill({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 h-9 text-[13px] font-medium transition-transform active:scale-[0.97] disabled:opacity-50 ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-[8px] px-3 h-8 text-[13px] font-medium transition-transform active:scale-[0.97] disabled:opacity-50 ${className}`}
       style={prominent
         ? { background: 'var(--primary)', color: '#fff' }
         : { background: 'var(--elevated)', color: 'var(--text)' }}

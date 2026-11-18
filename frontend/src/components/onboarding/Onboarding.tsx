@@ -1,3 +1,4 @@
+import { BrandMark } from '@/components/shared/BrandMark'
 import React, { useEffect, useState } from 'react'
 import { DotBorderButton } from '@/components/ui/kit/community/DotBorderButton'
 import { ExpandingArrowButton } from '@/components/ui/kit/beui/ExpandingArrowButton'
@@ -542,10 +543,7 @@ export function Onboarding() {
             className="flex items-start gap-2.5 p-2.5 rounded-[13px]"
             style={{ background: 'color-mix(in srgb, var(--success) 10%, var(--surface))', border: '1px solid color-mix(in srgb, var(--success) 34%, transparent)' }}>
             <span className="inline-flex items-center justify-center shrink-0 rounded-[11px]" style={{ width: 38, height: 38, background: 'var(--elevated)', border: '1px solid var(--surface-border)' }}>
-              <svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden>
-                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-              </svg>
+              <BrandMark size={20} />
             </span>
             <div className="min-w-0">
               <div className="text-[12px] font-medium truncate">Research Engine</div>

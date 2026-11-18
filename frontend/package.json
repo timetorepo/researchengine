@@ -1,7 +1,7 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "1.8.0",
+  "version": "1.10.0",
   "type": "module",
   "scripts": {
     "bridge-pick-test": "node ../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json scripts/bridge-pick-test.mts",
@@ -66,7 +66,8 @@
     "kit-test": "tsx --tsconfig tsconfig.json scripts/kit-test.mts",
     "codersa-model-test": "tsx --tsconfig tsconfig.json scripts/codersa-model-test.mts",
     "music-engine-test": "tsx --tsconfig tsconfig.json scripts/music-engine-test.mts",
-    "keyboard-consent-test": "tsx --tsconfig tsconfig.json scripts/keyboard-consent-test.mts"
+    "keyboard-consent-test": "tsx --tsconfig tsconfig.json scripts/keyboard-consent-test.mts",
+    "boardui-test": "tsx --tsconfig tsconfig.json scripts/boardui-test.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -97,6 +98,8 @@
     "@react-three/postprocessing": "^3.2.0",
     "@types/qrcode": "^1.5.6",
     "@usespaceui/gradients": "^0.1.4",
+    "@zriz/core": "0.2.1",
+    "@zriz/react": "0.2.1",
     "blobatar": "^2.7.0",
     "boneyard-js": "^1.10.0",
     "border-beam": "^1.3.0",

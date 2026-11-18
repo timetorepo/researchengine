@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Menu, Wind, ListChecks, ArrowDownToLine, X, Maximize2, Minimize2, Layers } from 'lucide-react'
+import { Menu, Wind, ListChecks, ArrowDownToLine, X, Maximize2, Minimize2, Layers, Ellipsis } from 'lucide-react'
 import { SESSION_SWITCHER_EVENT } from '@/components/sessions/SessionSwitcher'
 import { fullscreenSupported, isFullscreen, onFullscreenChange, toggleFullscreen } from '@/lib/dom/fullscreen'
 import { useLocation } from 'react-router-dom'
@@ -7,7 +7,8 @@ import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { useUpdates } from '@/lib/updates/client'
 import { ModelPicker } from '@/components/topbar/ModelPicker'
-import { AnimatedCounter } from '@/components/ui/reactbits/AnimatedCounter'
+import { Button, Popover } from '@heroui/react'
+import { shellSectionLabel, matchesSection } from '@/lib/shell/navigation'
 import { FocusPill } from '@/components/shared/FocusPill'
 import { BUNDLE_BUILD as BUILD_ID, useRunningVersion } from '@/lib/appVersion'
 import { PrivacyShield } from '@/components/sidebar/Sidebar'
@@ -114,7 +115,10 @@ function AgentPulse() {
 }
 
 export function TopBar() {
-  const ui = useUI()
+  const tasksOpen = useUI((s) => s.tasksOpen)
+  const setUI = useUI((s) => s.set)
+  const openSettings = useUI((s) => s.openSettings)
+  const [toolsOpen, setToolsOpen] = useState(false)
   const [trafficLights] = useTrafficLights()
   /** Stamped into the bundle, or read from the server when it could not be. */
   const version = useRunningVersion()
@@ -132,6 +136,8 @@ export function TopBar() {
    * comes from a family table because no provider reports it.
    */
   const location = useLocation()
+  const showModel = location.pathname === '/' || matchesSection(location.pathname, '/chat')
+  useEffect(() => { setToolsOpen(false) }, [location.pathname])
   const openChatId = location.pathname.startsWith('/chat/') ? location.pathname.slice(6).split('/')[0] : ''
   const openChat = useStore((s) => (openChatId ? s.chats.find((c) => c.id === openChatId) : undefined))
   let lastPrompt: { tokens: number; model?: string } | null = null
@@ -171,21 +177,21 @@ export function TopBar() {
 
   return (
     <header
-      className="re-vt-topbar flex items-center gap-2 px-3 h-12 shrink-0 relative z-30"
-      style={{ borderBottom: '1px solid var(--surface-border)', background: 'color-mix(in srgb, var(--bg) 82%, transparent)', backdropFilter: 'blur(12px)' }}
+      className="re-vt-topbar re-focused-topbar flex items-center gap-2 px-4 h-12 min-w-0 shrink-0 relative z-30"
+      style={{ borderBottom: '1px solid var(--surface-border)', background: 'var(--bg)' }}
     >
       {trafficLights ? <TrafficLights /> : null}
-      <button className="md:hidden p-2 rounded-lg hover:bg-[var(--elevated)]" aria-label="Open menu" onClick={() => ui.set({ sidebarOpenMobile: true })}>
+      <button className="md:hidden p-2 rounded-lg hover:bg-[var(--elevated)]" aria-label="Open menu" onClick={() => setUI({ sidebarOpenMobile: true })}>
         <Menu size={18} strokeWidth={1.5} />
       </button>
 
       {/* Model selector — its own component: dock hover, logos, free/paid, unlist */}
-      <ModelPicker />
+      {showModel ? <div className="min-w-0 max-w-[45vw]"><ModelPicker /></div> : (
+        <span className="truncate text-[13px] font-medium" style={{ color: 'var(--text)' }}>{shellSectionLabel(location.pathname)}</span>
+      )}
 
-      {/* Local badge */}
-      <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
-        style={{ background: 'color-mix(in srgb, var(--success) 14%, transparent)', color: 'var(--success)' }}>
-        <span className="w-1 h-1 rounded-full" style={{ background: 'var(--success)' }} /> Local
+      <span className="hidden sm:flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-2)' }} title="Data stored on this device; model connections have their own privacy settings">
+        <span className="w-1 h-1 rounded-full" style={{ background: 'var(--success)' }} /> On this device
       </span>
 
       {/* Agent activity. StatusMark sits on the topbar while anything is running;
@@ -195,30 +201,17 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      {/* Developer Mode: which build you are actually looking at. The first
-          question behind any "the fix did not work" is a stale bundle. */}
-      {settings.developerMode && (
-        <span
-          className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono"
-          style={{ background: 'var(--elevated)', color: 'var(--text-3)' }}
-          title={`Build ${BUILD_ID}`}
-        >
-          <span className="w-1 h-1 rounded-full" style={{ background: 'var(--warning)' }} />
-          {version}
-        </span>
-      )}
-
       {/* Privacy shield — moved up here from the sidebar footer so the state of
           the shield (and the one-tap way into what it is doing) is visible from
           every screen, not just when the sidebar is open. */}
       {/* Tasks: the same list in Research and Coding; pinned rows are the
           main thing, and the panel can hand them straight to the composer. */}
       <button
-        onClick={() => ui.set({ tasksOpen: !ui.tasksOpen })}
+        onClick={() => setUI({ tasksOpen: !tasksOpen })}
         aria-label="Tasks"
-        aria-pressed={ui.tasksOpen}
+        aria-pressed={tasksOpen}
         className="relative p-2 rounded-[10px] hover:bg-[var(--elevated)]"
-        style={{ color: ui.tasksOpen ? 'var(--primary)' : 'var(--text-3)' }}
+        style={{ color: tasksOpen ? 'var(--primary)' : 'var(--text-3)' }}
       >
         <ListChecks size={16} />
         {(() => {
@@ -237,7 +230,7 @@ export function TopBar() {
         <div className="flex items-center gap-0.5 rounded-full pl-2 pr-1 py-0.5 text-[11px]"
           style={{ background: 'color-mix(in srgb, var(--primary) 14%, transparent)', color: 'var(--primary)' }}>
           <button
-            onClick={() => ui.set({ updatePopup: updateCheck?.latest ?? 'latest' })}
+            onClick={() => setUI({ updatePopup: updateCheck?.latest ?? 'latest' })}
             className="flex items-center gap-1 pr-1 font-medium"
             title={`${updateCheck?.latest} is available — see what's new and download it`}
           >
@@ -256,8 +249,7 @@ export function TopBar() {
       {/* Fullscreen — the whole window for the app. The icon tracks the real
           fullscreen state (including F11 and the webview's own menus), and on
           a shell without the API the button simply is not there. */}
-      <SessionSwitcherButton />
-      {!trafficLights && <FullscreenButton />}
+
 
       {/* Live machine load — memory, processor and GPU, from the server's own
           samples. Sits beside the privacy shield because it answers the other
@@ -279,15 +271,30 @@ export function TopBar() {
       {/* Music control: on by default, and hidden from Settings → Appearance. */}
       {settings.showMusicControl !== false && <MusicControl />}
 
-      {/* Flow savings counter */}
-      <div
-        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px]"
-        style={{ background: 'var(--elevated)', color: 'var(--text-2)' }}
-        title="AIFlowEngine session token savings"
-      >
-        <Wind size={12.5} strokeWidth={1.5} style={{ color: 'var(--primary)' }} />
-        Saved <span style={{ color: 'var(--text)' }}><AnimatedCounter value={saved} className="font-semibold" /></span> tokens this session
-      </div>
+      <Popover isOpen={toolsOpen} onOpenChange={setToolsOpen}>
+        <Button isIconOnly variant="ghost" size="sm" aria-label="Workspace tools" className="re-shell-tools-trigger">
+          <Ellipsis size={18} />
+        </Button>
+        <Popover.Content placement="bottom end" className="re-shell-tools-panel">
+          <Popover.Dialog aria-label="Workspace tools">
+            <Popover.Heading className="text-[13px] font-medium mb-3">Workspace tools</Popover.Heading>
+            {!showModel && <div className="mb-3"><ModelPicker /></div>}
+            <div className="flex items-center gap-2 mb-3">
+              <SessionSwitcherButton />
+              <span className="text-[12px]">Switch session</span>
+              {!trafficLights && <FullscreenButton />}
+            </div>
+            <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text-2)' }}>
+              <Wind size={14} /><span>{saved.toLocaleString()} tokens saved this session</span>
+            </div>
+            <button type="button" className="mt-3 text-[12px] underline underline-offset-4"
+              onClick={() => { setToolsOpen(false); openSettings('about') }}>
+              Research Engine {version}
+            </button>
+            {settings.developerMode && <p className="mt-2 text-[10px] font-mono break-all" style={{ color: 'var(--text-2)' }}>Build {BUILD_ID}</p>}
+          </Popover.Dialog>
+        </Popover.Content>
+      </Popover>
     </header>
   )
 }

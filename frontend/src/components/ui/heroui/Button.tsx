@@ -18,8 +18,8 @@ const COLORS: Record<Color, { solid: React.CSSProperties; fg: string }> = {
 
 const SIZES: Record<Size, string> = {
   sm: 'px-3 py-1.5 text-[12px] rounded-[8px]',
-  md: 'px-4 py-2 text-[13px] rounded-[14px]',
-  lg: 'px-6 py-2.5 text-[14px] rounded-[14px]',
+  md: 'px-4 py-2 text-[13px] rounded-[8px]',
+  lg: 'px-6 py-2.5 text-[14px] rounded-[8px]',
 }
 
 export function Button({
@@ -55,6 +55,7 @@ export function Button({
 
   return (
     <motion.button
+      data-native-control="button"
       type={type}
       whileTap={disabled || isLoading ? undefined : { scale: 0.97 }}
       onClick={onClick}

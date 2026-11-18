@@ -1,5 +1,7 @@
+import { cropImage } from '@/lib/images/crop'
+import { PaletteWorkshop } from './PaletteWorkshop'
+import { WorkspacePreferences } from './WorkspacePreferences'
 import React, { useRef, useState } from 'react'
-import { ArtBanner, ART } from '@/components/ui/kit/community/ArtBanner'
 import { ModernSelect } from '@/components/ui/kit/select/ModernSelect'
 import { useChatBackdrop, CHAT_BACKDROP_OPTIONS, type ChatBackdropKind } from '@/components/ui/kit/backdrops/useChatBackdrop'
 import { Check, Upload, RotateCcw, Pipette } from 'lucide-react'
@@ -9,15 +11,14 @@ import { THEMES, THEME_CAPTIONS } from '@/lib/themes/meta'
 import { Switch } from '@/components/ui/heroui/Switch'
 import { AppleGroup } from '@/components/ui/apple/AppleCard'
 import WakeSlider from '@/components/ui/reactbits/micro/WakeSlider'
-import CometDial from '@/components/ui/reactbits/micro/CometDial'
-import JellyRadio from '@/components/ui/reactbits/micro/JellyRadio'
+import { SegmentedControl } from '@/components/ui/native/SegmentedControl'
 import { Button } from '@/components/ui/heroui/Button'
 import { SpotlightCard } from '@/components/ui/aceternity/SpotlightCard'
 import { DEFAULT_BUBBLES, FILL_SWATCHES, bubbleShape, type BubblePrefs } from '@/lib/chat/bubbles'
 import { fileToBackgroundUrl, SOLID_PRESETS } from '@/lib/backgrounds'
 import { WALLPAPERS, WALLPAPER_SOURCE } from '@/lib/wallpapers'
 import { getPropsForTheme, mixVec3, ANIMATED_BG_META } from '@/lib/backgrounds/themeProps'
-import type { AnimatedBgKind, BackgroundConfig } from '@/types'
+import type { AnimatedBgKind, BackgroundConfig, Settings } from '@/types'
 import { saveNotice } from '@/stores/useNotices'
 import { TYPEFACES } from '@/lib/themes/typeface'
 import { ArcPicker } from '@/components/ui/kit/beui/ArcPicker'
@@ -79,14 +80,16 @@ export function AppearanceTab() {
   const settings = useStore((s) => s.settings)
   const ui = useUI()
   const fileRef = useRef<HTMLInputElement>(null)
-  const update = (patch: any) => useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
+  const update = (patch: Partial<Settings>) => useStore.setState((s) => ({ settings: { ...s.settings, ...patch } }))
   const bg: BackgroundConfig = settings.background ?? { kind: 'default' }
   const setBg = (b: BackgroundConfig) => update({ background: b })
   const activeKind = bg.kind
 
   const pickImage = (blur: boolean) => async (f: File) => {
     try {
-      const dataUrl = await fileToBackgroundUrl(f)
+      const edited = await cropImage(f)
+      if (!edited) return
+      const dataUrl = await fileToBackgroundUrl(edited)
       setBg(blur ? { kind: 'blur', dataUrl } : { kind: 'image', dataUrl })
       saveNotice('Background updated', 'Stored locally, downscaled to stay light.')
     } catch {
@@ -97,9 +100,10 @@ export function AppearanceTab() {
   return (
     <div>
       <h2 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Appearance</h2>
-      <ArtBanner art={ART.monet} position="center 45%" className="mt-3" />
+      <WorkspacePreferences />
+      <PaletteWorkshop />
       <p className="text-[13px] mb-5" style={{ color: 'var(--text-2)' }}>
-        Fully themeable via CSS custom properties. ResearchEngineOS turns the app into a desktop-like environment.
+        Choose your workspace, type and materials. Colour themes remain independent from layout.
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
@@ -150,8 +154,8 @@ export function AppearanceTab() {
         ))}
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={async (e) => {
           const f = e.target.files?.[0]
-          if (f) await pickImage(activeKind === 'blur')(f)
           e.target.value = ''
+          if (f) await pickImage(activeKind === 'blur')(f)
         }} />
       </div>
 
@@ -251,13 +255,13 @@ export function AppearanceTab() {
         <p className="text-[11.5px] mb-2" style={{ color: 'var(--text-3)' }}>Applies to the whole interface. Each option is shown in its own font.</p>
         <div className="flex items-center gap-3 mb-3">
           <span className="text-[11.5px] shrink-0" style={{ color: 'var(--text-2)' }}>Font family</span>
-          <ModernSelect aria-label="Font family" value={settings.typeface ?? 'default'} onChange={(e) => update({ typeface: e.target.value as any })} className="w-[220px]">
+          <ModernSelect aria-label="Font family" value={settings.typeface ?? 'allo'} onChange={(e) => update({ typeface: e.target.value as any })} className="w-[220px]">
             {TYPEFACES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </ModernSelect>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
           {TYPEFACES.map((t) => {
-            const active = (settings.typeface ?? 'default') === t.id
+            const active = (settings.typeface ?? 'allo') === t.id
             return (
               <button key={t.id} onClick={() => update({ typeface: t.id })} aria-pressed={active}
                 className="text-left rounded-[12px] px-3 py-2.5 transition-colors"
@@ -286,31 +290,27 @@ export function AppearanceTab() {
           ))}
         </div>
         <div className="flex items-center gap-4 mb-2">
-          <CometDial
-            size={78}
-            min={80} max={140} step={1}
-            value={Math.round(settings.fontScale * 100)}
-            onChange={(v: number) => update({ fontScale: Math.max(0.8, Math.min(1.4, v / 100)) })}
-            label="Text size"
-            unit="%"
-          />
+          <label className="flex flex-col gap-2 text-xs min-w-[160px]">Text size · {Math.round(settings.fontScale * 100)}%
+            <input type="range" aria-label="Text size" min={80} max={140} step={1} value={Math.round(settings.fontScale * 100)}
+              onChange={(e) => update({ fontScale: Number(e.target.value) / 100 })} className="accent-[var(--primary)]" />
+          </label>
           <div className="flex-1">
             <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Fine text size</div>
             <div className="text-[11px] leading-snug" style={{ color: 'var(--text-3)' }}>
-              The presets above snap to three sizes; the dial between them, 80 to 140 percent.
+              Presets set common sizes; adjust text from 80 to 140 percent.
             </div>
           </div>
         </div>
         <div className="mt-4">
           <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--text-2)' }}>Density</div>
-          <JellyRadio
+          <SegmentedControl
             value={settings.compact ? 'compact' : 'cozy'}
             onChange={(v: string) => update({ compact: v === 'compact' })}
             items={[
-              { value: 'cozy', label: 'Cozy' },
+              { value: 'cozy', label: 'Comfortable' },
               { value: 'compact', label: 'Compact' },
             ]}
-            ariaLabel="Layout density"
+            label="Layout density"
           />
         </div>
 
@@ -369,9 +369,9 @@ export function AppearanceTab() {
         </div>
 
         <AppleGroup className="mb-3">
-        <Switch label="Compact mode" description="Tighter spacing and smaller type throughout."
+        <Switch label="Compact mode" description="Tighter workspace rows and smaller base type."
           checked={settings.compact} onChange={(v) => update({ compact: v })} />
-        <Switch label="Reduce motion" description="Cross-fades under 150ms instead of spring animations. Also honors your OS setting."
+        <Switch label="Reduce motion" description="Minimize interface animation. Your operating-system preference is also respected."
           checked={settings.reduceMotion} onChange={(v) => update({ reduceMotion: v })} />
         <Switch label="OS widgets" description="Show small status widgets in ResearchEngineOS."
           checked={settings.osWidgets} onChange={(v) => update({ osWidgets: v })} />
@@ -456,13 +456,13 @@ export function AppearanceTab() {
           <div className="text-[11.5px] mb-3" style={{ color: 'var(--text-2)' }}>
             How the chatbox and Dynamic Island sit over your content.
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid sm:grid-cols-3 gap-2">
             {([
               { id: 'off', name: 'Solid', desc: 'Opaque surface — the classic look.' },
-              { id: 'liquid', name: 'Liquid Glass', desc: 'Bends what is behind the chatbox, the island and toasts at their edges.' },
-              { id: 'blur', name: 'Blur', desc: 'Frosted blur only, no refraction or gloss.' },
+              { id: 'liquid', name: 'Refractive', desc: 'Bends what is behind the chatbox, the island and toasts at their edges.' },
+              { id: 'blur', name: 'Frosted', desc: 'Frosted blur only, no refraction or gloss.' },
             ] as const).map((g) => (
-              <button key={g.id} onClick={() => update({ glassMode: g.id })}
+              <button key={g.id} aria-pressed={settings.glassMode === g.id} onClick={() => update({ glassMode: g.id })}
                 className="text-left p-3 rounded-[12px] transition-colors"
                 style={{
                   background: settings.glassMode === g.id ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : 'var(--surface)',
@@ -478,15 +478,21 @@ export function AppearanceTab() {
         {settings.glassMode === 'liquid' && (
           <p className="text-[11.5px] -mt-4 mb-5 leading-relaxed" style={{ color: 'var(--text-3)' }}>
             {document.documentElement.dataset.refract === 'on'
-              ? 'Bending is on in this window. It runs only on those three small surfaces, so scrolling the chat stays smooth. Turn it off if a slow laptop struggles.'
+              ? 'Refraction is supported in this window. It is limited to small surfaces; choose Solid if you prefer fewer visual effects.'
               : 'This window cannot bend the backdrop (the engine has no SVG backdrop filters), so Liquid Glass shows a frosted blur here. The Chromium-based app and browsers bend it.'}
           </p>
         )}
 
+        <label className="block surface p-4 mb-3 text-xs">Floating navigation glass strength · {settings.navigationGlassStrength ?? 60}%
+          <input aria-label="Floating navigation glass strength" className="block w-full mt-3 accent-[var(--primary)]" type="range" min={0} max={100} step={5}
+            value={settings.navigationGlassStrength ?? 60} onChange={(e) => update({ navigationGlassStrength: Number(e.target.value) })} />
+          <span className="block mt-2" style={{ color: 'var(--text-3)' }}>Controls the floating capsule, not reading surfaces. Solid and reduced-transparency modes remain opaque.</span>
+        </label>
+
         {/* Experimental: a floating glass tab bar. Off until someone asks for it. */}
         <AppleGroup className="mb-3">
           <Switch label="Floating tab bar (experimental)"
-            description="A glass capsule of five main screens at the bottom. Hidden on Chat and Coding, where the composer and editor need the space."
+            description="Five main screens in a floating capsule. Available on coding projects; hidden inside active chats and coding editors."
             checked={settings.experimentalTabBar === true} onChange={(v) => update({ experimentalTabBar: v })} />
 
 

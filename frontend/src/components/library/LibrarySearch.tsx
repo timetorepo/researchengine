@@ -1,3 +1,6 @@
+import { DocumentUpload } from '@/components/ui/boardui/DocumentUpload'
+import { Seek } from '@/components/ui/bencho/seek/Seek'
+import '@/components/ui/bencho/seek/Seek.css'
 /**
  * Library search.
  *
@@ -455,11 +458,11 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
     } catch (e: any) { ui.toast('Feed failed', String(e?.message ?? e).slice(0, 140), 'danger') }
   }
 
-  const upload = async (file: File) => {
+  const upload = async (file: File, extractedText?: string) => {
     try {
       const { extractText } = await import('@/lib/documents/extract')
       ui.toast('Reading the file', file.name, 'info')
-      const text = await extractText(file)
+      const text = extractedText ?? await extractText(file)
       if (!text.trim()) { ui.toast('Nothing to read', 'That file has no extractable text.', 'warning'); return }
       const res = await fetch('/api/library/upload', {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -468,7 +471,7 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
       if (!res.ok) throw new Error(String(res.status))
       ui.toast('Imported', `${file.name} is in the library and searchable.`, 'success')
       await load(); void recommendations()
-    } catch (e: any) { ui.toast('Import failed', String(e?.message ?? e).slice(0, 140), 'danger') }
+    } catch (e: any) { ui.toast('Import failed', String(e?.message ?? e).slice(0, 140), 'danger'); throw e }
   }
 
   /* --------------------------------------------------------------- view --- */
@@ -499,26 +502,12 @@ export function LibrarySearch({ query, onQuery, folder, onFolder }: {
       {/* the front door — tucks away while you scroll down a long result list */}
       <HideOnScroll>
       <div className="flex flex-wrap items-center gap-3 pb-1 bg-[var(--bg)]">
-        <GooeyInput
-          placeholder="Search everything…"
-          collapsedWidth={200}
-          expandedWidth={440}
-          expandedOffset={44}
-          onSubmit={submitSearch}
-          value={query}
-          onValueChange={changeQuery}
-        />
+        <div className="re-bencho"><Seek width={280} label="Search Library" onSubmit={() => submitSearch(query)} value={query} onValueChange={changeQuery} /></div>
         <span className="text-[11.5px]" style={{ color: 'var(--text-3)' }}>
           Wikipedia · trusted sources · your own documents
         </span>
         <div className="flex-1" />
-        <input ref={fileRef} type="file" accept={ACCEPT} className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = '' }} />
-        <button onClick={() => fileRef.current?.click()} title="Import a PDF, a Word file, or any text document"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px]"
-          style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>
-          <Upload size={12} /> Add your own
-        </button>
+        <DocumentUpload onConfirm={upload} label="Add your own" actionLabel="Import into local Library" />
         <button onClick={() => setFeedOpen(true)} title="Add an RSS or Atom feed to watch"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px]"
           style={{ background: 'var(--surface)', border: '1px solid var(--surface-border)', color: 'var(--text-2)' }}>

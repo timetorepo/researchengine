@@ -1,0 +1,27 @@
+import { chromium } from './node_modules/playwright-core/index.mjs'
+import assert from 'node:assert/strict'
+const browser = await chromium.launch({ executablePath: process.env.BROWSER_EXECUTABLE, chromiumSandbox: true, headless: true })
+try {
+ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' })
+ const errors=[]; page.on('pageerror',e=>errors.push(e.message))
+ await page.addInitScript(()=>{localStorage.setItem('intro.logo.seen','1');localStorage.setItem('re.data.main:research-engine-v1',JSON.stringify({state:{settings:{onboarded:true,dynamicIsland:true,reduceMotion:true,updates:{autoCheck:false}}},version:0}))})
+ await page.route('**/api/**', r=>r.fulfill({json:{}}))
+ await page.goto('http://127.0.0.1:5173/#/chats')
+ const island=page.getByRole('region',{name:'Activity island',exact:true});await island.waitFor({state:'attached'})
+ assert.equal(await island.count(),1);assert.equal(await page.locator('.re-activity-island').count(),0)
+ await page.evaluate(async()=>{const {useUI}=await import('/src/stores/useUI.ts');useUI.setState({island:{kind:'focus',remaining:123,total:1500}})})
+ await page.getByText('2:03',{exact:true}).first().waitFor()
+ await island.locator('[data-islandcn-hit="pill"]').click()
+ await page.getByRole('heading',{name:'Focus session',exact:true}).waitFor()
+ await page.keyboard.press('Escape')
+ await page.getByRole('heading',{name:'Focus session',exact:true}).waitFor({state:'hidden'})
+ await page.setViewportSize({width:390,height:844})
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+ await page.screenshot({path:'.cache/islandcn-narrow.png'})
+ await page.setViewportSize({width:1440,height:1000})
+ await page.getByRole('link',{name:'ResearchEngine home',exact:true}).first().focus();await page.keyboard.press('Enter')
+ await page.waitForURL('**/#/');assert.equal(await page.locator('a a,button button').count(),0)
+ await page.evaluate(async()=>{const {useUI}=await import('/src/stores/useUI.ts');useUI.setState({island:{kind:'idle'}})})
+ await page.getByText('2:03',{exact:true}).waitFor({state:'hidden'})
+ assert.deepEqual(errors,[]);console.log('PASS islandcn singleton, old renderer absent, real focus event/update, tap expansion, Escape, narrow overflow, keyboard logo Home, idle cleanup; no page errors')
+} finally {await browser.close()}

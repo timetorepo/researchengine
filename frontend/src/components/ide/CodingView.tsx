@@ -1,3 +1,4 @@
+import { WorkspaceEffect } from '@/components/ui/bencho/WorkspaceEffects'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { FolderGit2, Plus, Upload, Trash2, ChevronRight, ChevronDown, FileCode2, Save, Play, GitBranch, TerminalSquare, Loader2, AlertTriangle, Check, X, FolderPlus, RefreshCw, Code2, MonitorUp, Files, Search as SearchIcon, Bug, GitCommitHorizontal, PanelRightClose, PanelRightOpen, FilePlus2, FolderOpen, Circle, Wand2, Terminal as TerminalIcon, ExternalLink, ShieldCheck, Boxes, Bot, Activity as ActivityIcon, Command as CommandIcon, Sparkles, Package, Plug, Camera, GitCompareArrows, ShieldAlert } from 'lucide-react'
@@ -44,7 +45,7 @@ import ActionExecuteButtonGroup from '@/components/shadcn-space/button-group/but
 // Cursor 3's agent rows. Presentation only — see the file for the motion rules.
 import { GlassBar, GlassGroup, GlassButton, GlassTabs, Breadcrumbs, StatusItem } from './IdeChrome'
 import { CodingTabs } from '@/components/codersa/CodingTabs'
-import { TreeView, type TreeNode as KitTreeNode } from '@/components/ui/kit/interior/TreeView'
+import { TreeView, type TreeNode as KitTreeNode } from '@/components/ui/boardui/TreeView'
 
 /* ================================================================== */
 /* Coding entry — project list ⇄ workbench ⇄ design studio            */
@@ -63,6 +64,10 @@ export function CodingView() {
   const [projects, setProjects] = useState<ProjectInfo[] | null>(null)
   const [open, setOpen] = useState<string | null>(null)
   const [design, setDesign] = useState(false)
+  useEffect(() => {
+    useUI.setState({ codingWorkbenchOpen: open !== null })
+    return () => { useUI.setState({ codingWorkbenchOpen: false }) }
+  }, [open])
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [err, setErr] = useState('')
@@ -283,6 +288,7 @@ export function CodingView() {
         ) : projects.length === 0 ? (
           <div className="surface p-8 text-center">
             <Code2 size={22} className="mx-auto mb-2" style={{ color: 'var(--primary)' }} />
+            <WorkspaceEffect kind="ascii" />
             <p className="text-[13.5px] mb-1">No projects yet.</p>
             <p className="text-[12px] mb-4" style={{ color: 'var(--text-3)' }}>Create one, upload an archive — or drop in the sample app to see Design mode work end to end.</p>
             <button onClick={() => void createSample()} disabled={sampleBusy} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-[12px] font-medium disabled:opacity-60" style={{ background: 'var(--elevated)', color: 'var(--primary)' }}>
@@ -879,6 +885,7 @@ function Workbench({ project, tree, onTreeRefresh, onBack, onDesign, onRenamed }
                   <TreeView
                     key={project}
                     label="Project files"
+                    persistenceKey={project ?? undefined}
                     nodes={toTreeNodes(tree)}
                     selectedId={active ?? undefined}
                     initialOpen={tree.filter((n) => n.dir && n.name === 'src').map((n) => n.path)}

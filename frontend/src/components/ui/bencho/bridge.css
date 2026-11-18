@@ -1,0 +1,43 @@
+/* Bencho token bridge: deliberately scoped; never override app palette tokens. */
+.re-bencho {
+  --card: var(--surface); --board: var(--bg); --pane: var(--surface); --slab: var(--elevated);
+  --surface-2: var(--elevated); --surface-3: var(--surface); --ink: var(--text);
+  --ink-2: var(--text-2); --ink-3: var(--text-2); --ink-4: var(--text-3); --ink-5: var(--text-3);
+  --fill-on: var(--text); --fill-slab: var(--surface); --pane-edge: var(--surface-border);
+  --signal: var(--primary); --ok: var(--success); --ember: var(--warning); --font-ui: inherit;
+  --ink-rgb: 160,160,160; --fill-on-rgb: 160,160,160; --wash: var(--elevated);
+  --on-ink: var(--bg); --on-slab: var(--text); --g-blur: 16px; --g-sat: 1.3;
+  max-width: 100%;
+}
+.re-liquid-switch .liq-well { width: 64px; height: 36px; flex-shrink: 0; display: block; }
+.re-liquid-switch .liq-sw { transform: scale(.69565); transform-origin: top left; }
+.re-liquid-switch[data-size="sm"] .liq-well { width: 56px; height: 32px; }
+.re-liquid-switch[data-size="sm"] .liq-sw { transform: scale(.6087); }
+.re-bencho button:focus-visible, .re-bencho [tabindex="0"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.re-bencho button:disabled { cursor: not-allowed; opacity: .5; }
+.reduce-motion .re-bencho *, .reduce-motion .re-bencho *::before, .reduce-motion .re-bencho *::after { animation: none !important; transition: none !important; }
+.re-island-position { position: absolute; z-index: 45; top: 56px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 24px); }
+.re-activity-island.dyn-pill { display: block; max-width: calc(100vw - 24px); border: 1px solid #444; box-shadow: 0 12px 36px #0004; }
+.re-island-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; width: 100%; color: inherit; min-height: 44px; font-size: 12px; }
+.re-island-state-dot { flex-shrink: 0; width: 6px; height: 6px; background: #999; border-radius: 50%; }
+.re-island-state-dot[data-active="true"] { background: #93e5b5; }
+.re-island-action { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 20px; background: #ffffff20; font-size: 12px; color: #fff; }
+.re-now-playing { position: relative; width: 260px; height: 44px; flex-shrink: 0; }
+.re-now-playing .snd { position: absolute; right: 0; top: 0; z-index: 50; place-items: start; }
+.re-music-options { position: absolute; right: 0; top: 44px; width: 260px; z-index: 51; font-size: 11px; }
+.re-music-options summary { width: max-content; margin-left: auto; background: var(--surface); padding: 4px 10px; border-radius: 10px; cursor: pointer; }
+.re-bencho .pik { max-width: 100%; }
+.re-bencho .pik-card { max-height: 260px; overflow-y: auto; }
+.re-create-workflow { position: relative; width: 130px; height: 38px; z-index: 35; }
+.re-create-workflow .crt-stage { position: absolute; top: 0; right: 0; width: 244px; height: 38px; }
+.re-bencho .nod { max-width: 100%; }
+.re-bencho .nod-name, .re-bencho .nod-say { overflow-wrap: anywhere; }
+.re-crm-pull { width: 100%; }
+.re-pull-handle { width: min(360px, calc(100% - 32px)); margin: 8px auto; border: 1px solid var(--surface-border); border-radius: 20px; background: var(--surface); touch-action: pan-x; }
+.re-workspace-effect { width: min(100%, 320px); margin: 12px auto; overflow: hidden; max-height: 240px; }
+.re-workspace-effect canvas { max-width: 100%; height: auto !important; }
+.re-bencho .asp, .re-bencho .gen { flex-shrink: 0; max-width: 100%; }
+.re-bencho { --on-slab-rgb: 160,160,160; }
+.re-bencho .stb-col .stb-bar { min-height: 0; }
+/* Product menus anchor downward instead of using the demo wall's centred stage. */
+.re-create-workflow :is(.crt-body, .crt-panel, .crt-pill) { inset: 0 0 auto auto; margin: 0; }

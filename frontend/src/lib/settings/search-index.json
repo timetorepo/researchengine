@@ -1,0 +1,462 @@
+[
+  {
+    "label": "Flood budget cap",
+    "tab": "agents"
+  },
+  {
+    "label": "Veil intensity",
+    "tab": "appearance"
+  },
+  {
+    "label": "Font family",
+    "tab": "appearance"
+  },
+  {
+    "label": "Text size",
+    "tab": "appearance"
+  },
+  {
+    "label": "Layout density",
+    "tab": "appearance"
+  },
+  {
+    "label": "Widget cards",
+    "tab": "appearance"
+  },
+  {
+    "label": "Offline demo button",
+    "tab": "appearance"
+  },
+  {
+    "label": "Wallpaper on every page",
+    "tab": "appearance"
+  },
+  {
+    "label": "Compact mode",
+    "tab": "appearance"
+  },
+  {
+    "label": "Reduce motion",
+    "tab": "appearance"
+  },
+  {
+    "label": "OS widgets",
+    "tab": "appearance"
+  },
+  {
+    "label": "Music control in the top bar",
+    "tab": "appearance"
+  },
+  {
+    "label": "Dynamic Island",
+    "tab": "appearance"
+  },
+  {
+    "label": "Theme-matched gradients",
+    "tab": "appearance"
+  },
+  {
+    "label": "Welcome for AI themes",
+    "tab": "appearance"
+  },
+  {
+    "label": "Composer border beam",
+    "tab": "appearance"
+  },
+  {
+    "label": "Dock animation",
+    "tab": "appearance"
+  },
+  {
+    "label": "Smooth caret",
+    "tab": "appearance"
+  },
+  {
+    "label": "Scroll progress",
+    "tab": "appearance"
+  },
+  {
+    "label": "Floating navigation glass strength",
+    "tab": "appearance"
+  },
+  {
+    "label": "Floating tab bar (experimental)",
+    "tab": "appearance"
+  },
+  {
+    "label": "Gooey tab switch in Chats",
+    "tab": "appearance"
+  },
+  {
+    "label": "Background music",
+    "tab": "appearance"
+  },
+  {
+    "label": "Experimental fan gallery",
+    "tab": "appearance"
+  },
+  {
+    "label": "Fan gallery for several images (experimental)",
+    "tab": "appearance"
+  },
+  {
+    "label": "Home screen picture",
+    "tab": "appearance"
+  },
+  {
+    "label": "Show the painted picture behind the home headline",
+    "tab": "appearance"
+  },
+  {
+    "label": "Window controls",
+    "tab": "appearance"
+  },
+  {
+    "label": "macOS-style traffic lights in the top bar",
+    "tab": "appearance"
+  },
+  {
+    "label": "Launch intro",
+    "tab": "appearance"
+  },
+  {
+    "label": "Show the intro on every launch",
+    "tab": "appearance"
+  },
+  {
+    "label": "3D keyboard",
+    "tab": "appearance"
+  },
+  {
+    "label": "Keyboard perspective",
+    "tab": "appearance"
+  },
+  {
+    "label": "Chat background",
+    "tab": "appearance"
+  },
+  {
+    "label": "Tails",
+    "tab": "appearance"
+  },
+  {
+    "label": "Avatars",
+    "tab": "appearance"
+  },
+  {
+    "label": "Group runs",
+    "tab": "appearance"
+  },
+  {
+    "label": "Seconds",
+    "tab": "coding"
+  },
+  {
+    "label": "Hold to erase everything",
+    "tab": "data"
+  },
+  {
+    "label": "Enable Developer Mode",
+    "tab": "developer"
+  },
+  {
+    "label": "App version",
+    "tab": "developer"
+  },
+  {
+    "label": "Build id",
+    "tab": "developer"
+  },
+  {
+    "label": "Served bundle",
+    "tab": "developer"
+  },
+  {
+    "label": "Source on disk",
+    "tab": "developer"
+  },
+  {
+    "label": "Install mode",
+    "tab": "developer"
+  },
+  {
+    "label": "Server platform",
+    "tab": "developer"
+  },
+  {
+    "label": "This browser",
+    "tab": "developer"
+  },
+  {
+    "label": "Backend",
+    "tab": "developer"
+  },
+  {
+    "label": "Data directory",
+    "tab": "developer"
+  },
+  {
+    "label": "Enable AIFlowEngine",
+    "tab": "flow"
+  },
+  {
+    "label": "Punctuation pauses",
+    "tab": "flow"
+  },
+  {
+    "label": "Speed booster",
+    "tab": "flow"
+  },
+  {
+    "label": "Refresh file list",
+    "tab": "integrations"
+  },
+  {
+    "label": "Refresh",
+    "tab": "integrations"
+  },
+  {
+    "label": "Remove item",
+    "tab": "integrations"
+  },
+  {
+    "label": "Use memories in replies",
+    "tab": "memory"
+  },
+  {
+    "label": "Delete this memory",
+    "tab": "memory"
+  },
+  {
+    "label": "Temperature",
+    "tab": "models"
+  },
+  {
+    "label": "Top-p",
+    "tab": "models"
+  },
+  {
+    "label": "Max tokens",
+    "tab": "models"
+  },
+  {
+    "label": "Process RAM",
+    "tab": "performance"
+  },
+  {
+    "label": "SQLite",
+    "tab": "performance"
+  },
+  {
+    "label": "Data dir",
+    "tab": "performance"
+  },
+  {
+    "label": "Uptime",
+    "tab": "performance"
+  },
+  {
+    "label": "Default role for new chats",
+    "tab": "personas"
+  },
+  {
+    "label": "Display name",
+    "tab": "profile"
+  },
+  {
+    "label": "Handle",
+    "tab": "profile"
+  },
+  {
+    "label": "Hobbies & interests",
+    "tab": "profile"
+  },
+  {
+    "label": "Hobbies",
+    "tab": "profile"
+  },
+  {
+    "label": "Upload profile photo",
+    "tab": "profile"
+  },
+  {
+    "label": "Shape",
+    "tab": "profile"
+  },
+  {
+    "label": "Motion",
+    "tab": "profile"
+  },
+  {
+    "label": "Expression",
+    "tab": "profile"
+  },
+  {
+    "label": "Colour",
+    "tab": "profile"
+  },
+  {
+    "label": "Re-roll",
+    "tab": "profile"
+  },
+  {
+    "label": "Surprise me \u2014 same handle, new look",
+    "tab": "profile"
+  },
+  {
+    "label": "Search providers",
+    "tab": "providers"
+  },
+  {
+    "label": "Toggle key visibility",
+    "tab": "providers"
+  },
+  {
+    "label": "Self-hosted Firecrawl address",
+    "tab": "search"
+  },
+  {
+    "label": "Crawl4AI server address",
+    "tab": "search"
+  },
+  {
+    "label": "Asking the engines",
+    "tab": "search"
+  },
+  {
+    "label": "Your code",
+    "tab": "security"
+  },
+  {
+    "label": "Guest code",
+    "tab": "security"
+  },
+  {
+    "label": "Duress code",
+    "tab": "security"
+  },
+  {
+    "label": "Session switcher shortcut",
+    "tab": "shortcuts"
+  },
+  {
+    "label": "Delete skill",
+    "tab": "skills"
+  },
+  {
+    "label": "Route my chats through Snaffy",
+    "tab": "snaffy"
+  },
+  {
+    "label": "Microphone in the composer",
+    "tab": "voice"
+  },
+  {
+    "label": "Push to talk",
+    "tab": "voice"
+  },
+  {
+    "label": "Transcription provider",
+    "tab": "voice"
+  },
+  {
+    "label": "Transcription model",
+    "tab": "voice"
+  },
+  {
+    "label": "Local whisper server URL",
+    "tab": "voice"
+  },
+  {
+    "label": "Spoken language",
+    "tab": "voice"
+  },
+  {
+    "label": "Glow while listening",
+    "tab": "voice"
+  },
+  {
+    "label": "What's new",
+    "tab": "updates"
+  },
+  {
+    "label": "GitHub token for updates",
+    "tab": "updates"
+  },
+  {
+    "label": "Update repository",
+    "tab": "updates"
+  },
+  {
+    "label": "Release manifest URL",
+    "tab": "updates"
+  },
+  {
+    "label": "Release archive",
+    "tab": "updates"
+  },
+  {
+    "label": "Checksum text",
+    "tab": "updates"
+  },
+  {
+    "label": "Notify me of updates",
+    "tab": "updates"
+  },
+  {
+    "label": "Check quietly when the app opens",
+    "tab": "updates"
+  },
+  {
+    "label": "Download updates on launch",
+    "tab": "updates"
+  },
+  {
+    "label": "Recent token usage",
+    "tab": "usage"
+  },
+  {
+    "label": "Chart metric",
+    "tab": "usage"
+  },
+  {
+    "label": "Usage receipt",
+    "tab": "usage"
+  },
+  {
+    "label": "Workspace layout",
+    "tab": "appearance"
+  },
+  {
+    "label": "Layout preset",
+    "tab": "appearance"
+  },
+  {
+    "label": "Chat history view",
+    "tab": "appearance"
+  },
+  {
+    "label": "Sidebar width",
+    "tab": "appearance"
+  },
+  {
+    "label": "Workspace effects",
+    "tab": "appearance"
+  },
+  {
+    "label": "Palette workshop",
+    "tab": "appearance"
+  },
+  {
+    "label": "Palette theme name",
+    "tab": "appearance"
+  },
+  {
+    "label": "Keyboard shortcuts",
+    "tab": "shortcuts"
+  },
+  {
+    "label": "Typeface",
+    "tab": "appearance"
+  }
+]

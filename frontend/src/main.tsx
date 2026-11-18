@@ -16,6 +16,7 @@ import '@fontsource/geist-mono/400.css'
 import '@fontsource/lora/600.css'
 import 'katex/dist/katex.min.css'
 import '@/styles/globals.css'
+import '@/styles/native-studio.css'
 // Animated blobatars (the profile avatar) need their keyframes loaded once.
 import 'blobatar/motion.css'
 // Sonner ships its own stylesheet; the app's palette is layered over it in

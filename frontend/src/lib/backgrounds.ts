@@ -13,8 +13,8 @@ export async function fileToBackgroundUrl(file: File): Promise<string> {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const url = URL.createObjectURL(file)
       const el = new Image()
-      el.onload = () => resolve(el)
-      el.onerror = reject
+      el.onload = () => { URL.revokeObjectURL(url); resolve(el) }
+      el.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not decode background image.')) }
       el.src = url
     })
     w = img.naturalWidth; h = img.naturalHeight; source = img

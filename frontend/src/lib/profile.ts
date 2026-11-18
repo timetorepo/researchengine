@@ -10,7 +10,7 @@
  */
 
 /** What to show as your face: a generated blobatar, or plain initials. */
-export type AvatarKind = 'blobatar' | 'initials'
+export type AvatarKind = 'blobatar' | 'initials' | 'photo'
 export type AvatarShape = 'circle' | 'squircle' | 'square'
 export type AvatarMotion = 'hover' | 'always' | 'off'
 export type AvatarExpression =
@@ -29,6 +29,7 @@ export interface Profile {
    */
   hobbies: string[]
   avatar: {
+    photo?: string
     kind: AvatarKind
     shape: AvatarShape
     motion: AvatarMotion

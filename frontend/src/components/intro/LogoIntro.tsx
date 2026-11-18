@@ -1,3 +1,5 @@
+import { useReducedMotion } from 'motion/react'
+import { useStore } from '@/stores/useStore'
 /**
  * The launch intro: the Research Engine mark melts into glass and settles on the
  * wordmark. It plays on the first launch, and on every launch when Settings turns
@@ -13,6 +15,9 @@ import { INTRO_PLAY_EVENT, introDue, markIntroSeen } from './introPrefs'
 const HOLD_MS = 2200
 
 export function LogoIntro() {
+  const systemReduced = useReducedMotion()
+  const reduceMotion = useStore((s) => s.settings.reduceMotion)
+  const still = reduceMotion || !!systemReduced
   const [open, setOpen] = useState(() => introDue())
   const [run, setRun] = useState(0)
   const logo = useRef<LiquidGlassLogoHandle>(null)
@@ -38,11 +43,11 @@ export function LogoIntro() {
   // Close on its own after the run, and on any key.
   useEffect(() => {
     if (!open) return
-    const timer = window.setTimeout(() => setOpen(false), 3300 + HOLD_MS)
+    const timer = window.setTimeout(() => setOpen(false), still ? 1200 : 3300 + HOLD_MS)
     const key = () => setOpen(false)
     window.addEventListener('keydown', key)
     return () => { window.clearTimeout(timer); window.removeEventListener('keydown', key) }
-  }, [open, run])
+  }, [open, run, still])
 
   // A replay restarts the sequence from zero.
   useEffect(() => { if (open && run > 0) logo.current?.replay() }, [open, run])
@@ -59,7 +64,7 @@ export function LogoIntro() {
       style={{ background: '#000' }}
     >
       <div className="w-[min(78vw,560px)] h-[min(36vh,240px)]">
-        <LiquidGlassLogo
+        {still ? <img src="/brand/symbol.svg" alt="ResearchEngine" className="w-full h-full object-contain" /> : <LiquidGlassLogo
           key={run}
           ref={logo}
           logo="/icon.svg"
@@ -69,11 +74,11 @@ export function LogoIntro() {
           tile={false}
           aria-label="Research Engine"
           height="100%"
-        />
+        />}
       </div>
       <p
         className="mt-2 text-[15px] font-semibold tracking-tight"
-        style={{ color: '#e2e6ee', opacity: caption ? 1 : 0, transition: 'opacity 600ms ease' }}
+        style={{ color: '#e2e6ee', opacity: still || caption ? 1 : 0, transition: still ? 'none' : 'opacity 600ms ease' }}
         aria-hidden="true"
       >
         Research Engine

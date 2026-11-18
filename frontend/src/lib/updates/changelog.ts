@@ -47,6 +47,45 @@ export function kindOf(title: string): ChangeKind {
 }
 
 export const CHANGELOG: Release[] = [
+{
+  "version": "1.10.0",
+  "tag": "v1.10.0",
+  "name": "Native Studio and searchable settings",
+  "date": "2026-11-12",
+  "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.10.0",
+  "summary": "Search individual settings with typo suggestions, a cleaner real-activity island, and a branded desktop identity.",
+  "sections": [
+    {
+      "title": "What changed",
+      "items": [
+        {
+          "text": "Search individual settings, accept typo suggestions and jump to the matching control."
+        },
+        {
+          "text": "Native Studio typography, compact controls and selected identity."
+        },
+        {
+          "text": "Actual islandcn engine connected to live activity; the app logo returns Home."
+        },
+        {
+          "text": "Branded Windows setup artwork and clearer welcome/finish screens."
+        }
+      ]
+    },
+    {
+      "title": "Known limitations",
+      "items": [
+        {
+          "text": "Full-motion intro can stall; native DPI, interactive upgrade/uninstall and screen-reader checks remain manual. Saved preferences are preserved."
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "items": 5,
+    "sections": 2
+  }
+},
   {
     "version": "1.8.0",
     "tag": "v1.8.0",

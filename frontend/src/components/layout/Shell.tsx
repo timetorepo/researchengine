@@ -1,10 +1,16 @@
+import { BrandMark } from '@/components/shared/BrandMark'
+import { paletteTokens } from '@/lib/design/paletteTheme'
 import React, { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
+import { WorkspaceActivity } from '@/components/home/WorkspaceActivity'
+import { workspaceLayout, studioPanelVisible } from '@/lib/shell/preferences'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { SessionSwitcher } from '@/components/sessions/SessionSwitcher'
+import { FloatingTabBar } from '@/components/topbar/FloatingTabBar'
+import { floatingNavigationVisible } from '@/lib/shell/navigation'
 import { TopBar } from '@/components/topbar/TopBar'
 import { TitleBar } from '@/components/os/TitleBar'
 import { DynamicIsland } from '@/components/os/DynamicIsland'
@@ -47,13 +53,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
     window.addEventListener('re-navigate', h)
     return () => window.removeEventListener('re-navigate', h)
   }, [nav])
+  const customPalette = useStore((s) => s.settings.customPaletteTheme)
+  useEffect(() => {
+    const tokens = customPalette?.enabled ? paletteTokens(customPalette.colours) : null
+    if (!tokens) return
+    const root = document.documentElement
+    for (const [key, value] of Object.entries(tokens)) root.style.setProperty(key, value)
+    return () => { for (const key of Object.keys(tokens)) root.style.removeProperty(key) }
+  }, [customPalette])
+  const layout = workspaceLayout(useStore((s) => s.settings.workspaceLayout))
+  const systemReducedMotion = useReducedMotion()
+  const reduceMotionPreference = useStore((s) => s.settings.reduceMotion)
+  const reducedMotion = reduceMotionPreference || systemReducedMotion
   const theme = useStore((s) => s.settings.theme)
   const osMinimized = useUI((s) => s.osMinimized)
   const location = useLocation()
+  const workbenchOpen = useUI((s) => s.codingWorkbenchOpen)
   const isOS = theme === 're-os'
   const dynamicIsland = useStore((s) => s.settings.dynamicIsland)
   const themeGradients = useStore((s) => s.settings.themeGradients)
   const glassMode = useStore((s) => s.settings.glassMode)
+  const floatingEnabled = useStore((s) => s.settings.experimentalTabBar === true)
+  const showFloating = floatingNavigationVisible(location.pathname, floatingEnabled, workbenchOpen)
 
   // Gradient style lives on <html> so every gradient surface follows.
   //
@@ -67,7 +88,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     const root = document.documentElement
     root.dataset.grad = themeGradients ? 'theme' : 'vibrant'
     if (!gradSettleRan.current) { gradSettleRan.current = true; return }
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    if (reduceMotionPreference || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     let clear = 0
     const timer = window.setTimeout(() => {
       root.classList.add('re-grad-settle')
@@ -77,7 +98,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       clear = window.setTimeout(() => root.classList.remove('re-grad-settle'), 1250)
     }, 30)
     return () => { window.clearTimeout(timer); window.clearTimeout(clear) }
-  }, [themeGradients, theme])
+  }, [themeGradients, theme, reduceMotionPreference])
 
   // Glass theme (chatbox + Dynamic Island) also lives on <html>.
   useEffect(() => {
@@ -91,7 +112,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const content = (
     <motion.div
       key={location.pathname}
-      initial={{ opacity: 0, y: 8 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       className="h-full min-h-0"
@@ -102,7 +123,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   if (isOS) {
     return (
-      <div className="h-full w-full os-wallpaper relative overflow-hidden flex flex-col">
+      <div data-native-studio="true" className="h-full w-full os-wallpaper relative overflow-hidden flex flex-col">
         <GuestStrip />
         <BackgroundLayer />
         <div className="relative z-10 flex flex-col flex-1 min-h-0">
@@ -117,10 +138,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               style={{ border: '1px solid var(--surface-border)', boxShadow: '0 16px 48px -12px rgba(0,0,0,0.6)' }}
               aria-label="Restore Research Engine"
             >
-              <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
-                <path d="M16 6 L25 12 L16 18 L7 12 Z" fill="var(--primary)" />
-                <path d="M16 14 L25 20 L16 26 L7 20 Z" fill="var(--secondary)" opacity="0.85" />
-              </svg>
+              <BrandMark size={34} />
             </motion.button>
           ) : (
             <div className="flex-1 flex min-h-0 relative">
@@ -144,15 +162,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="h-full w-full relative overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
+    <div data-layout={layout} data-native-studio="true" className="re-focused-shell h-full w-full relative overflow-hidden flex flex-col" style={{ background: 'var(--bg)' }}>
       <GuestStrip />
       <BackgroundLayer />
       <div className="relative z-10 flex-1 min-h-0 flex">
         <Sidebar />
         <div className="flex-1 min-w-0 flex flex-col">
           <TopBar />
-          <main className="flex-1 min-h-0 relative">{content}</main>
+          <main className="flex-1 min-h-0 relative" style={{ paddingBottom: showFloating ? 'calc(88px + env(safe-area-inset-bottom, 0px))' : undefined }}>
+            {content}
+            <FloatingTabBar />
+          </main>
         </div>
+        {studioPanelVisible(location.pathname, layout, workbenchOpen) && <aside className="re-studio-panel" aria-label="Workspace panel"><WorkspaceActivity supporting /></aside>}
       </div>
       {/* Optional everywhere: the island floats over any theme when enabled. */}
       {dynamicIsland && <DynamicIsland />}

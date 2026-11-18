@@ -9,7 +9,7 @@ export interface ThemeMeta {
 }
 
 export const THEMES: ThemeMeta[] = [
-  { id: 'dark', name: 'Default Dark', kind: 'dark', swatches: ['#0A0A0B', '#131316', '#6C8EEF', '#A78BFA'], codeTheme: 'dark-plus' },
+  { id: 'dark', name: 'Default Dark', kind: 'dark', swatches: ['#171719', '#202023', '#849BFF', '#B9B4D7'], codeTheme: 'dark-plus' },
   { id: 'light', name: 'Default Light', kind: 'light', swatches: ['#FAFAFA', '#FFFFFF', '#4F6FE0', '#8B5CF6'], codeTheme: 'light-plus' },
   { id: 'catppuccin-latte', name: 'Catppuccin Latte', kind: 'light', swatches: ['#eff1f5', '#e6e9ef', '#1e66f5', '#8839ef'], codeTheme: 'catppuccin-latte' },
   { id: 'catppuccin-frappe', name: 'Catppuccin Frappé', kind: 'dark', swatches: ['#303446', '#292c3c', '#8caaee', '#ca9ee6'], codeTheme: 'catppuccin-frappe' },

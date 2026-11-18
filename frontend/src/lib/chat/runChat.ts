@@ -542,6 +542,13 @@ export async function runChat(opts: RunOptions): Promise<void> {
       // ---- tool-calling loop (questionnaire, connectors, search, IDE, MCP) ----
       const toolCtx: ToolContext = {
         chatId, asstId, project: opts.project, projectTree: opts.projectTree, agent: opts.agent,
+        signal: controller.signal,
+        onActivity: (activity) => {
+          const msg = useStore.getState().chats.find((c) => c.id === chatId)?.messages.find((m) => m.id === asstId)
+          const current = msg?.toolActivity ?? []
+          const next = current.some((item) => item.id === activity.id) ? current.map((item) => item.id === activity.id ? activity : item) : [...current, activity]
+          useStore.getState().updateMessage(chatId, asstId, { toolActivity: next.slice(-60) })
+        },
         // Each finished tool call becomes one card on the answer. The card keeps a
         // small structured summary, never the raw output.
         onResult: (r) => {
@@ -616,7 +623,12 @@ export async function runChat(opts: RunOptions): Promise<void> {
         const calls = res.toolCalls ?? []
         if (!toolsAllowed || !calls.length || round >= MAX_TOOL_ROUNDS) break
         current = [...current, { role: 'assistant', content: '', toolCalls: calls }]
+        for (const tc of calls) toolCtx.onActivity?.({ id: tc.id, tool: tc.name, status: 'queued', startedAt: Date.now() })
         for (const tc of calls) {
+          if (controller.signal.aborted) {
+            toolCtx.onActivity?.({ id: tc.id, tool: tc.name, status: 'cancelled', startedAt: Date.now(), endedAt: Date.now() })
+            continue
+          }
           const result = await executeTool({ id: tc.id, name: tc.name, arguments: tc.arguments }, toolCtx, trace)
           // Tool output re-enters the outbound conversation on the next round
           // (a file read could surface a .env secret) — shield it too.
@@ -655,7 +667,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
     if (settings.freeRouting && isFailoverWorthy(status, text) && triedModels.length < 3) {
       const next = pickFreeModel(freeCandidatesNow(), triedModels)
       if (next) {
-        useStore.getState().updateMessage(chatId, asstId, { content: '', error: undefined, toolTrace: [], toolCards: [] })
+        useStore.getState().updateMessage(chatId, asstId, { content: '', error: undefined, toolTrace: [], toolCards: [], toolActivity: [] })
         triedModels.push(next.ref)
         store.logConnection(`free://${next.provider}`, `Free routing → ${next.providerName} (${next.why})`, 0, 'ok')
         void runChat({ ...opts, modelOverride: next.ref })

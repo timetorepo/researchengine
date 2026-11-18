@@ -1,3 +1,4 @@
+import type { ToolActivity } from '@/types'
 // AI tool calls. The model gets a real tool surface: questionnaires, the
 // local connectors (Drive / Mail / Calendar / Files), web search, and —
 // inside Coding mode — project files and a guarded command runner.
@@ -30,6 +31,8 @@ export interface ToolContext {
    * Called once per finished tool call with what the card needs: the text the
    * model got, and the structured data when the tool had it. Drives the result cards.
    */
+  signal?: AbortSignal
+  onActivity?: (activity: ToolActivity) => void
   onResult?: (r: { tool: string; args: Record<string, unknown>; text: string; data?: unknown; ok: boolean }) => void
 }
 
@@ -140,6 +143,7 @@ export const TOOLS: ToolDef[] = [
               question: STR,
               options: { type: 'array', items: STR, description: 'Optional suggested answers' },
               allowText: { type: 'boolean', description: 'Allow a free-text answer' },
+              multiple: { type: 'boolean', description: 'Allow multiple option selections' },
             },
             required: ['question'],
           },
@@ -148,8 +152,9 @@ export const TOOLS: ToolDef[] = [
       required: ['questions'],
     },
     run: async (args, ctx) => {
-      const items: { id: string; question: string; options?: string[]; allowText: boolean }[] = (Array.isArray(args?.questions) ? args.questions : []).slice(0, 5).map((q: any) => ({
+      const items: { id: string; question: string; options?: string[]; allowText: boolean; multiple: boolean }[] = (Array.isArray(args?.questions) ? args.questions : []).slice(0, 5).map((q: any) => ({
         id: nanoid(6),
+        multiple: q?.multiple === true,
         question: String(q?.question ?? ''),
         options: Array.isArray(q?.options) ? q.options.map(String).slice(0, 6) : undefined,
         allowText: !!q?.allowText || !Array.isArray(q?.options) || q.options.length === 0,
@@ -159,8 +164,17 @@ export const TOOLS: ToolDef[] = [
       useStore.getState().updateMessage(ctx.chatId, ctx.asstId, {
         questionnaire: { title: args?.title ? String(args.title) : undefined, intro: args?.intro ? String(args.intro) : undefined, items, toolCallId },
       })
-      return await new Promise<string>((resolve) => {
+      return await new Promise<string>((resolve, reject) => {
+        const abort = () => {
+          questionnaireWaits.delete(toolCallId)
+          const msg = useStore.getState().chats.find((c) => c.id === ctx.chatId)?.messages.find((m) => m.id === ctx.asstId)
+          if (msg?.questionnaire) useStore.getState().updateMessage(ctx.chatId, ctx.asstId, { questionnaire: { ...msg.questionnaire, cancelled: true } })
+          reject(new DOMException('Questionnaire cancelled', 'AbortError'))
+        }
+        if (ctx.signal?.aborted) { abort(); return }
+        ctx.signal?.addEventListener('abort', abort, { once: true })
         questionnaireWaits.set(toolCallId, (answers) => {
+          ctx.signal?.removeEventListener('abort', abort)
           resolve('The user answered the questionnaire:\n' + items.map((it) => `Q: ${it.question}\nA: ${answers[it.id] ?? '(skipped)'}`).join('\n'))
         })
       })
@@ -716,8 +730,15 @@ export const TOOLS: ToolDef[] = [
       if (out.blocked) return `BLOCKED by safety rules: ${out.reason}`
       if (out.requiresConfirm) {
         useStore.getState().updateMessage(ctx.chatId, ctx.asstId, { pendingExec: { toolCallId, command, reason: String(args?.reason ?? out.reason ?? '') } })
-        const approved = await new Promise<boolean>((resolve) => { execWaits.set(toolCallId, resolve) })
-        if (!approved) return 'The user declined to run this command. Ask how they want to proceed instead.'
+        ;(ctx as any).__setPhase?.('waiting')
+        const approved = await new Promise<boolean>((resolve, reject) => {
+          const abort = () => { execWaits.delete(toolCallId); reject(new DOMException('Command cancelled', 'AbortError')) }
+          if (ctx.signal?.aborted) { abort(); return }
+          ctx.signal?.addEventListener('abort', abort, { once: true })
+          execWaits.set(toolCallId, (value) => { ctx.signal?.removeEventListener('abort', abort); resolve(value) })
+        })
+        if (!approved) return 'BLOCKED: The user declined to run this command.'
+        ;(ctx as any).__setPhase?.('running')
         res = await fetch('/api/ide/exec', {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ project: ctx.project, command, confirmed: true, agent: ctx.agent, timeoutMs: commandTimeoutMs() }),
@@ -1154,15 +1175,26 @@ export function toolSpecs(ctx: ToolContext): { type: 'function'; function: { nam
 
 /** Execute one tool call; returns the text result to feed back to the model. */
 export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (label: string, status: 'ok' | 'error' | 'blocked' | 'confirm') => void): Promise<string> {
+  if (ctx.signal?.aborted) {
+    ctx.onActivity?.({ id: call.id, tool: call.name, status: 'cancelled', startedAt: Date.now(), endedAt: Date.now() })
+    return 'Tool call cancelled before execution.'
+  }
   const def = TOOLS.find((t) => t.name === call.name)
-  if (!def) return `Unknown tool: ${call.name}`
-  if (def.needsProject && !ctx.project) return 'This tool needs an open project in Coding mode.'
-  if (def.when && !def.when()) return `${def.name} is not set up. Add it under Marketplace → Built in.`
+  const unavailable = (message: string, status: 'failed' | 'blocked') => {
+    ctx.onActivity?.({ id: call.id, tool: call.name, status, startedAt: Date.now(), endedAt: Date.now() })
+    return message
+  }
+  if (!def) return unavailable(`Unknown tool: ${call.name}`, 'failed')
+  if (def.needsProject && !ctx.project) return unavailable('This tool needs an open project in Coding mode.', 'blocked')
+  if (def.when && !def.when()) return unavailable(`${def.name} is not set up. Add it under Marketplace → Built in.`, 'blocked')
   let args: any = call.arguments
   if (typeof args === 'string') { try { args = JSON.parse(args) } catch { args = { input: args } } }
   args = args ?? {}
   let structured: unknown = undefined
   const fullCtx = { ...ctx, __toolCallId: call.id, __setData: (d: unknown) => { structured = d } } as any
+  const activity: ToolActivity = { id: call.id, tool: def.name, status: def.name === 'ask_user' ? 'waiting' : 'running', startedAt: Date.now(), resource: typeof args.path === 'string' ? args.path.slice(0, 180) : undefined }
+  fullCtx.__setPhase = (status: ToolActivity['status']) => ctx.onActivity?.({ ...activity, status })
+  ctx.onActivity?.(activity)
   try {
     if (def.name === 'ide_run_command') trace(`run: ${String(args.command ?? '').slice(0, 60)}`, 'confirm')
     else if (def.name === 'run_ui_test') trace(`UI test: ${String(args.name ?? 'flow')}`.slice(0, 60), 'ok')
@@ -1193,10 +1225,15 @@ export async function executeTool(call: ToolCall, ctx: ToolContext, trace: (labe
     else trace(def.name, 'ok')
     const result = await def.run(args, fullCtx)
     const blocked = /^BLOCKED/.test(result)
-    ctx.onResult?.({ tool: def.name, args, text: result, data: structured, ok: !blocked && !/^(The action failed|Tool \S+ failed|Unknown tool)/.test(result) })
+    let resultFailure = false
+    try { const payload = JSON.parse(result); resultFailure = payload?.ok === false || payload?.timedOut === true || (typeof payload?.exit === 'number' && payload.exit !== 0) || typeof payload?.error === 'string' } catch { /* ordinary text result */ }
+    const failed = resultFailure || /^(The action failed|Tool \S+ failed|Unknown tool)/.test(result)
+    ctx.onActivity?.({ ...activity, endedAt: Date.now(), status: blocked ? 'blocked' : failed ? 'failed' : 'completed' })
+    ctx.onResult?.({ tool: def.name, args, text: result, data: structured, ok: !blocked && !failed })
     if (def.name === 'ide_run_command') trace(`ran: ${String(args.command ?? '').slice(0, 60)}`, blocked ? 'blocked' : 'ok')
     return result
   } catch (e: any) {
+    ctx.onActivity?.({ ...activity, endedAt: Date.now(), status: e?.name === 'AbortError' ? 'cancelled' : 'failed' })
     trace(def.name, 'error')
     const text = `Tool ${def.name} failed: ${String(e?.message ?? e)}`
     ctx.onResult?.({ tool: def.name, args, text, ok: false })

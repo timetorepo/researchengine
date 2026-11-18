@@ -1,9 +1,9 @@
 {
   "name": "research-engine",
   "private": true,
-  "version": "1.8.0",
+  "version": "1.10.0",
   "type": "module",
-  "description": "A self-hosted, privacy-first research platform. Docker is optional — see README run modes.",
+  "description": "A self-hosted, privacy-first research platform. Docker is optional \u2014 see README run modes.",
   "workspaces": [
     "frontend",
     "backend"

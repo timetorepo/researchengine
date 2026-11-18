@@ -1,29 +1,30 @@
-import { WalletTab } from './WalletTab'
 import { lazy, Suspense } from 'react'
 import React from 'react'
 import { BarChart3, Wallet, KeyRound, Plug, Search, Palette, Cpu, Wind, Wand2, Users, Database, Keyboard, Info, Gauge, Code, UserRound, Terminal, ArrowDownToLine, Mic, Bell, Store, BookMarked, ShieldCheck, Route, Split, Brain } from 'lucide-react'
-import { ProfileTab } from './ProfileTab'
-import { CodingTab } from './CodingTab'
-import { ProvidersTab } from './ProvidersTab'
-import { SearchTab } from './SearchTab'
-import { AppearanceTab } from './AppearanceTab'
-import { ModelsTab } from './ModelsTab'
-import { FlowTab } from './FlowTab'
-import { SkillsTab } from './SkillsTab'
-import { AgentsTab } from './AgentsTab'
-import { DataTab } from './DataTab'
-import { ShortcutsTab } from './ShortcutsTab'
-import { AboutTab } from './AboutTab'
-import { PerformanceTab } from './PerformanceTab'
-import { DeveloperTab } from './DeveloperTab'
-import { UpdatesTab } from './UpdatesTab'
-import { VoiceTab } from './VoiceTab'
-import { NotificationsTab } from './NotificationsTab'
-import { SecurityTab } from './SecurityTab'
-import { SnaffyTab } from './SnaffyTab'
-import { JevTab } from './JevTab'
-import { UsageTab } from './UsageTab'
-import { MemoryTab } from './MemoryTab'
+
+const WalletTab = lazy(() => import('./WalletTab').then((m) => ({ default: m.WalletTab })))
+const ProfileTab = lazy(() => import('./ProfileTab').then((m) => ({ default: m.ProfileTab })))
+const CodingTab = lazy(() => import('./CodingTab').then((m) => ({ default: m.CodingTab })))
+const ProvidersTab = lazy(() => import('./ProvidersTab').then((m) => ({ default: m.ProvidersTab })))
+const SearchTab = lazy(() => import('./SearchTab').then((m) => ({ default: m.SearchTab })))
+const AppearanceTab = lazy(() => import('./AppearanceTab').then((m) => ({ default: m.AppearanceTab })))
+const ModelsTab = lazy(() => import('./ModelsTab').then((m) => ({ default: m.ModelsTab })))
+const FlowTab = lazy(() => import('./FlowTab').then((m) => ({ default: m.FlowTab })))
+const SkillsTab = lazy(() => import('./SkillsTab').then((m) => ({ default: m.SkillsTab })))
+const AgentsTab = lazy(() => import('./AgentsTab').then((m) => ({ default: m.AgentsTab })))
+const DataTab = lazy(() => import('./DataTab').then((m) => ({ default: m.DataTab })))
+const ShortcutsTab = lazy(() => import('./ShortcutsTab').then((m) => ({ default: m.ShortcutsTab })))
+const AboutTab = lazy(() => import('./AboutTab').then((m) => ({ default: m.AboutTab })))
+const PerformanceTab = lazy(() => import('./PerformanceTab').then((m) => ({ default: m.PerformanceTab })))
+const DeveloperTab = lazy(() => import('./DeveloperTab').then((m) => ({ default: m.DeveloperTab })))
+const UpdatesTab = lazy(() => import('./UpdatesTab').then((m) => ({ default: m.UpdatesTab })))
+const VoiceTab = lazy(() => import('./VoiceTab').then((m) => ({ default: m.VoiceTab })))
+const NotificationsTab = lazy(() => import('./NotificationsTab').then((m) => ({ default: m.NotificationsTab })))
+const SecurityTab = lazy(() => import('./SecurityTab').then((m) => ({ default: m.SecurityTab })))
+const SnaffyTab = lazy(() => import('./SnaffyTab').then((m) => ({ default: m.SnaffyTab })))
+const JevTab = lazy(() => import('./JevTab').then((m) => ({ default: m.JevTab })))
+const UsageTab = lazy(() => import('./UsageTab').then((m) => ({ default: m.UsageTab })))
+const MemoryTab = lazy(() => import('./MemoryTab').then((m) => ({ default: m.MemoryTab })))
 
 /**
  * The rail, grouped. Fewer things are in front of a person at once: the groups below

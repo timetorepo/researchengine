@@ -1,0 +1,58 @@
+/* Native Studio — original product styling, not copied template CSS. */
+@font-face { font-family: Allo; src: url('/fonts/native-studio/AlloVariable.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Work Sans'; src: url('/fonts/native-studio/work-sans-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
+:root { --font-brand: 'Bricolage Grotesque', var(--font-ui); }
+html[data-typeface=allo] { font-optical-sizing: auto; }
+.re-native-switch { display:flex; width:100%; min-height:44px; align-items:center; justify-content:space-between; gap:20px; padding:8px 0; }
+.re-native-switch[data-disabled=true] { opacity:.5; }
+.re-native-switch [data-slot=switch-control] { flex:none; position:relative; width:36px; height:22px; padding:0; border-radius:12px; border:1px solid color-mix(in srgb,var(--text-2) 60%,transparent); background:var(--elevated); cursor:pointer; transition:background-color 120ms ease; }
+.re-native-switch [data-slot=switch-control][aria-checked=true] { background:var(--primary); border-color:var(--primary); }
+.re-native-switch [data-slot=switch-thumb] { display:block; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--text); box-shadow:0 1px 2px #0003; transform:translateX(0); transition:transform 120ms ease; pointer-events:none; }
+.re-native-switch [aria-checked=true] [data-slot=switch-thumb] { transform:translateX(14px); background:white; }
+.re-native-switch [data-slot=switch-control]:focus-visible { outline:2px solid var(--primary); outline-offset:4px; }
+.re-native-switch [data-slot=switch-control]:disabled { cursor:not-allowed; }
+.re-native-switch[data-reduced-motion=true] * { transition:none; }
+.re-studio-home-light { background:radial-gradient(ellipse at 30% 0%,color-mix(in srgb,var(--primary) 8%,transparent),transparent 65%); }
+[data-native-studio] .re-focused-topbar { height:48px; background:var(--bg); }
+[data-native-studio] .re-focused-topbar button { transition-property:background-color,color; }
+[data-native-studio] .re-studio-panel { background:var(--surface); }
+[data-native-studio] .md-body { line-height:1.7; }
+[data-native-studio] .md-body h1,[data-native-studio] .md-body h2 { font-family:var(--font-ui); }
+/* Portalled forms need a class of their own rather than assuming shell ancestry. */
+.bui-settings-layout { grid-template-columns:200px minmax(0,1fr); }
+.bui-settings-rail { background:var(--surface); padding:8px; }
+.bui-settings-rail .bui-nav-button { min-height:34px; border-radius:7px; padding:7px 10px; }
+.bui-settings-rail .bui-nav-button[aria-current=page] { background:color-mix(in srgb,var(--primary) 14%,var(--surface)); box-shadow:inset 2px 0 var(--primary); }
+.bui-settings-content { padding:28px 32px; }
+.bui-settings-content h2 { font-size:20px; line-height:1.3; font-weight:600; letter-spacing:-.025em; }
+.bui-settings-content > div > div > p:first-of-type { color:var(--text-2); }
+.bui-field,.bui-button { border-radius:8px; }
+.bui-field:focus-visible,.bui-button:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+.bui-button { min-height:32px; padding:6px 12px; }
+.bui-select-popup { border-radius:10px; }
+@media(max-width:640px) { .bui-settings-layout { grid-template-columns:minmax(0,1fr); } .bui-settings-content { padding:20px 16px; } }
+@media(prefers-reduced-motion:reduce) { .re-native-switch * { transition:none!important; } }
+@media(forced-colors:active) { .re-native-switch [data-slot=switch-control] { border:1px solid ButtonText; } .re-native-switch [data-slot=switch-thumb] { background:ButtonText; } .re-native-switch [aria-checked=true] { outline:2px solid Highlight; } }
+.re-native-segments { display:inline-flex; max-width:100%; padding:3px; gap:2px; background:var(--elevated); border:1px solid var(--surface-border); border-radius:8px; }
+.re-native-segment { position:relative; display:flex; align-items:center; min-height:28px; padding:4px 12px; font-size:12px; border-radius:5px; color:var(--text-2); cursor:pointer; }
+.re-native-segment[data-selected=true] { background:var(--surface); color:var(--text); box-shadow:0 1px 3px #0002; }
+.re-native-segment input { position:absolute; width:1px; height:1px; opacity:0; }
+.re-native-segment:focus-within { outline:2px solid var(--primary); outline-offset:2px; }
+.re-native-segment[data-disabled=true] { opacity:.45; cursor:not-allowed; }
+.re-native-notification-slot { display:grid; place-items:center; min-height:40px; }
+.re-native-notification-slot .re-notify-btn { width:36px; height:36px; display:grid; place-items:center; border-radius:8px; }
+.re-native-notification-slot .re-notify-btn:hover { background:var(--elevated); }
+:root[data-theme=dark] { --bg:#171719; --surface:#202023; --elevated:#2B2B30; --surface-border:#39393F; --text:#F3F2EF; --text-2:#B5B3B0; --text-3:#A5A3A0; --primary:#849BFF; --secondary:#B9B4D7; }
+/* A saturated action colour needs separate ink contrast from accent text. */
+:root[data-theme=dark] [data-native-control=button]:not(:disabled) { --primary:#365BFF; }
+@font-face { font-family:'Bricolage Grotesque'; src:url('/fonts/native-studio/bricolage-grotesque-latin-standard-normal.woff2') format('woff2'); font-weight:200 800; font-display:swap; }
+/* islandcn keeps its own black surface; content alone follows app typography. */
+.re-islandcn { color:#fff; font-family:var(--font-ui); }
+.re-islandcn-value { font-size:13px; font-weight:550; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.re-islandcn-detail { padding-top:8px; color:#fff; text-align:left; }
+.re-islandcn-detail h2 { font-size:14px; font-weight:600; margin:0 0 5px; }
+.re-islandcn-detail p { font-size:12px; color:#bebec6; overflow-wrap:anywhere; margin-bottom:14px; }
+.re-islandcn-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.re-islandcn-actions button { display:inline-flex; align-items:center; gap:6px; background:#29292e; color:white; border:1px solid #505058; border-radius:8px; min-height:32px; padding:6px 10px; font-size:12px; }
+.re-islandcn-actions button:focus-visible { outline:2px solid #a3b3ff; outline-offset:3px; }
+.re-setting-search-target { outline:2px solid var(--primary); outline-offset:5px; border-radius:4px; }
