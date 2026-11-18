@@ -42,7 +42,16 @@ jobs:
           node-version: 22
 
       - name: Install workspace dependencies
-        run: npm ci
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee npm-install.log
+        id: workspace_deps
+
+      - name: Explain dependency installation failure
+        if: steps.workspace_deps.outcome == 'failure'
+        shell: bash
+        run: node scripts/ci-annotate.mjs npm-install.log "workspace dependencies failed"
 
       - name: Build the frontend and the backend bundle
         run: npm run build
@@ -124,7 +133,16 @@ jobs:
           node-version: 22
 
       - name: Install workspace dependencies
-        run: npm ci
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee npm-install.log
+        id: workspace_deps
+
+      - name: Explain dependency installation failure
+        if: steps.workspace_deps.outcome == 'failure'
+        shell: bash
+        run: node scripts/ci-annotate.mjs npm-install.log "workspace dependencies failed"
 
       - name: Build the frontend and the backend bundle
         run: npm run build
