@@ -125,6 +125,9 @@ jobs:
   linux:
     name: Linux bundles
     runs-on: ubuntu-22.04
+    env:
+      # CPU packaging runner: keep CPU ONNX, skip optional NVIDIA download.
+      ONNXRUNTIME_NODE_INSTALL_CUDA: skip
     steps:
       - uses: actions/checkout@v4
 

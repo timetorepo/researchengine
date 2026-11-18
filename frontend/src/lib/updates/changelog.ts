@@ -48,11 +48,11 @@ export function kindOf(title: string): ChangeKind {
 
 export const CHANGELOG: Release[] = [
 {
-  "version": "1.10.1",
-  "tag": "v1.10.1",
+  "version": "1.10.2",
+  "tag": "v1.10.2",
   "name": "Native Studio and searchable settings",
   "date": "2026-11-12",
-  "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.10.1",
+  "url": "https://github.com/timetorepo/researchengine/releases/tag/v1.10.2",
   "summary": "Search individual settings with typo suggestions, a cleaner real-activity island, and a branded desktop identity.",
   "sections": [
     {
