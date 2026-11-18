@@ -50,7 +50,7 @@ jobs:
         id: workspace_deps
 
       - name: Explain dependency installation failure
-        if: steps.workspace_deps.outcome == 'failure'
+        if: failure() && steps.workspace_deps.outcome == 'failure'
         shell: bash
         run: node scripts/ci-annotate.mjs npm-install.log "workspace dependencies failed"
 
@@ -156,7 +156,7 @@ jobs:
         id: workspace_deps
 
       - name: Explain dependency installation failure
-        if: steps.workspace_deps.outcome == 'failure'
+        if: failure() && steps.workspace_deps.outcome == 'failure'
         shell: bash
         run: node scripts/ci-annotate.mjs npm-install.log "workspace dependencies failed"
 
