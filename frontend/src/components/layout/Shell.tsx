@@ -1,3 +1,4 @@
+import { useLiquidGlass } from '@/lib/design/useLiquidGlass'
 import { useDocumentActivity } from '@/lib/documents/activity'
 import { BrandMark } from '@/components/shared/BrandMark'
 import { paletteTokens } from '@/lib/design/paletteTheme'
@@ -47,6 +48,8 @@ function GuestStrip() {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  const liquidGlass = useLiquidGlass()
+  useEffect(() => { document.documentElement.dataset.liquidRedesign = liquidGlass ? 'on' : 'off'; return () => { delete document.documentElement.dataset.liquidRedesign } }, [liquidGlass])
   // AI-driven navigation: message chips dispatch this event, the shell routes.
   const nav = useNavigate()
   useEffect(() => {

@@ -458,5 +458,9 @@
   {
     "label": "Typeface",
     "tab": "appearance"
+  },
+  {
+    "label": "Liquid Glass Redesign",
+    "tab": "appearance"
   }
 ]

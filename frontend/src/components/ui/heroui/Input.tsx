@@ -1,3 +1,5 @@
+import { Input as GlassInput } from 'glisse'
+import { useLiquidGlass } from '@/lib/design/useLiquidGlass'
 import React, { useId, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -19,6 +21,7 @@ export function Input({
   onKeyDown?: (e: React.KeyboardEvent) => void
   endContent?: React.ReactNode
 }) {
+  const glass = useLiquidGlass()
   const id = useId()
   const [show, setShow] = useState(false)
   const isPassword = type === 'password'
@@ -33,7 +36,10 @@ export function Input({
           border: `1px solid ${isInvalid ? 'var(--danger)' : 'var(--surface-border)'}`,
         }}
       >
-        <input
+        {glass ? <GlassInput id={id} value={value} onValueChange={onChange} placeholder={placeholder}
+          type={isPassword ? (show ? 'text' : 'password') : type} autoFocus={autoFocus} onKeyDown={onKeyDown}
+          aria-invalid={isInvalid || undefined} aria-describedby={description || (isInvalid && errorMessage) ? `${id}-help` : undefined}
+          className="min-w-0 flex-1" /> : <input
           id={id}
           aria-invalid={isInvalid || undefined}
           aria-describedby={description || (isInvalid && errorMessage) ? `${id}-help` : undefined}
@@ -44,7 +50,7 @@ export function Input({
           autoFocus={autoFocus}
           onKeyDown={onKeyDown}
           className="w-full bg-transparent outline-none px-3.5 py-2.5 text-[13.5px]"
-        />
+        />}
         {isPassword && (
           <button type="button" onClick={() => setShow(!show)} aria-label="Toggle visibility"
             className="px-2.5 shrink-0" style={{ color: 'var(--text-3)' }}>

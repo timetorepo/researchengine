@@ -1,3 +1,4 @@
+import { ditherMaskStyle } from '@/lib/dither/pattern'
 import { cropImage } from '@/lib/images/crop'
 import { PaletteWorkshop } from './PaletteWorkshop'
 import { WorkspacePreferences } from './WorkspacePreferences'
@@ -450,6 +451,15 @@ export function AppearanceTab() {
           </div>
         </div>
 
+        <div className="surface p-4 mb-3">
+          <Switch label="Liquid Glass Redesign" description="Glisse controls and translucent interface surfaces. Uses more GPU power and may reduce battery life. Reading and editor surfaces stay stable. Reduced motion, system reduced-transparency and high-contrast preferences use the standard controls instead."
+            checked={settings.liquidGlassRedesign === true} onChange={liquidGlassRedesign => update({ liquidGlassRedesign })} />
+        </div>
+        <div className="surface p-4 mb-3" aria-label="Dither material preview">
+          <h3 className="text-[13px] font-medium mb-2">Static texture</h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-2)' }}>dithercn ordered patterns give measured progress a quiet texture without an animation loop.</p>
+          <div className="flex gap-2" aria-hidden="true">{[0.25, 0.5, 0.75].map(level => <div key={level} className="h-8 flex-1 rounded" style={{ background: 'var(--primary)', ...ditherMaskStyle(level, { cell: 2 }) }} />)}</div>
+        </div>
         {/* Glass surface theme (chatbox + Dynamic Island) */}
         <div className="surface p-4">
           <div className="text-[13px] font-medium mb-0.5">Glass surface</div>

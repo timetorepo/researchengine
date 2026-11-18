@@ -515,6 +515,7 @@ export interface Settings {
   sidebarPinnedTools?: string[]
   chatHistoryView?: 'list' | 'table'
   /** Strength of floating navigation glass, 0–100. */
+  liquidGlassRedesign?: boolean
   navigationGlassStrength?: number
   compact: boolean
   reduceMotion: boolean

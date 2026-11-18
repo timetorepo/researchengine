@@ -1,9 +1,10 @@
+import { ditherMaskStyle } from '@/lib/dither/pattern'
 /** Original adapter following BoardUI's public progress anatomy; no fabricated progress. */
 export function BoardProgress({ value, label, showValue = false, className = '' }: { value?: number; label: string; showValue?: boolean; className?: string }) {
   const percent = value === undefined || !Number.isFinite(value) ? undefined : Math.max(0, Math.min(100, value))
   return <div className={className}>{showValue && <div className="flex justify-between gap-3 mb-2 text-xs"><span>{label}</span>{percent !== undefined && <span className="tabular-nums">{Math.round(percent)}%</span>}</div>}
     <div className="bui-progress-track" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-      <div className="bui-progress-fill" data-indeterminate={percent === undefined} style={percent === undefined ? undefined : { transform: `scaleX(${percent / 100})` }} />
+      <div className="bui-progress-fill" data-indeterminate={percent === undefined} style={percent === undefined ? undefined : { transform: `scaleX(${percent / 100})`, ...ditherMaskStyle(0.75, { cell: 1 }) }} />
     </div>
   </div>
 }

@@ -62,3 +62,15 @@ html[data-typeface=allo] { font-optical-sizing: auto; }
 /* islandcn expanded geometry is bounded: long filenames/import lists scroll
    inside its measured bottom region instead of placing actions outside the hit surface. */
 .re-islandcn-detail { max-height:112px; overflow-y:auto; overscroll-behavior:contain; padding:4px 3px 8px; scrollbar-width:thin; }
+/* Opt-in Glisse adapters. Base UI keeps popup keyboard/focus contracts. */
+.re-glass-switch-row { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:44px; padding:8px 0; }
+.re-glass-switch-row[data-disabled=true] { opacity:.5; }
+html[data-liquid-redesign=on] { --lg-foreground:var(--text); --lg-muted:var(--text-2); --lg-glass:color-mix(in srgb,var(--surface) 78%,transparent); --lg-surface:color-mix(in srgb,var(--surface) 92%,transparent); --lg-edge:var(--surface-border); --lg-ring:var(--primary); --lg-on:#30b866; --lg-fill:var(--primary); --lg-segment-label:var(--text); --lg-segment-thumb:var(--elevated); --lg-blur:12px; }
+html[data-liquid-redesign=on] :is(.bui-button,.bui-field,.bui-select-popup,.bui-popover,.re-focused-topbar,.bui-dialog-header) { background:color-mix(in srgb,var(--surface) 88%,transparent); backdrop-filter:blur(12px) saturate(1.3); border-color:var(--surface-border); box-shadow:inset 0 1px 0 #ffffff12; border-radius:12px; }
+html[data-liquid-redesign=on] .re-focused-topbar { border-radius:0; }
+.re-glass-button { min-height:32px; }
+html[data-liquid-redesign=on] .lg-input { height:36px; width:100%; }
+html[data-liquid-redesign=on] .lg-segmented { max-width:100%; }
+html[data-liquid-redesign=on] .lg-switch { --lg-scale:.30; }
+@media(prefers-reduced-transparency:reduce),(forced-colors:active) { html[data-liquid-redesign] :is(.lg-glass,.bui-popover,.bui-select-popup) { backdrop-filter:none!important; background:var(--surface)!important; } }
+html[data-liquid-redesign=on] .lg-input { max-width:none; }

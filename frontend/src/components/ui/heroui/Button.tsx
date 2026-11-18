@@ -1,3 +1,5 @@
+import { Button as GlassButton } from 'glisse'
+import { useLiquidGlass } from '@/lib/design/useLiquidGlass'
 import React from 'react'
 import { motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
@@ -38,6 +40,7 @@ export function Button({
   startContent?: React.ReactNode
   type?: 'button' | 'submit'
 }) {
+  const glass = useLiquidGlass()
   const c = COLORS[color]
   const style: React.CSSProperties = {}
   if (variant === 'solid' || variant === 'shadow') {
@@ -53,6 +56,12 @@ export function Button({
     style.color = c.fg
   }
 
+  if (glass) return <GlassButton type={type} disabled={disabled || isLoading} onClick={onClick}
+    variant={variant === 'solid' || variant === 'shadow' ? 'filled' : 'glass'} destructive={color === 'danger'}
+    tint={color === 'default' ? undefined : c.fg} aria-busy={isLoading || undefined}
+    className={clsx('re-glass-button', SIZES[size], fullWidth && 'w-full', className)}>
+    {isLoading ? <Loader2 size={14} className="animate-spin" /> : startContent}{children}
+  </GlassButton>
   return (
     <motion.button
       data-native-control="button"

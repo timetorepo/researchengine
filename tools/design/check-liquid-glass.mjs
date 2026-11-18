@@ -1,0 +1,41 @@
+import { chromium } from './node_modules/playwright-core/index.mjs'
+import assert from 'node:assert/strict'
+const browser = await chromium.launch({ executablePath: process.env.BROWSER_EXECUTABLE, headless: true })
+try {
+ const p = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+ await p.addInitScript(() => { localStorage.setItem('intro.logo.seen','1'); if (!localStorage.getItem('re.data.main:research-engine-v1')) localStorage.setItem('re.data.main:research-engine-v1',JSON.stringify({state:{settings:{onboarded:true,reduceMotion:false,updates:{autoCheck:false}}},version:0})) })
+ await p.route('**/api/**', r => r.fulfill({json:{}}))
+ await p.goto('http://127.0.0.1:5173/#/settings')
+ await p.getByRole('searchbox',{name:'Find a settings category'}).fill('Liquid Glass Redesign')
+ await p.getByRole('button',{name:'Liquid Glass Redesign Appearance',exact:true}).click()
+ const toggle = p.getByRole('switch',{name:'Liquid Glass Redesign',exact:true})
+ await toggle.waitFor(); assert.equal(await toggle.getAttribute('aria-checked'),'false')
+ await toggle.focus(); await p.keyboard.press('Space')
+ await p.waitForFunction(()=>document.documentElement.dataset.liquidRedesign==='on')
+ assert.ok((await toggle.getAttribute('class')).includes('lg-switch'))
+ await p.reload(); await p.waitForFunction(()=>document.documentElement.dataset.liquidRedesign==='on')
+ // Isolated real adapters, no providers, keys or model requests.
+ await p.evaluate(async()=>{
+  const reactModule = await import('/node_modules/.vite/deps/react.js'); const React = reactModule.default ?? reactModule; const client = await import('/node_modules/.vite/deps/react-dom_client.js'); const createRoot = client.createRoot ?? client.default.createRoot
+  const {Switch} = await import('/src/components/ui/heroui/Switch.tsx'); const {Input} = await import('/src/components/ui/heroui/Input.tsx'); const {Button} = await import('/src/components/ui/heroui/Button.tsx'); const {SegmentedControl} = await import('/src/components/ui/native/SegmentedControl.tsx')
+  const host=document.createElement('section'); host.id='adapter-test'; host.style='position:fixed;inset:0;z-index:99999;background:var(--bg);padding:40px'; document.body.append(host)
+  function Test(){const [v,set]=React.useState('secret'); const [checked,check]=React.useState(false); const [seg,select]=React.useState('a'); return React.createElement('div',null,
+   React.createElement(Switch,{label:'Test switch',checked,onChange:check}),React.createElement(Switch,{label:'Disabled switch',checked:false,onChange:check,disabled:true}),
+   React.createElement(Input,{label:'Test password',type:'password',value:v,onChange:set,description:'Help text'}),
+   React.createElement(Button,{isLoading:true},'Loading action'),React.createElement(Button,{disabled:true},'Disabled action'),
+   React.createElement(SegmentedControl,{label:'Test segments',items:[{value:'a',label:'Alpha'},{value:'b',label:'Beta'}],value:seg,onChange:select}),
+   React.createElement(SegmentedControl,{label:'Disabled segments',items:[{value:'a',label:'Enabled option'},{value:'b',label:'Disabled option',disabled:true}],value:seg,onChange:select}))}
+  createRoot(host).render(React.createElement(Test))
+ })
+ const area=p.locator('#adapter-test'); const sw=area.getByRole('switch',{name:'Test switch',exact:true}); await sw.focus();await p.keyboard.press('Space');assert.equal(await sw.getAttribute('aria-checked'),'true')
+ assert.equal(await area.getByRole('switch',{name:'Disabled switch'}).isDisabled(),true)
+ const input=area.getByLabel('Test password',{exact:true}); await input.fill('changed');assert.equal(await input.inputValue(),'changed');assert.equal(await input.getAttribute('type'),'password'); await area.getByRole('button',{name:'Toggle visibility'}).click();assert.equal(await input.getAttribute('type'),'text')
+ assert.equal(await area.getByRole('button',{name:'Loading action'}).isDisabled(),true);assert.equal(await area.getByRole('button',{name:'Disabled action'}).isDisabled(),true)
+ assert.equal(await area.getByRole('radio',{name:'Disabled option'}).isDisabled(),true)
+ await p.screenshot({path:'.cache/liquid-glass-controls.png'})
+ await p.emulateMedia({ reducedMotion:'reduce' });await p.waitForFunction(()=>document.documentElement.dataset.liquidRedesign==='off');assert.equal(await area.locator('.lg-switch').count(),0)
+ await p.emulateMedia({ reducedMotion:'no-preference',forcedColors:'active' });await p.waitForFunction(()=>document.documentElement.dataset.liquidRedesign==='off')
+ await p.emulateMedia({forcedColors:'none'});await p.waitForFunction(()=>document.documentElement.dataset.liquidRedesign==='on')
+ await p.evaluate(async()=>{const {useStore}=await import('/src/stores/useStore.ts');useStore.setState(s=>({settings:{...s.settings,reduceMotion:true}}))}); await p.waitForFunction(()=>document.documentElement.dataset.liquidRedesign==='off')
+ console.log('PASS default off; keyboard toggle; persistence; real Glisse switch/input; password visibility; disabled/loading; disabled segment fallback; OS/app reduced motion; forced colours')
+} finally { await browser.close() }
