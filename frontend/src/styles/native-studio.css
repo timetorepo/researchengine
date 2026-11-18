@@ -90,3 +90,8 @@ html[data-liquid-redesign=on] {
   --lg-track:color-mix(in srgb,var(--text) 30%,var(--surface)); --lg-rail:var(--surface-border);
   --lg-shadow:#0003; --lg-drop:#0001; --lg-lens-drop:#0002;
 }
+.re-static-navigation { display:flex; max-width:100%; gap:2px; padding:4px; border:1px solid var(--surface-border); border-radius:12px; background:var(--surface); }
+.re-static-navigation a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:7px 9px; min-height:44px; min-width:0; flex:1; border-radius:8px; color:var(--text-2); font-size:11px; text-decoration:none; }
+.re-static-navigation a[aria-current=page] { background:var(--elevated); color:var(--text); }
+.re-static-navigation a:focus-visible { outline:2px solid var(--primary); outline-offset:-2px; }
+@media(forced-colors:active) { .re-static-navigation { border-color:ButtonText; } .re-static-navigation a[aria-current=page] { outline:2px solid Highlight; } }

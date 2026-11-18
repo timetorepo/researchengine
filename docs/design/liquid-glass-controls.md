@@ -29,3 +29,9 @@ This is a shared-control foundation, not a claim that every app control has been
 - Extended browser checks pass for range ArrowRight/End, disabled range, actual settings range increments, settings search clear, popup Escape/focus restoration, 390px and 1280px settings horizontal bounds, matching input ink across light/Latte/Nord/dark and app High Contrast fallback. Inspected desktop/narrow settings and Latte/Nord control renders; theme screenshots disable transition animations to capture settled colours.
 - Settings-search regression suite, TypeScript, production frontend/backend build, 12 BoardUI adapter checks and diff whitespace check pass after changes.
 - 390px is viewport emulation, not a phone test. No exhaustive contrast certification, screen-reader test or 200% browser zoom test yet.
+
+## Navigation accessibility follow-through
+
+The independent experimental floating tab bar and Coding section switch now use real route links with aria-current under OS reduced motion/transparency, forced colours, app reduced motion or the High Contrast theme. Saved opt-ins remain unchanged. This bypasses Glisse JavaScript springs, not only CSS animations. Static destinations have visible focus, opaque surfaces and forced-colour selection outlines.
+
+Browser checks in check-board-storage.mjs verified link rendering, Enter navigation to Coding, Coding section links, 390px floating bounds and forced-colour fallback. Existing glass and settings-search browser suites also pass. These checks do not claim screen-reader or physical-device coverage.

@@ -1,3 +1,4 @@
+import { useStaticMaterials } from '@/lib/design/useLiquidGlass'
 /**
  * An experimental floating tab bar: five main destinations in one glass bar at
  * the bottom of the screen, in the style of iOS 26's floating tab bars
@@ -11,7 +12,7 @@
  * The coding project list keeps the bar. Shell reserves space below content.
  */
 import React from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { Home, Library, MessageSquare, Code, Workflow } from 'lucide-react'
 import { TabBar } from 'glisse'
 import 'glisse/styles.css'
@@ -30,6 +31,7 @@ const TABS: { key: TabKey; to: string; label: string; icon: React.ReactNode; mat
 ]
 
 export function FloatingTabBar() {
+  const staticMaterials = useStaticMaterials()
   const material = useStore((s) => s.settings.glassMode ?? 'off')
   const strength = useStore((s) => Math.max(0, Math.min(100, s.settings.navigationGlassStrength ?? 60)))
   const on = useStore((s) => s.settings.experimentalTabBar === true)
@@ -44,17 +46,17 @@ export function FloatingTabBar() {
   return (
     <nav
       aria-label="Main"
-      data-material={material}
+      data-material={staticMaterials ? 'off' : material}
       className="re-floating-navigation absolute left-1/2 -translate-x-1/2 z-[25] max-w-[calc(100%-16px)]"
       style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)', '--re-nav-opacity': String(1 - strength * 0.006), '--re-nav-blur': `${strength * 0.3}px` } as React.CSSProperties}
       data-testid="floating-navigation"
     >
-      <TabBar
+      {staticMaterials ? <div className="re-static-navigation">{TABS.map(t => <Link key={t.key} to={t.to} aria-current={t.match(pathname) ? 'page' : undefined}>{t.icon}<span>{t.label}</span></Link>)}</div> : <TabBar
         aria-label="Main sections"
         items={TABS.map((t) => ({ value: t.key, label: t.label, icon: t.icon }))}
         value={active}
         onValueChange={(v) => { if (v !== active) navigate(routes[v as TabKey]) }}
-      />
+      />}
     </nav>
   )
 }
