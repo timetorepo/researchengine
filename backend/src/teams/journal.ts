@@ -10,7 +10,7 @@ export type Receipt = { sequence: number; digest: string }
 const aad = Buffer.from('researchengine-teams-journal-v1')
 const hash = (value: Buffer) => createHash('sha256').update(value).digest('hex')
 function validate(value: TeamOperation) {
-  if (!value || typeof value !== 'object' || !Object.hasOwn(value, 'payload') || ['id', 'actor', 'kind'].some(key => typeof value[key as keyof TeamOperation] !== 'string' || !(value[key as keyof TeamOperation] as string).trim())) throw new Error('Invalid operation identity')
+  if (!value || typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype || !Object.hasOwn(value, 'payload') || ['id', 'actor', 'kind'].some(key => typeof value[key as keyof TeamOperation] !== 'string' || !(value[key as keyof TeamOperation] as string).trim())) throw new Error('Invalid operation identity')
   // Require exact JSON data: callers must not lose undefined fields, dates or non-finite numbers.
   const seen = new Set<object>()
   const visit = (v: unknown): void => {
@@ -32,6 +32,21 @@ function unseal(bytes: Buffer, key: Buffer): JournalEntry {
   const cipher = createDecipheriv('aes-256-gcm', key, bytes.subarray(0, 12))
   cipher.setAAD(aad); cipher.setAuthTag(bytes.subarray(-16))
   return JSON.parse(Buffer.concat([cipher.update(bytes.subarray(12, -16)), cipher.final()]).toString('utf8'))
+}
+/** Strict read-only inspection; backups must not contain an incomplete tail. */
+export function inspectJournal(bytes: Buffer, key: Buffer): { entries: JournalEntry[]; checkpoints: Receipt[] } {
+  if (key.length !== 32 || (bytes.length && bytes[bytes.length - 1] !== 10)) throw new Error('Invalid key or incomplete journal backup')
+  const entries: JournalEntry[] = [], checkpoints: Receipt[] = [{ sequence: 0, digest: '0'.repeat(64) }], ids = new Set<string>()
+  for (const line of bytes.toString('utf8').split('\n').slice(0, -1)) {
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(line)) throw new Error('Invalid journal encoding')
+    const encrypted = Buffer.from(line, 'base64')
+    if (encrypted.toString('base64') !== line) throw new Error('Noncanonical journal encoding')
+    const entry = unseal(encrypted, key)
+    validate(entry.operation)
+    if (entry.version !== 1 || entry.sequence !== entries.length + 1 || entry.previous !== checkpoints[checkpoints.length - 1].digest || ids.has(entry.operation.id)) throw new Error('Journal sequence/hash/identity mismatch')
+    entries.push(entry); ids.add(entry.operation.id); checkpoints.push({ sequence: entry.sequence, digest: hash(encrypted) })
+  }
+  return { entries, checkpoints }
 }
 async function syncDirectory(directory: string) {
   const handle = await open(directory, 'r')
@@ -63,16 +78,9 @@ export class TeamJournal {
       const journal = new TeamJournal(directory, key, file, lock)
       const bytes = await readFile(join(directory, 'operations.log'))
       const boundary = bytes.lastIndexOf(10) + 1
-      // Only an incomplete non-newline tail may be discarded. Authenticated complete records never are.
-      for (const line of bytes.subarray(0, boundary).toString('utf8').split('\n').slice(0, -1)) {
-        if (!/^[A-Za-z0-9+/]+={0,2}$/.test(line)) throw new Error('Invalid journal encoding')
-        const encrypted = Buffer.from(line, 'base64')
-        if (encrypted.toString('base64') !== line) throw new Error('Noncanonical journal encoding')
-        const entry = unseal(encrypted, key)
-        validate(entry.operation)
-        if (entry.version !== 1 || entry.sequence !== journal.entries.length + 1 || entry.previous !== journal.tail || journal.receipts.has(entry.operation.id)) throw new Error('Journal sequence/hash/identity mismatch')
-        journal.remember(entry, hash(encrypted))
-      }
+      // Only an incomplete non-newline tail may be discarded; complete records fail closed.
+      const inspected = inspectJournal(bytes.subarray(0, boundary), key)
+      for (const entry of inspected.entries) journal.remember(entry, inspected.checkpoints[entry.sequence].digest)
       if (boundary !== bytes.length) { await file.truncate(boundary); await file.sync() }
       return journal
     } catch (error) {
@@ -111,6 +119,22 @@ export class TeamJournal {
         await this.file.sync() // Receipt cannot resolve before durable flush succeeds.
       } catch (error) { this.poisoned = true; throw error }
       return this.remember(entry, hash(encrypted))
+    })
+    this.queue = job.catch(() => undefined)
+    return job
+  }
+  /** Freeze append ordering during capture. The callback must not append/close this journal. */
+  capture<T>(read: (log: Buffer, checkpoints: Receipt[]) => Promise<T>): Promise<T> {
+    if (this.closed) return Promise.reject(new Error('Journal closed'))
+    const job = this.queue.then(async () => {
+      if (this.poisoned) throw new Error('Journal requires recovery')
+      const log = await readFile(join(this.directory, 'operations.log'))
+      let inspected: ReturnType<typeof inspectJournal>
+      try {
+        inspected = inspectJournal(log, this.key)
+        if (inspected.checkpoints.length !== this.entries.length + 1 || inspected.checkpoints.at(-1)!.digest !== this.tail) throw new Error('Journal changed outside its writer')
+      } catch (error) { this.poisoned = true; throw error }
+      return read(log, inspected.checkpoints)
     })
     this.queue = job.catch(() => undefined)
     return job

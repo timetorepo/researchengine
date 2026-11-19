@@ -151,3 +151,80 @@ Next recovery requirements: full journal+snapshot+attachment backup validation,
 persisted client pending/reconnect queues, typed deterministic replay and usable
 offline recovery tooling. Permissions/authentication and protected key management
 must be in place before HTTPS host/join or collaborative Board/BackChat exposure.
+
+## Full offline storage-package checkpoint — 2026-11-12
+
+`backend/src/teams/recovery.ts` adds encrypted full **storage** recovery packages:
+the complete durable operation-log prefix and every committed object captured
+from the dedicated team object directory, including old snapshots and
+unreferenced original attachments. Pending ciphertext files are excluded. This
+supersedes the snapshot-only bundle limitation for this API; snapshot bundles
+remain deliberately narrow. Keys, invitations, membership credentials, future
+pending-client queues and private local data are not part of these packages.
+There are still no Teams routes, listeners, UI or production activation path.
+
+Export freezes the journal's queued append ordering while capturing objects.
+Strict read-only journal inspection validates every complete record; unlike
+normal crash recovery, package inspection never accepts/truncates a torn tail.
+All objects authenticate, every snapshot attachment must be present, and every
+snapshot checkpoint must match the packaged journal. Corrupt source data fails
+export, not silently drops records. Unexpected non-temporary files in the
+object directory also fail export. Object files remain immutable, but independent
+object publishers are not locked: callers should quiesce uploads/snapshot
+creation for an exact inventory boundary. Races yielding inconsistent references
+fail validation rather than produce a claimed good package. Application-level
+references embedded in opaque operation payloads cannot yet be checked: typed
+Board/BackChat replay and attachment-reference validation remain required.
+
+Packages and restore markers use AES-256-GCM and team-specific authenticated
+context. Three distinct 32-byte keys are required: journal, objects and backup.
+No keys are included in packages or markers. API-owned recovery-key copies are
+cleared after each operation; this is best effort, not a JS-memory erasure
+promise. Existing long-lived journal/object instances and caller-owned keys have
+their own lifetimes. Protected key provisioning/rotation/recovery remain future
+work. Loss of any required key can make recovery impossible; package possession
+alone cannot recover these keys. An authorized host remains trusted with plaintext.
+
+`exportRecovery` returns an encrypted Buffer, not a saved off-device backup.
+The eventual operator tool must durably persist, verify and safely copy it.
+`inspectRecovery` authenticates the full package without filesystem writes.
+`restoreRecovery` validates everything before creating a **new** destination;
+it rejects any pre-existing destination, even an empty directory. It never
+merges into a live Team, deletes prior data or steals journal locks. Restore
+publishes dependencies before snapshots and writes/fsyncs an authenticated
+`READY` marker last. The `INCOMPLETE` provenance file intentionally remains;
+without a successfully verified READY, a directory is incomplete regardless of
+which data files are present. Failed/crashed attempts are left for offline
+inspection; retry targets a different new directory.
+
+`verifyRestored` is read-only, requires no journal writer lock to be present,
+and checks READY authentication, exact committed object identities, contents,
+snapshot references and the full journal checkpoint. It is an **offline restore
+artifact verifier**, not a verifier to run after new live writes. Stopping all
+writers is an operator precondition, not enforced by an OS-wide lock. The marker
+records the originating package SHA256 for provenance; it is not an external
+anti-rollback authority. Valid old whole-package rollback still cannot be
+detected without a separately trusted checkpoint.
+
+Restoring a snapshot does not prove the arbitrary JSON state was correctly
+reduced from its operation history. No reducer, Teams permission model, reconnect
+protocol, backup UI/CLI, full filesystem fault matrix or automatic recovery is
+implied. The APIs load whole logs/objects/packages in memory: bounded/streamed
+large-data processing and hostile-data resource limits remain unfinished.
+Use trusted private existing local parent directories only. Native/Windows,
+network filesystems, hardware power loss and security certification are untested.
+
+Verification: `tsx backend/scripts/teams-recovery-test.ts` passes 8 grouped checks:
+full encrypted roundtrip with historical journal/snapshot/unreferenced originals,
+retry receipt preservation, existing-destination refusal, corrupted/truncated/
+wrong-key/wrong-team/version/checkpoint/missing-reference packages with no writes,
+authenticated exact-inventory verification and live-lock refusal, frozen append
+boundary, corrupt source refusal, and real SIGKILL after restore data publication
+but before READY followed by incomplete-destination rejection and successful
+separate-destination recovery. Existing 11 journal and 11 object checks pass,
+as do backend TypeScript and production build. No provider calls/networking/UI
+changes. This is implementation documentation, not release notes.
+
+Next: typed deterministic replay/reference validation and persisted pending-client
+queues/reconnect tests, then recovery tooling/protected keys and authorization
+before host/join exposure.

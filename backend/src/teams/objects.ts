@@ -1,10 +1,11 @@
 /** Immutable offline objects. No HTTP, authorization, key storage, or private-chat access. */
-import { open, mkdir, readFile, link, unlink } from 'node:fs/promises'
+import { open, mkdir, readFile, link, unlink, readdir } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto'
 import type { Receipt, TeamJournal } from './journal'
 
 export type TeamSnapshot = { version: 1; checkpoint: Receipt; state: unknown; attachments: string[] }
+export type ObjectArchive = { version: 1; objects: { kind: Kind; id: string; ciphertext: string }[] }
 type Kind = 'attachment' | 'snapshot'
 const validId = (id: string) => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id)
 function json(value: unknown): string {
@@ -18,7 +19,7 @@ function json(value: unknown): string {
   visit(value); return JSON.stringify(value)
 }
 function validateSnapshot(value: TeamSnapshot) {
-  if (!value || value.version !== 1 || !value.checkpoint || !Number.isSafeInteger(value.checkpoint.sequence) || value.checkpoint.sequence < 0 || !validId(value.checkpoint.digest) || !Object.hasOwn(value, 'state') || !Array.isArray(value.attachments) || value.attachments.some(id => !validId(id)) || new Set(value.attachments).size !== value.attachments.length) throw new Error('Invalid snapshot')
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype || value.version !== 1 || !value.checkpoint || !Number.isSafeInteger(value.checkpoint.sequence) || value.checkpoint.sequence < 0 || !validId(value.checkpoint.digest) || !Object.hasOwn(value, 'state') || !Array.isArray(value.attachments) || value.attachments.some(id => !validId(id)) || new Set(value.attachments).size !== value.attachments.length) throw new Error('Invalid snapshot')
   json(value)
 }
 async function syncDirectory(path: string) {
@@ -92,6 +93,57 @@ export class TeamObjects {
     validateSnapshot(snapshot)
     for (const attachment of snapshot.attachments) await this.getAttachment(attachment)
     return snapshot
+  }
+  private inspectArchive(archive: ObjectArchive): { kind: Kind; id: string; bytes: Buffer }[] {
+    if (!archive || archive.version !== 1 || !Array.isArray(archive.objects)) throw new Error('Invalid object archive')
+    const identities = new Set<string>()
+    const objects = archive.objects.map(value => {
+      if (!value || !['attachment', 'snapshot'].includes(value.kind) || !validId(value.id) || typeof value.ciphertext !== 'string') throw new Error('Invalid archive object')
+      const name = `${value.kind}-${value.id}`
+      if (identities.has(name)) throw new Error('Duplicate archive object')
+      identities.add(name)
+      const encrypted = Buffer.from(value.ciphertext, 'base64')
+      if (encrypted.toString('base64') !== value.ciphertext) throw new Error('Invalid archive encoding')
+      const bytes = this.decrypt(value.kind, encrypted)
+      if (this.id(value.kind, bytes) !== value.id) throw new Error('Archive identity mismatch')
+      return { kind: value.kind, id: value.id, bytes }
+    })
+    for (const object of objects) if (object.kind === 'snapshot') {
+      const snapshot = JSON.parse(object.bytes.toString('utf8')) as TeamSnapshot
+      validateSnapshot(snapshot)
+      for (const id of snapshot.attachments) if (!identities.has(`attachment-${id}`)) throw new Error('Archive missing snapshot attachment')
+    }
+    return objects
+  }
+  /** Read-only validation without creating directories. */
+  static inspectArchive(archive: ObjectArchive, key: Buffer, team: string): TeamSnapshot[] {
+    if (key.length !== 32 || !/^[a-zA-Z0-9_-]{1,128}$/.test(team)) throw new Error('Invalid object key/team identity')
+    const inspector = new TeamObjects('', key, team)
+    return inspector.inspectArchive(archive).filter(value => value.kind === 'snapshot').map(value => JSON.parse(value.bytes.toString('utf8')) as TeamSnapshot)
+  }
+  /** All committed objects, including unreferenced originals; temporary files are excluded. */
+  async exportArchive(): Promise<ObjectArchive> {
+    const names = (await readdir(this.directory)).sort()
+    const objects: ObjectArchive['objects'] = []
+    for (const name of names) {
+      if (/^\.pending-/.test(name)) continue
+      const match = /^(attachment|snapshot)-([a-f0-9]{64})$/.exec(name)
+      if (!match) throw new Error('Unexpected file in dedicated object store')
+      objects.push({ kind: match[1] as Kind, id: match[2], ciphertext: (await readFile(join(this.directory, name))).toString('base64') })
+    }
+    const archive: ObjectArchive = { version: 1, objects }
+    this.inspectArchive(archive)
+    return archive
+  }
+  /** Existing store only; unlike open, this does not create or sync directories. */
+  static async readArchive(directory: string, key: Buffer, team: string): Promise<ObjectArchive> {
+    if (key.length !== 32 || !/^[a-zA-Z0-9_-]{1,128}$/.test(team)) throw new Error('Invalid object key/team identity')
+    return new TeamObjects(directory, key, team).exportArchive()
+  }
+  async importArchive(archive: ObjectArchive): Promise<void> {
+    const objects = this.inspectArchive(archive)
+    // Validate everything before writes, then publish attachment dependencies first.
+    for (const kind of ['attachment', 'snapshot'] as const) for (const object of objects) if (object.kind === kind) await this.put(kind, object.bytes)
   }
   /** A snapshot + its referenced attachments, NOT a full journal/history/key backup. */
   async exportSnapshot(id: string): Promise<Buffer> {
