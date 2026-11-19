@@ -15,6 +15,7 @@ import { previewConnectors, removeBoardItem } from '@/lib/board/connectors'
 import { editGeometry, frameContents, frameOptions } from '@/lib/board/structure'
 import { BoardNoteEditor } from './BoardNoteEditor'
 import { BoardBackup } from './BoardBackup'
+import { BoardMaintenance } from './BoardMaintenance'
 import type { BoardAttachment } from '@/lib/board/storage'
 import './board.css'
 
@@ -35,15 +36,16 @@ export function BoardView() {
     return () => { alive = false; opened?.close() }
   }, [namespace])
   if (!store) return <div className="re-board-page"><h1>Board</h1>{error ? <p role="alert">{error}</p> : <p role="status">Opening local boards…</p>}</div>
-  return id ? <BoardEditor key={`${namespace}:${id}`} id={id} namespace={namespace} store={store} /> : <BoardList store={store} />
+  return id ? <BoardEditor key={`${namespace}:${id}`} id={id} namespace={namespace} store={store} /> : <BoardList store={store} namespace={namespace} />
 }
-function BoardList({ store }: { store: Store }) {
+function BoardList({ store, namespace }: { store: Store; namespace:string }) {
   const navigate = useNavigate()
   const [boards, setBoards] = useState<Awaited<ReturnType<Store['list']>>>([])
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [notice,setNotice]=useState('')
   useEffect(() => { let alive = true; store.list().then(value => { if (alive) { setBoards(value); setReady(true) } }).catch(e => { if (alive) setError(message(e)) }); return () => { alive = false } }, [store])
   async function create() { setBusy(true); setError(''); try { const board = await store.save(newBoard(), 0); navigate(`/board/${board.id}`) } catch(e) { setError(message(e)); setBusy(false) } }
   const visible = boards.filter(board => board.title.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
@@ -51,11 +53,11 @@ function BoardList({ store }: { store: Store }) {
     <p className="re-board-disclosure">Local to this browser profile. Not synced or encrypted by Board. Save revisions explicitly; browser data can be cleared.</p>
     <BoardBackup store={store} disabled={busy} onBusy={setBusy} />
     <SearchField aria-label="Search boards" placeholder="Find a board…" value={query} onValueChange={setQuery} />
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {!ready && !error && <p role="status">Loading boards…</p>}
     {ready && !boards.length && <div className="re-board-empty"><div className="re-board-empty-texture" aria-hidden="true" style={ditherMaskStyle(0.25, {cell: 2})} /><LayoutDashboard size={28} aria-hidden="true" /><h2>Your thinking, in one place</h2><p>Start with a note or a source link. Nothing is sent to an AI.</p><button className="bui-button" disabled={busy} onClick={create}>Create your first board</button></div>}
     {ready && !!boards.length && !visible.length && <p role="status">No boards match your search.</p>}
-    <ul className="re-board-list">{visible.map(board => <li key={board.id}><Link to={`/board/${board.id}`}><LayoutDashboard size={20} aria-hidden="true" /><span><strong>{board.title || 'Untitled board'}</strong><small>Revision {board.revision} · {new Date(board.updatedAt).toLocaleString()}</small></span></Link></li>)}</ul>
+    <ul className="re-board-list">{visible.map(board => <li key={board.id}><Link to={`/board/${board.id}`}><LayoutDashboard size={20} aria-hidden="true" /><span><strong>{board.title || 'Untitled board'}</strong><small>Revision {board.revision} · {new Date(board.updatedAt).toLocaleString()}</small></span></Link><BoardMaintenance compact store={store} namespace={namespace} board={board} disabled={busy} onBusy={setBusy} onDeleted={notice=>{setBoards(value=>value.filter(item=>item.id!==board.id));setNotice(notice)}}/></li>)}</ul>
   </section>
 }
 function BoardEditor({ id, namespace, store }: { id: string; namespace: string; store: Store }) {
@@ -71,6 +73,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
   const [status, setStatus] = useState('Loading board…')
   const undo = useRef<BoardDocument[]>([]), redo = useRef<BoardDocument[]>([])
   const [drawing,setDrawing]=useState(false)
+  const [deleted,setDeleted]=useState('')
   const [historyVersion, setHistoryVersion] = useState(0)
   const importController = useRef<AbortController | undefined>(undefined)
   const [importProgress,setImportProgress] = useState<{done:number;total:number;name:string}>()
@@ -157,6 +160,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
     const from = direction === 'undo' ? undo : redo, to = direction === 'undo' ? redo : undo
     const next = from.current.pop(); if (next) { to.current.push(board); draft(next, false) }
   }
+  if(deleted)return <section className="re-board-page"><h1>Board deleted</h1><p role="status">{deleted}</p><Link className="bui-button" to="/board">All boards</Link></section>
   if (!board) return <section className="re-board-page"><Link to="/board">All boards</Link>{error && <p role="alert">{error}</p>}<p role="status">{status}</p></section>
   const canvasWidth = board.items.reduce((size,item) => Math.max(size,item.x + item.width + 80),1400)
   const canvasHeight = board.items.reduce((size,item) => Math.max(size,item.y + item.height + 80),900)
@@ -191,6 +195,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
         {active.kind!=='connector'&&<div className="re-board-position">{(['x','y','width','height'] as const).map(axis => <label key={axis}>{axis === 'x' || axis === 'y' ? `${axis.toUpperCase()} position` : axis === 'width' ? 'Width' : 'Height'}<input className="bui-field" aria-label={axis === 'x' || axis === 'y' ? `${axis.toUpperCase()} position` : axis === 'width' ? 'Card width' : 'Card height'} type="number" min={axis === 'width' ? 160 : axis === 'height' ? 120 : 0} value={active[axis]} onChange={e => { if (e.currentTarget.value !== '' && Number.isFinite(e.currentTarget.valueAsNumber)) change({[axis]: Math.max(axis === 'width' ? 160 : axis === 'height' ? 120 : 0,e.currentTarget.valueAsNumber)}) }} /></label>)}</div>}
         <button className="bui-button" onClick={() => { if (window.confirm('Remove this item and any attached connectors from the draft? Frame contents are kept. You can undo before saving.')) { draft({...board,items:removeBoardItem(board.items,active.id)}); select(undefined) } }}>Remove item</button>
       </fieldset> : <p>Select a card or an outline entry to edit it. Selected cards have move and resize handles. Use arrow keys on a handle (Shift for ten units), or edit position and size fields. Escape cancels a drag.</p>}
+      <BoardMaintenance store={store} namespace={namespace} board={board} disabled={busy || dirty || !!recovered || drawing || boardWritesFrozen()} onBusy={setBusy} onDeleted={notice=>{setDeleted(notice);setDirty(false)}}/>
       <details className="re-board-recovery"><summary>Previous saved revision</summary>{previous ? <><p>Revision {previous.revision} · {previous.title || 'Untitled board'} · {previous.items.length} items</p><button className="bui-button" disabled={busy || !!recovered} onClick={() => { if (!dirty || window.confirm('Replace unsaved edits with the previous revision?')) { draft({...previous, revision: board.revision}); select(undefined) } }}>Load previous revision into draft</button><p>Review it, then Save revision to commit. The current saved board stays intact until then.</p></> : <p>A previous snapshot appears after the next save.</p>}</details>
       </aside>
     </div>

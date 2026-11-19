@@ -164,3 +164,10 @@
 .re-board-card[data-kind=drawing] .re-board-card-text { position:absolute; bottom:6px; left:6px; right:42px; flex:none; max-height:32px; font-size:10px; background:var(--surface); padding:2px 4px; border-radius:3px; }
 .re-board-card[data-kind=drawing] .re-board-card-text:empty { display:none; }
 @media(forced-colors:active) { .re-board-draw-surface path,.re-board-drawing path { stroke:CanvasText; } }
+.re-board-list > li { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px; border:1px solid var(--surface-border); border-radius:12px; background:var(--surface); }
+.re-board-list > li > a { flex:1; min-width:180px; border:0; padding:10px; }
+.re-board-maintenance { margin-top:20px; padding-top:14px; border-top:1px solid var(--surface-border); }
+.re-board-maintenance summary { cursor:pointer; }
+.re-board-maintenance-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.re-board-maintenance-compact { font-size:11px; max-width:100%; }
+.re-board-maintenance-compact p { max-width:320px; overflow-wrap:anywhere; }

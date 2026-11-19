@@ -14,7 +14,7 @@ export type BoardDocument = {
   items: BoardItem[]; viewport: { x: number; y: number; zoom: number }
 }
 export type BoardAttachment = { id: string; name: string; blob: Blob }
-export class BoardConflict extends Error { constructor() { super('Board changed in another window. Reload before saving.'); this.name = 'BoardConflict' } }
+export class BoardConflict extends Error { constructor() { super('Board changed in another window. Reload before saving or running maintenance.'); this.name = 'BoardConflict' } }
 export function newBoard(title = 'Untitled board'): BoardDocument {
   return { schemaVersion: 1, id: crypto.randomUUID(), title, revision: 0, updatedAt: new Date().toISOString(), items: [], viewport: { x: 0, y: 0, zoom: 1 } }
 }
@@ -55,6 +55,21 @@ export async function deleteBoardDatabase(name: string) {
     req.onblocked = () => reject(new Error('Close other app windows to finish deleting local Board data.'))
   })
 }
+/** Walk only compound keys for this exact board, never a string-prefix approximation. */
+function removeOriginals(store:IDBObjectStore,boardId:string,keep:Set<string>=new Set()):Promise<{files:number;bytes:number}> {
+  return new Promise((resolve,reject)=>{
+    let files=0,bytes=0
+    const cursor=store.openCursor(IDBKeyRange.bound([boardId],[boardId,[]],false,true))
+    cursor.onerror=()=>reject(cursor.error)
+    cursor.onsuccess=()=>{
+      const current=cursor.result;if(!current){resolve({files,bytes});return}
+      const key=current.key
+      if(!Array.isArray(key)||key[0]!==boardId||typeof key[1]!=='string'){reject(new Error('Invalid Board original key. Nothing was removed.'));return}
+      if(!keep.has(key[1])){if(!(current.value.blob instanceof Blob)){reject(new Error('Invalid Board original. Nothing was removed.'));return}files++;bytes+=current.value.blob.size;current.delete()}
+      current.continue()
+    }
+  })
+}
 export async function openBoardStore(name = 'research-engine-boards-v1') {
   const req = indexedDB.open(name,1)
   req.onupgradeneeded=()=>{ for (const store of ['boards','previous','attachments']) req.result.createObjectStore(store,{keyPath:'id'}) }
@@ -82,6 +97,24 @@ export async function openBoardStore(name = 'research-engine-boards-v1') {
     async attachment(boardId: string, id: string): Promise<BoardAttachment | undefined> {
       const tx=db.transaction('attachments','readonly'); const done=completed(tx); const result=await request(tx.objectStore('attachments').get([boardId,id])); await done
       return result ? { id, name: result.name, blob: result.blob } : undefined
+    },
+    /** Explicit destructive maintenance; saved revisions and Blobs share one transaction. */
+    async maintain(id:string,expectedRevision:number,operation:'delete'|'cleanup'):Promise<{files:number;bytes:number}> {
+      if(frozen)throw new Error('Board writes are disabled after a data wipe. Reload the app to start a new workspace.')
+      if(!id||!Number.isSafeInteger(expectedRevision)||expectedRevision<1||!['delete','cleanup'].includes(operation))throw new Error('Invalid Board maintenance request.')
+      const tx=db.transaction(['boards','previous','attachments'],'readwrite'),done=completed(tx)
+      try{
+        const boards=tx.objectStore('boards'),previous=tx.objectStore('previous'),attachments=tx.objectStore('attachments')
+        const current=await request(boards.get(id))
+        if(!current||current.revision!==expectedRevision)throw new BoardConflict()
+        validateBoard(current)
+        const backup=await request(previous.get(id));if(backup!==undefined)validateBoard(backup)
+        const keep=new Set<string>()
+        if(operation==='cleanup')for(const document of [current,backup])if(document)for(const item of document.items)if(item.attachmentId)keep.add(item.attachmentId)
+        const removed=await removeOriginals(attachments,id,keep)
+        if(operation==='delete'){boards.delete(id);previous.delete(id)}
+        await done;return removed
+      }catch(error){try{tx.abort()}catch{/* transaction already finished */}await done.catch(()=>{});throw error}
     },
     /** Resolve only after transaction commits. Existing attachment IDs are immutable. */
     async save(document: BoardDocument, expectedRevision: number, attachments: BoardAttachment[] = [], signal?: AbortSignal): Promise<BoardDocument> {
