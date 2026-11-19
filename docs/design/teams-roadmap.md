@@ -228,3 +228,75 @@ changes. This is implementation documentation, not release notes.
 Next: typed deterministic replay/reference validation and persisted pending-client
 queues/reconnect tests, then recovery tooling/protected keys and authorization
 before host/join exposure.
+
+## Typed deterministic replay checkpoint — 2026-11-12
+
+`backend/src/teams/replay.ts` defines a small offline v1 Teams protocol and a
+pure deterministic reducer. Nothing is registered with the server or frontend.
+No private Board migration/import, network traffic, membership authorization or
+live collaborative feature is enabled. No dependencies added.
+
+Two operation kinds are currently supported:
+
+- `team.board.replace.v1`: a full Board item-set/title replacement with an exact
+  expected revision (zero creates, each accepted replacement increments by one).
+  Items cover note/reference/image/PDF/drawing/shape/connector/frame geometry,
+  text/Markdown, sources and attachment IDs. Fields are strict/versioned;
+  geometry must be finite with positive dimensions, links must resolve, parents
+  must be frames without cycles, connectors need distinct non-connector targets,
+  and normalized drawing coordinates must lie within the unit square. Image/PDF
+  cards require a committed original. This is not incremental merge/CRDT or a
+  frontend schema migration; future adapters must explicitly validate/translate.
+- `team.backchat.post.v1`: append-only text, attachments and revision-pinned Board
+  or item references. Message IDs are globally unique in this team history;
+  actor comes from the recorded operation envelope, not a separately supplied
+  post-author field. This **does not authenticate** that actor: the future
+  service must bind it to the authenticated member and enforce permissions.
+  Links must resolve against the current Board revision at post acceptance.
+  They remain explicitly historical references if a later replacement removes
+  that item; no live-link claim or cascade deletion is made. Edits/deletion,
+  threads UI, unread state and live collaboration are not enabled.
+
+Replay rejects unknown operations/versions, extra fields, invalid identities,
+sequence gaps/duplicate operation IDs, conflicting expected revisions and
+invalid posts/links. It has no clocks, randomness, locale-dependent sort or
+input mutation. Board ordering and cumulative attachment identities are stable;
+post/item arrays preserve recorded order. Every attachment referenced anywhere
+in history remains required, including originals removed from current cards.
+There is no history-pruning/GC policy yet. Replaying a failed operation does not
+mutate input state, but the generic journal remains a storage primitive: a
+future serialized service must validate against current state **before append**
+rather than append invalid operations and hope replay repairs them.
+
+Recovery APIs now accept `team-state-v1` in addition to the existing
+`storage-v1` validation policy. Typed packages are always replayed when read,
+including through a default-policy call. They validate the entire history and
+all historical attachment references, then compare every snapshot's JSON state
+and cumulative attachment list with replay at that exact checkpoint. Object
+property order is ignored; array order and values are not. Snapshot sequence/digest
+binding still comes from authenticated journal inspection. Snapshots do not
+skip full replay. The encrypted restore READY marker preserves this policy.
+
+Callers can explicitly require `team-state-v1` for inspect/restore/verification;
+storage-only packages/markers are then rejected before destination writes.
+Legacy packages with no policy field remain storage-only for compatibility;
+they never become typed/activation-ready implicitly. Future Team activation
+must require typed validation. `storage-v1` remains useful for opaque prototype
+archives but does not establish valid application state. No authenticated
+history is silently discarded or reinterpreted to make it pass.
+
+Verification: `tsx backend/scripts/teams-replay-test.ts` passes 10 grouped checks:
+deterministic immutable replay, strict fields/versions/geometry/provenance,
+revision/sequence/identity conflicts and drawing/connector rules, historical
+BackChat links and cumulative originals, malformed/duplicate posts and missing
+attachments, exact checkpoint snapshot equality and invented-state refusal,
+canonical property order, typed full package/replay/restore roundtrip, explicit
+policy downgrade refusal before writes, and invalid typed source snapshot
+refusal. Existing 8 recovery, 11 object and 11 journal checks pass, including
+process-kill tests. Backend TypeScript and production build pass. No UI files
+changed; native/physical-device, large-data/DoS, full reducer performance and
+security certification remain untested.
+
+Next: durable pending-client/reconnect queues with explicit conflict retention,
+then recovery tooling/protected keys and per-request authorization before HTTPS
+host/join or live collaborative Board/BackChat exposure.

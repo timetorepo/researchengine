@@ -4,9 +4,11 @@ import { join, dirname } from 'node:path'
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto'
 import { TeamJournal, inspectJournal, type Receipt } from './journal'
 import { TeamObjects, type ObjectArchive } from './objects'
+import { validateTeamHistory } from './replay'
 
-type Ready = { version: 1; team: string; checkpoint: Receipt; packageSha256: string; identities: string[] }
-type Package = { version: 1; team: string; journal: string; checkpoint: Receipt; objects: ObjectArchive }
+export type RecoveryValidation = 'storage-v1' | 'team-state-v1'
+type Ready = { validation?: RecoveryValidation; version: 1; team: string; checkpoint: Receipt; packageSha256: string; identities: string[] }
+type Package = { validation?: RecoveryValidation; version: 1; team: string; journal: string; checkpoint: Receipt; objects: ObjectArchive }
 export type RecoveryKeys = { journal: Buffer; objects: Buffer; backup: Buffer }
 function validateKeys(keys: RecoveryKeys) {
   if ([keys.journal, keys.objects, keys.backup].some(key => !Buffer.isBuffer(key) || key.length !== 32) || keys.journal.equals(keys.objects) || keys.journal.equals(keys.backup) || keys.objects.equals(keys.backup)) throw new Error('Three distinct 32-byte recovery keys required')
@@ -30,14 +32,17 @@ function decode<T = Package>(bytes: Buffer, key: Buffer, team: string): T {
   cipher.setAAD(context(team)); cipher.setAuthTag(bytes.subarray(-16))
   return JSON.parse(Buffer.concat([cipher.update(bytes.subarray(12, -16)), cipher.final()]).toString('utf8'))
 }
-function inspect(value: Package, keys: RecoveryKeys, team: string): Buffer {
+function inspect(value: Package, keys: RecoveryKeys, team: string, requiredValidation: RecoveryValidation = 'storage-v1'): Buffer {
   if (!value || value.version !== 1 || value.team !== team || typeof value.journal !== 'string' || !value.checkpoint) throw new Error('Invalid recovery package')
+  const validation = value.validation ?? 'storage-v1'
+  if (!['storage-v1','team-state-v1'].includes(validation) || !['storage-v1','team-state-v1'].includes(requiredValidation) || (requiredValidation === 'team-state-v1' && validation !== requiredValidation)) throw new Error('Recovery validation policy mismatch')
   const log = Buffer.from(value.journal, 'base64')
   if (log.toString('base64') !== value.journal) throw new Error('Invalid journal encoding')
-  const { checkpoints } = inspectJournal(log, keys.journal), last = checkpoints.at(-1)!
+  const { entries, checkpoints } = inspectJournal(log, keys.journal), last = checkpoints.at(-1)!
   if (last.sequence !== value.checkpoint.sequence || last.digest !== value.checkpoint.digest) throw new Error('Recovery checkpoint mismatch')
   const snapshots = TeamObjects.inspectArchive(value.objects, keys.objects, team)
   for (const snapshot of snapshots) if (checkpoints[snapshot.checkpoint.sequence]?.digest !== snapshot.checkpoint.digest) throw new Error('Snapshot not bound to recovery journal')
+  if (validation === 'team-state-v1') validateTeamHistory(entries, snapshots, new Set(value.objects.objects.filter(object => object.kind === 'attachment').map(object => object.id)))
   return log
 }
 async function syncDirectory(path: string) {
@@ -47,32 +52,32 @@ async function durableFile(path: string, bytes: Buffer) {
   const file = await open(path, 'wx', 0o600)
   try { await file.writeFile(bytes); await file.sync() } finally { await file.close() }
 }
-export async function exportRecovery(journal: TeamJournal, objects: TeamObjects, keys: RecoveryKeys, team: string): Promise<Buffer> {
+export async function exportRecovery(journal: TeamJournal, objects: TeamObjects, keys: RecoveryKeys, team: string, validation: RecoveryValidation = 'storage-v1'): Promise<Buffer> {
   keys = copyKeys(keys)
   try {
     context(team)
     // Queued append ordering is frozen until object capture and package verification finish.
     return await journal.capture(async (log, checkpoints) => {
-      const value: Package = { version: 1, team, journal: log.toString('base64'), checkpoint: checkpoints.at(-1)!, objects: await objects.exportArchive() }
+      const value: Package = { validation, version: 1, team, journal: log.toString('base64'), checkpoint: checkpoints.at(-1)!, objects: await objects.exportArchive() }
       inspect(value, keys, team)
       return encode(value, keys.backup)
     })
   } finally { Object.values(keys).forEach(key => key.fill(0)) }
 }
-export function inspectRecovery(bytes: Buffer, keys: RecoveryKeys, team: string): Receipt {
+export function inspectRecovery(bytes: Buffer, keys: RecoveryKeys, team: string, requiredValidation: RecoveryValidation = 'storage-v1'): Receipt {
   keys = copyKeys(keys)
   try {
     const value = decode(bytes, keys.backup, team)
-    inspect(value, keys, team)
+    inspect(value, keys, team, requiredValidation)
     return { ...value.checkpoint }
   } finally { Object.values(keys).forEach(key => key.fill(0)) }
 }
 /** New destination only. On I/O failure leave incomplete evidence; never erase or replace existing data. */
-export async function restoreRecovery(bytes: Buffer, destination: string, keys: RecoveryKeys, team: string): Promise<Receipt> {
+export async function restoreRecovery(bytes: Buffer, destination: string, keys: RecoveryKeys, team: string, requiredValidation: RecoveryValidation = 'storage-v1'): Promise<Receipt> {
   keys = copyKeys(keys)
   try {
     bytes = Buffer.from(bytes)
-    const value = decode(bytes, keys.backup, team), log = inspect(value, keys, team)
+    const value = decode(bytes, keys.backup, team), log = inspect(value, keys, team, requiredValidation)
     // All cryptographic, checkpoint and snapshot-reference validation precedes any filesystem write.
     await mkdir(destination, { mode: 0o700 }) // EEXIST is intentional, even for an empty directory.
     await syncDirectory(dirname(destination))
@@ -84,7 +89,7 @@ export async function restoreRecovery(bytes: Buffer, destination: string, keys: 
     const objects = await TeamObjects.open(join(destination, 'objects'), keys.objects, team)
     await objects.importArchive(value.objects)
     // Ready marker binds the package bytes for operator verification; not an anti-rollback authority.
-    const ready: Ready = { version: 1, team, checkpoint: value.checkpoint, packageSha256: createHash('sha256').update(bytes).digest('hex'), identities: value.objects.objects.map(object => `${object.kind}-${object.id}`).sort() }
+    const ready: Ready = { validation: value.validation ?? 'storage-v1', version: 1, team, checkpoint: value.checkpoint, packageSha256: createHash('sha256').update(bytes).digest('hex'), identities: value.objects.objects.map(object => `${object.kind}-${object.id}`).sort() }
     await durableFile(join(destination, 'READY.pending'), encode(ready, keys.backup))
     await rename(join(destination, 'READY.pending'), join(destination, 'READY')); await syncDirectory(destination)
     // INCOMPLETE remains intentionally as provenance; READY is the final commit marker.
@@ -92,7 +97,7 @@ export async function restoreRecovery(bytes: Buffer, destination: string, keys: 
   } finally { Object.values(keys).forEach(key => key.fill(0)) }
 }
 /** Read-only offline readiness check; refuses missing marker or altered restored contents. */
-export async function verifyRestored(destination: string, keys: RecoveryKeys, team: string): Promise<Receipt> {
+export async function verifyRestored(destination: string, keys: RecoveryKeys, team: string, requiredValidation: RecoveryValidation = 'storage-v1'): Promise<Receipt> {
   keys = copyKeys(keys)
   try {
     await access(join(destination, 'journal', 'writer.lock')).then(() => { throw new Error('Restored journal is in use; verify offline') }, error => { if (error.code !== 'ENOENT') throw error })
@@ -101,8 +106,8 @@ export async function verifyRestored(destination: string, keys: RecoveryKeys, te
     const objects = await TeamObjects.readArchive(join(destination, 'objects'), keys.objects, team)
     if (JSON.stringify(objects.objects.map(object => `${object.kind}-${object.id}`).sort()) !== JSON.stringify(ready.identities)) throw new Error('Restored object inventory changed')
     const log = await readFile(join(destination, 'journal', 'operations.log'))
-    const value: Package = { version: 1, team, journal: log.toString('base64'), checkpoint: ready.checkpoint, objects }
-    inspect(value, keys, team)
+    const value: Package = { validation: ready.validation, version: 1, team, journal: log.toString('base64'), checkpoint: ready.checkpoint, objects }
+    inspect(value, keys, team, requiredValidation)
     return { ...value.checkpoint }
   } finally { Object.values(keys).forEach(key => key.fill(0)) }
 }
