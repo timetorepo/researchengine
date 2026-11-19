@@ -103,6 +103,7 @@ export async function runChat(opts: RunOptions): Promise<void> {
   const { chatId, prompt } = opts
   const chat = store.chats.find((c) => c.id === chatId)
   if (!chat) return
+  if (chat.multiAgent) { store.addMessage(chatId,{id:nanoid(8),role:'assistant',content:'',createdAt:Date.now(),error:'Use the bounded MultiAgent run controls. General chat routing is disabled for this run.'}); return }
   if (chat.boardSnapshot) { store.addMessage(chatId,{id:nanoid(8),role:'assistant',content:'',createdAt:Date.now(),error:'Use this Board snapshot session’s reviewed send controls. Automatic routing is disabled.'}); return }
 
   const settings = store.settings

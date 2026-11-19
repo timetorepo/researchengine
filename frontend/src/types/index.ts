@@ -166,6 +166,8 @@ export interface Questionnaire {
 }
 
 export interface Chat {
+  /** Independent bounded orchestration run; legacy council fields remain untouched. */
+  multiAgent?: import('@/lib/agents/multiAgent').MultiAgentRun
   /** Immutable, explicitly reviewed Board context and pinned model. */
   boardSnapshot?: import('@/lib/board/session').BoardSnapshot
   id: string

@@ -18,6 +18,7 @@ import FanGallery from '@/components/ui/reactdrops/fan-gallery'
 import { IntegrationPicker } from './IntegrationPicker'
 import { triggerAt, replaceTrigger } from './trigger'
 import { type ModeOption } from './ModeMenu'
+import { MultiAgentSetup } from '@/components/chat/MultiAgentWorkspace'
 import { ModeStrip } from './ModeStrip'
 import { IntegrationsMenu } from './IntegrationsMenu'
 import { clsx } from 'clsx'
@@ -154,7 +155,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
   const [search, setSearch] = useState(false)
   const [quality, setQuality] = useState(false)
   const [replicate, setReplicate] = useState(false)
-  const [council, setCouncil] = useState(false)
+  const [multiAgentOpen,setMultiAgentOpen]=useState(false)
   const [picker, setPicker] = useState<'skill' | 'source' | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
   // Where the open trigger word sits in the text, so a pick replaces only that word.
@@ -253,7 +254,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
     setTimeout(() => setSent(false), 400)
     onSend(raw, {
       search: search || quality || opts.search, quality: quality || opts.quality, replicate: replicate || opts.replicate,
-      council: council || opts.council,
+      council: opts.council,
       attachments: imgs.length ? imgs.map((f) => ({ type: 'image' as const, name: f.name, dataUrl: f.dataUrl })) : undefined,
       contextRefs: refs.length ? refs : undefined,
     })
@@ -306,10 +307,10 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
       title: 'New Tech — staged replication research plan',
     },
     {
-      id: 'council', label: 'Council', icon: Users, active: council,
-      desc: 'Several models answer, then one combines them. Members are set in Settings → Models.',
-      toggle: () => setCouncil(!council),
-      title: 'AI council: several models answer, one combines them',
+      id: 'multi-agent', label: 'MultiAgent', icon: Users, active: multiAgentOpen,
+      desc: 'Configure a separate bounded leader, specialist and reviewer run. No tools or patches.',
+      toggle: () => setMultiAgentOpen(!multiAgentOpen),
+      title: 'Bounded MultiAgent workspace',
     },
   ]
 
@@ -424,6 +425,7 @@ export function InputBar({ onSend, mathMode, setMathMode, streaming, onStop, emp
             </div>
           )}
 
+          {multiAgentOpen&&<div className="re-multi-inline"><MultiAgentSetup seed={text} onCancel={()=>setMultiAgentOpen(false)}/></div>}
           {/* Bottom row: pills + send */}
           <div className="flex items-center gap-1.5 px-2.5 pb-2.5 pt-1">
             <div className="relative">

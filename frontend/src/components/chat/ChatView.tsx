@@ -10,6 +10,7 @@ import { endHandoff, DUR, EASE, HANDOFF_BLUR_MS } from '@/lib/ui/handoff'
 import { runChat, stopStream, isStreamingChat, enqueuePrompt, removeQueued } from '@/lib/chat/runChat'
 import { runPosition } from '@/lib/chat/bubbles'
 import { Message } from './Message'
+import { MultiAgentRunView } from './MultiAgentWorkspace'
 import { BoardSessionView } from '@/components/board/BoardSessionView'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
@@ -19,6 +20,8 @@ import { WebSearch } from '@/components/ui/kit/rareui/WebSearch'
 export function ChatView() {
   const {id}=useParams<{id:string}>()
   const snapshot=useStore(state=>state.chats.find(chat=>chat.id===id)?.boardSnapshot)
+  const multiAgent=useStore(state=>state.chats.find(chat=>chat.id===id)?.multiAgent)
+  if(multiAgent&&id)return <MultiAgentRunView key={id} chatId={id}/>
   return snapshot&&id?<BoardSessionView key={id} chatId={id}/>:<StandardChatView/>
 }
 function StandardChatView() {

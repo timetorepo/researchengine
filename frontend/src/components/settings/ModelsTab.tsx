@@ -6,7 +6,7 @@ import { useUI } from '@/stores/useUI'
 import { MASTERS, MASTER_VERSION } from '@/lib/prompts/masters'
 import { saveNotice } from '@/stores/useNotices'
 import { LocalModelsPanel } from './LocalModelsPanel'
-import { CouncilPanel } from './CouncilPanel'
+import { Link } from 'react-router-dom'
 
 export function ModelsTab() {
   const settings = useStore((s) => s.settings)
@@ -26,7 +26,7 @@ export function ModelsTab() {
       </p>
 
       <LocalModelsPanel />
-      <CouncilPanel />
+      <section className="surface-elevated p-4 mb-5"><h3 className="font-semibold">MultiAgent</h3><p className="text-[12px] my-2">Explicit role models, bounded calls/concurrency and public work products. Old Council chats and settings are retained; new runs use their own configuration. Native effort remains a separate provider setting.</p><Link className="bui-button" to="/multi-agent">Open MultiAgent workspace</Link></section>
 
       <div className="space-y-6">
         <Slider label="Temperature" value={d.temperature} min={0} max={2} step={0.1} onChange={(v) => update({ temperature: v })}

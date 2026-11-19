@@ -186,7 +186,7 @@ export function TopBar() {
       </button>
 
       {/* Model selector — its own component: dock hover, logos, free/paid, unlist */}
-      {showModel ? <div className="min-w-0 max-w-[45vw]">{openChat?.boardSnapshot?<span className="block truncate text-[12px]" title={`Pinned Board model: ${openChat.boardSnapshot.providerId} · ${openChat.boardSnapshot.model}`}>{openChat.boardSnapshot.model} · pinned</span>:<ModelPicker />}</div> : (
+      {showModel ? <div className="min-w-0 max-w-[45vw]">{openChat?.multiAgent?<span className="block truncate text-[12px]" title="MultiAgent roles are pinned in the run configuration">MultiAgent · pinned roles</span>:openChat?.boardSnapshot?<span className="block truncate text-[12px]" title={`Pinned Board model: ${openChat.boardSnapshot.providerId} · ${openChat.boardSnapshot.model}`}>{openChat.boardSnapshot.model} · pinned</span>:<ModelPicker />}</div> : (
         <span className="truncate text-[13px] font-medium" style={{ color: 'var(--text)' }}>{shellSectionLabel(location.pathname)}</span>
       )}
 
@@ -262,7 +262,7 @@ export function TopBar() {
       <FocusPill />
 
       {/* Context window — only while a chat is open and has been answered. */}
-      {lastPrompt && !openChat?.boardSnapshot && (
+      {lastPrompt && !openChat?.boardSnapshot && !openChat?.multiAgent && (
         <div className="hidden md:flex items-center" title="Estimated from the last request — providers do not report their window size">
           <AIContextMeter used={lastPrompt.tokens} limit={contextWindowFor(lastPrompt.model)} />
         </div>

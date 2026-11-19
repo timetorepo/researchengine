@@ -23,6 +23,7 @@ const FloodView = React.lazy(() => import('@/components/agents/FloodView').then(
 const QuizHub = React.lazy(() => import('@/components/quiz/QuizHub').then((m) => ({ default: m.QuizHub })))
 const ArticlesView = React.lazy(() => import('@/components/articles/ArticlesView').then((m) => ({ default: m.ArticlesView })))
 const ArticleEditor = React.lazy(() => import('@/components/articles/ArticleEditor').then((m) => ({ default: m.ArticleEditor })))
+const MultiAgentSetup = React.lazy(() => import('@/components/chat/MultiAgentWorkspace').then(m=>({default:m.MultiAgentSetup})))
 const BoardView = React.lazy(() => import('@/components/board/BoardView').then(m => ({ default: m.BoardView })))
 const LibraryView = React.lazy(() => import('@/components/library/LibraryView').then((m) => ({ default: m.LibraryView })))
 const CompareView = React.lazy(() => import('@/components/compare/CompareView').then((m) => ({ default: m.CompareView })))
@@ -310,6 +311,7 @@ function RoutedApp() {
           <Route path="/quiz" element={<QuizHub />} />
           <Route path="/articles" element={<ArticlesView />} />
           <Route path="/articles/:id" element={<ArticleEditor />} />
+          <Route path="/multi-agent" element={<MultiAgentSetup />} />
           <Route path="/board" element={<BoardView />} />
           <Route path="/board/:id" element={<BoardView />} />
           <Route path="/library" element={<LibraryView />} />
