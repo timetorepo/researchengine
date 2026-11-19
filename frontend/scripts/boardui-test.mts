@@ -1,3 +1,4 @@
+import { activityEntries, ActivityTrace } from '../src/components/chat/ActivityTrace'
 import assert from 'node:assert/strict'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -20,4 +21,8 @@ check('submitted questionnaire renders saved answers without a send control', ()
 check('cancelled questions cannot be submitted', () => { const html = render(React.createElement(BoardQuestionnaire, { questionnaire: { cancelled: true, items: [] }, onSubmit: () => {} })); assert.match(html, /cancelled/); assert.ok(!html.includes('<button')) })
 check('task log distinguishes failed and completed events', () => { const html = render(React.createElement(BoardTaskList, { activities: [{ id: 'a', tool: 'read_file', status: 'failed', startedAt: 100, endedAt: 300 }] })); assert.match(html, /reported a failure/); assert.match(html, /0\/1 completed/); assert.match(html, /0.2s/) })
 check('option parser retains disabled grouped options', () => { const result = readOptions(React.createElement('optgroup', { label: 'Group' }, React.createElement('option', { value: 'x', disabled: true }, 'Value'))); assert.deepEqual(result, [{ value: 'x', label: 'Value', disabled: true }]) })
+check('legacy trace retains every recorded event without invented durations', () => { const events = Array.from({length:12}, (_,i) => ({tool:'search_web',label:`Source ${i}`,status:'ok' as const})); const entries = activityEntries(undefined,events); assert.equal(entries.length,12); assert.ok(entries.every(e=>e.seconds===undefined)); assert.equal(entries[0].status,'completed') })
+check('modern trace supersedes legacy without duplicating execution events', () => { const entries=activityEntries([{id:'a',tool:'read_file',status:'cancelled',startedAt:10}], [{tool:'read_file',label:'Old receipt',status:'ok'}]); assert.equal(entries.length,1); assert.equal(entries[0].status,'cancelled') })
+check('invalid durations stay unknown; recorded zero is valid', () => { const input=[{id:'a',tool:'read',status:'completed' as const,startedAt:10,endedAt:9},{id:'b',tool:'read',status:'completed' as const,startedAt:10,endedAt:10}]; assert.deepEqual(activityEntries(input).map(e=>e.seconds),[undefined,0]) })
+check('empty trace renders nothing', () => assert.equal(render(React.createElement(ActivityTrace,{})),''))
 console.log(`PASS: ${count} BoardUI adapter checks`)

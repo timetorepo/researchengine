@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/chat/activity-trace.css";
 @import "../components/ui/boardui/boardui.css";
 @import "../components/ui/bencho/bridge.css";
 
@@ -844,7 +845,7 @@ body {
 
 ::selection { background: color-mix(in srgb, var(--primary) 35%, transparent); }
 
-/* Focus outlines appear only while the user is moving with the arrow keys
+/* Focus outlines appear only while the user is navigating with Tab or arrow keys
  * (see lib/a11y/keynav.ts). A mouse or touch user never sees a ring. */
 :focus-visible {
   outline: 2px solid var(--primary);

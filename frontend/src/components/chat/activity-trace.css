@@ -1,0 +1,24 @@
+.re-activity-trace { color:var(--text-2); font-size:12px; max-width:100%; }
+.re-activity-trace h3 { color:var(--text); font-weight:550; margin-bottom:10px; }
+.re-activity-trace h3 > span { color:var(--text-2); font-weight:400; padding-left:6px; font-variant-numeric:tabular-nums; }
+.re-activity-trace [data-slot=trace] { gap:8px; }
+.re-activity-trace [data-slot=trace-collapsible-trigger] { width:100%; min-height:36px; border-radius:7px; padding:4px; color:var(--text-2); }
+.re-activity-trace [data-slot=trace-collapsible-trigger]:hover { background:var(--elevated); }
+.re-activity-trace [data-slot=trace-collapsible-trigger]:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+.re-activity-trace [data-slot=trace-line] { color:var(--text-2); flex:1; width:100%; font-size:12px; }
+.re-activity-trace [data-slot=trace-title] { flex:1; text-align:left; white-space:normal; overflow-wrap:anywhere; animation:none; background:none; color:inherit; }
+.re-activity-trace [data-slot=trace-description] { color:var(--text-2); font-size:11px; font-variant-numeric:tabular-nums; }
+.re-activity-trace [data-slot=trace-icon] { color:inherit; }
+.re-activity-trace [data-slot=trace-line][data-status=error] { color:var(--danger); }
+.re-activity-trace [data-slot=trace-line][data-status=pending] { opacity:1; }
+.re-activity-trace [data-slot=trace-collapsible-content-inner] { color:var(--text-2); font-size:12px; border-color:var(--surface-border); overflow-wrap:anywhere; }
+.re-trace-resource { display:flex; gap:6px; align-items:baseline; margin-top:6px; overflow-wrap:anywhere; }
+.re-trace-resource svg { flex:none; }
+.re-trace-unknown { font-size:11px; margin-top:4px; }
+.re-trace-link { color:var(--primary); text-decoration:underline; min-height:32px; }
+.re-trace-spinner { animation:re-trace-spin 1.5s linear infinite; }
+@keyframes re-trace-spin { to { transform:rotate(360deg); } }
+.reduce-motion .re-activity-trace *, .reduce-motion .re-activity-trace [data-slot=trace-collapsible-content] { animation:none!important; transition:none!important; }
+@media(prefers-reduced-motion:reduce) { .re-activity-trace * { animation:none!important; transition:none!important; } }
+@media(forced-colors:active) { .re-activity-trace [data-slot=trace-collapsible-trigger] { border:1px solid ButtonText; } }
+@media(max-width:420px) { .re-activity-trace [data-slot=trace-line] { flex-wrap:wrap; } .re-activity-trace [data-slot=trace-title] { flex-basis:calc(100% - 32px); } }

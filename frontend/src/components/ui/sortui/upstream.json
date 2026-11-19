@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/sortui/ui",
+  "commit": "664a42e05aef13fee59c8da5209eef3ef9a84d4f",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 SortUI",
+  "files": ["components/ui/trace.tsx", "components/ui/collapsible.tsx"],
+  "adaptations": ["Use installed clsx rather than adding cn", "Local collapsible import", "Application token, wrapping and reduced-motion CSS in chat/activity-trace.css"],
+  "integration": "Recorded ToolActivity and legacy toolTrace only. No reasoning or raw tool argument/output rendering."
+}
