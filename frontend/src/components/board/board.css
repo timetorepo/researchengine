@@ -141,3 +141,10 @@
 .re-board-card[data-kind=shape] .re-board-card-text { align-self:center; max-width:90%; max-height:80%; }
 .re-board-card[data-shape=diamond] .re-board-card-text { max-width:48%; max-height:48%; }
 .re-board-card[data-shape=ellipse] .re-board-card-text { max-width:68%; max-height:65%; }
+.re-board-connectors { position:absolute; inset:0; width:100%; height:100%; z-index:3; overflow:visible; pointer-events:none; }
+.re-board-connector-line { fill:none; stroke:var(--text-2); stroke-width:1.5; }
+.re-board-connector-hit { fill:none; stroke:transparent; stroke-width:18; pointer-events:stroke; cursor:pointer; }
+.re-board-connectors text { fill:var(--text); font-size:12px; paint-order:stroke; stroke:var(--bg); stroke-width:5px; stroke-linejoin:round; }
+.re-board-connectors [data-selected=true] .re-board-connector-line { stroke:var(--primary); stroke-width:2.5; }
+.re-board-connector-hit:focus-visible { outline:none; stroke:var(--primary); stroke-opacity:.35; }
+@media(forced-colors:active) { .re-board-connector-line { stroke:CanvasText; } .re-board-connectors text { fill:CanvasText; stroke:Canvas; } .re-board-connectors [data-selected=true] .re-board-connector-line,.re-board-connector-hit:focus-visible { stroke:Highlight; } }

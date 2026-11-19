@@ -15,7 +15,7 @@ export function frameOptions(items:BoardItem[],item:BoardItem) {
 export function editGeometry(items:BoardItem[],id:string,next:CardGeometry):BoardItem[] {
   const current=items.find(item=>item.id===id);if(!current)return items
   if(current.x===next.x&&current.y===next.y&&current.width===next.width&&current.height===next.height)return items
-  const group=current.kind==='frame'?frameContents(items,id):[current]
+  const group=current.kind==='frame'?frameContents(items,id).filter(item=>item.kind!=='connector'):[current]
   const dx=Math.max(next.x-current.x,-Math.max(0,group.reduce((min,item)=>Math.min(min,item.x),Infinity)))
   const dy=Math.max(next.y-current.y,-Math.max(0,group.reduce((min,item)=>Math.min(min,item.y),Infinity)))
   const ids=new Set(group.map(item=>item.id))

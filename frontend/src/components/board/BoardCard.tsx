@@ -5,7 +5,7 @@ import type { BoardItem } from '@/lib/board/storage'
 import { editGeometry } from '@/lib/board/structure'
 import { changedGeometry, sameGeometry, type CardGeometry } from '@/lib/board/geometry'
 
-type Props = { item:BoardItem; index:number; members?:BoardItem[]; selected:boolean; disabled:boolean; zoom:number; onSelect:()=>void; onGeometry:(geometry:CardGeometry)=>void }
+type Props = { item:BoardItem; index:number; members?:BoardItem[]; onPreview?:(changes?:BoardItem[])=>void; selected:boolean; disabled:boolean; zoom:number; onSelect:()=>void; onGeometry:(geometry:CardGeometry)=>void }
 type Gesture = {pointerId:number;kind:'move'|'resize';startX:number;startY:number;scrollX:number;scrollY:number;scroller:HTMLElement|null;base:CardGeometry;next:CardGeometry;handle:HTMLButtonElement;zoom:number;members:BoardItem[];peers:Map<string,HTMLElement>}
 /** Pointer tracking writes only this card's styles. The document changes once on release. */
 export function BoardCard(props:Props) {
@@ -17,6 +17,7 @@ export function BoardCard(props:Props) {
     const current=gesture.current;if(!current)return
     gesture.current=undefined
     for(const node of current.peers.values())node.style.transform=''
+    latest.current.onPreview?.()
     if(root.current){root.current.style.transform='';root.current.style.width=`${current.base.width}px`;root.current.style.height=`${current.base.height}px`;delete root.current.dataset.manipulating}
     try {if(current.handle.hasPointerCapture(current.pointerId))current.handle.releasePointerCapture(current.pointerId)}catch{/* detached/cancelled pointer */}
   }
@@ -48,6 +49,7 @@ export function BoardCard(props:Props) {
       for(const node of current.peers.values())node.style.transform=transform
     }
     else {root.current.style.width=`${current.next.width}px`;root.current.style.height=`${current.next.height}px`}
+    latest.current.onPreview?.(editGeometry(current.members,item.id,current.next))
   }
   function finish(event:PointerEvent<HTMLButtonElement>) {
     const current=gesture.current;if(!current||event.pointerId!==current.pointerId)return

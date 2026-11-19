@@ -36,6 +36,8 @@ export function validateBoard(value: unknown): asserts value is BoardDocument {
   const byId = new Map((value.items as BoardItem[]).map(item => [item.id,item]))
   for (const item of value.items as BoardItem[]) {
     for (const ref of [item.parentId,item.fromId,item.toId]) if (ref && (!ids.has(ref) || ref === item.id)) throw new Error('Board link target missing or self-referential.')
+    if(item.kind==='connector'&&[item.fromId,item.toId].some(id=>id&&byId.get(id)?.kind==='connector')) throw new Error('Connectors must link non-connector items.')
+    if(item.kind==='connector'&&item.fromId&&item.fromId===item.toId) throw new Error('Connector endpoints must differ.')
     const visited = new Set([item.id]); let parent = item.parentId
     while (parent) { if (visited.has(parent)) throw new Error('Board groups cannot form a cycle.'); visited.add(parent); parent = byId.get(parent)?.parentId }
   }
