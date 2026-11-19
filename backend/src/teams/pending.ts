@@ -23,10 +23,11 @@ function validateReceipt(receipt: Receipt) {
 }
 function validateForActor(operation: unknown, actor: string): asserts operation is TypedTeamOperation {
   validateTeamOperation(operation)
+  if (!['team.board.replace.v1','team.backchat.post.v1'].includes(operation.kind)) throw new Error('Client outbox accepts content operations only')
   if (operation.actor !== actor) throw new Error('Queued operation actor differs from client scope')
 }
 function originals(operation: TypedTeamOperation): string[] {
-  return operation.kind === 'team.board.replace.v1' ? [...new Set(operation.payload.items.flatMap(item => item.attachmentId ? [item.attachmentId] : []))] : [...operation.payload.attachments]
+  return operation.kind === 'team.board.replace.v1' ? [...new Set(operation.payload.items.flatMap(item => item.attachmentId ? [item.attachmentId] : []))] : operation.kind === 'team.backchat.post.v1' ? [...operation.payload.attachments] : []
 }
 function reduce(items: PendingItem[], event: Event, actor: string): PendingItem[] {
   const next = structuredClone(items)

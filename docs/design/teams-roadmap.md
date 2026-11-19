@@ -424,3 +424,102 @@ Next: a serialized host service binding authenticated actors to Owner/Admin/
 Editor/Viewer permissions and enforcing typed preflight before durable append;
 then protected authentication/invite lifecycle and HTTPS transport/client
 integration. Networking remains disabled.
+
+## Local serialized host and durable access checkpoint — 2026-11-12
+
+`backend/src/teams/host.ts` adds a **local-only library** owning the journal's
+exclusive writer connection. It is not imported by the server, offline CLI or
+frontend; no routes/listeners, TLS, invitations, owner login UI or remote access
+are enabled. `access.ts` defines deterministic access-control operations and
+state. No dependencies/private-local resource access added.
+
+An existing empty journal requires explicit trusted-local Owner bootstrap. The
+first durable operation records the sole Owner and an initial expiring session
+digest. Existing nonempty content-only prototype histories are **not** silently
+migrated into a live host, nor can bootstrap replace an existing Owner. The
+current offline `init` command still initializes storage, not a member identity;
+this service must be explicitly instantiated by trusted source-tree code.
+Owner transfer/removal and additional Owners are deliberately unsupported.
+
+Credentials are random 32-byte bearer secrets returned once to the caller. Only
+a team-scoped SHA256 digest, member ID, recorded issue/expiry times and revocation
+flag enter encrypted history/snapshots. Raw credentials are neither logged nor
+persisted by this library. Caller credential delivery/storage is still pending;
+this is not identity-provider login, MFA or an invitation flow. Durations must
+be positive and no more than 24 hours. Host time is checked per operation, with
+expiry inclusive at the boundary and pre-issue times rejected. This trusts the
+host OS clock; it is not trusted monotonic-clock/rollback protection.
+
+All public operations enter one serialized service queue. Authentication and
+current member role are checked when work executes, not before queueing; a
+queued demotion/revocation takes effect before later work. Credentials are
+rechecked immediately before journal append following async preflight. The
+operation actor must match the authenticated session member. Admission to the
+service is not permission to submit arbitrary access records through the content
+endpoint: access management has dedicated methods with separate role checks.
+
+| Action | Owner | Admin | Editor | Viewer |
+| --- | --- | --- | --- | --- |
+| Read shared content/referenced originals | Yes | Yes | Yes | Yes |
+| Replace Boards/post BackChat/upload originals | Yes | Yes | Yes | No |
+| Inspect access records | Yes | Yes | No | No |
+| Manage Editor/Viewer members/credentials | Yes | Yes | No | No |
+| Manage Admins / issue or revoke Owner credentials | Yes | No | No | No |
+| Revoke own credential | Yes | Yes | Yes | Yes |
+| Transfer/remove Owner | Disabled | Disabled | Disabled | Disabled |
+
+Admin self-credential renewal is allowed; Admin management of Admin membership
+or other Admin/Owner credentials is not. Owner can manage all sessions; only
+Owner/Admin can issue sessions. Deactivation revokes all the member's existing
+sessions permanently; reactivation does not revive them. Role changes are
+resolved dynamically on each operation. Reads expose cloned content state and
+caller role, not access/session records; Owner/Admin have a separate access
+inspection method. Originals must be referenced by team history before general
+read access; unreferenced uploads are not an arbitrary file-read endpoint.
+
+The service validates full typed state and attachment dependencies **before**
+append. Revision races serialize: one accepted replacement increments the Board
+revision and the stale competitor fails without a journal receipt. Exact
+operation retries return the original durable receipt without replaying a
+conflicting old revision; authentication/current write permission still precede
+deduplication. A reused ID with changed content is rejected. State publication
+and success receipts follow journal fsync. A failed append/flush poisons the
+service, keeps its last confirmed in-memory state and prevents even stale reads
+until close/recovery; complete unacknowledged events may survive for replay.
+
+The typed replay protocol now additionally supports versioned bootstrap,
+member-change, session-issue and session-revoke records. `TeamState.access` is
+optional to preserve existing opaque/content-only prototype histories, but host
+activation requires first-operation bootstrap. Once access is present, replay
+itself enforces content-write and access-management roles at each historical
+position. Client outboxes explicitly reject these privileged operation kinds.
+Full typed recovery now preserves access/session-digest/revocation records when
+present; raw bearer tokens remain excluded. Recovery/legacy storage-only
+validity is not automatically permission to activate a host.
+
+**Release gate:** a valid *older* whole backup can reintroduce credentials revoked
+after that checkpoint. Existing absence of trusted anti-rollback authority still
+applies. Restored-host activation must add explicit session epoch invalidation/
+rotation and operator confirmation before network exposure. All-session expiry
+can also lock out this prototype: trusted-local credential recovery/rotation is
+not implemented, and re-bootstrap is intentionally forbidden. There is no
+production activation path that bypasses these unfinished gates.
+
+Verification: `teams-host-test.ts` passes 11 grouped checks: durable Owner and
+role setup; all four role gates, actor spoofing/access-injection rejection and
+secret-free content reads; Admin/Owner boundaries; concurrent revision races and
+idempotent retry; queued demotion/deactivation/reactivation; exact expiry,
+clock bounds, duration limits and revocation; original reference scope and
+missing-original preflight; actual host+outbox lost-ACK retry without duplicate
+commit; plaintext token exclusion plus restart/typed recovery preserving
+revocations and replay role/bootstrap refusal; cross-team credential isolation;
+and injected flush failure with no success/state publication. All 71 grouped
+Teams checks, backend TypeScript and build pass. No UI files changed and no
+network/provider requests were made. Native/device, production DoS/rate limits,
+large-history performance, trusted-clock behavior and security audit are not
+certified. Replay currently scans/clones whole history per write; this is an
+engineering foundation, not a production-throughput claim.
+
+Next: protected credential recovery/rotation and restore activation safeguards,
+then scoped expiring/revocable invitations and explicit HTTPS transport/client
+integration. Network exposure remains disabled until these gates are tested.
