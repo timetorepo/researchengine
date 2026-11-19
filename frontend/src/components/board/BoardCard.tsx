@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type PointerEvent, type KeyboardEvent } from 'react'
 import { FileText, Link2, Move, Scaling } from 'lucide-react'
+import { BoardMarkdown } from './BoardMarkdown'
 import type { BoardItem } from '@/lib/board/storage'
 import { changedGeometry, sameGeometry, type CardGeometry } from '@/lib/board/geometry'
 
@@ -54,7 +55,7 @@ export function BoardCard(props:Props) {
   const handlers=(kind:'move'|'resize')=>({onPointerDown:(event:PointerEvent<HTMLButtonElement>)=>start(event,kind),onPointerMove:track,onPointerUp:finish,onPointerCancel:clear,onLostPointerCapture:clear,onKeyDown:(event:KeyboardEvent<HTMLButtonElement>)=>keyboard(event,kind)})
   return <div ref={root} id={`board-card-${item.id}`} data-board-item={item.id} className="re-board-card" data-selected={selected} style={{left:item.x,top:item.y,width:item.width,height:item.height}}>
     <button className="re-board-card-select" aria-pressed={selected} aria-label={`Select ${item.kind} ${index+1}: ${item.text.slice(0,60)||'Untitled'}`} onClick={onSelect}>
-      <small>{item.kind==='reference'?<Link2 size={13}/>:<FileText size={13}/>}{item.kind}</small><span>{item.text||(item.kind==='reference'?'Add a source and your annotation…':'Write a note…')}</span>
+      <small>{item.kind==='reference'?<Link2 size={13}/>:<FileText size={13}/>}{item.kind}</small><span className="re-board-card-text">{item.textFormat==='markdown'&&item.text?<BoardMarkdown text={item.text} compact/>:item.text||(item.kind==='reference'?'Add a source and your annotation…':'Write a note…')}</span>
       {item.attachmentId&&<em>{item.kind==='pdf'?`PDF · page ${item.source?.page??1} · select to preview`:'Image · select to preview'}</em>}{item.source?.url&&<em>{item.source.url}</em>}
     </button>
     {selected&&<><span id={help} className="sr-only">Drag a handle, or use arrow keys. Shift changes by ten units. Escape cancels a pointer gesture. Changes are drafts until saved.</span>
