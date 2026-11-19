@@ -95,3 +95,5 @@ html[data-liquid-redesign=on] {
 .re-static-navigation a[aria-current=page] { background:var(--elevated); color:var(--text); }
 .re-static-navigation a:focus-visible { outline:2px solid var(--primary); outline-offset:-2px; }
 @media(forced-colors:active) { .re-static-navigation { border-color:ButtonText; } .re-static-navigation a[aria-current=page] { outline:2px solid Highlight; } }
+@font-face { font-family:'SN Pro'; src:url('/fonts/native-studio/SNProVariable.woff2') format('woff2'); font-weight:200 900; font-style:normal; font-display:swap; }
+@font-face { font-family:'SN Pro'; src:url('/fonts/native-studio/SNProVariableItalic.woff2') format('woff2'); font-weight:200 900; font-style:italic; font-display:swap; }

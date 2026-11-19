@@ -15,6 +15,8 @@ export interface TypefaceOption {
 const SANS_FALLBACK = 'ui-sans-serif, system-ui, sans-serif'
 
 export const TYPEFACES: TypefaceOption[] = [
+  { id: 'sn-pro', label: 'SN Pro', stack: '"SN Pro", ' + SANS_FALLBACK,
+    feel: 'A rounded, Markdown-oriented reading alternative.', note: 'Local normal and italic variable fonts, weights 200–900. SIL OFL.' },
   { id: 'allo', label: 'Allo', stack: '"Allo", ' + SANS_FALLBACK,
     feel: 'Native Studio: warm, compact and legible.', note: 'Local variable font, weights 100–900. SIL OFL.' },
   { id: 'work-sans', label: 'Work Sans', stack: '"Work Sans", ' + SANS_FALLBACK,
