@@ -16,6 +16,7 @@ import { editGeometry, frameContents, frameOptions } from '@/lib/board/structure
 import { BoardNoteEditor } from './BoardNoteEditor'
 import { BoardBackup } from './BoardBackup'
 import { BoardMaintenance } from './BoardMaintenance'
+import { BoardSessionSetup } from './BoardSessionSetup'
 import type { BoardAttachment } from '@/lib/board/storage'
 import './board.css'
 
@@ -168,7 +169,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
   const visible = board.items.filter(item => `${item.text} ${item.source?.url ?? ''} ${item.kind}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
   return <section className="re-board-editor" aria-label="Board workspace">
     <header className="re-board-toolbar"><Link to="/board" className="bui-button">All boards</Link><input className="bui-field re-board-title" aria-label="Board title" value={board.title} disabled={busy || !!recovered} onChange={e => draft({...board, title: e.target.value})} />
-      <button className="bui-button" disabled={!dirty || busy || !!recovered} onClick={save}><Save size={15} />Save revision</button><button className="bui-button" title="JSON document only; attached files are not included." onClick={downloadDraft}>Download draft</button>
+      <button className="bui-button" disabled={!dirty || busy || !!recovered} onClick={save}><Save size={15} />Save revision</button><button className="bui-button" title="JSON document only; attached files are not included." onClick={downloadDraft}>Download draft</button><button className="bui-button" disabled={busy || !!recovered || drawing || boardWritesFrozen()} onClick={()=>{const setup=document.getElementById('board-session-setup');if(setup instanceof HTMLDetailsElement){setup.open=true;setup.scrollIntoView({block:'nearest'});setup.querySelector('select')?.focus({preventScroll:true})}}}>Board to session</button>
     </header>
     <BoardBackup store={store} document={board} dirty={dirty} disabled={busy || !!recovered} onBusy={setBusy} />
     <div className="re-board-status"><span role="status">{status}</span><span>Browser-local · no AI requests</span></div>
@@ -195,6 +196,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
         {active.kind!=='connector'&&<div className="re-board-position">{(['x','y','width','height'] as const).map(axis => <label key={axis}>{axis === 'x' || axis === 'y' ? `${axis.toUpperCase()} position` : axis === 'width' ? 'Width' : 'Height'}<input className="bui-field" aria-label={axis === 'x' || axis === 'y' ? `${axis.toUpperCase()} position` : axis === 'width' ? 'Card width' : 'Card height'} type="number" min={axis === 'width' ? 160 : axis === 'height' ? 120 : 0} value={active[axis]} onChange={e => { if (e.currentTarget.value !== '' && Number.isFinite(e.currentTarget.valueAsNumber)) change({[axis]: Math.max(axis === 'width' ? 160 : axis === 'height' ? 120 : 0,e.currentTarget.valueAsNumber)}) }} /></label>)}</div>}
         <button className="bui-button" onClick={() => { if (window.confirm('Remove this item and any attached connectors from the draft? Frame contents are kept. You can undo before saving.')) { draft({...board,items:removeBoardItem(board.items,active.id)}); select(undefined) } }}>Remove item</button>
       </fieldset> : <p>Select a card or an outline entry to edit it. Selected cards have move and resize handles. Use arrow keys on a handle (Shift for ten units), or edit position and size fields. Escape cancels a drag.</p>}
+      <BoardSessionSetup board={board} dirty={dirty} disabled={busy || !!recovered || drawing || boardWritesFrozen()} store={store} namespace={namespace}/>
       <BoardMaintenance store={store} namespace={namespace} board={board} disabled={busy || dirty || !!recovered || drawing || boardWritesFrozen()} onBusy={setBusy} onDeleted={notice=>{setDeleted(notice);setDirty(false)}}/>
       <details className="re-board-recovery"><summary>Previous saved revision</summary>{previous ? <><p>Revision {previous.revision} · {previous.title || 'Untitled board'} · {previous.items.length} items</p><button className="bui-button" disabled={busy || !!recovered} onClick={() => { if (!dirty || window.confirm('Replace unsaved edits with the previous revision?')) { draft({...previous, revision: board.revision}); select(undefined) } }}>Load previous revision into draft</button><p>Review it, then Save revision to commit. The current saved board stays intact until then.</p></> : <p>A previous snapshot appears after the next save.</p>}</details>
       </aside>

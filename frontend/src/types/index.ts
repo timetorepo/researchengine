@@ -166,6 +166,8 @@ export interface Questionnaire {
 }
 
 export interface Chat {
+  /** Immutable, explicitly reviewed Board context and pinned model. */
+  boardSnapshot?: import('@/lib/board/session').BoardSnapshot
   id: string
   title: string
   createdAt: number

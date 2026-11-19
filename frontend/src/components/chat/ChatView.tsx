@@ -10,12 +10,18 @@ import { endHandoff, DUR, EASE, HANDOFF_BLUR_MS } from '@/lib/ui/handoff'
 import { runChat, stopStream, isStreamingChat, enqueuePrompt, removeQueued } from '@/lib/chat/runChat'
 import { runPosition } from '@/lib/chat/bubbles'
 import { Message } from './Message'
+import { BoardSessionView } from '@/components/board/BoardSessionView'
 import { InputBar } from '@/components/input/InputBar'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import { WebSearch } from '@/components/ui/kit/rareui/WebSearch'
 
 
 export function ChatView() {
+  const {id}=useParams<{id:string}>()
+  const snapshot=useStore(state=>state.chats.find(chat=>chat.id===id)?.boardSnapshot)
+  return snapshot&&id?<BoardSessionView key={id} chatId={id}/>:<StandardChatView/>
+}
+function StandardChatView() {
   const { id } = useParams<{ id: string }>()
   const chat = useStore((s) => s.chats.find((c) => c.id === id))
   const flowEnabled = useStore((s) => s.settings.flowEnabled)

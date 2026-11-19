@@ -3,6 +3,10 @@ import { providerById } from './registry'
 import { withAppContext } from '@/lib/ai/appContext'
 
 export interface StreamRequest {
+  /** Use explicitly reviewed system text verbatim (Board snapshot sessions). */
+  exactSystem?: boolean
+  /** Board sessions use the same-origin proxy and Ollama’s OpenAI-compatible endpoint. */
+  proxyOllama?: boolean
   providerId: string
   model: string
   apiKey: string
@@ -157,10 +161,11 @@ export async function streamToCallback(
 ): Promise<{ promptEstimate: number; completionTokens: number; toolCalls: StreamToolCall[]; usage: TokenUsage }> {
   // Every call names the screen the user is on, so the model knows whether it is
   // in a coding project, a quiz or the settings page. See lib/ai/appContext.ts.
-  req = { ...req, system: withAppContext(req.system) }
+  req = { ...req, system: req.exactSystem ? req.system : withAppContext(req.system) }
   const meta = providerById(req.providerId)
   if (!meta) throw new ProviderError(req.providerId, 'Unknown provider')
-  const base = (req.baseUrl || meta.baseUrl).replace(/\/$/, '')
+  const rawBase = (req.baseUrl || meta.baseUrl).replace(/\/$/, '')
+  const base = meta.id === 'ollama' && req.proxyOllama && !rawBase.endsWith('/v1') ? `${rawBase}/v1` : rawBase
   let completionChars = 0
   const toolCalls: StreamToolCall[] = []
   // Filled in by whichever dialect the provider speaks; null means "it did not
@@ -190,7 +195,7 @@ export async function streamToCallback(
   }
 
   try {
-  if (meta.id === 'ollama') {
+  if (meta.id === 'ollama' && !req.proxyOllama) {
     // localhost — no CORS concerns, call directly
     const plain = req.messages.map((m) => {
       const msg: any = { role: m.role, content: typeof m.content === 'string' ? m.content : (m.content ?? []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') }
@@ -265,7 +270,7 @@ export async function streamToCallback(
         method: 'POST', signal: ctrl.signal,
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          kind: meta.kind, base, key: req.apiKey, model: req.model,
+          kind: meta.id === 'ollama' && req.proxyOllama ? 'openai' : meta.kind, base, key: req.apiKey, model: req.model,
           system: req.system, messages: req.messages,
           maxTokens: req.maxTokens ?? 1024, temperature: req.temperature ?? 0.7,
           tools: req.tools?.length ? req.tools : undefined,

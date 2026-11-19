@@ -307,7 +307,7 @@ export const useStore = create<StoreState>()(
         chats: s.chats.map((c) => {
           if (c.id !== chatId) return c
           const messages = [...c.messages, msg]
-          const title = c.messages.length === 0 && msg.role === 'user'
+          const title = !c.boardSnapshot && c.messages.length === 0 && msg.role === 'user'
             ? msg.content.slice(0, 48) + (msg.content.length > 48 ? '…' : '')
             : c.title
           return { ...c, messages, title, updatedAt: Date.now() }
