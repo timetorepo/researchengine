@@ -118,3 +118,26 @@
 .re-board-md-ordered { counter-reset:board-list; }
 .re-board-md-ordered > .re-board-md-item { counter-increment:board-list; }
 .re-board-md-ordered > .re-board-md-item::before { content:counter(board-list) '. '; }
+/* Frames are boundaries behind cards; membership does not create DOM nesting. */
+.re-board-card { z-index:1; }
+.re-board-card[data-kind=frame] { z-index:0; background:transparent; box-shadow:none; border:2px dashed var(--text-3); overflow:visible; }
+.re-board-card[data-kind=frame][data-selected=true] { z-index:0; }
+.re-board-card[data-kind=frame] .re-board-card-select { justify-content:flex-start; overflow:hidden; }
+.re-board-card[data-kind=frame] .re-board-card-text { flex:none; max-height:64px; font-weight:600; }
+.re-board-card[data-kind=shape] { background:transparent; border:0; box-shadow:none; }
+.re-board-shape-outline { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+.re-board-shape-outline :is(rect,ellipse,polygon) { fill:var(--surface); stroke:var(--text-3); stroke-width:1.5; vector-effect:non-scaling-stroke; }
+.re-board-card[data-kind=shape] .re-board-card-select { position:relative; justify-content:center; padding:30px; }
+.re-board-card[data-kind=shape] .re-board-card-text { flex:none; max-height:100%; }
+.re-board-card[data-kind=shape] small { justify-content:center; }
+.re-board-card[data-shape=diamond] .re-board-card-select { padding:25% 27%; font-size:12px; }
+.re-board-card[data-shape=ellipse] .re-board-card-select { padding:20% 18%; }
+.re-board-card[data-kind=shape] .re-board-card-text { text-align:center; }
+.re-board-shape-outline ~ .re-board-move-handle,.re-board-shape-outline ~ .re-board-resize-handle { z-index:1; }
+@media(forced-colors:active) { .re-board-shape-outline :is(rect,ellipse,polygon) { fill:Canvas; stroke:CanvasText; } }
+/* Shape labels stay centred even on wide, shallow bounds; type is named in the outline/inspector. */
+.re-board-card[data-kind=shape] small { display:none; }
+.re-board-card[data-kind=shape] .re-board-card-select { padding:12px; }
+.re-board-card[data-kind=shape] .re-board-card-text { align-self:center; max-width:90%; max-height:80%; }
+.re-board-card[data-shape=diamond] .re-board-card-text { max-width:48%; max-height:48%; }
+.re-board-card[data-shape=ellipse] .re-board-card-text { max-width:68%; max-height:65%; }

@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, type PointerEvent, type KeyboardEvent } from 'react'
-import { FileText, Link2, Move, Scaling } from 'lucide-react'
+import { FileText, Link2, Move, Scaling, Shapes, Frame } from 'lucide-react'
 import { BoardMarkdown } from './BoardMarkdown'
 import type { BoardItem } from '@/lib/board/storage'
+import { editGeometry } from '@/lib/board/structure'
 import { changedGeometry, sameGeometry, type CardGeometry } from '@/lib/board/geometry'
 
-type Props = { item:BoardItem; index:number; selected:boolean; disabled:boolean; zoom:number; onSelect:()=>void; onGeometry:(geometry:CardGeometry)=>void }
-type Gesture = {pointerId:number;kind:'move'|'resize';startX:number;startY:number;scrollX:number;scrollY:number;scroller:HTMLElement|null;base:CardGeometry;next:CardGeometry;handle:HTMLButtonElement;zoom:number}
+type Props = { item:BoardItem; index:number; members?:BoardItem[]; selected:boolean; disabled:boolean; zoom:number; onSelect:()=>void; onGeometry:(geometry:CardGeometry)=>void }
+type Gesture = {pointerId:number;kind:'move'|'resize';startX:number;startY:number;scrollX:number;scrollY:number;scroller:HTMLElement|null;base:CardGeometry;next:CardGeometry;handle:HTMLButtonElement;zoom:number;members:BoardItem[];peers:Map<string,HTMLElement>}
 /** Pointer tracking writes only this card's styles. The document changes once on release. */
 export function BoardCard(props:Props) {
   const {item,index,selected,disabled,zoom,onSelect}=props
@@ -15,6 +16,7 @@ export function BoardCard(props:Props) {
   function clear() {
     const current=gesture.current;if(!current)return
     gesture.current=undefined
+    for(const node of current.peers.values())node.style.transform=''
     if(root.current){root.current.style.transform='';root.current.style.width=`${current.base.width}px`;root.current.style.height=`${current.base.height}px`;delete root.current.dataset.manipulating}
     try {if(current.handle.hasPointerCapture(current.pointerId))current.handle.releasePointerCapture(current.pointerId)}catch{/* detached/cancelled pointer */}
   }
@@ -25,7 +27,9 @@ export function BoardCard(props:Props) {
     event.preventDefault();event.stopPropagation();onSelect();event.currentTarget.focus({preventScroll:true})
     const scroller=root.current?.closest<HTMLElement>('.re-board-canvas-scroll')??null
     const base={x:item.x,y:item.y,width:item.width,height:item.height}
-    gesture.current={pointerId:event.pointerId,kind,startX:event.clientX,startY:event.clientY,scrollX:scroller?.scrollLeft??0,scrollY:scroller?.scrollTop??0,scroller,base,next:base,handle:event.currentTarget,zoom}
+    const members=props.members??[item],peers=new Map<string,HTMLElement>()
+    if(kind==='move')for(const member of members){if(member.id!==item.id){const node=document.getElementById(`board-card-${member.id}`);if(node)peers.set(member.id,node)}}
+    gesture.current={members,peers,pointerId:event.pointerId,kind,startX:event.clientX,startY:event.clientY,scrollX:scroller?.scrollLeft??0,scrollY:scroller?.scrollTop??0,scroller,base,next:base,handle:event.currentTarget,zoom}
     event.currentTarget.setPointerCapture(event.pointerId)
     if(root.current)root.current.dataset.manipulating='true'
   }
@@ -36,7 +40,13 @@ export function BoardCard(props:Props) {
     // No accidental edits for a stationary selection press.
     if(Math.abs(dx)<2&&Math.abs(dy)<2&&sameGeometry(current.base,current.next))return
     current.next=changedGeometry(current.base,current.kind,dx,dy)
-    if(current.kind==='move')root.current.style.transform=`translate(${current.next.x-current.base.x}px,${current.next.y-current.base.y}px)`
+    if(current.kind==='move') {
+      const positioned=editGeometry(current.members,item.id,current.next),moved=positioned.find(value=>value.id===item.id)!
+      current.next={x:moved.x,y:moved.y,width:moved.width,height:moved.height}
+      const transform=`translate(${current.next.x-current.base.x}px,${current.next.y-current.base.y}px)`
+      root.current.style.transform=transform
+      for(const node of current.peers.values())node.style.transform=transform
+    }
     else {root.current.style.width=`${current.next.width}px`;root.current.style.height=`${current.next.height}px`}
   }
   function finish(event:PointerEvent<HTMLButtonElement>) {
@@ -53,9 +63,10 @@ export function BoardCard(props:Props) {
     if(!sameGeometry(item,next))props.onGeometry(next)
   }
   const handlers=(kind:'move'|'resize')=>({onPointerDown:(event:PointerEvent<HTMLButtonElement>)=>start(event,kind),onPointerMove:track,onPointerUp:finish,onPointerCancel:clear,onLostPointerCapture:clear,onKeyDown:(event:KeyboardEvent<HTMLButtonElement>)=>keyboard(event,kind)})
-  return <div ref={root} id={`board-card-${item.id}`} data-board-item={item.id} className="re-board-card" data-selected={selected} style={{left:item.x,top:item.y,width:item.width,height:item.height}}>
+  return <div ref={root} id={`board-card-${item.id}`} data-board-item={item.id} className="re-board-card" data-kind={item.kind} data-shape={item.kind==='shape'?(item.shape??'rectangle'):undefined} data-selected={selected} style={{left:item.x,top:item.y,width:item.width,height:item.height}}>
+    {item.kind==='shape'&&<svg className="re-board-shape-outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{item.shape==='ellipse'?<ellipse cx="50" cy="50" rx="49" ry="49"/>:item.shape==='diamond'?<polygon points="50,1 99,50 50,99 1,50"/>:<rect x="1" y="1" width="98" height="98" rx="3"/>}</svg>}
     <button className="re-board-card-select" aria-pressed={selected} aria-label={`Select ${item.kind} ${index+1}: ${item.text.slice(0,60)||'Untitled'}`} onClick={onSelect}>
-      <small>{item.kind==='reference'?<Link2 size={13}/>:<FileText size={13}/>}{item.kind}</small><span className="re-board-card-text">{item.textFormat==='markdown'&&item.text?<BoardMarkdown text={item.text} compact/>:item.text||(item.kind==='reference'?'Add a source and your annotation…':'Write a note…')}</span>
+      <small>{item.kind==='reference'?<Link2 size={13}/>:item.kind==='shape'?<Shapes size={13}/>:item.kind==='frame'?<Frame size={13}/>:<FileText size={13}/>}{item.kind}</small><span className="re-board-card-text">{item.textFormat==='markdown'&&item.text?<BoardMarkdown text={item.text} compact/>:item.text||(item.kind==='reference'?'Add a source and your annotation…':item.kind==='frame'?'Name this frame…':item.kind==='shape'?'Label this shape…':'Write a note…')}</span>
       {item.attachmentId&&<em>{item.kind==='pdf'?`PDF · page ${item.source?.page??1} · select to preview`:'Image · select to preview'}</em>}{item.source?.url&&<em>{item.source.url}</em>}
     </button>
     {selected&&<><span id={help} className="sr-only">Drag a handle, or use arrow keys. Shift changes by ten units. Escape cancels a pointer gesture. Changes are drafts until saved.</span>
