@@ -382,3 +382,45 @@ Next: operator recovery/key-protection tooling and a serialized authenticated
 host service with per-request permissions, then client persistence/transport
 integration and HTTPS host/join. Networking remains disabled until those gates
 are in place.
+
+## Protected host-keyring and offline operator checkpoint — 2026-11-12
+
+Added `keyring.ts` (scrypt/AES-256-GCM wrapped independent journal/object/backup
+keys), `operator.ts`, and the source-tree `teams-offline` command. Operator guide:
+`docs/teams-offline-recovery.md`. No dependencies, listeners, UI, member identities
+or production/desktop packaging added; private local storage is not accessed.
+
+Commands initialize a new owner-only encrypted host root, export/verify typed
+full-storage packages and restore/verify a separate new data root. Keyring and
+source host paths require owner-only regular file/directory types and reject
+symlinks. Passphrases are accepted only via bounded non-TTY stdin; never command
+arguments/environment. CLI output excludes keys/secrets and arbitrary error
+contents. Separately preserve `host.keys` plus its passphrase: data packages
+contain neither. This is passphrase protection, not an OS/hardware keystore,
+key rotation, unattended startup or host-blind E2EE. Key loss remains unrecoverable.
+
+Journal/object opens now support strict existing-store modes. Operator backup
+uses these and refuses damaged tails instead of silently truncating source data,
+missing journal/object storage instead of creating empty replacements, and live
+or stale writer locks instead of stealing them. Backup/keyring file publication
+uses owner-only same-directory temporary ciphertext, file sync, no-overwrite
+hard-link publication and directory sync. Failed new-root operations can leave
+partial evidence; no automatic delete/reset/repair. Restores do not copy keys
+or activate a service. The CLI currently backs up initialized host layouts;
+separate key-root/data-root activation and client-outbox recovery remain future.
+
+Verification: `teams-operator-test.ts` passes 8 grouped checks: independently
+randomized encrypted keyrings/roundtrip/no plaintext keys; wrong password,
+metadata/tamper/KDF/format refusal; private/no-overwrite initialization; typed
+backup/verify/restore and active-lock/no-overwrite refusal; corrupted-package
+no-write behavior; permissions/symlink refusal; missing/damaged source
+preservation; subprocess CLI initialization/backup/verification/restore,
+non-TTY passphrase input, secret-free output and invalid input/argv refusal.
+All 60 grouped Teams checks, backend TypeScript and production build pass.
+No UI changes require render review. No claim of physical power-loss, native,
+Windows, exhaustive fault-injection/large-data or security certification.
+
+Next: a serialized host service binding authenticated actors to Owner/Admin/
+Editor/Viewer permissions and enforcing typed preflight before durable append;
+then protected authentication/invite lifecycle and HTTPS transport/client
+integration. Networking remains disabled.

@@ -2,6 +2,7 @@
 import { open, mkdir, readFile, unlink } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
+import { constants } from 'node:fs'
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto'
 
 export type TeamOperation = { id: string; actor: string; kind: string; payload: unknown }
@@ -63,21 +64,22 @@ export class TeamJournal {
   private constructor(private directory: string, private key: Buffer, private file: FileHandle, private lock: FileHandle) {}
 
   /** Caller supplies a separately protected, journal-specific 32-byte host key; it is never stored here. */
-  static async open(directory: string, suppliedKey: Buffer): Promise<TeamJournal> {
+  static async open(directory: string, suppliedKey: Buffer, options: { create?: boolean; recoverTail?: boolean } = {}): Promise<TeamJournal> {
     if (suppliedKey.length !== 32) throw new Error('A 32-byte host key is required')
     const key = Buffer.from(suppliedKey)
-    await mkdir(directory, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error })
+    if (options.create !== false) await mkdir(directory, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error })
     await syncDirectory(dirname(directory))
     // Never steal a lock based on PID/time. Offline operator recovery is required after a crash.
     const lock = await open(join(directory, 'writer.lock'), 'wx', 0o600)
     let file: FileHandle | undefined
     try {
       await lock.writeFile(JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() })); await lock.sync()
-      file = await open(join(directory, 'operations.log'), 'a+', 0o600)
+      file = await open(join(directory, 'operations.log'), options.create === false ? constants.O_RDWR | constants.O_APPEND : 'a+', 0o600)
       await file.sync(); await syncDirectory(directory)
       const journal = new TeamJournal(directory, key, file, lock)
       const bytes = await readFile(join(directory, 'operations.log'))
       const boundary = bytes.lastIndexOf(10) + 1
+      if (options.recoverTail === false && boundary !== bytes.length) throw new Error('Incomplete journal tail; preserve a copy and perform explicit offline recovery first')
       // Only an incomplete non-newline tail may be discarded; complete records fail closed.
       const inspected = inspectJournal(bytes.subarray(0, boundary), key)
       for (const entry of inspected.entries) journal.remember(entry, inspected.checkpoints[entry.sequence].digest)
