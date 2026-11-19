@@ -80,3 +80,11 @@
 .re-board-resize-handle { bottom:5px; right:5px; cursor:nwse-resize; }
 .re-board-card button:disabled { cursor:not-allowed; opacity:.5; }
 .re-board-position { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+
+.re-board-backup { padding:8px 16px; border-bottom:1px solid var(--surface-border); font-size:11px; color:var(--text-2); }
+.re-board-backup-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.re-board-backup p { margin:6px 0; font-size:11px; }
+.re-board-backup label { position:relative; cursor:pointer; color:var(--text); }
+.re-board-backup input[type=file] { position:absolute; inset:0; opacity:0; width:100%; cursor:pointer; }
+.re-board-backup label:focus-within { outline:2px solid var(--primary); outline-offset:2px; }
+.re-board-backup label:has(input:disabled) { opacity:.5; cursor:not-allowed; }

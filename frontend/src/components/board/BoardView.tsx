@@ -8,6 +8,7 @@ import { ditherMaskStyle } from '@/lib/dither/pattern'
 import { prepareBoardAttachment } from '@/lib/board/attachments'
 import { AttachmentPreview } from './AttachmentPreview'
 import { BoardCard } from './BoardCard'
+import { BoardBackup } from './BoardBackup'
 import type { BoardAttachment } from '@/lib/board/storage'
 import './board.css'
 
@@ -42,6 +43,7 @@ function BoardList({ store }: { store: Store }) {
   const visible = boards.filter(board => board.title.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
   return <section className="re-board-page"><header className="re-board-list-header"><div><h1>Board</h1><p>Collect notes and sources. Make room for the next idea.</p></div><button className="bui-button" disabled={busy} onClick={create}><Plus size={16} />New board</button></header>
     <p className="re-board-disclosure">Local to this browser profile. Not synced or encrypted by Board. Save revisions explicitly; browser data can be cleared.</p>
+    <BoardBackup store={store} disabled={busy} onBusy={setBusy} />
     <SearchField aria-label="Search boards" placeholder="Find a board…" value={query} onValueChange={setQuery} />
     {error && <p role="alert">{error}</p>}
     {!ready && !error && <p role="status">Loading boards…</p>}
@@ -138,6 +140,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
     <header className="re-board-toolbar"><Link to="/board" className="bui-button">All boards</Link><input className="bui-field re-board-title" aria-label="Board title" value={board.title} disabled={busy || !!recovered} onChange={e => draft({...board, title: e.target.value})} />
       <button className="bui-button" disabled={!dirty || busy || !!recovered} onClick={save}><Save size={15} />Save revision</button><button className="bui-button" title="JSON document only; attached files are not included." onClick={downloadDraft}>Download draft</button>
     </header>
+    <BoardBackup store={store} document={board} dirty={dirty} disabled={busy || !!recovered} onBusy={setBusy} />
     <div className="re-board-status"><span role="status">{status}</span><span>Browser-local · no AI requests</span></div>
     {error && <div className="re-board-notice" role="alert">{error}</div>}
     {recovered && <div className="re-board-notice"><p>A recovery draft exists from this tab. Its base revision is {recovered.revision}; the saved board is revision {board.revision}. Loading it does not overwrite the saved board.</p><button className="bui-button" onClick={() => { draft(recovered); setRecovered(undefined) }}>Load recovery draft</button><button className="bui-button" onClick={() => { try { sessionStorage.removeItem(draftKey); setRecovered(undefined) } catch(e) { setError(message(e)) } }}>Keep saved board</button></div>}
