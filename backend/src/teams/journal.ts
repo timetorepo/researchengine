@@ -1,7 +1,7 @@
 /** Offline Teams durability primitive. Not an authorization or networking API. */
 import { open, mkdir, readFile, unlink } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto'
 
 export type TeamOperation = { id: string; actor: string; kind: string; payload: unknown }
@@ -51,7 +51,8 @@ export class TeamJournal {
   static async open(directory: string, suppliedKey: Buffer): Promise<TeamJournal> {
     if (suppliedKey.length !== 32) throw new Error('A 32-byte host key is required')
     const key = Buffer.from(suppliedKey)
-    await mkdir(directory, { recursive: true, mode: 0o700 })
+    await mkdir(directory, { mode: 0o700 }).catch(error => { if (error.code !== 'EEXIST') throw error })
+    await syncDirectory(dirname(directory))
     // Never steal a lock based on PID/time. Offline operator recovery is required after a crash.
     const lock = await open(join(directory, 'writer.lock'), 'wx', 0o600)
     let file: FileHandle | undefined
@@ -83,6 +84,12 @@ export class TeamJournal {
     this.entries.push(entry); this.tail = digest
     this.receipts.set(entry.operation.id, { json: JSON.stringify(entry.operation), receipt })
     return { ...receipt }
+  }
+  /** Only successfully flushed operations appear in checkpoints. */
+  checkpoint(sequence = this.entries.length): Receipt {
+    if (!Number.isSafeInteger(sequence) || sequence < 0 || sequence > this.entries.length) throw new Error('Unknown durable checkpoint')
+    if (sequence === 0) return { sequence: 0, digest: '0'.repeat(64) }
+    return { ...this.receipts.get(this.entries[sequence - 1].operation.id)!.receipt }
   }
   replay(): JournalEntry[] { return structuredClone(this.entries) }
   append(operation: TeamOperation): Promise<Receipt> {

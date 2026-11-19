@@ -85,3 +85,69 @@ and production build pass. No provider calls or networking; no UI changes to
 render. Snapshots, atomic attachment storage, full backup verification and
 persisted client pending/reconnect queues remain required before networking.
 Key protection, rotation and recovery policy also remain required before use.
+
+## Immutable objects and snapshot-bundle checkpoint — 2026-11-12
+
+`backend/src/teams/objects.ts` adds offline encrypted attachments, immutable
+checkpoint snapshots and snapshot-bundle export/restore. Still no service,
+routes, host/join, UI, networking or access to private chats. No dependency added.
+
+Objects use AES-256-GCM with random nonces and team/type-specific authenticated
+context. Content identities are keyed HMAC-SHA256, scoped to team and object
+kind; filenames do not expose unkeyed plaintext hashes. The caller supplies a
+separate team-object key (not the journal key). Keys are never persisted here;
+protected key provisioning, lifetime/disposal, rotation, and operator recovery
+remain unfinished. An authorized host can read plaintext: not host-blind E2EE.
+Object size and same-team deduplication are visible on disk.
+
+Publication writes owner-only temporary ciphertext, fsyncs it, then hard-links
+it to the immutable content identity without replacing an existing object.
+Directory sync precedes completion; temporary links are removed and synced.
+Concurrent identical uploads verify and reuse the original ciphertext. Existing
+corrupt objects fail closed, never silently overwrite/heal. Orphan temporary
+files are ignored, not automatically deleted; offline cleanup/GC remains future
+work. Failures after publication can leave a valid unacknowledged object; retry
+is safe. This is local-filesystem hard-link/fsync behavior, not portable storage
+certification or secure deletion. Filesystem failures/power loss at every
+publication boundary are not exhaustively injected/tested.
+
+Both journal and object creation now require an existing trusted private parent
+and fsync it after creating the leaf directory; they do not recursively create
+unsynced ancestors. Do not use attacker-controlled directories/symlinks or
+network volumes. Existing directory permissions are not repaired.
+
+Journal checkpoints expose only flushed operation receipts. New snapshots
+must match a sequence/digest in the supplied journal and all attachments must
+exist and authenticate before the snapshot is published. State is finite JSON,
+cloned before asynchronous work; application reducer/schema correctness is not
+inferred from a matching receipt. Reads revalidate referenced attachments.
+Snapshots are immutable IDs, not a mutable latest pointer. No journal truncation,
+compaction or automatic snapshot selection is enabled; full journal remains
+authoritative. There is no independently trusted anti-rollback checkpoint.
+
+Snapshot bundles are themselves encrypted/authenticated and contain exactly one
+snapshot and its referenced original attachments. They exclude operation
+history, prior snapshots, unrelated/orphan objects and keys: **not a full Teams
+backup**. Restore requires the same team identity/object key, validates the whole
+bundle before writing, publishes attachments first and snapshot last. It can
+restore absent files but rejects existing corruption. An I/O failure can leave
+valid unreferenced attachments; multi-file restore is not one filesystem
+transaction. Restored state must be reconciled with its original journal before
+use; bundle import alone never authorizes a state or creates a live Team.
+
+Verification: `tsx backend/scripts/teams-objects-test.ts` passes 11 grouped checks:
+encryption/owner-only permissions/clone-before-await, concurrent deduplication,
+path/key/team isolation, journal-bound snapshot roundtrip and checkpoint mismatch
+refusal, missing/invalid references and JSON, encrypted separate-store bundle
+roundtrip/idempotence, corrupted/truncated/wrong-team bundle refusal without
+writes, immutable corruption preservation, orphan exclusion, absent-attachment
+restore and real SIGKILL after durable attachment receipt followed by reopen.
+The 11 journal checks (including disk-flush failure and process kill), backend
+TypeScript and backend production build also pass. No UI files changed, so no
+render verification was needed. Physical power loss, Windows/native filesystems,
+large-data streaming/memory/DoS limits and security certification remain untested.
+
+Next recovery requirements: full journal+snapshot+attachment backup validation,
+persisted client pending/reconnect queues, typed deterministic replay and usable
+offline recovery tooling. Permissions/authentication and protected key management
+must be in place before HTTPS host/join or collaborative Board/BackChat exposure.
