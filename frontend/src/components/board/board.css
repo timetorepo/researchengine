@@ -148,3 +148,19 @@
 .re-board-connectors [data-selected=true] .re-board-connector-line { stroke:var(--primary); stroke-width:2.5; }
 .re-board-connector-hit:focus-visible { outline:none; stroke:var(--primary); stroke-opacity:.35; }
 @media(forced-colors:active) { .re-board-connector-line { stroke:CanvasText; } .re-board-connectors text { fill:CanvasText; stroke:Canvas; } .re-board-connectors [data-selected=true] .re-board-connector-line,.re-board-connector-hit:focus-visible { stroke:Highlight; } }
+.re-board-drawing-tools { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid var(--surface-border); font-size:11px; color:var(--text-2); }
+.re-board-drawing-tools details { width:100%; }
+.re-board-drawing-tools summary { cursor:pointer; }
+.re-board-drawing-tools textarea { display:block; width:100%; max-width:400px; margin:8px 0; }
+.re-board-drawing-tools p { margin:6px 0; }
+.re-board-draw-surface { position:absolute; inset:0; z-index:5; cursor:crosshair; touch-action:none; user-select:none; }
+.re-board-draw-surface path,.re-board-drawing path { fill:none; stroke:var(--primary); stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.re-board-draw-surface path { pointer-events:none; }
+.re-board-drawing { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+.re-board-card[data-kind=drawing] { background:transparent; border:0; box-shadow:none; }
+.re-board-card[data-kind=drawing]:hover { box-shadow:inset 0 0 0 1px var(--surface-border); }
+.re-board-card[data-kind=drawing] .re-board-card-select { position:relative; }
+.re-board-card[data-kind=drawing] small { display:none; }
+.re-board-card[data-kind=drawing] .re-board-card-text { position:absolute; bottom:6px; left:6px; right:42px; flex:none; max-height:32px; font-size:10px; background:var(--surface); padding:2px 4px; border-radius:3px; }
+.re-board-card[data-kind=drawing] .re-board-card-text:empty { display:none; }
+@media(forced-colors:active) { .re-board-draw-surface path,.re-board-drawing path { stroke:CanvasText; } }

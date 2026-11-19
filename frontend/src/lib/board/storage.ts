@@ -5,7 +5,7 @@ export function freezeBoardWrites() { frozen = true }
 export function boardWritesFrozen() { return frozen }
 export type BoardItem = {
   id: string; kind: 'note' | 'reference' | 'image' | 'pdf' | 'drawing' | 'shape' | 'connector' | 'frame'
-  x: number; y: number; width: number; height: number; text: string; textFormat?: 'markdown'; shape?: 'rectangle' | 'ellipse' | 'diamond'
+  x: number; y: number; width: number; height: number; text: string; textFormat?: 'markdown'; shape?: 'rectangle' | 'ellipse' | 'diamond'; pointSpace?: 'unit'
   attachmentId?: string; source?: { url?: string; page?: number }; parentId?: string
   points?: { x: number; y: number }[]; fromId?: string; toId?: string
 }
@@ -28,6 +28,7 @@ export function validateBoard(value: unknown): asserts value is BoardDocument {
     if (!record(item) || typeof item.id !== 'string' || !item.id || ids.has(item.id) || !['note','reference','image','pdf','drawing','shape','connector','frame'].includes(String(item.kind)) || !finite(item.x) || !finite(item.y) || !finite(item.width) || item.width <= 0 || !finite(item.height) || item.height <= 0 || typeof item.text !== 'string') throw new Error('Invalid Board item.')
     if (item.textFormat !== undefined && item.textFormat !== 'markdown') throw new Error('Unsupported Board text format.')
     if (item.shape !== undefined && (item.kind !== 'shape' || !['rectangle','ellipse','diamond'].includes(String(item.shape)))) throw new Error('Unsupported Board shape.')
+    if(item.pointSpace !== undefined && (item.kind !== 'drawing' || item.pointSpace !== 'unit' || !Array.isArray(item.points) || !item.points.length || item.points.some(p=>!record(p)||!finite(p.x)||!finite(p.y)||p.x<0||p.x>1||p.y<0||p.y>1))) throw new Error('Invalid normalized Board drawing.')
     ids.add(item.id)
     for (const key of ['attachmentId','parentId','fromId','toId']) if (item[key] !== undefined && (typeof item[key] !== 'string' || !item[key])) throw new Error('Invalid Board link.')
     if (item.source !== undefined && (!record(item.source) || (item.source.url !== undefined && typeof item.source.url !== 'string') || (item.source.page !== undefined && (!Number.isSafeInteger(item.source.page) || Number(item.source.page) < 1)))) throw new Error('Invalid Board provenance.')

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type PointerEvent, type KeyboardEvent } from 'react'
-import { FileText, Link2, Move, Scaling, Shapes, Frame } from 'lucide-react'
+import { FileText, Link2, Move, Scaling, Shapes, Frame, Pencil } from 'lucide-react'
+import { drawingPath } from '@/lib/board/drawing'
 import { BoardMarkdown } from './BoardMarkdown'
 import type { BoardItem } from '@/lib/board/storage'
 import { editGeometry } from '@/lib/board/structure'
@@ -66,9 +67,10 @@ export function BoardCard(props:Props) {
   }
   const handlers=(kind:'move'|'resize')=>({onPointerDown:(event:PointerEvent<HTMLButtonElement>)=>start(event,kind),onPointerMove:track,onPointerUp:finish,onPointerCancel:clear,onLostPointerCapture:clear,onKeyDown:(event:KeyboardEvent<HTMLButtonElement>)=>keyboard(event,kind)})
   return <div ref={root} id={`board-card-${item.id}`} data-board-item={item.id} className="re-board-card" data-kind={item.kind} data-shape={item.kind==='shape'?(item.shape??'rectangle'):undefined} data-selected={selected} style={{left:item.x,top:item.y,width:item.width,height:item.height}}>
+    {item.kind==='drawing'&&<svg className="re-board-drawing" viewBox={item.pointSpace==='unit'?'0 0 1 1':`0 0 ${item.width} ${item.height}`} preserveAspectRatio="none" aria-hidden="true"><path d={drawingPath(item.points??[])}/></svg>}
     {item.kind==='shape'&&<svg className="re-board-shape-outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{item.shape==='ellipse'?<ellipse cx="50" cy="50" rx="49" ry="49"/>:item.shape==='diamond'?<polygon points="50,1 99,50 50,99 1,50"/>:<rect x="1" y="1" width="98" height="98" rx="3"/>}</svg>}
     <button className="re-board-card-select" aria-pressed={selected} aria-label={`Select ${item.kind} ${index+1}: ${item.text.slice(0,60)||'Untitled'}`} onClick={onSelect}>
-      <small>{item.kind==='reference'?<Link2 size={13}/>:item.kind==='shape'?<Shapes size={13}/>:item.kind==='frame'?<Frame size={13}/>:<FileText size={13}/>}{item.kind}</small><span className="re-board-card-text">{item.textFormat==='markdown'&&item.text?<BoardMarkdown text={item.text} compact/>:item.text||(item.kind==='reference'?'Add a source and your annotation…':item.kind==='frame'?'Name this frame…':item.kind==='shape'?'Label this shape…':'Write a note…')}</span>
+      <small>{item.kind==='reference'?<Link2 size={13}/>:item.kind==='shape'?<Shapes size={13}/>:item.kind==='frame'?<Frame size={13}/>:item.kind==='drawing'?<Pencil size={13}/>:<FileText size={13}/>}{item.kind}</small><span className="re-board-card-text">{item.textFormat==='markdown'&&item.text?<BoardMarkdown text={item.text} compact/>:item.text||(item.kind==='reference'?'Add a source and your annotation…':item.kind==='frame'?'Name this frame…':item.kind==='shape'?'Label this shape…':item.kind==='drawing'?'':'Write a note…')}</span>
       {item.attachmentId&&<em>{item.kind==='pdf'?`PDF · page ${item.source?.page??1} · select to preview`:'Image · select to preview'}</em>}{item.source?.url&&<em>{item.source.url}</em>}
     </button>
     {selected&&<><span id={help} className="sr-only">Drag a handle, or use arrow keys. Shift changes by ten units. Escape cancels a pointer gesture. Changes are drafts until saved.</span>
