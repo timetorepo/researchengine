@@ -60,7 +60,7 @@ new data directory. It does not overwrite, merge, copy keys or activate data.
 `verify-restore` validates the authenticated READY marker and exact restored
 inventory offline. The keyring remains at the original key root. Recovery of
 that root from your separately preserved `host.keys`, relocation into an active
-host layout, passphrase/key rotation and client-outbox recovery are not automated.
+host layout, passphrase/storage-key rotation and client-outbox recovery are not automated; trusted-local Owner bearer recovery is described below.
 The current `backup` command targets the initialized host layout, not a separate
 key-root/data-root pair.
 
@@ -98,3 +98,78 @@ stolen keyring is possible; use a genuinely strong passphrase.
 wrong-password/tamper/KDF checks, owner-only/no-overwrite operations, CLI tests,
 source-damage preservation, typed backup/replay, lost-ACK retries and process-kill
 recovery. No network/provider calls are required or made by these tests.
+
+## Trusted-local Owner credential recovery and restore activation
+
+For an **already bootstrapped** host, source-tree tooling now supports all-session
+credential recovery. It cannot create an Owner implicitly in legacy content-only
+history or rescue a lost keyring/passphrase. The offline `init` command still
+creates storage only; first Owner bootstrap is currently a trusted-local library
+action, not a shipped sign-in UI or CLI onboarding flow.
+
+Stop every writer and preserve a backup first. Obtain the exact current checkpoint
+(sequence and full digest) from the verified backup/restore output. Confirm the
+recorded Owner ID and that **every existing session must be invalidated**, not
+just the Owner's session. Pipe the keyring passphrase from your trusted secret
+producer into this command (all other arguments are nonsecret placeholders):
+
+```sh
+npm run teams-offline --workspace backend -- recover-owner KEY_ROOT DATA_ROOT OWNER_ID EXPECTED_SEQUENCE EXPECTED_DIGEST NEW_ENCRYPTED_CREDENTIAL_FILE --confirm-invalidate-all
+```
+
+The output file's parent must be owner-only and already exist. An existing output
+file, wrong Owner, stale/mismatched checkpoint, invalid keyring or absent explicit
+confirmation is rejected. A successful command appends one durable recovery
+record, preserving membership roles and shared content while revoking **all**
+prior sessions. Only one new Owner session remains active. The one-hour credential
+is written in a new owner-only artifact encrypted using the supplied passphrase,
+a fresh salt and a distinct authenticated context. Neither the raw credential
+nor passphrase appears in stdout, argv or environment. Protect the artifact;
+its passphrase holder can decrypt an Owner credential. There is no default
+plaintext-dump command. Secure client import/delivery is not yet integrated;
+`unlockOwnerCredential` is the trusted in-process source-tree API, not a UI login.
+
+A recovered bearer is not a rotated storage key or changed keyring passphrase.
+Data/keyring encryption-key rotation, passphrase rewrapping, OS keystore and
+lost-passphrase recovery remain unfinished. This is host-trusted administration:
+a process holding the unwrapped storage key has full local authority. Never
+expose `recoverOwner`/`recoverOfflineOwner` as an ordinary bearer/network request.
+
+### Restored data stays gated
+
+Normal host opening now detects supported restore provenance (`READY` and
+`INCOMPLETE`) and refuses incomplete or unactivated restores. A completed restore
+must authenticate its marker with the backup key, verify the recorded journal
+prefix/object inventory, and have an exact-next durable `restore-activation`
+recovery record bound to that marker's digest. The recovery command supplies
+these checks and invalidates old sessions before returning a new credential.
+Subsequent source-library host opens must continue supplying the backup key for
+marker verification. The command does **not** start a listener or join a Team.
+
+A backup made after one activation does not authorize the next restored copy:
+the new restore marker/checkpoint requires another fresh invalidation. An older
+whole backup's previously valid credentials cannot pass this supported activation
+flow. This is not global rollback detection: the host/filesystem remain trusted,
+and out-of-band copying/removing provenance or reverting an entire active host
+without restore markers requires an independently trusted checkpoint/instance
+registry to detect. Other running copies cannot be revoked by an offline restore;
+stop the original host before activation. No security certification is implied.
+
+`verify-restore` checks the original restored artifact and checkpoint **before**
+activation; after recovery appends a record, it intentionally no longer matches
+that original checkpoint. Post-activation host opening validates the original
+prefix, retained inventory, typed history and activation record. It is not
+permission to ignore an invalid original restore.
+
+### If recovery is interrupted
+
+The source history may already have committed all-session invalidation even if
+the command reports failure or no artifact was delivered. Preserve any new file
+or pending ciphertext. Do not assume old sessions still work, and never delete
+history/re-bootstrap to get around this. After confirming all writers are stopped
+and following explicit stale-lock recovery if needed, obtain the **new** durable
+checkpoint and repeat recovery to a different new artifact path. The previous
+undelivered session is also invalidated. There is no multi-file transaction
+across journal commit and credential-artifact publication. Tests simulate a lost
+response after a durable commit; exhaustive power-loss/fault injection across
+these boundaries and native/device testing remain unperformed.

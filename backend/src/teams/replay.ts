@@ -92,7 +92,7 @@ function apply(state: TeamState, entry: JournalEntry, available: ReadonlySet<str
   validateTeamOperation(entry.operation)
   const operation = structuredClone(entry.operation), next = structuredClone(state), references = new Set(next.requiredAttachments)
   if (isAccessKind(operation.kind)) {
-    validateAccessOperation(operation); next.access = reduceAccess(next.access,operation,entry.sequence); next.sequence = entry.sequence; return next
+    validateAccessOperation(operation); if(operation.kind==='team.access.recover.v1'&&operation.payload.checkpoint.digest!==entry.previous)fail('Recovery predecessor digest mismatch'); next.access = reduceAccess(next.access,operation,entry.sequence); next.sequence = entry.sequence; return next
   }
   if (next.access) requireEditor(next.access,operation.actor)
   if (operation.kind === 'team.board.replace.v1') {

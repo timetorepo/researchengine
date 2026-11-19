@@ -1,10 +1,15 @@
 /** Local-only serialized host core. No routes/listeners, invitations or private-local resources. */
+import { readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { readRestoreMarker } from './recovery'
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto'
 import { TeamJournal, type Receipt, type JournalEntry } from './journal'
 import { TeamObjects } from './objects'
 import { replayTeam, validateTeamHistory, validateTeamOperation, type TeamState, type TypedTeamOperation } from './replay'
 import { memberRole, requireEditor, type TeamRole, type AccessOperation } from './access'
 export type HostSession = { credential: string; digest: string; expiresAt: number; receipt: Receipt }
+type OpenOptions = {bootstrap?:{owner:string;durationMs:number};clock?:()=>number;restoreKey?:Buffer}
+export type OwnerRecovery = {owner:string;durationMs:number;expectedCheckpoint:Receipt;confirmInvalidateAll:true}
 type ContentOperation = Exclude<TypedTeamOperation,AccessOperation>
 function credentialDigest(team:string,credential:string){
  if(typeof credential!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(credential)||Buffer.from(credential,'base64url').toString('base64url')!==credential)throw new Error('Invalid credential')
@@ -17,19 +22,53 @@ export class TeamHost {
  private closed?:Promise<void>
  private constructor(private journal:TeamJournal,private objects:TeamObjects,private state:TeamState,private clock:()=>number){}
  /** Existing encrypted storage only. Bootstrap is an explicit trusted-local action on an empty log. */
- static async open(directory:string,key:Buffer,objects:TeamObjects,options:{bootstrap?:{owner:string;durationMs:number};clock?:()=>number}={}):Promise<{host:TeamHost;session?:HostSession}>{
+ static open(directory:string,key:Buffer,objects:TeamObjects,options:OpenOptions={}){
+  return this.begin(directory,key,objects,{...options,bootstrap:options.bootstrap?{...options.bootstrap}:undefined})
+ }
+ /** Trusted-local only: possession of host storage key plus explicit checkpoint/Owner confirmation. Never expose as a bearer request. */
+ static recoverOwner(directory:string,key:Buffer,objects:TeamObjects,recovery:OwnerRecovery,options:Omit<OpenOptions,'bootstrap'>={}){
+  if(recovery.confirmInvalidateAll!==true)return Promise.reject(new Error('Explicit all-session invalidation confirmation required'))
+  return this.begin(directory,key,objects,{...options},{...recovery,expectedCheckpoint:{...recovery.expectedCheckpoint}})
+ }
+ private static async begin(directory:string,key:Buffer,objects:TeamObjects,options:OpenOptions,recovery?:OwnerRecovery):Promise<{host:TeamHost;session?:HostSession}>{
   const clock=options.clock??Date.now,journal=await TeamJournal.open(directory,key,{create:false,recoverTail:false})
   try{
    const archive=await objects.exportArchive(),available=new Set(archive.objects.filter(value=>value.kind==='attachment').map(value=>value.id))
    const snapshots=await Promise.all(archive.objects.filter(value=>value.kind==='snapshot').map(value=>objects.getSnapshot(value.id)))
    const state=validateTeamHistory(journal.replay(),snapshots,available),host=new TeamHost(journal,objects,state,clock)
    if(!journal.replay().length){
+    for(const name of ['READY','INCOMPLETE']){const exists=await readFile(join(dirname(directory),name)).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error});if(exists)throw new Error('Cannot bootstrap restored or incomplete data')}
     if(!options.bootstrap)throw new Error('Empty host requires explicit trusted-local Owner bootstrap')
     const credential=randomBytes(32).toString('base64url'),digest=credentialDigest(objects.teamId,credential),issuedAt=host.now(),expiresAt=issuedAt+options.bootstrap.durationMs
     const receipt=await host.persist({id:randomUUID(),actor:options.bootstrap.owner,kind:'team.access.bootstrap.v1',payload:{owner:options.bootstrap.owner,digest,issuedAt,expiresAt}})
     return{host,session:{credential,digest,expiresAt,receipt}}
    }
    if(options.bootstrap||!state.access||journal.replay()[0].operation.kind!=='team.access.bootstrap.v1')throw new Error('Cannot bootstrap or activate legacy content-only history implicitly')
+   const history=journal.replay(),root=dirname(directory)
+   const markerBytes=await readFile(join(root,'READY')).catch(error=>{if(error.code==='ENOENT')return undefined;throw error})
+   let markerDigest:string|null=null,activationPending=false
+   if(markerBytes){
+    if(!options.restoreKey)throw new Error('Restored data requires authenticated marker verification and explicit activation')
+    const marker=await readRestoreMarker(root,options.restoreKey,objects.teamId)
+    if(journal.checkpoint(marker.checkpoint.sequence).digest!==marker.checkpoint.digest)throw new Error('Restored journal prefix differs from marker')
+    const inventory=new Set(archive.objects.map(value=>`${value.kind}-${value.id}`))
+    if(marker.identities.some(id=>!inventory.has(id)))throw new Error('Restored object inventory missing')
+    markerDigest=createHash('sha256').update(markerBytes).digest('hex')
+    const operation=history[marker.checkpoint.sequence]?.operation
+    const activated=operation?.kind==='team.access.recover.v1'&&(operation.payload as any).reason==='restore-activation'&&(operation.payload as any).restoreMarkerDigest===markerDigest
+    activationPending=!activated
+    if(activationPending&&(history.length!==marker.checkpoint.sequence||!recovery))throw new Error('Restored data requires explicit session invalidation before activation')
+   }else{
+    const incomplete=await readFile(join(root,'INCOMPLETE')).catch(error=>{if(error.code==='ENOENT')return undefined;throw error})
+    if(incomplete)throw new Error('Incomplete restore cannot be activated')
+   }
+   if(recovery){
+    const checkpoint=journal.checkpoint()
+    if(recovery.owner!==state.access.owner||checkpoint.sequence!==recovery.expectedCheckpoint.sequence||checkpoint.digest!==recovery.expectedCheckpoint.digest)throw new Error('Recovery Owner/checkpoint confirmation differs from current history')
+    const credential=randomBytes(32).toString('base64url'),digest=credentialDigest(objects.teamId,credential),issuedAt=host.now(),expiresAt=issuedAt+recovery.durationMs
+    const receipt=await host.persist({id:randomUUID(),actor:state.access.owner,kind:'team.access.recover.v1',payload:{owner:state.access.owner,digest,issuedAt,expiresAt,checkpoint,reason:activationPending?'restore-activation':'credential-recovery',restoreMarkerDigest:activationPending?markerDigest:null}})
+    return{host,session:{credential,digest,expiresAt,receipt}}
+   }
    return{host}
   }catch(error){await journal.close();throw error}
  }

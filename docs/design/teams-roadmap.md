@@ -523,3 +523,69 @@ engineering foundation, not a production-throughput claim.
 Next: protected credential recovery/rotation and restore activation safeguards,
 then scoped expiring/revocable invitations and explicit HTTPS transport/client
 integration. Network exposure remains disabled until these gates are tested.
+
+## Trusted-local Owner recovery and restored-host gate — 2026-11-12
+
+Added a versioned `team.access.recover.v1` record and trusted-local
+`TeamHost.recoverOwner`. Recovery requires the local journal key, explicit
+confirmation to invalidate **all** sessions, the recorded Owner identity and
+an exact expected sequence/digest. It preserves shared content and member roles,
+revokes every prior credential and creates only a new expiring Owner session.
+Replay verifies the recovery checkpoint/predecessor binding and retains the
+auditable recovery reason/sequence. Neither content submission nor client
+outboxes accept privileged recovery records. This is not a network/bearer-only
+recovery endpoint, not Owner transfer, and not storage-key/passphrase rotation.
+
+Host opening now detects supported restore provenance. Incomplete restores,
+including empty restores offered a bootstrap, are blocked. Completed restored
+hosts require backup-key authentication of READY, original prefix/checkpoint and
+retained object inventory checks, plus an exact-next durable restore-activation
+recovery record tied to that READY ciphertext digest. Until that invalidation is
+committed, even still-unexpired credentials from a valid older backup cannot
+open/use the restored host core. A subsequent restore creates a different marker
+and checkpoint, so an earlier activation record is not reusable. Later credential
+recoveries remain possible while preserving the original activation proof.
+Normal restored-host opens must continue supplying the backup key for the gate.
+
+This closes the supported **restore-flow** session-reactivation gate, not global
+rollback detection. Host/OS/filesystem are still trusted; manually removing
+restore provenance or reverting an entire active directory outside the supported
+restore path needs a separate trusted checkpoint/instance registry to detect.
+An offline restored copy cannot invalidate another running host copy. Stop the
+original host before activating a restore. No public listener/activation UI is
+registered, and no private local data is accessed.
+
+`recover-owner` in the offline CLI unlocks the protected keyring via bounded
+non-TTY stdin, checks owner-only source/output paths and explicit arguments, and
+publishes a new owner-only **encrypted credential artifact** instead of printing
+a bearer. `credential.ts` uses a fresh scrypt salt and a distinct AES-GCM context;
+artifacts require the passphrase and correct team identity to unlock. The CLI
+issues a one-hour session; secure client artifact import/delivery is not yet wired.
+Raw bearer secrets remain absent from logs, history, argv, environment and CLI
+stdout. The source-tree unlock API necessarily returns an in-memory secret to
+trusted callers. This is not OS-keystore or memory-erasure certification.
+
+Recovery journal commit and artifact publication are not one filesystem
+transaction. A failed/lost response may already have revoked all old sessions;
+operators preserve partial files, obtain the new durable checkpoint and recover
+again to a new output path. A fresh recovery also invalidates any prior
+undelivered credential. No automatic re-bootstrap, history deletion, overwrite,
+lock stealing or raw-secret dump exists. The protected keyring/passphrase remain
+required; neither Owner recovery nor a data package rescues lost encryption keys.
+See the updated `docs/teams-offline-recovery.md` for commands and failure handling.
+
+Verification: 8 new grouped Owner-recovery checks pass: confirmation/Owner/exact
+checkpoint/no-overwrite refusal without history changes; subprocess CLI encrypted
+credential delivery and wrong-password/team/tamper refusal; all-session revocation
+with role/content preservation; old-backup authentication/activation blocking and
+fresh reset; repeat-restore requiring another reset; recovery after all bearers
+expire; simulated durable commit followed by lost response and safe re-recovery;
+and incomplete-restore bootstrap refusal. The existing host suite now activates
+restored data explicitly and checks old sessions are invalidated. All **79**
+grouped Teams tests, backend TypeScript and build pass. No network/provider calls
+or UI changes; hardware power loss, native/Windows, resource/performance limits,
+independent anti-rollback authority and security certification remain untested.
+
+Next: scoped expiring/revocable invitations and onboarding credentials, followed
+by explicit LAN/self-hosted HTTPS transport and browser/desktop integration.
+No Internet rendezvous, tunnel or network exposure is enabled by this milestone.

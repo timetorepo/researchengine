@@ -1,12 +1,13 @@
 /** Deterministic access-control records. Raw bearer credentials never enter history. */
 import type { TeamOperation } from './journal'
 export type TeamRole = 'Owner'|'Admin'|'Editor'|'Viewer'
-export type AccessState = { owner: string; members: {id:string;role:TeamRole;active:boolean}[]; sessions: {digest:string;member:string;issuedAt:number;expiresAt:number;revoked:boolean}[] }
+export type AccessState = { lastRecovery?: {sequence:number;reason:'credential-recovery'|'restore-activation';restoreMarkerDigest:string|null}; owner: string; members: {id:string;role:TeamRole;active:boolean}[]; sessions: {digest:string;member:string;issuedAt:number;expiresAt:number;revoked:boolean}[] }
 export type AccessOperation = TeamOperation & (
   {kind:'team.access.bootstrap.v1';payload:{owner:string;digest:string;issuedAt:number;expiresAt:number}} |
   {kind:'team.access.member.v1';payload:{member:string;role:TeamRole;active:boolean}} |
   {kind:'team.access.session.v1';payload:{member:string;digest:string;issuedAt:number;expiresAt:number}} |
-  {kind:'team.access.revoke.v1';payload:{digest:string}}
+  {kind:'team.access.revoke.v1';payload:{digest:string}} |
+  {kind:'team.access.recover.v1';payload:{owner:string;digest:string;issuedAt:number;expiresAt:number;checkpoint:{sequence:number;digest:string};reason:'credential-recovery'|'restore-activation';restoreMarkerDigest:string|null}}
 )
 const id=(value:unknown):value is string=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(value)
 const digest=(value:unknown):value is string=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value)
@@ -24,6 +25,11 @@ export function validateAccessOperation(value:unknown):asserts value is AccessOp
  if(value.kind==='team.access.bootstrap.v1'){fields(p,['owner','digest','issuedAt','expiresAt']);if(!id(p.owner)||p.owner!==value.actor||!digest(p.digest))throw new Error('Invalid bootstrap');times({issuedAt:p.issuedAt,expiresAt:p.expiresAt})}
  else if(value.kind==='team.access.member.v1'){fields(p,['member','role','active']);if(!id(p.member)||!roles.includes(p.role)||typeof p.active!=='boolean')throw new Error('Invalid member')}
  else if(value.kind==='team.access.session.v1'){fields(p,['member','digest','issuedAt','expiresAt']);if(!id(p.member)||!digest(p.digest))throw new Error('Invalid session');times({issuedAt:p.issuedAt,expiresAt:p.expiresAt})}
+ else if(value.kind==='team.access.recover.v1'){
+  fields(p,['owner','digest','issuedAt','expiresAt','checkpoint','reason','restoreMarkerDigest']);fields(p.checkpoint,['sequence','digest'])
+  if(!id(p.owner)||p.owner!==value.actor||!digest(p.digest)||!Number.isSafeInteger(p.checkpoint.sequence)||p.checkpoint.sequence<1||!digest(p.checkpoint.digest)||!['credential-recovery','restore-activation'].includes(p.reason)||(p.reason==='restore-activation'?!digest(p.restoreMarkerDigest):p.restoreMarkerDigest!==null))throw new Error('Invalid trusted-local recovery record')
+  times({issuedAt:p.issuedAt,expiresAt:p.expiresAt})
+ }
  else if(value.kind==='team.access.revoke.v1'){fields(p,['digest']);if(!digest(p.digest))throw new Error('Invalid session identity')}
  else throw new Error('Unsupported access operation/version')
 }
@@ -57,6 +63,12 @@ export function reduceAccess(state:AccessState|undefined,operation:AccessOperati
   if(operation.actor!==value.member&&(role!=='Owner'&&(role!=='Admin'||target==='Owner'||target==='Admin')))throw new Error('Insufficient credential-issuance role')
   if(next.sessions.some(session=>session.digest===value.digest))throw new Error('Session identity already used')
   next.sessions.push({...value,revoked:false})
+ }else if(operation.kind==='team.access.recover.v1'){
+  const value=operation.payload
+  if(value.owner!==next.owner||memberRole(next,operation.actor)!=='Owner'||value.checkpoint.sequence!==sequence-1||next.sessions.some(session=>session.digest===value.digest))throw new Error('Owner/checkpoint/session recovery mismatch')
+  next.sessions.forEach(session=>session.revoked=true)
+  next.sessions.push({digest:value.digest,member:next.owner,issuedAt:value.issuedAt,expiresAt:value.expiresAt,revoked:false})
+  next.lastRecovery={sequence,reason:value.reason,restoreMarkerDigest:value.restoreMarkerDigest}
  }else{
   const value=operation.payload,session=next.sessions.find(session=>session.digest===value.digest)
   if(!session)throw new Error('Unknown session')

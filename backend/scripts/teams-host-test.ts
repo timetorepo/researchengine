@@ -83,24 +83,27 @@ try{
  assert.throws(()=>replayTeam([...history,{version:1,sequence:history.length+1,previous:journal.checkpoint().digest,operation:secondBootstrap}],new Set([original])),/first operation/)
  const archive=await objects.exportArchive(),available=new Set(archive.objects.filter(value=>value.kind==='attachment').map(value=>value.id))
  assert.equal(replayTeam(history,available).access!.owner,'owner')
- const bundle=await exportRecovery(journal,objects,keys,'team-one','team-state-v1');await journal.close()
+ const backupCheckpoint=journal.checkpoint(),bundle=await exportRecovery(journal,objects,keys,'team-one','team-state-v1');await journal.close()
  host=(await TeamHost.open(directory,keys.journal,objects,{clock:()=>now})).host
  assert.equal((await host.read(owner.credential)).role,'Owner');await assert.rejects(host.read(editor.credential),/revoked/)
  await host.close();host=undefined
  await assert.rejects(TeamHost.open(directory,keys.journal,objects,{bootstrap:{owner:'attacker',durationMs:10000}}),/bootstrap/)
  const restored=join(root,'restored');await restoreRecovery(bundle,restored,keys,'team-one','team-state-v1')
  const restoredObjects=await TeamObjects.open(join(restored,'objects'),keys.objects,'team-one')
- host=(await TeamHost.open(join(restored,'journal'),keys.journal,restoredObjects,{clock:()=>now})).host
- await assert.rejects(host.read(editor.credential),/revoked/);assert.equal((await host.read(owner.credential)).role,'Owner');checks++
+ await assert.rejects(TeamHost.open(join(restored,'journal'),keys.journal,restoredObjects,{clock:()=>now}),/Restored data/)
+ const activated=await TeamHost.recoverOwner(join(restored,'journal'),keys.journal,restoredObjects,{owner:'owner',expectedCheckpoint:backupCheckpoint,durationMs:100000,confirmInvalidateAll:true},{clock:()=>now,restoreKey:keys.backup})
+ host=activated.host
+ await assert.rejects(host.read(editor.credential),/revoked/);await assert.rejects(host.read(owner.credential),/revoked/);assert.equal((await host.read(activated.session!.credential)).role,'Owner');checks++
  // Separate team credentials are not interchangeable, even with the same recorded member name.
  const otherDirectory=join(root,'other-journal'),otherKey=randomBytes(32),otherJournal=await TeamJournal.open(otherDirectory,otherKey);await otherJournal.close()
  const otherObjects=await TeamObjects.open(join(root,'other-objects'),randomBytes(32),'team-two')
  const other=await TeamHost.open(otherDirectory,otherKey,otherObjects,{bootstrap:{owner:'owner',durationMs:10000},clock:()=>now})
  await assert.rejects(other.host.read(owner.credential),/unknown/);await assert.rejects(host.read(other.session!.credential),/unknown/);await other.host.close();checks++
  // Failed durable append cannot publish state or accept subsequent work.
- const handle=(host as any).journal.file,originalSync=handle.sync.bind(handle),stateBefore=(await host.read(owner.credential)).state
+ const afterActivation=await host.issueSession(activated.session!.credential,'editor',100000)
+ const handle=(host as any).journal.file,originalSync=handle.sync.bind(handle),stateBefore=(await host.read(activated.session!.credential)).state
  handle.sync=async()=>{throw new Error('Injected host flush failure')}
- await assert.rejects(host.submit(currentEditor.credential,board('uncertain-host','editor',3)),/flush failure/)
+ await assert.rejects(host.submit(afterActivation.credential,board('uncertain-host','editor',3)),/flush failure/)
  assert.equal((host as any).state.sequence,stateBefore.sequence)
  await assert.rejects(host.read(owner.credential),/recovery/);handle.sync=originalSync;await host.close();host=undefined;checks++
  console.log(`PASS ${checks} local Teams host checks: durable Owner bootstrap, all role gates and actor binding, Admin boundaries, serialized revision race/idempotence, queued demotion/revocation, expiry/clock bounds, attachment scope, real outbox lost-ACK retry, restart/typed recovery preserving revocations, cross-team credential isolation, flush failure/no ACK/state publication. No listeners or networking.`)

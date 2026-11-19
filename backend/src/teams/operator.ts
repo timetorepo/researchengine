@@ -1,6 +1,9 @@
 /** Offline operator primitives. Caller must stop all writers and provide trusted local paths. */
 import { mkdir, lstat, open, link, unlink, readFile } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
+import { TeamHost } from './host'
+import { sealOwnerCredential } from './credential'
+import type { Receipt } from './journal'
 import { randomBytes } from 'node:crypto'
 import { createHostKeyring, unlockHostKeyring, clearHostKeys, type UnlockedHostKeys } from './keyring'
 import { TeamJournal } from './journal'
@@ -68,4 +71,22 @@ export async function verifyOfflineRestore(root: string, destination: string, pa
   const unlocked=await load(root,password)
   try {return {team:unlocked.team,checkpoint:await verifyRestored(destination,unlocked.keys,unlocked.team,'team-state-v1')}}
   finally {clearHostKeys(unlocked)}
+}
+
+/** Trusted-local Owner recovery. Possession of the unlocked keyring is administrative authority. */
+export async function recoverOfflineOwner(keyRoot:string,dataRoot:string,owner:string,expectedCheckpoint:Receipt,credentialFile:string,password:Buffer,confirmInvalidateAll:boolean){
+  if(confirmInvalidateAll!==true)throw new Error('Explicit all-session invalidation confirmation required')
+  expectedCheckpoint={...expectedCheckpoint}
+  const unlocked=await load(keyRoot,password);let host:TeamHost|undefined
+  try{
+    await privatePath(dataRoot,true);await privatePath(join(dataRoot,'journal'),true);await privatePath(join(dataRoot,'journal','operations.log'),false);await privatePath(join(dataRoot,'objects'),true)
+    await privatePath(dirname(credentialFile),true)
+    await lstat(credentialFile).then(()=>{throw new Error('Credential destination already exists')},error=>{if(error.code!=='ENOENT')throw error})
+    const objects=await TeamObjects.open(join(dataRoot,'objects'),unlocked.keys.objects,unlocked.team,{create:false})
+    const result=await TeamHost.recoverOwner(join(dataRoot,'journal'),unlocked.keys.journal,objects,{owner,expectedCheckpoint,durationMs:3600000,confirmInvalidateAll:true},{restoreKey:unlocked.keys.backup})
+    host=result.host
+    const artifact=await sealOwnerCredential(unlocked.team,result.session!,password)
+    await publish(credentialFile,artifact)
+    return{team:unlocked.team,checkpoint:result.session!.receipt,encryptedCredentialPublished:true}
+  }finally{try{await host?.close()}finally{clearHostKeys(unlocked)}}
 }

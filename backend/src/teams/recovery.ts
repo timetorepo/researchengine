@@ -111,3 +111,11 @@ export async function verifyRestored(destination: string, keys: RecoveryKeys, te
     return { ...value.checkpoint }
   } finally { Object.values(keys).forEach(key => key.fill(0)) }
 }
+
+/** Authenticated marker metadata for the local host activation gate; no writes or journal repair. */
+export async function readRestoreMarker(destination:string,backupKey:Buffer,team:string):Promise<Ready>{
+  if(backupKey.length!==32)throw new Error('Invalid restore marker key')
+  const ready=decode<Ready>(await readFile(join(destination,'READY')),backupKey,team)
+  if(!ready||ready.version!==1||ready.team!==team||ready.validation!=='team-state-v1'||!ready.checkpoint||!Number.isSafeInteger(ready.checkpoint.sequence)||ready.checkpoint.sequence<0||typeof ready.checkpoint.digest!=='string'||!/^[a-f0-9]{64}$/.test(ready.checkpoint.digest)||!Array.isArray(ready.identities)||ready.identities.some(id=>typeof id!=='string'||!/^(attachment|snapshot)-[a-f0-9]{64}$/.test(id))||new Set(ready.identities).size!==ready.identities.length)throw new Error('Invalid typed restore marker')
+  return ready
+}

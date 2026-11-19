@@ -10,7 +10,7 @@ function base64(value: unknown, length?: number): Buffer {
   if (bytes.toString('base64') !== value || (length !== undefined && bytes.length !== length)) throw new Error('Invalid keyring encoding')
   return bytes
 }
-function derive(passphrase: Buffer, salt: Buffer): Promise<Buffer> {
+export function deriveKeyringKey(passphrase: Buffer, salt: Buffer): Promise<Buffer> {
   if (!Buffer.isBuffer(passphrase) || passphrase.length < 12 || passphrase.length > 1024) return Promise.reject(new Error('Passphrase must contain 12–1024 bytes; use a strong unique passphrase'))
   return new Promise((resolve,reject) => scrypt(passphrase,salt,32,{N:32768,r:8,p:1,maxmem:64*1024*1024},(error,key) => error ? reject(error) : resolve(key)))
 }
@@ -21,7 +21,7 @@ export async function createHostKeyring(team: string, passphrase: Buffer): Promi
   const salt = randomBytes(16), nonce = randomBytes(12), password = Buffer.from(passphrase)
   let wrapping: Buffer|undefined, plaintext: Buffer|undefined
   try {
-    wrapping = await derive(password,salt)
+    wrapping = await deriveKeyringKey(password,salt)
     // Three independently generated keys; no key or passphrase is written unwrapped.
     plaintext = randomBytes(96)
     const cipher = createCipheriv('aes-256-gcm',wrapping,nonce), saltText = salt.toString('base64')
@@ -38,7 +38,7 @@ export async function unlockHostKeyring(bytes: Buffer, passphrase: Buffer): Prom
   const salt = base64(value.salt,16), sealed = base64(value.sealed,124), password = Buffer.from(passphrase)
   let wrapping: Buffer|undefined, plaintext: Buffer|undefined
   try {
-    wrapping = await derive(password,salt)
+    wrapping = await deriveKeyringKey(password,salt)
     const cipher = createDecipheriv('aes-256-gcm',wrapping,sealed.subarray(0,12))
     cipher.setAAD(context(value.team,value.salt)); cipher.setAuthTag(sealed.subarray(-16))
     plaintext = Buffer.concat([cipher.update(sealed.subarray(12,-16)),cipher.final()])
