@@ -300,3 +300,85 @@ security certification remain untested.
 Next: durable pending-client/reconnect queues with explicit conflict retention,
 then recovery tooling/protected keys and per-request authorization before HTTPS
 host/join or live collaborative Board/BackChat exposure.
+
+## Durable pending-client queue checkpoint — 2026-11-12
+
+`backend/src/teams/pending.ts` adds an offline **Node-side** client outbox
+primitive, using a separate encrypted TeamJournal and an explicitly supplied
+transport callback. It is not wired to browser IndexedDB, native sidecars, UI,
+server routes or a network transport. No timers, reconnect connections, provider
+calls or automatic background tasks are started. The first integration will
+need an appropriate browser/desktop persistence adapter and visible controls;
+this checkpoint does not claim browser-tab durability.
+
+A queue is explicitly bound to one team, client and recorded actor. The binding
+is durably recorded before use; reopening under another scope is rejected,
+not reset. Its dedicated key must be independently protected and preserved by
+the caller. Object-store team identity must match. Actor binding is local scope
+validation, **not authentication**; the future host must bind each request to
+its authorized member, enforce roles and check typed state before append.
+
+Enqueue validates/clones a typed operation, checks that all referenced original
+attachments are already committed/authentic in the local TeamObjects store,
+then flushes a queue event before making it visible for dispatch. Local duplicate
+IDs with identical serialized operations are idempotent; changed content under
+an existing ID is rejected. Pending, acknowledged, conflicted and superseded
+operations remain in local history; enqueue never resurrects a terminal item.
+The queue stores references, not original bytes: its journal and local objects
+must be retained together. Full host recovery packages do not include this
+separate client queue or its key. Client-outbox export/restore remains unfinished.
+
+Each explicit `drain` makes at most one sequential pass until idle, failure,
+conflict or stop; simultaneous calls share one active drain. An attempt is
+persisted before invoking transport. Attachment bytes are checked again before
+dispatch. No automatic retries/backoff, rebasing, model calls or fallback exist.
+Transport errors, lost responses and malformed/mismatched receipts retain the
+operation as pending and stop the pass. Another explicit drain retries the
+**same operation ID**; the host must persist idempotence/deduplicate before ACK.
+Transport ACKs are checked for operation ID and well-formed receipt, then saved
+locally before the item becomes acknowledged. Receipt shape is not proof of a
+real host flush: the production authenticated/TLS host transport and
+persist-before-ACK implementation are still required.
+
+A reported conflict durably blocks the FIFO head and all dependent followers.
+`replaceConflict` requires an explicit new typed operation with a fresh ID and
+valid originals. The original remains superseded with its replacement ID; the
+replacement occupies the same queue position ahead of dependent work. This is
+not an automatic merge or permission to drop an unknown host outcome. There is
+no discard API or silent revision rewriting in this first pass. Later followers
+may independently conflict and must receive explicit resolution.
+
+Stop and close abort the local dispatch wait, even if a callback ignores its
+AbortSignal. Late responses cannot acknowledge retained work. Remote commit may
+already have happened: stop is not remote rollback. Close drains accepted local
+writes and abort-result persistence before closing storage. Local write/flush
+failure poisons the queue and prevents further dispatch until reopen/recovery;
+a complete but unacknowledged local event may survive, so replay is authoritative.
+Real process death still leaves the journal's exclusive writer lock; explicit
+offline lock recovery is required, never automatic PID/age lock stealing.
+
+Transport callbacks must not wait on the same queue's `close`/`drain` from within
+themselves. The eventual transport must provide timeouts and authenticated,
+scoped endpoints; no request deadline is imposed here beyond caller AbortSignal
+or explicit Stop. No compaction/resource bounds/streaming, cross-device delivery,
+authorization, protected key storage or pending-queue recovery UX is delivered.
+All operations and history are loaded into memory. Hardware power loss, Windows,
+native/physical-device behavior and security certification remain untested.
+
+Verification: `tsx backend/scripts/teams-pending-test.ts` passes 12 grouped checks:
+encrypted persist-before-dispatch and immutable/idempotent enqueues, scope/actor
+isolation without resetting logs, fake host commit/lost ACK/reopen/same-ID retry
+without duplication, one concurrent drain, FIFO conflict retention and explicit
+replacement, stop/uncooperative transport/late ACK, malformed receipts, committed
+original availability and corruption blocking, close/late-response retention,
+local ACK-flush failure, enqueue-flush failure with no dispatch, and real SIGKILL
+after enqueue and after host commit before client ACK followed by offline lock
+clearance/recovery/idempotent delivery. Fake transport only: no network requests.
+All 40 earlier journal/object/recovery/replay grouped checks also pass, together
+with backend TypeScript and build. No UI changed, so no render verification was
+needed. `npm run teams-test --workspace backend` runs all 52 grouped checks.
+
+Next: operator recovery/key-protection tooling and a serialized authenticated
+host service with per-request permissions, then client persistence/transport
+integration and HTTPS host/join. Networking remains disabled until those gates
+are in place.

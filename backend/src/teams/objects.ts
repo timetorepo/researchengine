@@ -26,6 +26,7 @@ async function syncDirectory(path: string) {
   const file = await open(path, 'r'); try { await file.sync() } finally { await file.close() }
 }
 export class TeamObjects {
+  get teamId(): string { return this.team }
   private constructor(private directory: string, private key: Buffer, private team: string) {}
   /** Key must be dedicated to this team's objects, not its journal. Trusted private local parent only. */
   static async open(directory: string, key: Buffer, team: string): Promise<TeamObjects> {
