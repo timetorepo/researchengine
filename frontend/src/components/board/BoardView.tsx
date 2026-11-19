@@ -5,6 +5,9 @@ import { activeNamespace } from '@/lib/security/lock'
 import { boardWritesFrozen, boardDatabaseName, newBoard, openBoardStore, validateBoard, type BoardDocument, type BoardItem } from '@/lib/board/storage'
 import { SearchField } from '@/components/ui/native/SearchField'
 import { ditherMaskStyle } from '@/lib/dither/pattern'
+import { prepareBoardAttachment } from '@/lib/board/attachments'
+import { AttachmentPreview } from './AttachmentPreview'
+import type { BoardAttachment } from '@/lib/board/storage'
 import './board.css'
 
 type Store = Awaited<ReturnType<typeof openBoardStore>>
@@ -59,6 +62,9 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
   const [status, setStatus] = useState('Loading board…')
   const undo = useRef<BoardDocument[]>([]), redo = useRef<BoardDocument[]>([])
   const [historyVersion, setHistoryVersion] = useState(0)
+  const importController = useRef<AbortController | undefined>(undefined)
+  const [importProgress,setImportProgress] = useState<{done:number;total:number;name:string}>()
+  useEffect(()=>()=>importController.current?.abort(),[])
   const savedBase = useRef<BoardDocument | undefined>(undefined)
   useEffect(() => {
     let alive = true
@@ -81,14 +87,30 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
     setBoard(next); setDirty(true); setStatus('Unsaved changes · recovery draft in this tab'); setHistoryVersion(v => v + 1)
     try { sessionStorage.setItem(draftKey, JSON.stringify(next)) } catch(e) { setError(`Recovery draft could not be stored. Keep this page open and save or download your draft. ${message(e)}`); setStatus('Unsaved changes · recovery draft unavailable') }
   }
-  async function save() {
-    if (!board) return
+  async function commit(next: BoardDocument, files: BoardAttachment[] = [], signal?: AbortSignal) {
     setBusy(true); setError(''); setStatus('Saving local revision…')
     try {
-      const saved = await store.save(board, board.revision)
+      const saved = await store.save(next, next.revision, files, signal)
       setPrevious(savedBase.current); savedBase.current = saved; setBoard(saved); setDirty(false); undo.current = []; redo.current = []; setHistoryVersion(v => v + 1); setStatus(`Saved revision ${saved.revision}`)
       try { sessionStorage.removeItem(draftKey) } catch { setError('Revision saved, but the tab recovery draft could not be removed.') }
-    } catch(e) { setError(message(e)); setStatus('Not saved · your draft remains open') } finally { setBusy(false) }
+    } catch(e) { setError(message(e)); setStatus('Not saved · your draft remains open'); throw e } finally { setBusy(false) }
+  }
+  async function save() { if (board) await commit(board).catch(()=>{}) }
+  async function importFiles(files: File[]) {
+    if (!board || busy || recovered || !files.length) return
+    const controller=new AbortController();importController.current=controller;setBusy(true);setError('');
+    const attachments: BoardAttachment[]=[];const items:BoardItem[]=[]
+    try {
+      for (const [index,file] of files.entries()) {
+        setImportProgress({done:index,total:files.length,name:file.name});setStatus('Checking local files…')
+        const prepared=await prepareBoardAttachment(file,controller.signal);const n=board.items.length+items.length
+        attachments.push(prepared.attachment);items.push({id:crypto.randomUUID(),kind:prepared.kind,text:file.name,attachmentId:prepared.attachment.id,x:40+(n%4)*280,y:40+Math.floor(n/4)*220,width:250,height:190,...(prepared.kind==='pdf'?{source:{page:1}}:{})})
+        setImportProgress({done:index+1,total:files.length,name:file.name})
+      }
+      if (controller.signal.aborted) throw new DOMException('Import cancelled','AbortError')
+      setImportProgress(undefined);await commit({...board,items:[...board.items,...items]},attachments,controller.signal);select(items[0]?.id)
+    } catch(e) {setError(message(e));setStatus(controller.signal.aborted?'Import cancelled · no new cards saved':'Import not saved · your existing draft is unchanged')}
+    finally {importController.current=undefined;setImportProgress(undefined);setBusy(false)}
   }
   function downloadDraft() {
     if (!board) return
@@ -121,13 +143,16 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
     <div className="re-board-tools" aria-label="Board tools"><button className="bui-button" disabled={busy || !!recovered} onClick={() => add('note')}><Plus size={14} />Note</button><button className="bui-button" disabled={busy || !!recovered} onClick={() => add('reference')}><Link2 size={14} />Reference</button><button className="bui-button" disabled={busy || !undo.current.length} onClick={() => travel('undo')} aria-label="Undo board edit"><Undo2 size={15} /></button><button className="bui-button" disabled={busy || !redo.current.length} onClick={() => travel('redo')} aria-label="Redo board edit"><Redo2 size={15} /></button>
       <button className="bui-button" disabled={busy || !!recovered || board.viewport.zoom <= 0.5} onClick={() => draft({...board, viewport: {...board.viewport, zoom: Math.max(0.5, board.viewport.zoom - 0.25)}})} aria-label="Zoom out">−</button><output aria-label="Board zoom">{Math.round(board.viewport.zoom * 100)}%</output><button className="bui-button" disabled={busy || !!recovered || board.viewport.zoom >= 2} onClick={() => draft({...board, viewport: {...board.viewport, zoom: Math.min(2, board.viewport.zoom + 0.25)}})} aria-label="Zoom in">+</button>
     </div>
+    <div className="re-board-import"><label className="bui-button">Import &amp; save files<input aria-label="Import and save Board files" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp" disabled={busy || !!recovered} onChange={event=>{const files=Array.from(event.currentTarget.files??[]);event.currentTarget.value='';void importFiles(files)}} /></label><span>PDF, PNG, JPEG or WebP. Imports save the entire current draft with the originals. No upload or AI call. Browser storage and memory limits apply.</span>
+      {importProgress && <div role="status">Validated {importProgress.done}/{importProgress.total} files · {importProgress.name}<progress aria-label="Files validated" max={importProgress.total} value={importProgress.done} /><button className="bui-button" onClick={()=>importController.current?.abort()}>Cancel file import</button></div>}
+    </div>
     <div className="re-board-body" data-history={historyVersion}>
       <aside className="re-board-outline" aria-label="Board outline"><h2>Outline</h2><SearchField aria-label="Search board items" placeholder="Find a note or source…" value={query} onValueChange={setQuery} />{!visible.length && <p>{board.items.length ? 'No matching items.' : 'No items yet. Add a note or reference.'}</p>}<ol>{visible.map((item, index) => <li key={item.id}><button aria-pressed={item.id === selected} onClick={() => { select(item.id); document.getElementById(`board-card-${item.id}`)?.scrollIntoView({block: 'nearest', inline: 'nearest'}) }}>{item.kind === 'reference' ? <Link2 size={14} /> : <FileText size={14} />}<span>{item.text.trim().split('\n')[0] || `${item.kind} ${index + 1}`}</span></button></li>)}</ol></aside>
       <div className="re-board-canvas-scroll" tabIndex={0} role="region" aria-label="Board canvas, scroll to pan"><div className="re-board-canvas-size" style={{width: canvasWidth * board.viewport.zoom, height: canvasHeight * board.viewport.zoom}}><div className="re-board-canvas" style={{width:canvasWidth, height:canvasHeight, transform: `scale(${board.viewport.zoom})`}}>
         {!board.items.length && <div className="re-board-canvas-empty"><LayoutDashboard size={28} /><h2>A little space to think</h2><p>Add your first note or reference from the toolbar.</p></div>}
-        {board.items.map((item, index) => <button key={item.id} id={`board-card-${item.id}`} className="re-board-card" aria-pressed={item.id === selected} aria-label={`Select ${item.kind} ${index + 1}: ${item.text.slice(0, 60) || 'Untitled'}`} style={{left:item.x, top:item.y, width:item.width, height:item.height}} onClick={() => select(item.id)}><small>{item.kind === 'reference' ? <Link2 size={13} /> : <FileText size={13} />}{item.kind}</small><span>{item.text || (item.kind === 'reference' ? 'Add a source and your annotation…' : 'Write a note…')}</span>{item.source?.url && <em>{item.source.url}</em>}</button>)}
+        {board.items.map((item, index) => <button key={item.id} id={`board-card-${item.id}`} className="re-board-card" aria-pressed={item.id === selected} aria-label={`Select ${item.kind} ${index + 1}: ${item.text.slice(0, 60) || 'Untitled'}`} style={{left:item.x, top:item.y, width:item.width, height:item.height}} onClick={() => select(item.id)}><small>{item.kind === 'reference' ? <Link2 size={13} /> : <FileText size={13} />}{item.kind}</small><span>{item.text || (item.kind === 'reference' ? 'Add a source and your annotation…' : 'Write a note…')}</span>{item.attachmentId && <em>{item.kind === 'pdf' ? `PDF · page ${item.source?.page ?? 1} · select to preview` : 'Image · select to preview'}</em>}{item.source?.url && <em>{item.source.url}</em>}</button>)}
       </div></div></div>
-      <aside className="re-board-inspector" aria-label="Selected item editor"><h2>{active ? 'Edit item' : 'Item details'}</h2>{active ? <fieldset disabled={busy || !!recovered}><label>Note or annotation<textarea className="bui-field" aria-label="Item text" value={active.text} onChange={e => change({text:e.target.value})} rows={7} /></label>{active.kind === 'reference' && <><label>Source URL<input className="bui-field" type="url" aria-label="Source URL" value={active.source?.url ?? ''} onChange={e => change({source:{...active.source,url:e.target.value}})} /></label>{sourceURL(active.source?.url) ? <a href={sourceURL(active.source?.url)} target="_blank" rel="noopener noreferrer">Open source in new tab</a> : <p>Use an http or https URL to open a source.</p>}</>}
+      <aside className="re-board-inspector" aria-label="Selected item editor"><h2>{active ? 'Edit item' : 'Item details'}</h2>{active ? <fieldset disabled={busy || !!recovered}>{active.attachmentId && <AttachmentPreview key={active.id} store={store} boardId={board.id} item={active} onPage={page=>change({source:{...active.source,page}})} />}<label>Note or annotation<textarea className="bui-field" aria-label="Item text" value={active.text} onChange={e => change({text:e.target.value})} rows={7} /></label>{active.kind === 'reference' && <><label>Source URL<input className="bui-field" type="url" aria-label="Source URL" value={active.source?.url ?? ''} onChange={e => change({source:{...active.source,url:e.target.value}})} /></label>{sourceURL(active.source?.url) ? <a href={sourceURL(active.source?.url)} target="_blank" rel="noopener noreferrer">Open source in new tab</a> : <p>Use an http or https URL to open a source.</p>}</>}
         <div className="re-board-position">{(['x','y'] as const).map(axis => <label key={axis}>{axis.toUpperCase()} position<input className="bui-field" aria-label={`${axis.toUpperCase()} position`} type="number" min={0} value={active[axis]} onChange={e => { if (e.currentTarget.value !== '' && Number.isFinite(e.currentTarget.valueAsNumber)) change({[axis]: Math.max(0,e.currentTarget.valueAsNumber)}) }} /></label>)}</div>
         <button className="bui-button" onClick={() => { if (window.confirm('Remove this item from the draft? You can undo before saving.')) { draft({...board,items:board.items.filter(item => item.id !== active.id).map(item=>({...item,parentId:item.parentId===active.id?undefined:item.parentId,fromId:item.fromId===active.id?undefined:item.fromId,toId:item.toId===active.id?undefined:item.toId}))}); select(undefined) } }}>Remove item</button>
       </fieldset> : <p>Select a card or an outline entry to edit it. Use position fields to move cards without dragging.</p>}

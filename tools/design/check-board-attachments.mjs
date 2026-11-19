@@ -1,0 +1,40 @@
+import { chromium } from './node_modules/playwright-core/index.mjs'
+import assert from 'node:assert/strict'
+function pdfFixture(){
+ const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>']
+ for(const text of ['First source page with a selectable research observation.','Second source page with a different finding to cite.','']){
+  const contents=objects.length+2;objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 500] /Resources << /Font << /F1 9 0 R >> >> /Contents ${contents} 0 R >>`)
+  const stream=text?`BT /F1 16 Tf 40 420 Td (${text}) Tj ET`:'';objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`)
+ }
+ objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+ let pdf='%PDF-1.4\n';const offsets=[0];objects.forEach((o,i)=>{offsets.push(pdf.length);pdf+=`${i+1} 0 obj\n${o}\nendobj\n`});const x=pdf.length;pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`+offsets.slice(1).map(n=>`${String(n).padStart(10,'0')} 00000 n \n`).join('')+`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;return Buffer.from(pdf)
+}
+const browser=await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE,headless:true})
+try{
+ const p=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];const external=[];p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept());p.on('request',r=>{if(/^https?:/.test(r.url())&&!r.url().startsWith('http://127.0.0.1:5173/'))external.push(r.url())})
+ await p.addInitScript(()=>{localStorage.setItem('intro.logo.seen','1');localStorage.setItem('re.data.main:research-engine-v1',JSON.stringify({state:{settings:{onboarded:true,reduceMotion:true,updates:{autoCheck:false}}},version:0}))})
+ await p.route('**/api/**',r=>r.fulfill({json:{}}));await p.goto('http://127.0.0.1:5173/#/board');await p.getByRole('button',{name:'New board',exact:true}).click();await p.waitForURL('**/#/board/*');const id=p.url().split('/').pop()
+ const imageData=await p.evaluate(()=>{const c=document.createElement('canvas');c.width=100;c.height=80;const x=c.getContext('2d');x.fillStyle='#849bff';x.fillRect(0,0,100,80);x.fillStyle='#ffffff';x.fillRect(20,20,40,40);return c.toDataURL('image/png').split(',')[1]});const png=Buffer.from(imageData,'base64');const pdf=pdfFixture()
+ const file=p.getByLabel('Import and save Board files',{exact:true})
+ await p.getByRole('button',{name:'Note',exact:true}).click();await p.getByRole('textbox',{name:'Item text',exact:true}).fill('Draft saved together with originals')
+ await file.setInputFiles([{name:'observation.png',mimeType:'image/png',buffer:png},{name:'field-paper.pdf',mimeType:'application/pdf',buffer:pdf}]);await p.getByRole('status').filter({hasText:'Saved revision 2'}).waitFor()
+ const outline=p.getByRole('complementary',{name:'Board outline'});assert.equal(await outline.getByRole('listitem').count(),3)
+ const original=p.getByRole('region',{name:'Attached original'});await original.getByRole('img',{name:'observation.png',exact:true}).waitFor();assert.equal(await original.getByRole('img').evaluate(e=>e.naturalWidth),100)
+ await outline.getByRole('button',{name:'field-paper.pdf',exact:true}).click();const page=p.getByRole('spinbutton',{name:'Linked PDF page',exact:true});await page.waitFor();assert.equal(await page.getAttribute('max'),'3')
+ const canvas=p.getByRole('img',{name:'PDF page 1 preview',exact:true});await canvas.waitFor({state:'visible'});assert.ok(await canvas.evaluate(e=>{const data=e.getContext('2d').getImageData(0,0,e.width,e.height).data;return data.some((n,i)=>i%4!==3&&n<128)}))
+ await page.fill('2');await p.getByRole('img',{name:'PDF page 2 preview'}).waitFor({state:'visible'});await original.getByText('Selectable page text',{exact:true}).click();await original.getByText(/Second source page with a different finding/).waitFor()
+ await page.fill('3');await p.getByRole('img',{name:'PDF page 3 preview'}).waitFor({state:'visible'});await original.getByText('Selectable page text',{exact:true}).click();await original.getByText(/No selectable text on this page/).waitFor();await page.fill('2');await p.getByRole('img',{name:'PDF page 2 preview'}).waitFor({state:'visible'})
+ await p.getByRole('button',{name:'Save revision',exact:true}).click();await p.getByRole('status').filter({hasText:'Saved revision 3'}).waitFor();await p.reload();await outline.getByRole('button',{name:'field-paper.pdf',exact:true}).click();await p.getByRole('img',{name:'PDF page 2 preview'}).waitFor({state:'visible'});assert.equal(await page.inputValue(),'2')
+ const downloadPromise=p.waitForEvent('download');await original.getByRole('link',{name:'Download original file',exact:true}).click();const download=await downloadPromise;assert.equal(download.suggestedFilename(),'field-paper.pdf');const stream=await download.createReadStream();const chunks=[];for await(const chunk of stream)chunks.push(chunk);assert.ok(Buffer.concat(chunks).equals(pdf))
+ await p.screenshot({path:'.cache/board-pdf-desktop.png',animations:'disabled'})
+ await file.setInputFiles([{name:'valid-but-not-committed.png',mimeType:'image/png',buffer:png},{name:'broken.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-invalid')}]);await p.getByRole('status').filter({hasText:'Import not saved'}).waitFor();assert.equal(await outline.getByRole('listitem').count(),3)
+ await file.setInputFiles({name:'unsafe.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>')});await p.getByRole('alert').filter({hasText:'unsupported content'}).waitFor();assert.equal(await outline.getByRole('listitem').count(),3)
+ // Hold a real image decode to make cancellation deterministic, not a timed UI simulation.
+ await p.evaluate(()=>{window.__bitmap=createImageBitmap;window.createImageBitmap=async(...args)=>{await new Promise(resolve=>window.__releaseBitmap=resolve);return window.__bitmap(...args)}})
+ await file.setInputFiles({name:'cancel.png',mimeType:'image/png',buffer:png});await p.waitForFunction(()=>typeof window.__releaseBitmap==='function');await p.getByRole('button',{name:'Cancel file import',exact:true}).click();await p.evaluate(()=>window.__releaseBitmap());await p.getByRole('status').filter({hasText:'Import cancelled'}).waitFor();await p.evaluate(()=>{window.createImageBitmap=window.__bitmap;delete window.__bitmap;delete window.__releaseBitmap});assert.equal(await outline.getByRole('listitem').count(),3)
+ const state=await p.evaluate(async id=>{const {openBoardStore,boardDatabaseName}=await import('/src/lib/board/storage.ts');const store=await openBoardStore(boardDatabaseName('re.data.main'));const board=await store.load(id);const image=board.items.find(i=>i.kind==='image');const pdf=board.items.find(i=>i.kind==='pdf');const imageFile=await store.attachment(id,image.attachmentId);const pdfFile=await store.attachment(id,pdf.attachmentId);const guest=await openBoardStore(boardDatabaseName('re.data.guest'));const privateFile=await guest.attachment(id,pdf.attachmentId);guest.close();store.close();return {revision:board.revision,page:pdf.source.page,notes:board.items[0].text,imageBytes:imageFile.blob.size,pdfBytes:pdfFile.blob.size,private:!privateFile}},id)
+ assert.deepEqual(state,{revision:3,page:2,notes:'Draft saved together with originals',imageBytes:png.length,pdfBytes:pdf.length,private:true})
+ await p.setViewportSize({width:390,height:844});await original.scrollIntoViewIfNeeded();assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await p.screenshot({path:'.cache/board-pdf-narrow.png',animations:'disabled'})
+ assert.deepEqual(errors,[]);assert.deepEqual(external,[])
+ console.log('PASS local raster/PDF atomic imports, unsaved note co-commit, rendered image/PDF pixels, page selection/text/no-text/persistence, byte-exact original download, invalid mixed-batch rollback, SVG rejection, cooperative cancel, guest isolation, narrow layout, no external requests or page errors')
+}finally{await browser.close()}

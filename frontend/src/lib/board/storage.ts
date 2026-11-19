@@ -79,13 +79,16 @@ export async function openBoardStore(name = 'research-engine-boards-v1') {
       return result ? { id, name: result.name, blob: result.blob } : undefined
     },
     /** Resolve only after transaction commits. Existing attachment IDs are immutable. */
-    async save(document: BoardDocument, expectedRevision: number, attachments: BoardAttachment[] = []): Promise<BoardDocument> {
+    async save(document: BoardDocument, expectedRevision: number, attachments: BoardAttachment[] = [], signal?: AbortSignal): Promise<BoardDocument> {
+      if (signal?.aborted) throw new DOMException('Import cancelled', 'AbortError')
       if (frozen) throw new Error('Board writes are disabled after a data wipe. Reload the app to start a new workspace.')
       validateBoard(document)
       if (document.revision !== expectedRevision || !Number.isSafeInteger(expectedRevision + 1)) throw new BoardConflict()
       const snapshot = structuredClone(document); const incoming = new Map(attachments.map(a=>[a.id,a]))
       if (incoming.size !== attachments.length || attachments.some(a=>!a.id || typeof a.name !== 'string' || !(a.blob instanceof Blob))) throw new Error('Invalid Board attachments.')
       const tx=db.transaction(['boards','previous','attachments'],'readwrite'); const done=completed(tx)
+      const cancel = () => { try { tx.abort() } catch { /* committed already */ } }
+      signal?.addEventListener('abort',cancel,{once:true})
       try {
         const boards=tx.objectStore('boards'), blobs=tx.objectStore('attachments'); const current=await request(boards.get(snapshot.id))
         if ((current?.revision ?? 0) !== expectedRevision) throw new BoardConflict()
@@ -100,7 +103,8 @@ export async function openBoardStore(name = 'research-engine-boards-v1') {
         const saved: BoardDocument={...snapshot,revision:expectedRevision+1,updatedAt:new Date().toISOString()}
         if (current) tx.objectStore('previous').put(current)
         boards.put(saved); await done; return saved
-      } catch (error) { try { tx.abort() } catch { /* already completed or aborted */ } await done.catch(()=>{}); throw error }
+      } catch (error) { try { tx.abort() } catch { /* already completed or aborted */ } await done.catch(()=>{}); if (signal?.aborted) throw new DOMException('Import cancelled', 'AbortError'); throw error }
+      finally { signal?.removeEventListener('abort',cancel) }
     },
   }
 }

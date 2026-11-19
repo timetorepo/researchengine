@@ -55,3 +55,16 @@
 @media(max-width:1050px) { .re-board-body { grid-template-columns:170px minmax(0,1fr); } .re-board-inspector { grid-column:1/-1; max-height:320px; border-top:1px solid var(--surface-border); } }
 @media(max-width:600px) { .re-board-page { padding:20px 16px; } .re-board-list-header { align-items:flex-start; } .re-board-body { display:flex; flex-direction:column; overflow:auto; } .re-board-outline { flex:none; max-height:190px; border-bottom:1px solid var(--surface-border); } .re-board-canvas-scroll { flex:none; height:320px; } .re-board-inspector { overflow:visible; max-height:none; flex:none; } .re-board-toolbar,.re-board-tools { padding:8px; } .re-board-title { order:-1; flex-basis:100%; } }
 @media(forced-colors:active) { .re-board-card[aria-pressed=true] { outline-color:Highlight; } }
+.re-board-import { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid var(--surface-border); font-size:11px; color:var(--text-2); }
+.re-board-import > span { flex:1; min-width:180px; }
+.re-board-import label { position:relative; cursor:pointer; color:var(--text); }
+.re-board-import input[type=file] { position:absolute; inset:0; opacity:0; width:100%; cursor:pointer; }
+.re-board-import label:focus-within { outline:2px solid var(--primary); outline-offset:2px; }
+.re-board-import label:has(input:disabled) { opacity:.5; cursor:not-allowed; }
+.re-board-import progress { display:block; width:100%; margin:6px 0; }
+.re-board-attachment { margin-bottom:20px; border-bottom:1px solid var(--surface-border); padding-bottom:12px; }
+.re-board-filename { overflow-wrap:anywhere; }
+.re-board-attachment img,.re-board-attachment canvas { display:block; max-width:100%; height:auto; background:white; margin-bottom:10px; }
+.re-board-attachment canvas[hidden] { display:none; }
+.re-board-pdf details { margin:10px 0; }
+.re-board-pdf details p { max-height:240px; overflow:auto; white-space:pre-wrap; }
