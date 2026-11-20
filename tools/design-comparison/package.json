@@ -1,0 +1,16 @@
+{
+  "name": "researchengine-design-comparison",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/lilex": "5.3.0",
+    "@fontsource-variable/newsreader": "5.3.0",
+    "distortion-waves": "0.1.0"
+  }
+}

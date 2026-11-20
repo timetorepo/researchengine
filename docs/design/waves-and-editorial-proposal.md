@@ -81,3 +81,14 @@ Self-host only after exact font-binary/hash/licence pinning. Do not introduce re
 4. Only after approval implement the chosen design, optional settings and attribution. No automatic deployment/release; release notes belong to release preparation.
 
 Open decision: approve a **sidebar + synthetic Waves preview + typography comparison** first? Conditional action effects remain deferred until their underlying features are real and their safe snapshot boundary passes review.
+
+## Approved comparison checkpoint
+
+User approved the first isolated comparison step. Implemented under
+`tools/design-comparison` with its own pinned supplemental dependencies and
+preview, not in production routes/settings. Includes sidebar opening/closing,
+synthetic opt-in actual Waves, and self-hosted Inter/Geist Rounded/Newsreader/Lilex
+comparison. App defaults and existing UI remain unchanged. See its README for
+source/licence hashes, reproduction, measured bundle sizes, executed browser
+checks and outstanding accessibility/performance/reference-video validation.
+This is not approval to roll these choices across the application.
