@@ -716,3 +716,26 @@ Operator/source integration contract: `docs/teams-https-transport.md`. Next is
 client transport/persistence/onboarding integration before host/join UI and
 packaged LAN/self-hosted use. Explicit HTTPs library testing is not a claim that
 end-user Teams hosting/joining is already shipped.
+
+## Client transport / encrypted onboarding checkpoint — 2026-11-12
+
+Added an importable browser-compatible HTTPS control-plane client, explicit
+single-use invitation review/confirmation state machine, actor-bound submission,
+stable-ID outbox adapter, bounded/sanitized responses and explicit cancellation.
+No application routes, listeners, automatic connections or UI changes. Joined
+credentials can be explicitly handed to local AES-GCM/scrypt encrypted custody
+bound to exact origin/team; Owner artifact import resolves identity against the
+reviewed trusted host. No unencrypted browser credential persistence.
+
+Contract and limitations: `docs/teams-client-transport.md`. Full previous suites
+plus the client additions total **113 grouped checks** (including 11 actual TLS
+checks and 14 client checks). Backend/frontend TypeScript and production builds
+pass; frontend build retains dynamic-import/chunk-size warnings in existing
+modules. No visual changes to verify. Physical browser/native TLS trust, packaged
+credential file/OS custody, host/join UI and attachment streaming remain pending;
+this is not an end-user Teams release.
+
+Parallel proposal only: `docs/design/waves-and-editorial-proposal.md` records
+reference/package/licence findings, sidebar opening/closing behaviour, a limited
+Waves trial and font shortlist. No Waves/fonts installed and no design applied;
+reference video/interactive visual verification remains outstanding.

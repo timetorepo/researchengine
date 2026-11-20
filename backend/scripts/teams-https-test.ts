@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { TeamJoin, resolveClientSession } from '../../shared/teams/client'
+import { sealClientCredential, unlockClientCredential } from '../src/teams/client-credential'
 import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -84,6 +86,25 @@ try{
   const req=request({hostname:'127.0.0.1',port:address.port,servername:'team.test',ca:cert,agent:false,path:scope+'/operations',method:'POST',headers:{Host:'team.test',Origin:'https://app.test',Authorization:'Bearer '+owner.credential,'Content-Type':'application/json','Content-Length':'100'}},res=>{res.resume();res.on('end',()=>resolve(res.statusCode!))})
   req.on('error',reject);req.write('{')
  });assert.ok([408,504].includes(timed));checks++
+ // Portable client exercised through the same verified TLS listener. Test-only CA routing;
+ // production uses platform trust and never receives a certificate-bypass callback.
+ const clientFetch:typeof fetch=async(url,init)=>{
+  const response=await send(new URL(String(url)).pathname,{method:init?.method,token:(init?.headers as any)?.Authorization?.slice(7)??null,raw:typeof init?.body==='string'?init.body:undefined})
+  return new globalThis.Response(response.text,{status:response.status,headers:{'Content-Type':response.headers['content-type']}})
+ }
+ const clientConfig={native:false,timeoutMs:3000,responseBytes:65536,fetch:clientFetch}
+ const destination={origin:'https://team.test',team:'team-one'}
+ const invite=await host!.issueInvite(owner.credential,'Editor',10000,100000)
+ const onboarding=TeamJoin.prepare(destination,invite.invitation,clientConfig)
+ const client=await onboarding.confirm({reviewedOrigin:destination.origin,reviewedTeam:destination.team,acceptHostTrust:true,acceptSingleUse:true})
+ const identity=client.identity();assert.equal((await client.read()).member,identity.member)
+ const clientOperation={id:'portable-client',actor:identity.member,kind:'team.board.replace.v1' as const,payload:{boardId:'portable',expectedRevision:0,title:'Client TLS',items:[]}}
+ const ack=await client.submit(clientOperation);assert.deepEqual(await client.submit(clientOperation),ack)
+ let encrypted:Buffer|undefined;const password=Buffer.from('explicit TLS client persistence test')
+ await client.persistCredential(async(endpoint,session)=>{encrypted=await sealClientCredential(endpoint,session,password)})
+ client.disconnect();const resumed=await unlockClientCredential(encrypted!,password,destination,clientConfig)
+ assert.equal((await resumed.read()).member,identity.member);resumed.disconnect()
+ const ownerClient=await resolveClientSession(destination,owner,clientConfig);assert.equal(ownerClient.identity().member,'owner');ownerClient.disconnect();checks++
  console.log(`PASS ${checks} actual local TLS transport checks: explicit exposure/config/certificate gates, certificate verification, host/origin/native policy, CORS preflight, bearer roles/actor isolation and durable retries, strict bounded JSON, single-use invite onboarding/revocation, peer-IP rate limit, slow-body deadline. Generated test certs only; no external calls or private-local routes.`)
 }finally{
  for(const server of servers){server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()))}

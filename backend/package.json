@@ -14,7 +14,7 @@
     "readme-test": "tsx scripts/readme-test.ts",
     "github-skill-test": "tsx scripts/github-skill-test.ts",
     "signin-error-test": "tsx scripts/signin-error-test.ts",
-    "teams-test": "tsx scripts/teams-journal-test.ts && tsx scripts/teams-objects-test.ts && tsx scripts/teams-recovery-test.ts && tsx scripts/teams-replay-test.ts && tsx scripts/teams-pending-test.ts && tsx scripts/teams-operator-test.ts && tsx scripts/teams-host-test.ts && tsx scripts/teams-owner-recovery-test.ts && tsx scripts/teams-invites-test.ts && tsx scripts/teams-https-test.ts",
+    "teams-test": "tsx scripts/teams-journal-test.ts && tsx scripts/teams-objects-test.ts && tsx scripts/teams-recovery-test.ts && tsx scripts/teams-replay-test.ts && tsx scripts/teams-pending-test.ts && tsx scripts/teams-operator-test.ts && tsx scripts/teams-host-test.ts && tsx scripts/teams-owner-recovery-test.ts && tsx scripts/teams-invites-test.ts && tsx scripts/teams-https-test.ts && tsx scripts/teams-client-test.ts",
     "teams-offline": "tsx scripts/teams-offline.ts"
   },
   "dependencies": {
