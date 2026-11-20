@@ -516,6 +516,8 @@ export interface Settings {
     /** Pin one model and skip the routing, when you know better than it does. */
     pinned?: string
   }
+  /** Optional synthetic receipts for explicit saves and layout preset application. */
+  actionConfirmationWaves?: boolean
   workspaceEffects?: boolean
   profileSignature?: string
   customPaletteTheme?: { enabled: boolean; name: string; colours: string[] }

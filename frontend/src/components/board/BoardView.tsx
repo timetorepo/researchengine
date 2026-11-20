@@ -1,3 +1,4 @@
+import { ActionReceipt } from '@/components/feedback/ActionReceipt'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { FileText, Link2, Plus, Save, Undo2, Redo2, LayoutDashboard, Shapes, Frame, ArrowUpRight, Pencil } from 'lucide-react'
@@ -71,6 +72,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [receipt, setReceipt] = useState(0)
   const [status, setStatus] = useState('Loading board…')
   const undo = useRef<BoardDocument[]>([]), redo = useRef<BoardDocument[]>([])
   const [drawing,setDrawing]=useState(false)
@@ -98,7 +100,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
     if (!board || busy) return
     if (boardWritesFrozen()) { setError('Board writes are disabled after a data wipe. Reload the app to start a new workspace.'); return }
     if (record) { undo.current = [...undo.current.slice(-99), board]; redo.current = [] }
-    setBoard(next); setDirty(true); setStatus('Unsaved changes · recovery draft in this tab'); setHistoryVersion(v => v + 1)
+    setReceipt(0); setBoard(next); setDirty(true); setStatus('Unsaved changes · recovery draft in this tab'); setHistoryVersion(v => v + 1)
     try { sessionStorage.setItem(draftKey, JSON.stringify(next)) } catch(e) { setError(`Recovery draft could not be stored. Keep this page open and save or download your draft. ${message(e)}`); setStatus('Unsaved changes · recovery draft unavailable') }
   }
   async function commit(next: BoardDocument, files: BoardAttachment[] = [], signal?: AbortSignal) {
@@ -109,7 +111,7 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
       try { sessionStorage.removeItem(draftKey) } catch { setError('Revision saved, but the tab recovery draft could not be removed.') }
     } catch(e) { setError(message(e)); setStatus('Not saved · your draft remains open'); throw e } finally { setBusy(false) }
   }
-  async function save() { if (board) await commit(board).catch(()=>{}) }
+  async function save() { if (board && dirty && !busy && !recovered) { try { await commit(board); setReceipt(value => value + 1) } catch { /* commit keeps the draft and reports the error */ } } }
   async function importFiles(files: File[]) {
     if (!board || busy || recovered || !files.length) return
     const controller=new AbortController();importController.current=controller;setBusy(true);setError('');
@@ -169,8 +171,9 @@ function BoardEditor({ id, namespace, store }: { id: string; namespace: string; 
   const visible = board.items.filter(item => `${item.text} ${item.source?.url ?? ''} ${item.kind}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
   return <section className="re-board-editor" aria-label="Board workspace">
     <header className="re-board-toolbar"><Link to="/board" className="bui-button">All boards</Link><input className="bui-field re-board-title" aria-label="Board title" value={board.title} disabled={busy || !!recovered} onChange={e => draft({...board, title: e.target.value})} />
-      <button className="bui-button" disabled={!dirty || busy || !!recovered} onClick={save}><Save size={15} />Save revision</button><button className="bui-button" title="JSON document only; attached files are not included." onClick={downloadDraft}>Download draft</button><button className="bui-button" disabled={busy || !!recovered || drawing || boardWritesFrozen()} onClick={()=>{const setup=document.getElementById('board-session-setup');if(setup instanceof HTMLDetailsElement){setup.open=true;setup.scrollIntoView({block:'nearest'});setup.querySelector('select')?.focus({preventScroll:true})}}}>Board to session</button>
+      <button className="bui-button" aria-disabled={!dirty || busy || !!recovered} onClick={save}><Save size={15} />Save revision</button><button className="bui-button" title="JSON document only; attached files are not included." onClick={downloadDraft}>Download draft</button><button className="bui-button" disabled={busy || !!recovered || drawing || boardWritesFrozen()} onClick={()=>{const setup=document.getElementById('board-session-setup');if(setup instanceof HTMLDetailsElement){setup.open=true;setup.scrollIntoView({block:'nearest'});setup.querySelector('select')?.focus({preventScroll:true})}}}>Board to session</button>
     </header>
+    <ActionReceipt serial={receipt} />
     <BoardBackup store={store} document={board} dirty={dirty} disabled={busy || !!recovered} onBusy={setBusy} />
     <div className="re-board-status"><span role="status">{status}</span><span>Browser-local · no AI requests</span></div>
     {error && <div className="re-board-notice" role="alert">{error}</div>}

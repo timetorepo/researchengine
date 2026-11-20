@@ -474,5 +474,9 @@
   {
     "label": "Waves preview and Apply confirmation",
     "tab": "appearance"
+  },
+  {
+    "label": "Action confirmation waves",
+    "tab": "appearance"
   }
 ]

@@ -1,0 +1,61 @@
+.re-action-receipt {
+  margin: 12px 0;
+  max-width: 600px;
+  min-width: 0;
+}
+.re-action-visual {
+  overflow: hidden;
+  border-radius: 10px;
+  pointer-events: none;
+}
+.re-action-receipt p {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.re-receipt-sample {
+  box-sizing: border-box;
+  min-height: 76px;
+  padding: 14px 16px;
+  background: #272824;
+  color: #f5f6fa;
+  font-family: Arial, sans-serif;
+}
+.re-receipt-sample[data-saved="true"] {
+  background: #153b45;
+}
+.re-receipt-sample strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.re-receipt-sample span {
+  display: block;
+  font-size: 11px;
+  line-height: 20px;
+  color: #d9e2ef;
+}
+.re-receipt-layout {
+  display: flex;
+  gap: 6px;
+  height: 28px;
+  margin-bottom: 6px;
+}
+.re-receipt-layout i {
+  display: block;
+  background: #86b9c7;
+  width: 40px;
+}
+.re-receipt-layout i:nth-child(2) {
+  width: 74px;
+}
+.re-receipt-layout i:nth-child(3) {
+  width: 28px;
+}
+.re-receipt-sample[data-saved="true"] .re-receipt-layout i:first-child {
+  width: 24px;
+}
+.re-receipt-sample[data-saved="true"] .re-receipt-layout i:nth-child(2) {
+  width: 90px;
+}
