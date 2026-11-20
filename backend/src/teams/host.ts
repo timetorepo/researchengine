@@ -17,6 +17,7 @@ function credentialDigest(team:string,credential:string,domain='session'){
  return createHash('sha256').update(team+(domain==='session'?'\0':'\0invite\0')+credential).digest('hex')
 }
 export class TeamHost {
+ get teamId():string{return this.objects.teamId}
  private serial:Promise<unknown>=Promise.resolve()
  private closing=false
  private poisoned=false
@@ -103,7 +104,7 @@ export class TeamHost {
   try{validateTeamOperation(operation);if(!['team.board.replace.v1','team.backchat.post.v1'].includes(operation.kind))throw new Error('Use dedicated access-management controls');operation=structuredClone(operation)}catch(error){return Promise.reject(error)}
   return this.ordered(async()=>{const actor=this.actor(credential);requireEditor(this.state.access!,actor);if(operation.actor!==actor)throw new Error('Operation actor does not match authenticated credential');return this.persist(operation,credential)})
  }
- read(credential:string){return this.ordered(async()=>{const actor=this.actor(credential),state=structuredClone(this.state),role=memberRole(state.access!,actor);delete state.access;return{state,role}})}
+ read(credential:string){return this.ordered(async()=>{const actor=this.actor(credential),state=structuredClone(this.state),role=memberRole(state.access!,actor);delete state.access;return{state,role,member:actor}})}
  access(credential:string){return this.ordered(async()=>{const actor=this.actor(credential),role=memberRole(this.state.access!,actor);if(role!=='Owner'&&role!=='Admin')throw new Error('Only Owner/Admin may inspect access records');return structuredClone(this.state.access!)})}
  setMember(credential:string,member:string,role:TeamRole,active:boolean){return this.ordered(async()=>{const actor=this.actor(credential);return this.persist({id:randomUUID(),actor,kind:'team.access.member.v1',payload:{member,role,active}},credential)})}
  issueSession(credential:string,member:string,durationMs:number):Promise<HostSession>{return this.ordered(async()=>{

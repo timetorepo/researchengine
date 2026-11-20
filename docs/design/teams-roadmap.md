@@ -660,3 +660,59 @@ Next: explicit LAN/self-hosted HTTPS transport and onboarding/client integration
 including certificate/origin policy, bounded request handling, secret delivery,
 visible host/join consent and browser/desktop persistence adapters. No automatic
 tunnel, public Internet short-code service or network exposure is enabled here.
+
+## Dedicated opt-in HTTPS control-plane checkpoint — 2026-11-12
+
+Added `backend/src/teams/https.ts` with construction-only and explicit-start APIs.
+It owns a separate HTTPS server, never mounts the private-local app router, and
+requires explicit network-exposure consent, bind IP/port, currently valid matching
+certificate/key, advertised HTTPS authority, exact HTTPS UI origins, native-client
+policy and operator-selected request/connection/rate/deadline budgets. There is
+no autostart, packaged host command, UI, public deployment, tunnel or rendezvous.
+The test listeners are temporary and closed; no persistent listener is running.
+
+Implemented only the JSON control plane: sanitized state/member/role reads,
+content receipt submission, access inspection, membership/session management,
+and invitation issue/revoke/redeem. Core checks still run inside the serialized
+host and before durable append. Request bodies use strict valid UTF-8 JSON and
+exact fields; compressed/oversized data fails rather than truncates. Budgets
+apply to control JSON, not an arbitrary file-upload cap; binary upload/download
+transport remains unimplemented. Shared originals still require later streaming
+transport and client integration before general collaborative use.
+
+TLS is direct, minimum 1.2. Plaintext and certificate/origin bypasses are not
+provided. Host headers must match the configured authority; CORS echoes exact
+trusted origins, never wildcard or cookie credentials. Originless native clients
+need both explicit enablement and a custom marker, plus normal credentials.
+Untrusted supplied Origin cannot use that marker to bypass policy. Query strings
+are rejected, bearer secrets stay in Authorization and invite secrets in POST
+JSON; bootstrap and trusted-local recovery are not remotely callable. Responses
+are no-store/nosniff/no-referrer with fixed sanitized errors. No request/error
+payload or raw secret logging is added. Forwarded IP/host/proto are not trusted.
+
+Socket/header limits, active handlers, bounded peer-IP windows, control-body
+limits and deadlines provide basic operator-selected resource bounds, not a
+production DoS guarantee. NAT peers share rate limits; reverse-proxy trust needs
+separate review. Timeout/disconnect can follow a durable commit and does not
+promise rollback. Hidden timed-out work retains its active-handler slot until
+settled. Client same-ID content retry and explicit lost-onboarding recovery rules
+remain necessary. Full-state reads/replay still have whole-memory/performance
+limitations and binary resources are not served.
+
+Verification: 10 grouped actual local-TLS checks pass: explicit configuration/
+certificate/HTTPS gates; trusted CA vs rejected untrusted self-signed cert and
+plaintext; exact Host/origin/native policy; constrained CORS preflight; bearer
+role/actor separation, privileged-operation refusal, same-ID receipt and stale
+revision; strict/bounded JSON with content-length and chunked oversize; single-use
+invitation onboarding/revoked credentials over TLS; opt-in native clients;
+actual-peer rate limiting despite forwarded headers; and slow-body deadlines.
+Temporary certificates/keys are generated outside the repository; no real user
+secrets, external requests, provider calls or CA-bypass flags are used. All **98**
+grouped Teams tests, backend TypeScript and build pass. No UI changed; physical
+LAN/native/browser certificate installation, production throughput, exhaustive
+TLS/fault/resource/security certification remain untested.
+
+Operator/source integration contract: `docs/teams-https-transport.md`. Next is
+client transport/persistence/onboarding integration before host/join UI and
+packaged LAN/self-hosted use. Explicit HTTPs library testing is not a claim that
+end-user Teams hosting/joining is already shipped.
