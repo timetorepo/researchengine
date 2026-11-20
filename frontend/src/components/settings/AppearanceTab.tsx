@@ -1,6 +1,7 @@
 import { Slider } from '@/components/ui/native/Slider'
 import { ditherMaskStyle } from '@/lib/dither/pattern'
 import { cropImage } from '@/lib/images/crop'
+import { HomeTreatmentPreview } from './HomeTreatmentPreview'
 import { PaletteWorkshop } from './PaletteWorkshop'
 import { WorkspacePreferences } from './WorkspacePreferences'
 import React, { useRef, useState } from 'react'
@@ -333,6 +334,7 @@ export function AppearanceTab() {
             suggestions drawn from your own recent work. Everything else here is optional — and off
             until you ask for it.
           </div>
+          <HomeTreatmentPreview />
           <div className="space-y-1">
             <Switch label="Blue welcome card" description="Static Grainient artwork with a readable dark heading. Replaces only the Home headline; chats and editors stay unchanged. Off until enabled."
               checked={settings.homeWelcomeCard === true} onChange={v => update({ homeWelcomeCard: v })} />

@@ -1,6 +1,6 @@
 # Selective Waves, animated navigation, and editorial type — proposal only
 
-Status: comparison and bounded application integration approved. The original proposal below records the reviewed scope; implementation/results are in `approved-comparison-integration.md`. Waves remains confined to the synthetic comparison. Client transport work is a separate approved milestone.
+Status: comparison and bounded application integration approved. The original proposal below records the reviewed scope; implementation/results are in `approved-comparison-integration.md`. Waves is now also approved for the in-app synthetic Home treatment Apply confirmation; see `home-treatment-wave-confirmation.md`. Client transport work is a separate approved milestone.
 
 ## Recommendation
 
@@ -98,3 +98,9 @@ User subsequently approved the design comparison for integration. See
 `docs/design/approved-comparison-integration.md` for included optional settings,
 sidebar behaviour, verification and remaining limits. Conditional action effects
 remain deferred; application defaults are not migrated.
+
+
+Follow-up: user approved a real in-app Apply action after asking to use Waves.
+Implemented as the optional synthetic Home treatment confirmation, with a fixed
+canvas capture adapter instead of DOM snapshots. See
+`docs/design/home-treatment-wave-confirmation.md`. Earlier exclusions still apply.

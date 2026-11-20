@@ -462,5 +462,17 @@
   {
     "label": "Liquid Glass Redesign",
     "tab": "appearance"
+  },
+  {
+    "label": "Wave confirmation",
+    "tab": "appearance"
+  },
+  {
+    "label": "Home welcome-card preview",
+    "tab": "appearance"
+  },
+  {
+    "label": "Waves preview and Apply confirmation",
+    "tab": "appearance"
   }
 ]

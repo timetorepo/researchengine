@@ -36,9 +36,10 @@ behaviour, private content, provider settings or saved defaults changed.
   pins under `frontend/public/fonts/editorial`. CSS font-face declarations do not
   preload them. No new application dependencies or remote fonts.
 
-Waves remains the explicit synthetic opt-in study in `tools/design-comparison`.
-The approval does not make previously excluded private/credential/editor surfaces
-safe to snapshot; no distortion-waves module is imported by the application.
+At this initial checkpoint Waves remained in `tools/design-comparison`. A later
+explicit user approval added the synthetic Home treatment Apply confirmation in
+Appearance; see `home-treatment-wave-confirmation.md`. That approval does not
+make private/credential/editor surfaces safe to snapshot.
 AppLlama authenticated screen research remains unavailable in this conversation.
 
 ## Verification executed

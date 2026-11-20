@@ -223,3 +223,13 @@ Research Engine's desktop install flow and window-control look were inspired by 
 ## Lightpanda (headless browser, AGPL-3.0)
 
 The optional headless browser is [Lightpanda](https://github.com/lightpanda-io/browser). Its browser binary is licensed under AGPL-3.0. Research Engine does not bundle that binary in its installers. `backend/scripts/install-lightpanda.mjs` downloads the unmodified release from upstream, and the backend runs it as a separate program over the command line. The Lightpanda client package used for reference is Apache-2.0.
+
+## Distortion Waves (MIT)
+
+`distortion-waves` 0.1.0, Copyright (c) 2026 Jakub Antalik, from
+https://github.com/Jakubantalik/Libraries.dev (https://libraries.dev/waves).
+Exact npm package/integrity pinned in package-lock.json. Used only by the explicit
+opt-in synthetic Home treatment Apply preview in Appearance. The custom capture
+adapter draws fixed public strings/colours rather than snapshotting user DOM.
+Full MIT notice: `docs/licenses/distortion-waves-MIT.txt`, also bundled at
+`frontend/public/licenses/distortion-waves-MIT.txt`. Studio/Pro assets are not included.
