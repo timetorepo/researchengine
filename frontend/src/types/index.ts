@@ -499,6 +499,11 @@ export interface Settings {
   fontScale: number
   /** Interface typeface, one of the ids in lib/themes/typeface.ts. */
   typeface: string
+  /** Optional approved Home treatment; never migrates the existing hero preference. */
+  homeWelcomeCard?: boolean
+  homeEditorialHeading?: boolean
+  codeTypeface?: 'default' | 'lilex'
+  codeLigatures?: boolean
   /**
    * Snaffy: a router over the providers you already have. Off by default,
    * because a router you did not turn on is a surprise, and a surprise in the

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./editorial-fonts.css";
+@import "./home-welcome.css";
 @import "../components/chat/activity-trace.css";
 @import "../components/ui/boardui/boardui.css";
 @import "../components/ui/bencho/bridge.css";

@@ -1,6 +1,6 @@
 # Selective Waves, animated navigation, and editorial type — proposal only
 
-Status: awaiting design approval. No runtime Waves/font installation, new styling, or sidebar changes accompany this document. Client transport work is a separate approved milestone.
+Status: comparison and bounded application integration approved. The original proposal below records the reviewed scope; implementation/results are in `approved-comparison-integration.md`. Waves remains confined to the synthetic comparison. Client transport work is a separate approved milestone.
 
 ## Recommendation
 
@@ -92,3 +92,9 @@ comparison. App defaults and existing UI remain unchanged. See its README for
 source/licence hashes, reproduction, measured bundle sizes, executed browser
 checks and outstanding accessibility/performance/reference-video validation.
 This is not approval to roll these choices across the application.
+
+
+User subsequently approved the design comparison for integration. See
+`docs/design/approved-comparison-integration.md` for included optional settings,
+sidebar behaviour, verification and remaining limits. Conditional action effects
+remain deferred; application defaults are not migrated.

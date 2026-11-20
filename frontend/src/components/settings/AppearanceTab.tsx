@@ -316,6 +316,15 @@ export function AppearanceTab() {
           />
         </div>
 
+        <div className="surface p-4 mt-4" aria-label="Optional code typography">
+          <label className="text-[12.5px] font-medium" htmlFor="re-rendered-code-font">Rendered code font</label>
+          <p className="text-[11.5px] my-2" style={{ color: 'var(--text-2)' }}>Code blocks and monospace labels. Embedded editors retain their own font settings.</p>
+          <ModernSelect id="re-rendered-code-font" aria-label="Rendered code font" value={settings.codeTypeface === 'lilex' ? 'lilex' : 'default'} onChange={e => update({ codeTypeface: e.target.value === 'lilex' ? 'lilex' : 'default' })}>
+            <option value="default">Current default (Geist Mono)</option><option value="lilex">Lilex</option>
+          </ModernSelect>
+          {settings.codeTypeface === 'lilex' && <Switch label="Code ligatures" description="Optional joined symbols in rendered Lilex code. Off unless explicitly enabled." checked={settings.codeLigatures === true} onChange={v => update({ codeLigatures: v })} />}
+        </div>
+
         {/* ---- Home screen ---- */}
         <div className="surface p-4 mt-4 mb-2" data-home-settings>
           <div className="text-[13px] font-medium mb-0.5">Home screen</div>
@@ -325,6 +334,10 @@ export function AppearanceTab() {
             until you ask for it.
           </div>
           <div className="space-y-1">
+            <Switch label="Blue welcome card" description="Static Grainient artwork with a readable dark heading. Replaces only the Home headline; chats and editors stay unchanged. Off until enabled."
+              checked={settings.homeWelcomeCard === true} onChange={v => update({ homeWelcomeCard: v })} />
+            {settings.homeWelcomeCard === true && <Switch label="Editorial welcome heading" description="Use local Newsreader for the welcome heading only, not interface labels or code."
+              checked={settings.homeEditorialHeading === true} onChange={v => update({ homeEditorialHeading: v })} />}
             <Switch label="Widget cards" description="The grid of recent research, AIFlowEngine savings, articles and spaces under the composer."
               checked={settings.homeWidgets === true} onChange={(v) => update({ homeWidgets: v })} />
             <Switch label="Offline demo button" description="A “try the offline demo” pill under the composer — Learn with no key and no network."

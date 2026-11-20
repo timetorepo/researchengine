@@ -22,6 +22,8 @@ import { ChatsFlyout, ChatCube, useHoverDwell, CHATS_DWELL_MINIMIZED_MS, CHATS_D
 import { Portal } from '@/lib/dom/portal'
 import { clsx } from 'clsx'
 import { Bot as BotIcon, Briefcase, CalendarDays, Store } from 'lucide-react'
+import { useSidebarTransition } from './useSidebarTransition'
+import { SIDEBAR_MOTION } from '@/lib/ui/handoff'
 import { sidebarWidth } from '@/lib/shell/preferences'
 import { PRIMARY_ROUTES, matchesSection } from '@/lib/shell/navigation'
 import { openMarketplace } from '@/lib/composio/sync'
@@ -50,6 +52,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   const collapsedPreference = useUI((s) => s.sidebarCollapsed)
   const mobileOpen = useUI((s) => s.sidebarOpenMobile)
   const collapsed = collapsedPreference && !mobileOpen
+  const { surface, reduced } = useSidebarTransition(collapsed, mobileOpen)
   const ui = { set: useUI((s) => s.set), toggleSidebar: useUI((s) => s.toggleSidebar) }
   const navigate = useNavigate()
   const location = useLocation()
@@ -148,6 +151,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
               style={{ color: 'var(--text-3)' }}
               onClick={() => mobileOpen ? ui.set({ sidebarOpenMobile: false }) : ui.toggleSidebar()}
               aria-label={mobileOpen ? 'Close menu' : 'Collapse sidebar'}
+              aria-expanded={!collapsed} aria-controls={mobileOpen ? undefined : 're-desktop-sidebar'}
             >
               <PanelLeftClose size={16} strokeWidth={1.5} />
             </button>
@@ -157,7 +161,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
 
       {collapsed ? (
         <DockRail>
-          <DockItem index={0} label="Expand sidebar" onClick={() => ui.toggleSidebar()}>
+          <DockItem index={0} label="Expand sidebar" expanded={false} controls="re-desktop-sidebar" onClick={() => ui.toggleSidebar()}>
             <PanelLeftOpen size={18} strokeWidth={1.5} />
           </DockItem>
           <DockItem index={1} label="New chat" onClick={() => { const id = useStore.getState().newChat(); closeMobile(); navigate(`/chat/${id}`) }}>
@@ -257,7 +261,7 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
   return (
     <>
       {/* Desktop */}
-      <aside className="h-full hidden md:block shrink-0 relative">{!mobileOpen && body}
+      <aside id="re-desktop-sidebar" className="h-full hidden md:block shrink-0 relative"><div ref={surface} data-sidebar-surface className="h-full">{!mobileOpen && body}</div>
         {!collapsed && !mobileOpen && <div role="separator" aria-label="Sidebar width" aria-orientation="vertical"
           aria-valuemin={216} aria-valuemax={360} aria-valuenow={width} tabIndex={0}
           className="re-sidebar-resizer" onPointerDown={beginResize}
@@ -270,7 +274,11 @@ export function Sidebar({ floating = false }: { floating?: boolean }) {
       {/* The existing HeroUI sheet primitive supplies focus containment,
           Escape dismissal and focus restoration rather than a bespoke scrim. */}
       <Modal isOpen={mobileOpen} onOpenChange={(open) => ui.set({ sidebarOpenMobile: open })}
-        aria-label="Navigation" hideCloseButton
+        aria-label="Navigation" hideCloseButton disableAnimation={reduced}
+        motionProps={{ variants: {
+          enter: { x: 0, y: 0, scale: 1, opacity: 1, transition: { duration: SIDEBAR_MOTION.open, ease: SIDEBAR_MOTION.ease } },
+          exit: { x: -248, y: 0, scale: 1, opacity: 0, transition: { duration: SIDEBAR_MOTION.close, ease: SIDEBAR_MOTION.ease } },
+        } }}
         classNames={{
           wrapper: '!items-stretch !justify-start !p-0',
           base: '!m-0 !rounded-none !h-[100dvh] !max-h-none !w-[248px] !max-w-[calc(100vw-32px)]',

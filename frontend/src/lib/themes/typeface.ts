@@ -15,6 +15,8 @@ export interface TypefaceOption {
 const SANS_FALLBACK = 'ui-sans-serif, system-ui, sans-serif'
 
 export const TYPEFACES: TypefaceOption[] = [
+  { id: 'geist-rounded', label: 'Geist Rounded', stack: '"Geist Rounded", ' + SANS_FALLBACK,
+    feel: 'A softer shell with clear, compact shapes.', note: 'Optional local variable family, weights 100–900. SIL OFL.' },
   { id: 'sn-pro', label: 'SN Pro', stack: '"SN Pro", ' + SANS_FALLBACK,
     feel: 'A rounded, Markdown-oriented reading alternative.', note: 'Local normal and italic variable fonts, weights 200–900. SIL OFL.' },
   { id: 'allo', label: 'Allo', stack: '"Allo", ' + SANS_FALLBACK,
@@ -88,4 +90,18 @@ export function applyTypeface(id: string | undefined): void {
   root.style.setProperty('--font-ui', stack)
   root.style.setProperty('--font-body', stack)
   root.dataset.typeface = typefaceFor(id).id
+}
+
+/** Rendered code only. Embedded editors retain their own font settings. */
+export function applyCodeTypeface(id: string | undefined, ligatures: boolean | undefined): void {
+  const root = document.documentElement
+  if (id === 'lilex') {
+    root.style.setProperty('--font-mono', '"Lilex Variable", "Geist Mono", ui-monospace, monospace')
+    root.dataset.codeTypeface = 'lilex'
+    root.dataset.codeLigatures = ligatures === true ? 'on' : 'off'
+  } else {
+    root.style.removeProperty('--font-mono')
+    delete root.dataset.codeTypeface
+    delete root.dataset.codeLigatures
+  }
 }

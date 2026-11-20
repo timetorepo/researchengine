@@ -10,7 +10,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useStore } from '@/stores/useStore'
 import { useUI } from '@/stores/useUI'
 import { applyTheme } from '@/lib/themes/meta'
-import { applyTypeface } from '@/lib/themes/typeface'
+import { applyTypeface, applyCodeTypeface } from '@/lib/themes/typeface'
 import { Shell } from '@/components/layout/Shell'
 import { HomeScreen } from '@/components/home/HomeScreen'
 import { RouteSkeleton } from '@/components/shared/RouteSkeleton'
@@ -148,6 +148,8 @@ export default function App() {
   }, [settings.theme, settings.fontScale, settings.compact, settings.reduceMotion])
 
   useEffect(() => { applyTypeface(settings.typeface) }, [settings.typeface])
+
+  useEffect(() => { applyCodeTypeface(settings.codeTypeface, settings.codeLigatures) }, [settings.codeTypeface, settings.codeLigatures])
 
   if (notFound) return <NotFound404 />
 

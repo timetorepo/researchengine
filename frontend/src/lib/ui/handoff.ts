@@ -41,3 +41,6 @@ export function endHandoff(): void {
   const current = useUI.getState().handoff
   if (current) useUI.setState({ handoff: null })
 }
+
+/** Approved sidebar timing shared by desktop surface and native sheet. */
+export const SIDEBAR_MOTION = { open: 0.2, close: 0.16, ease: [0.16, 1, 0.3, 1] as const, cssEase: 'cubic-bezier(0.16, 1, 0.3, 1)' } as const

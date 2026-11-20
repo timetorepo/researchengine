@@ -1,0 +1,148 @@
+/* Supplied freebie is integrated in one Home placement, never behind the work. */
+
+.re-home-welcome {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 310px;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: #202320;
+  color: #f6f7fb;
+  padding: 36px 40px;
+}
+.re-home-welcome-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 44%;
+  z-index: -2;
+  pointer-events: none;
+}
+.re-home-welcome::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 12, 25, 0.92) 0%,
+    rgba(5, 12, 25, 0.88) 40%,
+    rgba(5, 12, 25, 0.35) 72%,
+    rgba(5, 12, 25, 0.1) 100%
+  );
+  pointer-events: none;
+}
+.re-home-welcome[data-art="false"]::before {
+  background: transparent;
+}
+.re-home-welcome-copy {
+  max-width: 560px;
+}
+.re-home-welcome-kicker {
+  font-size: 10px;
+  letter-spacing: 1.8px;
+  color: #d5def0;
+}
+.re-home-welcome-copy h1 {
+  font-size: 38px;
+  font-weight: 450;
+  letter-spacing: -1.3px;
+  line-height: 1.12;
+  margin: 19px 0 14px;
+}
+.re-home-welcome-copy p {
+  color: #d5def0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.re-home-welcome-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-top: 25px;
+  font-size: 11px;
+}
+.re-home-welcome-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+}
+.re-home-welcome-actions button:first-child {
+  background: #f0f2f8;
+  color: #132342;
+  padding: 0 15px;
+  border-radius: 6px;
+}
+.re-home-welcome-actions button:focus-visible {
+  outline-color: #fff;
+}
+.re-home-welcome-actions button:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 760px) {
+  .re-home-welcome {
+    padding: 26px 22px 55px;
+    min-height: 355px;
+  }
+  .re-home-welcome-copy h1 {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+  .re-home-welcome-copy p {
+    font-size: 11px;
+  }
+  .re-home-welcome::before {
+    background: rgba(5, 12, 25, 0.86);
+  }
+  .re-home-welcome-art {
+    object-position: 65% center;
+  }
+  .re-home-welcome-actions {
+    gap: 10px 18px;
+    margin-top: 20px;
+  }
+  .re-home-welcome-actions button {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .re-home-welcome-copy {
+    background: #101a2b;
+    border-radius: 6px;
+    padding: 18px;
+  }
+  .re-home-welcome::before {
+    background: rgba(5, 12, 25, 0.9);
+  }
+}
+
+.re-home-welcome-actions button {
+  border: 0;
+  border-radius: 6px;
+  padding: 0 15px;
+  cursor: pointer;
+  background: #101d33;
+  color: #f6f7fb;
+}
+.re-home-welcome-actions button:first-child {
+  background: #f0f2f8;
+  color: #132342;
+}
+.re-home-editorial-heading {
+  font-family: "Newsreader Variable", Georgia, serif;
+}
+:root[data-code-typeface="lilex"][data-code-ligatures="off"]
+  :is(code, pre, .font-mono) {
+  font-variant-ligatures: none;
+}
+:root[data-code-typeface="lilex"][data-code-ligatures="on"]
+  :is(code, pre, .font-mono) {
+  font-variant-ligatures: normal;
+}

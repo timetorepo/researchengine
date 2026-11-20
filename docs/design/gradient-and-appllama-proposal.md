@@ -68,3 +68,8 @@ and missing-image fallback. Existing comparison/browser checks, prototype
 TypeScript and build pass. Physical-device/screen-reader/full contrast auditing
 remain unverified; production Home adoption still needs review. AppLlama MCP
 access is unchanged: no authenticated screen-library research has occurred.
+
+
+The subsequent design-comparison approval now permits the optional production
+Home treatment. It is integrated behind Appearance → Blue welcome card, not
+enabled over existing preferences. See `approved-comparison-integration.md`.

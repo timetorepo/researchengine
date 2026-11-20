@@ -1,3 +1,5 @@
+import { useInterfaceReducedMotion } from '@/lib/ui/useInterfaceReducedMotion'
+import { HomeWelcomeCard } from './HomeWelcomeCard'
 import { WorkspaceActivity } from './WorkspaceActivity'
 import { useHeroArt } from '@/components/home/heroArtPrefs'
 import React, { useMemo, useState, useEffect } from 'react'
@@ -42,6 +44,8 @@ const SUGGESTIONS = [
 
 export function HomeScreen() {
   const [heroArt] = useHeroArt()
+  const reducedMotion = useInterfaceReducedMotion()
+  const welcomeCard = useStore(s => s.settings.homeWelcomeCard === true)
   const navigate = useNavigate()
   const chats = useStore((s) => s.chats)
   const articles = useStore((s) => s.articles)
@@ -136,14 +140,14 @@ export function HomeScreen() {
       </AnimatePresence>
       <div className="re-home-content relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
         {/* A welcome for the AI-product themes; off in Settings → Appearance. */}
-        <AIThemeWelcome onFocusInput={() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus()} />
+        {!welcomeCard && <AIThemeWelcome onFocusInput={() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus()} />}
 
         {/* Research / build / challenge hero — the rotating word morphs its
             slot width instead of being clipped, and the line scales down rather
             than wrapping (which used to shove the composer south). */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.base, ease: EASE_OUT }}>
+        <motion.div initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : DUR.base, ease: EASE_OUT }}>
           {/* The painted picture is optional (Settings → Appearance), and off by default. */}
-          {heroArt ? (
+          {welcomeCard ? <HomeWelcomeCard /> : heroArt ? (
             <PaintedBackdrop src="/art/home-hero.jpg" focus="50% 50%" strength={0.95}
               className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center" data-ui="home-hero">
             <RevolvingText
@@ -168,7 +172,7 @@ export function HomeScreen() {
         </motion.div>
 
         {/* Input */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: DUR.base, ease: EASE_OUT }}>
+        <motion.div data-home-composer initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: DUR.base, ease: EASE_OUT }}>
           <InputBar big autoFocus={false} chatId="home" emptyHistory onSend={sendFromHome}
             streaming={false} onStop={() => {}} mathMode={mathMode} setMathMode={setMathMode} />
         </motion.div>
