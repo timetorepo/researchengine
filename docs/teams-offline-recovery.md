@@ -173,3 +173,24 @@ undelivered session is also invalidated. There is no multi-file transaction
 across journal commit and credential-artifact publication. Tests simulate a lost
 response after a durable commit; exhaustive power-loss/fault injection across
 these boundaries and native/device testing remain unperformed.
+
+## Invitation records in backups (offline library checkpoint)
+
+Typed host archives now preserve invitation metadata and consumed/revoked state.
+Owner recovery and restore activation invalidate **all invites as well as all
+sessions**. A restored unused invite cannot be redeemed through the supported
+host activation flow. Raw invite secrets are never recoverable from the archive.
+
+Invitation creation/redemption currently exists only as local `TeamHost` methods,
+not an operator CLI command, URL, email integration or join UI. Grants bind one
+team, a fresh reserved member and an explicit non-Owner role, expire within 24
+hours and can be redeemed once. Admins cannot invite Admin/Owner; only Owner may
+invite Admin. Per-board scope, verified human identity and transport are not
+implied. Revoking a spent invite does not deactivate an already joined member.
+
+If onboarding commits but its response is lost, the invite remains consumed;
+it cannot safely recreate the raw session secret. An authorized administrator
+must revoke the stranded session and explicitly issue a replacement. Issuer
+session revocation/expiry alone does not cancel earlier grants; explicitly revoke
+the invite or deactivate/change its issuer when cancelling delegated access.
+See `docs/design/teams-roadmap.md` for the exact permission and recovery rules.

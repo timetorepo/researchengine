@@ -589,3 +589,74 @@ independent anti-rollback authority and security certification remain untested.
 Next: scoped expiring/revocable invitations and onboarding credentials, followed
 by explicit LAN/self-hosted HTTPS transport and browser/desktop integration.
 No Internet rendezvous, tunnel or network exposure is enabled by this milestone.
+
+## Scoped single-use invitation core checkpoint — 2026-11-12
+
+Added versioned invite issue/revoke/redeem records to deterministic access replay
+and `TeamHost.issueInvite`, `revokeInvite`, `redeemInvite`. These are **offline
+source-library methods**, not URLs, codes, CLI invite commands, join screens,
+network listeners or email/identity-provider integration. No dependencies or
+private local resources are accessed.
+
+Each invitation is scoped to this team, one freshly reserved member UUID, one
+explicit Admin/Editor/Viewer role, a positive expiry of at most 24 hours and an
+explicit onboarding-session duration of at most 24 hours. Owner invitations are
+forbidden. This is team-role scope, not a board-specific permission filter or
+verified human identity. Redeemers cannot choose another member or elevate the
+role. Only Owner may invite Admin; Admin may invite Editor/Viewer; Editor/Viewer
+cannot issue invites. Existing/reserved identities cannot be reused to take over
+or reactivate another member, including a previously inactive identity.
+
+Bearer invites are random 32-byte secrets, domain-separated from session-token
+digests and bound to team identity. Raw invitation/session secrets are returned
+only to the trusted caller and never included in journal/access records. Only
+digests, reserved member, role, issuer, recorded times, consumed state and
+revocation are retained in encrypted history/snapshots. They are not short human
+codes, discoverable Internet rendezvous or proof of HTTPS transport. Secure
+invitation delivery and client credential storage/import remain to be integrated.
+
+Redemption is serialized with membership/revocation changes. One durable event
+atomically consumes the invitation, creates the reserved active member and
+records one onboarding-session digest before returning its raw credential. A
+second/concurrent redemption fails. The host checks expiry at admission and
+immediately before append; replay checks recorded redemption timing, exact
+session duration, reserved identity, current issuer management authority and
+single consumption. A session may outlive invitation expiry according to its
+separately reviewed duration. Host OS clock remains trusted, not rollback-proof.
+
+Owner can revoke any invite; Admin can revoke its own invites only. Revoking a
+spent invite does **not** revoke the joined member/session: use explicit session
+revocation or member deactivation. Issuer role changes or deactivation permanently
+revoke its outstanding grants, so later re-promotion/reactivation does not revive
+them. Issuer session expiry/revocation alone does not cancel a previously delegated
+invite; revoke the invite or deactivate/change that issuer to cancel grants.
+Current issuer authority is also rechecked on redemption. Owner recovery and
+restore activation now invalidate every invitation as well as every prior
+session, preventing old unused grants from surviving those supported flows.
+
+A lost onboarding response is deliberately not treated as an idempotent way to
+mint a second secret: a complete durable redemption remains consumed after
+reopen. An authorized administrator must inspect the reserved member, revoke
+the stranded session and explicitly issue/deliver a replacement credential. No
+silent retry, raw-secret reconstruction, rebase or account takeover is enabled.
+Full typed backups/replay preserve invitation metadata and consumed/revoked
+state. Legacy access state has no `invites` property until first use, preserving
+older snapshot equality. Client outboxes/content submission continue rejecting
+all privileged access operations.
+
+Verification: `teams-invites-test.ts` passes 9 grouped checks: role/duration/Owner
+boundaries without rejected journal writes; reserved-role concurrent single use
+and session/invite domain separation; Admin revocation boundaries and spent-grant
+semantics; exact clock/precommit expiry; issuer demotion/deactivation plus reserved
+identity conflict; secret-free history/restart/typed archive and forged Owner
+scope refusal; credential recovery and restored-host grant invalidation;
+cross-team isolation; and durable redemption followed by injected lost response
+with single consumption and explicit onboarding-session replacement. All **88**
+grouped Teams checks, backend TypeScript and backend build pass. No network or
+provider calls/UI changes. No rate-limit/DoS certification, native/device tests,
+trusted-clock guarantee or external anti-rollback authority is claimed.
+
+Next: explicit LAN/self-hosted HTTPS transport and onboarding/client integration,
+including certificate/origin policy, bounded request handling, secret delivery,
+visible host/join consent and browser/desktop persistence adapters. No automatic
+tunnel, public Internet short-code service or network exposure is enabled here.
