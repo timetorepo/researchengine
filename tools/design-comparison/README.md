@@ -84,3 +84,18 @@ No deployment/release. Production adoption needs the next review decision.
   imagery/assets or proprietary fonts copied. Icons: existing lucide-react.
 
 Font inventory: `font-sha256.txt` (paths relative to this directory).
+
+## Home artwork follow-up
+
+User confirmed the supplied Grainient image came from freebies. Added an
+integrated static Home welcome-card placement before the navigation sample, with
+artwork toggle, safe text scrim, real same-page comparison links and solid
+image-error fallback. Local optimised derivative: 1280×720 / 8,792 bytes;
+raw 2.5 MB PNG not committed. Attribution/rights/hash:
+`public/art/README.md`. Freebie does not mean public domain or open source.
+
+Added browser checks for image decode, decorative alt, artwork toggle, navigation
+link target and blocked-image fallback. Desktop/mobile card screenshots inspected.
+Existing full comparison tests/typecheck/build pass. Updated isolated main JS:
+369.42 KB / 117.09 KB gzip; CSS 23.74 KB / 4.72 KB gzip. Waves unchanged. No
+production Home, Teams, theme settings or MCP configuration changes.

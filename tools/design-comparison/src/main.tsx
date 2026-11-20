@@ -70,6 +70,8 @@ function App() {
     [revealed, setRevealed] = useState(false),
     [failed, setFailed] = useState(false),
     [visible, setVisible] = useState(!document.hidden);
+  const [welcomeArt, setWelcomeArt] = useState(true);
+  const [welcomeArtFailed, setWelcomeArtFailed] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null),
     drawer = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -225,6 +227,78 @@ function App() {
           </label>
           {systemReduced && <small>System reduced motion respected</small>}
         </div>
+        <section
+          id="welcome"
+          className="study welcome-study"
+          aria-labelledby="welcome-study-title"
+        >
+          <div className="section-heading">
+            <div>
+              <span className="index">00</span>
+              <h2 id="welcome-study-title">A place for a little colour.</h2>
+            </div>
+            <label className="welcome-option">
+              <input
+                type="checkbox"
+                checked={welcomeArt}
+                onChange={(e) => setWelcomeArt(e.target.checked)}
+              />{" "}
+              Show welcome artwork
+            </label>
+          </div>
+          <div
+            className="welcome-card"
+            data-art={welcomeArt && !welcomeArtFailed}
+          >
+            {welcomeArt && !welcomeArtFailed && (
+              <img
+                className="welcome-art"
+                src="/art/home-blue.webp"
+                alt=""
+                width="1280"
+                height="720"
+                decoding="async"
+                onError={() => setWelcomeArtFailed(true)}
+              />
+            )}
+            <div className="welcome-copy">
+              <span className="welcome-kicker">HOME / PLACEMENT STUDY</span>
+              <h3>
+                Follow a thought.
+                <br />
+                See where it leads.
+              </h3>
+              <p>
+                A calm starting point for notes, sources and connections.
+                <br className="welcome-break" /> The work itself stays on a
+                quiet, readable surface.
+              </p>
+              <div className="welcome-links">
+                <a className="welcome-primary" href="#navigation">
+                  Explore workspace sample <ArrowRight size={16} />
+                </a>
+                <a href="#typography">
+                  Compare typography <ArrowUpRight size={15} />
+                </a>
+              </div>
+            </div>
+            <span className="welcome-sample">
+              SAMPLE HOME / NO WORKSPACE DATA
+            </span>
+          </div>
+          <p className="caption">
+            <span>
+              {welcomeArtFailed
+                ? "Artwork unavailable · solid fallback active"
+                : welcomeArt
+                  ? "Static local artwork · no animation or capture"
+                  : "Plain surface comparison · artwork off"}
+            </span>
+            <span>
+              Artwork: Grainient freebie, supplied by you. Preview only.
+            </span>
+          </p>
+        </section>
         <section id="navigation" className="study">
           <div className="section-heading">
             <div>

@@ -38,6 +38,23 @@ try {
     false,
     "No Waves module before opt in",
   );
+  await page.locator(".welcome-art").evaluate(async (image) => {
+    await image.decode();
+  });
+  assert.equal(await page.locator(".welcome-art").getAttribute("alt"), "");
+  assert.equal(
+    await page
+      .getByRole("link", { name: "Explore workspace sample" })
+      .getAttribute("href"),
+    "#navigation",
+  );
+  await page.getByLabel("Show welcome artwork").uncheck();
+  assert.equal(await page.locator(".welcome-art").count(), 0);
+  await page.getByLabel("Show welcome artwork").check();
+  await page.locator(".welcome-art").evaluate((image) => image.decode());
+  await page
+    .locator("#welcome")
+    .screenshot({ path: `${artifacts}/welcome-desktop.png` });
   const close = page.getByRole("button", { name: "Close sample sidebar" });
   await close.click();
   await page.waitForTimeout(220);
@@ -171,6 +188,27 @@ try {
   await lost
     .getByText("Waves unavailable. Colour preview still works.")
     .waitFor();
+  const missingArt = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+  });
+  await missingArt.route("**/art/home-blue.webp", (route) => route.abort());
+  await missingArt.goto(base);
+  await missingArt
+    .getByText("Artwork unavailable · solid fallback active")
+    .waitFor();
+  assert.equal(
+    await missingArt.locator(".welcome-card").getAttribute("data-art"),
+    "false",
+  );
+  assert.equal(
+    await missingArt
+      .getByRole("link", { name: "Explore workspace sample" })
+      .isVisible(),
+    true,
+  );
+  await mobile
+    .locator("#welcome")
+    .screenshot({ path: `${artifacts}/welcome-mobile.png` });
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   console.log(

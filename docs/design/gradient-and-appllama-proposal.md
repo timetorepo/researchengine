@@ -1,6 +1,6 @@
 # Blue welcome artwork and AppLlama research — proposal
 
-Status: awaiting placement approval and asset entitlement confirmation. No production UI, prototype UI, MCP configuration, dependency or asset distribution changes in this checkpoint.
+Status: user confirmed the supplied image came from Grainient freebies and authorised use. The proposed welcome-card placement is implemented in the isolated comparison only; production UI and MCP configuration remain unchanged. Historical research/initial proposal below is retained with the follow-up recorded at the end.
 
 ## Supplied image
 
@@ -48,3 +48,23 @@ Desktop/Tauri translation:
 | Safe areas and orientation | Test Tauri titlebar/drag regions, resize, narrow windows, zoom and OS scaling—not hard-coded phone safe-area values. |
 
 Next decision: approve the isolated **Home welcome-card placement** and confirm the supplied asset's applicable licence. Actual AppLlama screen research remains blocked on an authenticated supported MCP client or permitted supplied references; public documentation review is not equivalent.
+
+
+## Freebie confirmation and preview implementation
+
+The user confirmed the attachment was obtained from Grainient freebies. Used it
+as supplied for the proposed integrated Home welcome-card comparison, not as an
+asset collection or a claim of open-source ownership. Optimised derivative is
+`tools/design-comparison/public/art/home-blue.webp` (1280×720, 8,792 bytes); raw
+6144×3456 PNG is not committed. Source, restrictions and derivative hash are
+recorded in the preview's `public/art/README.md`. No other collection downloaded.
+
+The card has a dark scrim, descriptive sample-only copy, working same-page
+comparison links, artwork on/off and image-error solid fallback. It is static,
+not captured by Waves, and uses no remote asset requests or persistent settings.
+Desktop and narrow crops were rendered and inspected. Added browser assertions
+for image decode, decoration/alt semantics, toggling, working destination link
+and missing-image fallback. Existing comparison/browser checks, prototype
+TypeScript and build pass. Physical-device/screen-reader/full contrast auditing
+remain unverified; production Home adoption still needs review. AppLlama MCP
+access is unchanged: no authenticated screen-library research has occurred.
