@@ -1,6 +1,6 @@
 # Teams host, join and portable custody checkpoint
 
-Working branch, 2026-11-12; not a release or deployment. This is a connection and local-operator milestone, **not completed collaboration**. The `/teams` page reads shared-state counts, not collaborative documents. A trusted authorized host can read shared plaintext; this is not host-blind E2EE.
+Working branch, 2026-11-12; not a release or deployment. This is a connection and local-operator milestone, **not completed collaboration**. The `/teams` page reads shared-state counts and has an explicitly loaded Teams-only text BackChat. It does not edit collaborative Boards. A trusted authorized host can read shared plaintext; this is not host-blind E2EE.
 
 ## Explicit local operator lifecycle
 
@@ -56,7 +56,7 @@ Disconnect, leaving the route or reload drops memory credentials. Disconnect doe
 
 ## Recovery and unfinished work
 
-Existing offline backup/verify/restore/Owner-recovery procedures remain in `teams-offline-recovery.md`. Preserve keyring/data/credential backups and test recovery offline. Host certificate installation, native custody, in-app host wizard/access administration/recovery, attachment streaming, shared Board editor, Teams-only BackChat and reconnect/conflict integration remain unfinished. Owner invitations currently require stopped-host CLI operations; no UI access-management claim.
+Existing offline backup/verify/restore/Owner-recovery procedures remain in `teams-offline-recovery.md`. Preserve keyring/data/credential backups and test recovery offline. Host certificate installation, native custody, in-app host wizard/access administration/recovery, attachment streaming, shared Board editor, BackChat attachments/Board-link creation and durable reconnect/conflict integration remain unfinished. Owner invitations currently require stopped-host CLI operations; no UI access-management claim.
 
 ## Verification
 
@@ -65,3 +65,13 @@ Existing offline backup/verify/restore/Owner-recovery procedures remain in `team
 - `tools/design/check-teams-connection.mjs`: browser with intercepted host transport; explicit consent, download/import, wrong-passphrase/no-network, read/refresh/disconnect, uncertain redemption without auto-retry, reload memory reset, 1440/390/320 layout containment. Screenshots in ignored `.cache/teams`.
 
 Browser emulation is not physical-device, screen-reader, OS-trust, public-host or packaging certification. No provider calls, deployment or billing incurred by these tests.
+
+## Teams-only text BackChat continuation
+
+Connected sessions can explicitly load/refresh validated shared posts, with author, thread, sequence, plain text, and existing attachment/Board-revision references. Text is rendered as text, not HTML; attachment references are not downloads. Compose has an exact-text/thread sharing checkbox, reset on changes, a 16,000 UTF-8 byte ceiling without truncation, current-state load prerequisite and Viewer gating. Host-side authorization remains authoritative. No model, private-chat import or autonomous tool is involved.
+
+Sends have stable operation and post identities. A valid ACK clears the draft but does not fabricate a shared snapshot; explicitly refresh to see it. A rejected operation retains its draft and requires a new state/permissions review. An uncertain result freezes composition rather than creating a new identity/retrying. Refresh can reconcile an exact actor/thread/text/post-ID match. Absence does not prove rejection: keep the unresolved post ID/text and ask the host to investigate. There is deliberately no blind retry/abandon-and-resend button.
+
+This is memory-only recovery **while the connection page remains open**, not an offline durable outbox. Leaving/disconnecting/reloading loses unresolved identity/draft state, and never rolls back a possibly committed post. Save relevant text/identity privately before leaving. There is no automatic polling, reconnect or background sync. Parent connection metadata refresh and BackChat refresh are explicit, separate snapshots; BackChat refuses regressing or malformed post snapshots and marks old data stale after failure.
+
+The browser connection suite additionally checks consent reset, ACK, rejected-draft retention, uncertain committed-post reconciliation without duplicate sends, Viewer gating and connected layout containment at 1440/390/320px. Local TLS tests submit/read a post and replay an identical operation without duplicating it, and reject malformed post projections. Browser tests use mocked transport; local TLS uses a disposable CA, not production infrastructure. Full keyboard/screen-reader/native-device and large-history performance validation remain outstanding.
