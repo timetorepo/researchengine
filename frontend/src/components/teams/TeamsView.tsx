@@ -5,6 +5,7 @@ import { inspectPortableCredential, sealPortableCredential, unlockPortableCreden
 import { activeNamespace } from '@/lib/security/lock'
 import { boardWritesFrozen } from '@/lib/board/storage'
 import './teams.css'
+import { TeamBoards } from './TeamBoards'
 import { TeamBackChat } from './TeamBackChat'
 
 const config = { native: false, timeoutMs: 15000, responseBytes: 2 * 1024 * 1024 }
@@ -103,13 +104,14 @@ export function TeamsView() {
   return <section className="re-teams-page" aria-label="Teams connection">
     <header><Users size={20} aria-hidden /><h1>Teams</h1></header>
     <p>Connect only to a host you trust. TLS protects transit and the host encrypts its storage; an authorized host can read shared data. This is not host-blind end-to-end encryption.</p>
-    <div className="re-teams-notice"><ShieldCheck size={16} aria-hidden /><p>Private chats, memories, local Boards and provider keys are not imported or sent. BackChat shares only text you explicitly compose and consent to send here. Collaborative Board editing is not available yet.</p></div>
+    <div className="re-teams-notice"><ShieldCheck size={16} aria-hidden /><p>Private chats, memories, local Boards and provider keys are not imported or sent. BackChat shares only text you explicitly compose and consent to send here. Shared note Boards use explicit reviewed revisions; unsupported canvas items remain read-only.</p></div>
     <p role="status">{status}</p>{busy&&!identity&&!review&&<button className="bui-button" onClick={disconnect}>Cancel credential load</button>}{error && <p role="alert">{error}</p>}
     {identity ? <>
       <section className="re-teams-card"><h2>{identity.team}</h2><dl><dt>Host</dt><dd>{identity.origin}</dd><dt>Member / last known role</dt><dd>{identity.member} · {identity.role}</dd><dt>Session expiry</dt><dd>{new Date(identity.expiresAt).toISOString()}</dd></dl>
         {counts && <p>Last read: revision sequence {counts.sequence} · {counts.boards} shared Boards · {counts.posts} BackChat posts. Counts are a snapshot, not live sync.</p>}
         <div className="re-teams-actions"><button className="bui-button" disabled={busy} onClick={() => void refresh()}>Refresh shared state</button><button className="bui-button" onClick={disconnect}><Unplug size={14} aria-hidden />Disconnect</button></div>
       </section>
+      {client.current && <TeamBoards client={client.current} isScoped={scoped} />}
       {client.current && <TeamBackChat client={client.current} isScoped={scoped} />}
       <section className="re-teams-card"><h2>Keep an encrypted credential file</h2><p>Credentials are memory-only until you explicitly export. Leaving this page, reloading or disconnecting drops them; a consumed invitation cannot restore them. Keep the file and a strong unique passphrase separately. Export does not extend expiry or prevent host revocation. No OS keychain or browser persistence is used.</p>
         <label>Export passphrase<input className="bui-field" aria-label="Export passphrase" type="password" autoComplete="new-password" disabled={busy} value={password} onChange={e => setPassword(e.target.value)} /></label><label>Confirm export passphrase<input className="bui-field" aria-label="Confirm export passphrase" type="password" autoComplete="new-password" disabled={busy} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} /></label>

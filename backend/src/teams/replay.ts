@@ -1,4 +1,5 @@
 /** Offline v1 Teams protocol, not a CRDT, permission check or private-Board importer. */
+import {validateSharedBoardItems as validateItems} from '../../../shared/teams/board'
 import type { JournalEntry, TeamOperation } from './journal'
 import type { TeamSnapshot } from './objects'
 import { isAccessKind, validateAccessOperation, reduceAccess, requireEditor, type AccessOperation, type AccessState } from './access'
@@ -28,44 +29,6 @@ function record(v: unknown, required: string[], optional: string[] = []): assert
 }
 function list(v: unknown): asserts v is unknown[] {
   if (!Array.isArray(v) || Reflect.ownKeys(v).length !== v.length + 1 || Object.keys(v).length !== v.length || Object.keys(v).some((key, i) => key !== String(i) || !Object.hasOwn(Object.getOwnPropertyDescriptor(v,key)!, 'value'))) fail('Invalid protocol array')
-}
-function validateItems(value: unknown): asserts value is TeamItem[] {
-  list(value)
-  const byId = new Map<string, TeamItem>()
-  for (const item of value) {
-    record(item, ['id','kind','x','y','width','height','text'], ['textFormat','shape','pointSpace','attachmentId','source','parentId','points','fromId','toId'])
-    if (!id(item.id) || byId.has(item.id) || !['note','reference','image','pdf','drawing','shape','connector','frame'].includes(item.kind) || ![item.x,item.y,item.width,item.height].every(finite) || item.width <= 0 || item.height <= 0 || typeof item.text !== 'string') fail('Invalid Board item')
-    if (Object.hasOwn(item,'textFormat') && item.textFormat !== 'markdown') fail('Invalid text format')
-    if (Object.hasOwn(item,'shape') && (item.kind !== 'shape' || !['rectangle','ellipse','diamond'].includes(item.shape))) fail('Invalid shape')
-    if (Object.hasOwn(item,'attachmentId') && !attachment(item.attachmentId)) fail('Invalid attachment identity')
-    if (['image','pdf'].includes(item.kind) && !attachment(item.attachmentId)) fail('Image/PDF needs an original attachment')
-    for (const field of ['parentId','fromId','toId']) if (Object.hasOwn(item,field) && !id(item[field])) fail('Invalid Board link identity')
-    if (Object.hasOwn(item,'source')) {
-      record(item.source, [], ['url','page'])
-      if (Object.hasOwn(item.source,'page') && (!integer(item.source.page) || item.source.page < 1)) fail('Invalid source page')
-      if (Object.hasOwn(item.source,'url')) {
-        if (typeof item.source.url !== 'string') fail('Invalid source URL')
-        let url: URL; try { url = new URL(item.source.url) } catch { fail('Invalid source URL') }
-        if (!['http:','https:'].includes(url!.protocol)) fail('Unsupported source URL')
-      }
-    }
-    if (Object.hasOwn(item,'points')) {
-      list(item.points)
-      for (const point of item.points) { record(point,['x','y']); if (!finite(point.x) || !finite(point.y)) fail('Invalid drawing point') }
-      if (item.kind !== 'drawing') fail('Drawing points on a non-drawing')
-    }
-    if (Object.hasOwn(item,'pointSpace') && (item.kind !== 'drawing' || item.pointSpace !== 'unit' || !item.points?.length || item.points.some((p: {x:number;y:number}) => p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1))) fail('Invalid normalized drawing')
-    if (item.kind === 'connector' && (!id(item.fromId) || !id(item.toId) || item.fromId === item.toId)) fail('Connector needs distinct endpoints')
-    if (item.kind !== 'connector' && (Object.hasOwn(item,'fromId') || Object.hasOwn(item,'toId'))) fail('Endpoints on a non-connector')
-    byId.set(item.id, item as TeamItem)
-  }
-  for (const item of byId.values()) {
-    for (const target of [item.parentId,item.fromId,item.toId]) if (target && (target === item.id || !byId.has(target))) fail('Missing/self Board target')
-    if (item.parentId && byId.get(item.parentId)?.kind !== 'frame') fail('Parent must be a frame')
-    if (item.kind === 'connector' && [item.fromId!,item.toId!].some(target => byId.get(target)?.kind === 'connector')) fail('Connector-to-connector link')
-    const seen = new Set([item.id]); let parent = item.parentId
-    while (parent) { if (seen.has(parent)) fail('Cyclic Board frames'); seen.add(parent); parent = byId.get(parent)?.parentId }
-  }
 }
 export function validateTeamOperation(operation: unknown): asserts operation is TypedTeamOperation {
   record(operation, ['id','actor','kind','payload'])

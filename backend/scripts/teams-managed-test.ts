@@ -7,6 +7,7 @@ import {execFileSync,spawn} from 'node:child_process'
 import {request} from 'node:https'
 import {initializeOfflineHost,bootstrapOfflineOwner,issueOfflineInvite,exportPortableOwner,openManagedTeam} from '../src/teams/operator'
 import {parseManagedTeamConfig,startManagedTeam} from '../src/teams/managed-server'
+import {sharedBoards} from '../../shared/teams/board'
 import {sharedPosts} from '../../shared/teams/backchat'
 import {TeamJoin} from '../../shared/teams/client'
 import {unlockPortableCredential} from '../../shared/teams/portable-credential'
@@ -42,6 +43,13 @@ try{
  await editor.submit(operation)
  const after=await owner.read(),posts=sharedPosts(after.state.posts,after.state.sequence);assert.equal(posts.length,1);assert.equal(posts[0].text,operation.payload.text)
  for(const invalid of [[{...posts[0],sequence:after.state.sequence+1}],[posts[0],posts[0]],[{...posts[0],actor:'invalid actor'}],[{...posts[0],attachments:['not-a-digest']}],[{...posts[0],links:[{boardId:'board',revision:0}]}],[{...posts[0],extra:true}]])assert.throws(()=>sharedPosts(invalid,after.state.sequence))
+ const boardOp={id:'board-create',actor:editor.identity().member,kind:'team.board.replace.v1' as const,payload:{boardId:'shared-board',expectedRevision:0,title:'Shared TLS Board',items:[{id:'note-one',kind:'note',x:20,y:20,width:260,height:180,text:'Exact note evidence'}]}}
+ await editor.submit(boardOp)
+ const loadedBoard=await owner.read(),projection=sharedBoards(loadedBoard.state.boards,loadedBoard.state.sequence);assert.equal(projection[0].revision,1)
+ await owner.submit({...boardOp,id:'owner-update',actor:owner.identity().member,payload:{...boardOp.payload,expectedRevision:1,title:'Other member committed'}})
+ await assert.rejects(editor.submit({...boardOp,id:'stale-editor-update',payload:{...boardOp.payload,expectedRevision:1,title:'Must not overwrite'}}))
+ const finalBoard=await editor.read();assert.equal(sharedBoards(finalBoard.state.boards,finalBoard.state.sequence)[0].title,'Other member committed')
+ for(const invalid of [[{...projection[0],revision:0}],[projection[0],projection[0]],[{...projection[0],items:[{...projection[0].items[0],width:0}]}],[{...projection[0],items:[{...projection[0].items[0],attachmentId:'invalid'}]}]])assert.throws(()=>sharedBoards(invalid,loadedBoard.state.sequence))
  owner.disconnect();editor.disconnect();await Promise.all([running.close(),running.close()]);running=undefined
  const reopened=await openManagedTeam(data,data,password);await reopened.close()
  await writeFile(configFile,JSON.stringify(config),{mode:0o600})
@@ -53,5 +61,5 @@ try{
   await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>{child.kill('SIGKILL');reject(new Error('CLI startup timeout'))},10000);child.stdout.on('data',()=>{if(stdout.includes('"listening":true')){clearTimeout(timer);resolve()}});child.once('exit',code=>{clearTimeout(timer);if(!stdout.includes('"listening":true'))reject(new Error(`CLI failed ${code}: ${stderr}`))})})
   child.kill('SIGTERM');const code=await new Promise(resolve=>child.once('exit',resolve));assert.equal(code,0);assert.ok(stdout.includes('"drained":true'));assert.ok(!stdout.includes(password.toString())&&!stdout.includes(invite.invitation));assert.equal(stderr,'')
  }
- console.log('PASS managed host: private encrypted bootstrap/Owner conversion/invitation files, explicit exposure/schema/writer gates, actual trusted local TLS Owner and Editor join/read/post, idempotent post replay and projection validation, idempotent drain/reopen, built CLI startup/SIGTERM/restart with no credentials in logs; disposable test CA only')
+ console.log('PASS managed host: private encrypted bootstrap/Owner conversion/invitation files, explicit exposure/schema/writer gates, actual trusted local TLS Owner and Editor join/read/post, idempotent post replay, Board revision conflict/no overwrite and projection validation, idempotent drain/reopen, built CLI startup/SIGTERM/restart with no credentials in logs; disposable test CA only')
 }finally{await running?.close();password.fill(0);await rm(root,{recursive:true,force:true})}

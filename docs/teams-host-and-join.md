@@ -1,6 +1,6 @@
 # Teams host, join and portable custody checkpoint
 
-Working branch, 2026-11-12; not a release or deployment. This is a connection and local-operator milestone, **not completed collaboration**. The `/teams` page reads shared-state counts and has an explicitly loaded Teams-only text BackChat. It does not edit collaborative Boards. A trusted authorized host can read shared plaintext; this is not host-blind E2EE.
+Working branch, 2026-11-12; not a release or deployment. This is a connection and local-operator milestone, **not completed collaboration**. The `/teams` page reads shared-state counts and has an explicitly loaded Teams-only text BackChat. It also supports reviewed, revision-checked shared note Boards, not the full collaborative canvas. A trusted authorized host can read shared plaintext; this is not host-blind E2EE.
 
 ## Explicit local operator lifecycle
 
@@ -56,7 +56,7 @@ Disconnect, leaving the route or reload drops memory credentials. Disconnect doe
 
 ## Recovery and unfinished work
 
-Existing offline backup/verify/restore/Owner-recovery procedures remain in `teams-offline-recovery.md`. Preserve keyring/data/credential backups and test recovery offline. Host certificate installation, native custody, in-app host wizard/access administration/recovery, attachment streaming, shared Board editor, BackChat attachments/Board-link creation and durable reconnect/conflict integration remain unfinished. Owner invitations currently require stopped-host CLI operations; no UI access-management claim.
+Existing offline backup/verify/restore/Owner-recovery procedures remain in `teams-offline-recovery.md`. Preserve keyring/data/credential backups and test recovery offline. Host certificate installation, native custody, in-app host wizard/access administration/recovery, attachment streaming, full collaborative Board canvas, BackChat attachments/Board-link creation and durable reconnect/conflict integration remain unfinished. Owner invitations currently require stopped-host CLI operations; no UI access-management claim.
 
 ## Verification
 
@@ -75,3 +75,15 @@ Sends have stable operation and post identities. A valid ACK clears the draft bu
 This is memory-only recovery **while the connection page remains open**, not an offline durable outbox. Leaving/disconnecting/reloading loses unresolved identity/draft state, and never rolls back a possibly committed post. Save relevant text/identity privately before leaving. There is no automatic polling, reconnect or background sync. Parent connection metadata refresh and BackChat refresh are explicit, separate snapshots; BackChat refuses regressing or malformed post snapshots and marks old data stale after failure.
 
 The browser connection suite additionally checks consent reset, ACK, rejected-draft retention, uncertain committed-post reconciliation without duplicate sends, Viewer gating and connected layout containment at 1440/390/320px. Local TLS tests submit/read a post and replay an identical operation without duplicating it, and reject malformed post projections. Browser tests use mocked transport; local TLS uses a disposable CA, not production infrastructure. Full keyboard/screen-reader/native-device and large-history performance validation remain outstanding.
+
+## Shared note-Board continuation
+
+Connected sessions can explicitly load validated shared Board snapshots, select an existing Board, or create a new note-only Board. The editor keeps the loaded expected revision, title, note identities/text and geometry. It does not open local Board storage, import private content, delete existing notes, upload assets, pan a collaborative canvas or call agents. Boards containing any non-note item are read-only; their text fields are only a projection, not a complete rendering.
+
+Publishing requires review of the entire draft and expected revision. Changes reset consent. The 64,000 UTF-8-byte draft limit refuses publication without truncation; host control-body limits remain authoritative. Viewer sessions cannot edit/publish. Every write has a stable operation identity and compare-and-swap expected revision. A host ACK requires an explicit refresh to show the durable snapshot.
+
+On conflict, the draft is retained. Refresh displays the latest host snapshot alongside the unchanged draft. There is no automatic rebase, force overwrite or merge: export the draft if needed, explicitly discard it, select the latest revision, then manually reapply and review edits. Draft export is **plaintext** and includes destination/Board/operation identity, not credentials; keep it private. It is a download request, not proof of durable saving, and there is no draft re-import UI yet.
+
+Uncertain sends freeze editing. Refresh resolves only if the host reports the expected next revision with identical title/items. This confirms matching snapshot content, not operation/actor attribution. If a later edit has superseded it, the client cannot infer the outcome from the current snapshot: export the draft/operation identity and contact the host. No blind resend is offered. Leaving/reloading/disconnecting loses memory-only drafts and unresolved identities; it does not undo possibly committed writes.
+
+Verification: the shared-Board browser suite covers reviewed creation, consent reset, competing revision rejection and draft retention, explicit latest-base selection, uncertain committed-write reconciliation without resend, Viewer/unsupported-item gates, 1440/390/320 containment, CSS 200% containment and keyboard discard. CSS scaling is not actual browser zoom or a full keyboard/accessibility audit. Disposable-CA real TLS tests exercise create/read, another member's edit, stale revision rejection without overwrite, and malformed Board projections. Existing Teams regression and BackChat/credential browser suites pass after moving the existing item validator into a shared no-IO module used by both host and browser. No production host, device or large-history certification.
