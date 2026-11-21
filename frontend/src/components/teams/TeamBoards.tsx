@@ -1,3 +1,4 @@
+import {BoardDraftRecovery} from './BoardDraftRecovery'
 import {useEffect,useRef,useState} from 'react'
 import {TeamClient,TeamClientError,type ClientOperation} from '@/lib/teams/client'
 import {sharedBoards,type TeamBoard} from '../../../../shared/teams/board'
@@ -47,7 +48,12 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
   <p role="status">{notice}</p><button className="bui-button" disabled={busy} onClick={()=>void load()}>Load / refresh shared Boards</button>
   <ul>{boards.map(board=><li key={board.id}><button className="bui-button" disabled={busy||!!pending||!!draft} onClick={()=>{edit(structuredClone(board));setConflict(false)}}>{board.title||'Untitled Board'} · revision {board.revision}</button></li>)}</ul>
   <button className="bui-button" disabled={busy||!!pending||!!draft||!loaded||role==='Viewer'} onClick={()=>edit({id:crypto.randomUUID(),revision:0,title:'New shared Board',items:[]})}>New shared note Board</button>
-  {pending&&<p role="alert">Unresolved Board operation: {pending.id}. Export this draft and identity before leaving. Export is plaintext, not encrypted custody.</p>}
+  {pending&&<p role="alert">Unresolved Board operation: {pending.id}. Export this draft and identity before leaving. Use encrypted draft recovery below to preserve the draft and unresolved identity.</p>}
+  <BoardDraftRecovery destination={client.identity()} member={client.identity().member} draft={draft?{board:draft,member:client.identity().member,...(pending?{operationId:pending.id}:{})}:undefined} blocked={busy} isScoped={isScoped} onBusy={setBusy} onRestore={value=>{
+   setDraft(value.board);setConsent(false);setLoaded(false);setConflict(false)
+   setPending(value.operationId?{id:value.operationId,actor:value.member,kind:'team.board.replace.v1',payload:{boardId:value.board.id,expectedRevision:value.board.revision,title:value.board.title,items:value.board.items}}:undefined)
+   setNotice('Imported draft is local only. Explicitly load shared Boards to check current revision and permissions before any new publication.')
+  }}/>
   {draft&&<>
    <div className="re-teams-actions"><button className="bui-button" onClick={saveDraft}>Export plaintext Board draft</button><button className="bui-button" disabled={busy||!!pending} onClick={()=>{if(window.confirm('Discard this in-memory draft? Export it first if needed.')){setDraft(undefined);setConsent(false);setConflict(false)}}}>Discard Board draft</button></div>
    <p>Board {draft.id} · expected revision {draft.revision} · {bytes} / 64000 UTF-8 draft bytes. No truncation.</p>
