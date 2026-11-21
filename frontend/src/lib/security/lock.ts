@@ -26,6 +26,7 @@
  * make the honest case work: a locked app that a stranger cannot open.
  */
 
+import { outboxDatabase } from '@/lib/teams/outbox'
 import { boardDatabaseName, deleteBoardDatabase, freezeBoardWrites } from '@/lib/board/storage'
 
 const enc = new TextEncoder()
@@ -326,9 +327,9 @@ export async function wipeEverything(): Promise<WipeReport> {
   // Board databases are namespace-separated and are not in localStorage.
   let boardNote = ''
   try {
-    await Promise.all([MAIN_NAMESPACE, GUEST_NAMESPACE].map(ns => deleteBoardDatabase(boardDatabaseName(ns))))
+    await Promise.all([MAIN_NAMESPACE,GUEST_NAMESPACE].flatMap(ns=>[deleteBoardDatabase(boardDatabaseName(ns)),deleteBoardDatabase(outboxDatabase(ns))]))
     await deleteBoardDatabase('research-engine-boards-v1')
-  } catch { boardNote = ' Local Board deletion could not finish; close other app windows and clear this origin’s browser storage.' }
+  } catch { boardNote = ' Local Board/Teams outbox deletion could not finish; close other app windows and clear this origin’s browser storage.' }
   let server: WipeReport['server'] = 'skipped'
   try {
     const res = await fetch('/api/data/wipe', { method: 'POST' })

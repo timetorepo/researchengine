@@ -21,7 +21,8 @@
     "teams-managed-test": "npm run build && tsx scripts/teams-managed-test.ts",
     "teams-draft-test": "tsx scripts/teams-draft-test.ts",
     "firecrawl-local-test": "tsx scripts/firecrawl-local-test.ts",
-    "teams-merge-test": "tsx scripts/teams-merge-test.ts"
+    "teams-merge-test": "tsx scripts/teams-merge-test.ts",
+    "teams-outbox-test": "tsx scripts/teams-outbox-test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

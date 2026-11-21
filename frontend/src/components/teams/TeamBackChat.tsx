@@ -1,3 +1,4 @@
+import {useDurableTeamSend} from './useDurableTeamSend'
 import {TeamAttachmentUpload,TeamAttachmentDownload} from './TeamAttachments'
 import {BackChatDraftRecovery} from './BackChatDraftRecovery'
 import {useEffect,useRef,useState} from 'react'
@@ -15,6 +16,10 @@ export function TeamBackChat({client,isScoped}:Props){
  const alive=useRef(true),active=useRef<AbortController|undefined>(undefined),lastSequence=useRef(-1),scope=useRef(isScoped);scope.current=isScoped
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;active.current?.abort()}},[])
  const current=()=>alive.current&&scope.current()
+ const durable=useDurableTeamSend({client,kind:'team.backchat.post.v1',disabled:busy,isScoped,canRestore:!draft&&!pending&&!links.length&&!attachments.length,pendingId:pending?.id,onBusy:setBusy,onRestore:operation=>{
+  const p=operation.payload as {text:string;threadId:string;links:SharedLink[];attachments:string[]}
+  setDraft(p.text);setThread(p.threadId);setLinks(p.links);setAttachments(p.attachments);setPending(operation);setLoaded(false);setConsent(false);setReviewed(false);setNotice('Saved post restored as a frozen draft. Explicitly refresh/reconcile or retry its original identity.')
+ },onResult:(_op,rejected)=>{setPending(undefined);setLoaded(false);setConsent(false);if(!rejected){setDraft('');setLinks([]);setAttachments([])};setNotice(rejected?'Saved post rejected; draft retained for fresh state review.':'Saved post acknowledged. Refresh shared posts.')}})
  async function load(){
   if(active.current||!current())return
   const abort=new AbortController();active.current=abort;setBusy(true);setConsent(false)
@@ -25,7 +30,7 @@ export function TeamBackChat({client,isScoped}:Props){
    lastSequence.current=result.state.sequence;setPosts(next);setBoards(nextBoards);setSelectedBoard('');setSelectedItem('');setRole(result.role);setLoaded(true);setReviewed(true)
    if(pending){
     const payload=pending.payload as {id:string;threadId:string;text:string;links:SharedLink[];attachments:string[]},found=next.find(p=>p.id===payload.id)
-    if(found&&found.actor===pending.actor&&found.text===payload.text&&found.threadId===payload.threadId&&JSON.stringify(found.attachments)===JSON.stringify(payload.attachments)&&JSON.stringify(found.links)===JSON.stringify(payload.links)){setPending(undefined);setDraft('');setLinks([]);setAttachments([]);setNotice('The host snapshot contains the exact pending post. It was not resent.')}
+    if(found&&found.actor===pending.actor&&found.text===payload.text&&found.threadId===payload.threadId&&JSON.stringify(found.attachments)===JSON.stringify(payload.attachments)&&JSON.stringify(found.links)===JSON.stringify(payload.links)){await durable.settle(pending);if(!current())return;setPending(undefined);setDraft('');setLinks([]);setAttachments([]);setNotice('The host snapshot contains the exact pending post. It was not resent.')}
     else setNotice('Pending send is still unresolved. Absence from this snapshot is not proof of rejection. No automatic retry; preserve the text and ask the host to investigate.')
    }else setNotice('Shared posts loaded. This is a snapshot; refresh explicitly for new posts.')
   }catch{if(current()){setLoaded(false);setReviewed(false);setNotice('Shared posts could not be verified. Previous posts are stale. Check connection, session and host; no automatic retry.')}}
@@ -35,12 +40,15 @@ export function TeamBackChat({client,isScoped}:Props){
   if(active.current||!current()||!loaded||role==='Viewer'||pending||!consent||!draft.trim()||staleLinks||new TextEncoder().encode(draft).length>16000||!/^[A-Za-z0-9_-]{1,128}$/.test(thread))return
   const operation:ClientOperation={id:crypto.randomUUID(),actor:client.identity().member,kind:'team.backchat.post.v1',payload:{id:crypto.randomUUID(),threadId:thread,text:draft,attachments:structuredClone(attachments),links:structuredClone(links)}}
   const abort=new AbortController();active.current=abort;setBusy(true);setConsent(false);setPending(operation);setReviewed(false)
+  let dispatched=false
   try{
-   await client.submit(operation,abort.signal)
+   await durable.prepare(operation);if(!current()||abort.signal.aborted)return;dispatched=true
+   await client.submit(operation,abort.signal);await durable.settle(operation)
    if(current()){setPending(undefined);setDraft('');setLinks([]);setLoaded(false);setNotice('Host acknowledged the post. Refresh shared posts to see the durable snapshot. No model was called.')}
   }catch(error){if(current()){
    setLoaded(false)
-   if(error instanceof TeamClientError&&error.outcome==='rejected'){setPending(undefined);setNotice('Host rejected the send. Draft retained; refresh permissions/state before reviewing another send.')}
+   if(!dispatched){setPending(undefined);setNotice('Post was not dispatched. Check outbox passphrase/storage or inspect the saved pending operation. Draft retained.')}
+   else if(error instanceof TeamClientError&&error.outcome==='rejected'){await durable.settle(operation);if(!current())return;setPending(undefined);setNotice('Host rejected the send. Draft retained; refresh permissions/state before reviewing another send.')}
    else setNotice('Send outcome is uncertain: it may already be committed. Draft and post identity are held in memory. Refresh to reconcile; do not copy and resend blindly.')
   }}finally{active.current=undefined;if(current())setBusy(false)}
  }
@@ -49,6 +57,7 @@ export function TeamBackChat({client,isScoped}:Props){
   <p role="status">{notice}</p>
   <button className="bui-button" disabled={busy} onClick={()=>void load()}>Load / refresh shared posts</button>
   {pending&&<p role="alert">Unresolved post: {(pending.payload as {id:string}).id}. Keep this identity when contacting the host. {reviewed?'A refreshed snapshot has not resolved it.':''}</p>}
+  {durable.panel}
   <BackChatDraftRecovery destination={client.identity()} member={client.identity().member} draft={draft||pending||links.length||attachments.length?{text:draft,threadId:thread,links,attachments,member:client.identity().member,...(pending?{pending:{operationId:pending.id,postId:(pending.payload as {id:string}).id}}:{})}:undefined} blocked={busy} isScoped={isScoped} onBusy={setBusy} onRestore={value=>{
    setAttachments(value.attachments??[]);setDraft(value.text);setLinks(value.links??[]);setSelectedBoard('');setSelectedItem('');setThread(value.threadId);setConsent(false);setLoaded(false);setReviewed(false)
    setPending(value.pending?{id:value.pending.operationId,actor:value.member,kind:'team.backchat.post.v1',payload:{id:value.pending.postId,threadId:value.threadId,text:value.text,attachments:value.attachments??[],links:value.links??[]}}:undefined)

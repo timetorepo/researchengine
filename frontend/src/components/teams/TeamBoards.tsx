@@ -1,3 +1,4 @@
+import {useDurableTeamSend} from './useDurableTeamSend'
 import {mergeSharedBoard} from '../../../../shared/teams/board-merge'
 import {SharedBoardCanvas} from './SharedBoardCanvas'
 import {BoardDraftRecovery} from './BoardDraftRecovery'
@@ -16,6 +17,10 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
  const editable=!!draft
  const bytes=draft?new TextEncoder().encode(JSON.stringify(draft)).length:0
  const latest=draft?boards.find(b=>b.id===draft.id):undefined
+ const durable=useDurableTeamSend({client,kind:'team.board.replace.v1',disabled:busy,isScoped,canRestore:!draft&&!pending,pendingId:pending?.id,onBusy:setBusy,onRestore:operation=>{
+  const p=operation.payload as {boardId:string;expectedRevision:number;title:string;items:TeamBoard['items']}
+  mergeBase.current=undefined;setDraft({id:p.boardId,revision:p.expectedRevision,title:p.title,items:p.items});setPending(operation);setLoaded(false);setConsent(false);setConflict(false);setNotice('Saved operation restored as a frozen draft. Read shared state to reconcile or explicitly retry the exact saved identity.')
+ },onResult:(_operation,rejected,status)=>{setPending(undefined);setLoaded(false);setConsent(false);if(!rejected)setDraft(undefined);setConflict(rejected&&status===409);setNotice(rejected?'Saved operation rejected. Draft retained; refresh and review conflicts.':'Saved operation acknowledged. Refresh shared Boards.')}})
  async function load(){
   if(active.current||!current())return
   const abort=new AbortController();active.current=abort;setBusy(true);setConsent(false)
@@ -26,7 +31,7 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
    sequence.current=result.state.sequence;setBoards(next);setRole(result.role);setLoaded(true)
    if(pending){
     const p=pending.payload as {boardId:string;expectedRevision:number;title:string;items:TeamBoard['items']},found=next.find(b=>b.id===p.boardId)
-    if(found&&found.revision===p.expectedRevision+1&&found.title===p.title&&JSON.stringify(found.items)===JSON.stringify(p.items)){setPending(undefined);setDraft(found);setConflict(false);setNotice('Exact pending Board revision found in the host snapshot. Nothing was resent.')}
+    if(found&&found.revision===p.expectedRevision+1&&found.title===p.title&&JSON.stringify(found.items)===JSON.stringify(p.items)){await durable.settle(pending);if(!current())return;setPending(undefined);setDraft(found);setConflict(false);setNotice('Exact pending Board revision found in the host snapshot. Nothing was resent.')}
     else setNotice('Board send is unresolved. A later revision or absence cannot prove whether it committed. Keep the operation ID/draft and contact the host; no automatic retry.')
    }else if(draft){const found=next.find(b=>b.id===draft.id);const changed=(found?.revision??0)!==draft.revision;setConflict(changed);setNotice(changed?'Host revision changed. Draft retained; compare below. No merge or overwrite occurred.':'Shared snapshot refreshed. Your draft was not replaced.')}
    else setNotice('Shared Boards loaded. Select a snapshot or create a new shared note Board.')
@@ -38,10 +43,12 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
   if(active.current||!current()||!draft||!editable||!loaded||role==='Viewer'||!consent||pending||conflict||bytes>64000)return
   const operation:ClientOperation={id:crypto.randomUUID(),actor:client.identity().member,kind:'team.board.replace.v1',payload:{boardId:draft.id,expectedRevision:draft.revision,title:draft.title,items:structuredClone(draft.items)}}
   const abort=new AbortController();active.current=abort;setBusy(true);setConsent(false);setPending(operation)
-  try{await client.submit(operation,abort.signal);if(current()){setPending(undefined);setLoaded(false);setDraft(undefined);setNotice('Host acknowledged the Board revision. Refresh to load it; no optimistic shared snapshot was fabricated.')}}
+  let dispatched=false
+  try{await durable.prepare(operation);if(!current()||abort.signal.aborted)return;dispatched=true;await client.submit(operation,abort.signal);await durable.settle(operation);if(current()){setPending(undefined);setLoaded(false);setDraft(undefined);setNotice('Host acknowledged the Board revision. Refresh to load it; no optimistic shared snapshot was fabricated.')}}
   catch(error){if(current()){
    setLoaded(false)
-   if(error instanceof TeamClientError&&error.outcome==='rejected'){setPending(undefined);setConflict(error.status===409);setNotice(error.status===409?'Revision conflict: draft retained, nothing overwritten. Refresh and compare the latest revision.':'Host rejected the Board edit. Draft retained; refresh permissions/state before another review.')}
+   if(!dispatched){setPending(undefined);setNotice('Operation was not dispatched. Check outbox passphrase/storage or inspect an existing saved pending operation. Draft retained.')}
+   else if(error instanceof TeamClientError&&error.outcome==='rejected'){await durable.settle(operation);if(!current())return;setPending(undefined);setConflict(error.status===409);setNotice(error.status===409?'Revision conflict: draft retained, nothing overwritten. Refresh and compare the latest revision.':'Host rejected the Board edit. Draft retained; refresh permissions/state before another review.')}
    else setNotice('Board send outcome uncertain. Draft frozen with stable operation ID; refresh to reconcile, never blindly resend.')
   }}finally{active.current=undefined;if(current())setBusy(false)}
  }
@@ -52,6 +59,7 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
   <ul>{boards.map(board=><li key={board.id}><button className="bui-button" disabled={busy||!!pending||!!draft} onClick={()=>{mergeBase.current=structuredClone(board);edit(structuredClone(board));setConflict(false)}}>{board.title||'Untitled Board'} · revision {board.revision}</button></li>)}</ul>
   <button className="bui-button" disabled={busy||!!pending||!!draft||!loaded||role==='Viewer'} onClick={()=>edit({id:crypto.randomUUID(),revision:0,title:'New shared Board',items:[]})}>New shared note Board</button>
   {pending&&<p role="alert">Unresolved Board operation: {pending.id}. Export this draft and identity before leaving. Use encrypted draft recovery below to preserve the draft and unresolved identity.</p>}
+  {durable.panel}
   <BoardDraftRecovery destination={client.identity()} member={client.identity().member} draft={draft?{board:draft,member:client.identity().member,...(pending?{operationId:pending.id}:{})}:undefined} blocked={busy} isScoped={isScoped} onBusy={setBusy} onRestore={value=>{
    mergeBase.current=undefined;setDraft(value.board);setConsent(false);setLoaded(false);setConflict(false)
    setPending(value.operationId?{id:value.operationId,actor:value.member,kind:'team.board.replace.v1',payload:{boardId:value.board.id,expectedRevision:value.board.revision,title:value.board.title,items:value.board.items}}:undefined)
