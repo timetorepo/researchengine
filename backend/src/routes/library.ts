@@ -20,6 +20,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { searchDdg, searchSearxngAuto } from '../services/search/adapters'
+import { readFirecrawlLocal } from '../services/reader/firecrawl-local'
 import { readSource } from '../services/reader/extract'
 import { miniSearch } from '../services/reader/mini'
 
@@ -306,6 +307,12 @@ function ownDocuments(q: string): Hit[] {
 libraryRoutes.get('/read', async (c) => {
   const url = String(c.req.query('url') ?? '').trim()
   if (!url) return c.json({ error: 'A url is required.' }, 400)
+  const engine=c.req.query('engine')
+  if(engine&&engine!=='default'&&engine!=='firecrawl-local')return c.json({error:'Unsupported reader engine.'},400)
+  if(engine==='firecrawl-local'){
+    try{return c.json(await readFirecrawlLocal(url,c.req.raw.signal))}
+    catch{return c.json({error:'Firecrawl Local could not scrape this public source. Check the configured official executable, target and execution/output limits. Cloud/browser fallback is disabled; no automatic retry.'},502)}
+  }
   const result = await readSource(url)
   return c.json(result, result.ok || result.warning ? 200 : 200)
 })

@@ -81,3 +81,9 @@ See `../teams-host-and-join.md` for the implemented portable-custody/join and ex
 ## Shared draft canvas / concurrent-client continuation
 
 The shared editor now exposes reused canvas controls for geometry, shapes, references, frames, strokes and connectors; non-note Boards are no longer globally read-only. Image/PDF original transfer/preview, live merge/presence and durable reconnect remain unfinished. See `../teams-canvas-validation.md` for exact implemented scope, the two-principal real-TLS 10-round concurrent-write test, injected faults, results and limits. Safe whole-revision conflict rejection is not certification of a finished live collaboration product or real-world connection stability. Local Rust scraper integration awaits the exact requested upstream binary; no binary installed. Website remains paused for proposal review.
+
+## Firecrawl Local and reviewed canvas merge continuation
+
+The supplied official Firecrawl Local quickstart resolved binary identity. An opt-in fixed-argv scraper adapter and Library reader action now exist with cloud/browser fallback disabled, isolated credentials/environment, public-only target policy, output/time/concurrency limits and explicit failures. Contract fixtures and intercepted-browser tests pass; the actual official Rust binary is not installed/live-tested in this restricted sandbox. See `../firecrawl-local.md`; do not claim real scraping or upstream network-guard certification from fixtures.
+
+Shared canvas conflicts now offer an explicit conservative disjoint-item merge preview when the original base remains in memory. It never publishes, clears consent and retains whole-item conflicts. Imported drafts without a base still require manual resolution. See `../teams-canvas-validation.md`. Neither change closes attachment transport, live collaboration, durable reconnect, accessibility/performance certification or release work. Website remains untouched pending proposal review.

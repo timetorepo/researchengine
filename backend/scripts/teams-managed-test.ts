@@ -7,6 +7,7 @@ import {execFileSync,spawn} from 'node:child_process'
 import {request} from 'node:https'
 import {initializeOfflineHost,bootstrapOfflineOwner,issueOfflineInvite,exportPortableOwner,openManagedTeam} from '../src/teams/operator'
 import {parseManagedTeamConfig,startManagedTeam} from '../src/teams/managed-server'
+import {mergeSharedBoard} from '../../shared/teams/board-merge'
 import {sharedBoards} from '../../shared/teams/board'
 import {sharedPosts} from '../../shared/teams/backchat'
 import {TeamJoin,TeamClient} from '../../shared/teams/client'
@@ -63,6 +64,13 @@ try{
   assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.filter(r=>r.status==='rejected'&&r.reason.status===409).length,1);acknowledged++;conflicts++
   const converged=await Promise.all([owner.read(),editor.read()]);assert.deepEqual(converged[0].state.boards,converged[1].state.boards)
  }
+ const mergeSeed={id:'merge-board',revision:0,title:'Merge evidence',items:[{id:'merge-one',kind:'note' as const,x:0,y:0,width:200,height:100,text:'A'},{id:'merge-two',kind:'note' as const,x:300,y:0,width:200,height:100,text:'B'}]}
+ await owner.submit({id:'merge-create',actor:owner.identity().member,kind:'team.board.replace.v1',payload:{boardId:mergeSeed.id,expectedRevision:0,title:mergeSeed.title,items:mergeSeed.items}})
+ const mergeBase={...mergeSeed,revision:1},ours={...structuredClone(mergeBase),items:mergeBase.items.map(i=>({...i,text:i.id==='merge-two'?'Editor edit':i.text}))}
+ await owner.submit({id:'merge-other',actor:owner.identity().member,kind:'team.board.replace.v1',payload:{boardId:mergeSeed.id,expectedRevision:1,title:mergeSeed.title,items:mergeBase.items.map(i=>({...i,text:i.id==='merge-one'?'Owner edit':i.text}))}})
+ const mergeState=await editor.read(),latestMerge=sharedBoards(mergeState.state.boards,mergeState.state.sequence).find(b=>b.id===mergeSeed.id)!,preview=mergeSharedBoard(mergeBase,ours,latestMerge)
+ assert.deepEqual(preview.conflicts,[]);assert.deepEqual(preview.board!.items.map(i=>i.text),['Owner edit','Editor edit'])
+ await editor.submit({id:'merge-publish',actor:editor.identity().member,kind:'team.board.replace.v1',payload:{boardId:mergeSeed.id,expectedRevision:preview.board!.revision,title:preview.board!.title,items:preview.board!.items}})
  let lostClient:TeamClient|undefined
  await editor.persistCredential(async(destination,session)=>{lostClient=await TeamClient.fromSession(destination,session,{...clientConfig,fetch:async(url,init)=>{const response=await transport(url,init);if(String(url).endsWith('/operations'))throw new Error('Injected response loss after commit');return response}})})
  const beforeLoss=await owner.read(),baseLoss=sharedBoards(beforeLoss.state.boards,beforeLoss.state.sequence)[0]

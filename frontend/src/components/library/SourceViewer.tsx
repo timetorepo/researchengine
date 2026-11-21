@@ -52,7 +52,7 @@ interface Block {
 interface ReadResult {
   ok: boolean
   url: string
-  via: 'wikipedia' | 'html' | 'text' | 'feed'
+  via: 'wikipedia' | 'html' | 'text' | 'feed' | 'firecrawl-local'
   title: string
   siteName?: string
   description?: string
@@ -161,7 +161,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
     return {
       ok: !!json.ok && blocks.length > 0,
       url: typeof json.url === 'string' ? json.url : url,
-      via: json.via === 'wikipedia' || json.via === 'wikipedia-api' ? 'wikipedia' : json.via === 'feed' ? 'feed' : 'html',
+      via: json.via==='firecrawl-local'?'firecrawl-local':json.via === 'wikipedia' || json.via === 'wikipedia-api' ? 'wikipedia' : json.via === 'feed' ? 'feed' : 'html',
       title: typeof json.title === 'string' && json.title ? json.title : (host(url) || url),
       siteName: typeof json.siteName === 'string' ? json.siteName : undefined,
       description: typeof json.description === 'string' ? json.description : undefined,
@@ -173,11 +173,14 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
     }
   }
 
-  const load = useCallback(async (url: string) => {
+  const readerGeneration=useRef(0),readerAbort=useRef<AbortController|undefined>(undefined)
+  const load = useCallback(async (url: string,engine:'default'|'firecrawl-local'='default') => {
+    const epoch=++readerGeneration.current;readerAbort.current?.abort();const abort=new AbortController();readerAbort.current=abort
     setBusy(true); setFailure(null); setDoc(null)
     try {
-      const res = await fetch(`/api/library/read?url=${encodeURIComponent(url)}`)
+      const res = await fetch(`/api/library/read?url=${encodeURIComponent(url)}${engine==='firecrawl-local'?'&engine=firecrawl-local':''}`,{signal:abort.signal})
       const raw: any = await res.json().catch(() => null)
+      if(epoch!==readerGeneration.current||abort.signal.aborted)return
       if (!raw) throw new Error(`The reader answered HTTP ${res.status} without JSON.`)
       const json = normalizeRead(raw, url)
       if (!json) throw new Error(typeof raw?.error === 'string' ? raw.error : 'The reader answered with a shape this viewer does not understand.')
@@ -188,13 +191,14 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
         setFailure(json.warning ?? (json.via === 'wikipedia'
           ? 'Wikipedia returned no sections for this page.'
           : 'This page is rendered by the site’s own JavaScript, so there is no text to reduce. Open it in the browser tab.'))
-        if (json.via !== 'wikipedia') setTab('browser')
+        if (json.via !== 'wikipedia'&&engine!=='firecrawl-local') setTab('browser')
       }
     } catch (e: any) {
+      if(epoch!==readerGeneration.current||abort.signal.aborted)return
       setFailure(`The reader could not be reached: ${String(e?.message ?? e)}`)
-      setTab('browser')
+      if(engine!=='firecrawl-local')setTab('browser')
     } finally {
-      setBusy(false)
+      if(epoch===readerGeneration.current)setBusy(false)
     }
   }, [])
 
@@ -203,6 +207,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
     setTab('read'); setFrameState('idle'); setActiveId(null)
     setFrame(source && isHostileToEmbedding(source.url) ? 'proxied' : 'direct')
     void load(source.url)
+    return ()=>{readerGeneration.current++;readerAbort.current?.abort()}
   }, [key, open, load])
 
   useEffect(() => {
@@ -339,6 +344,10 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
               : 'relative w-full max-w-[1080px] h-[86vh] flex flex-col overflow-hidden'}
             style={inline ? inlineShell : squircle}>
 
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2 text-xs" style={{borderBottom:'1px solid var(--surface-border)'}}>
+              <button className="bui-button" disabled={busy} onClick={()=>{setTab('read');void load(source.url,'firecrawl-local')}}>Scrape with Firecrawl Local</button>
+              <span>Requires an installed, configured binary. Local-only, public targets; cloud and browser fallback disabled.</span>
+            </div>
             {/* header — the site, the two ways to read it, and the actions */}
             <div className="flex items-center gap-2.5 px-4 py-3 shrink-0"
               style={{ borderBottom: '1px solid var(--surface-border)' }}>
@@ -359,7 +368,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
                       <span>·</span>
                       <span className="flex items-center gap-1">
                         {doc.via === 'wikipedia' ? <BookOpen size={9} /> : <Type size={9} />}
-                        {doc.via === 'wikipedia' ? 'Wikipedia article text' : doc.via === 'feed' ? 'feed, typeset for reading' : 'reduced from the page'}
+                        {doc.via==='firecrawl-local'?'Firecrawl Local · cloud disabled':doc.via === 'wikipedia' ? 'Wikipedia article text' : doc.via === 'feed' ? 'feed, typeset for reading' : 'reduced from the page'}
                       </span>
                     </>
                   )}
@@ -659,7 +668,7 @@ export function SourceViewer({ source, onClose, onSave, onKeep, inline = false }
               {busy
                 ? <><Loader2 size={10} className="animate-spin" /> Reading the source…</>
                 : doc?.ok && (doc.blocks?.length ?? 0) > 0
-                  ? <><Check size={10} style={{ color: 'var(--secondary)' }} /> Parsed {doc.blocks?.length ?? 0} blocks · {doc.outline?.length ?? 0} sections · {doc.images?.length ?? 0} images{doc.via === 'wikipedia' ? ' · via the Wikipedia API' : doc.via === 'feed' ? ' · via the feed reader' : ''}</>
+                  ? <><Check size={10} style={{ color: 'var(--secondary)' }} /> Parsed {doc.blocks?.length ?? 0} blocks · {doc.outline?.length ?? 0} sections · {doc.images?.length ?? 0} images{doc.via==='firecrawl-local'?' · Firecrawl Local (cloud off)':doc.via === 'wikipedia' ? ' · via the Wikipedia API' : doc.via === 'feed' ? ' · via the feed reader' : ''}</>
                   : <><AlertTriangle size={10} /> No text could be reduced from this page · the Browser tab is the way in</>}
               <div className="flex-1" />
               <span>Esc closes</span>

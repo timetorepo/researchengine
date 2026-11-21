@@ -63,3 +63,13 @@ Attachment transfer and rendering, automatic durable outbox/reconnect, live coll
 ## Rust scraper request
 
 The repo already contains hosted/self-hosted Firecrawl API search support. The requested local Rust executable has not been identified by an authoritative user-supplied repository/executable/version. Repository inspection found `firecrawl/firecrawl` and a separate third-party Rust rewrite; neither is assumed interchangeable. No binary was downloaded, installed or executed. Await the exact upstream project before defining its CLI contract, pinning source/checksums, reviewing licensing/security, and adding bounded execution/cancellation/output handling and tests. This item is blocked, not delivered.
+
+## Explicit disjoint-edit merge preview continuation
+
+When a conflict is refreshed and the original selected base is still held in the same tab, **Preview disjoint canvas merge** offers a conservative three-way whole-item merge. It compares base, draft and latest loaded snapshot by stable item ID. Changes to different items and one-sided title changes can be combined; competing same-item edits, delete-versus-edit, competing titles and invalid connector/frame relationships remain conflicts. Even different fields on the same item deliberately conflict. Ordering follows latest host items plus draft-only additions; it is not a collaborative z-order protocol.
+
+A successful preview changes only the local draft, adopts the latest loaded expected revision, clears consent and requires explicit review/publication. It does not make a request. A new concurrent change can still cause the eventual CAS publication to conflict. Imported drafts without an original base cannot invoke this merge; they retain manual comparison/recovery. No forced overwrite, autonomous rebase or silent conflict resolution is offered.
+
+Pure tests cover disjoint edits, same-item/title/delete-edit conflicts, invalid relationships, scope/revision gates and unchanged inputs. Browser tests preview a draft note change alongside another member's title change, verify both survive, consent is off and operation count is unchanged. The real disposable-CA TLS suite also publishes a separately reviewed merged result combining Owner and Editor edits to different items. Live merge/presence, attachment originals, durable automatic outbox/reconnect, real-network soak and exhaustive device/a11y tests remain unfinished.
+
+The Firecrawl Local identity question is now resolved by the supplied official quickstart; see `firecrawl-local.md` for the delivered adapter and its outstanding official-binary live verification. The earlier blocked-on-project-identification paragraph is historical, not the current status.
