@@ -23,3 +23,5 @@
 .re-team-posts li { padding:10px 0; border-bottom:1px solid var(--surface-border); }
 .re-team-post-text { white-space:pre-wrap; overflow-wrap:anywhere; }
 .re-teams-page textarea { display:block; width:100%; min-width:0; resize:vertical; margin-top:6px; }
+
+.re-teams-page select { display:block; width:100%; min-width:0; max-width:100%; margin-top:6px; }

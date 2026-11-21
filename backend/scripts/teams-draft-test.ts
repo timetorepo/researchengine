@@ -24,3 +24,8 @@ for(const value of [{...chat,text:'x'.repeat(16001)},{...chat,pending:{operation
 const chatEnvelope=JSON.parse(new TextDecoder().decode(chatFile))
 for(const patch of [{version:2},{kdf:'PBKDF2-SHA256-1'},{sealed:chatEnvelope.sealed.slice(0,-4)+'AAAA'},{extra:true}])await assert.rejects(unlockBackChatDraft(encode({...chatEnvelope,...patch}),password,scope,'editor'))
 console.log('PASS BackChat draft: text/thread/pending identities roundtrip, random encryption, wrong-member/scope/pass/format refusal, malformed identities/empty pending/size/tamper/schema/KDF/version refusal')
+
+const linkedChat={...chat,links:[{boardId:'board-one',revision:2,itemId:'note-one'}]}
+assert.deepEqual(await unlockBackChatDraft(await sealBackChatDraft(scope,linkedChat,password),password,scope,'editor'),linkedChat)
+for(const links of [[{boardId:'board',revision:0}],[{boardId:'board',revision:1,itemId:'invalid id'}],[{boardId:'board',revision:1},{boardId:'board',revision:1}]])await assert.rejects(sealBackChatDraft(scope,{...chat,links},password))
+console.log('PASS encrypted BackChat references: exact pending link roundtrip, invalid revision/item and duplicate refusal; older link-free draft roundtrip retained')

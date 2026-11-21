@@ -28,7 +28,7 @@ function domain(error:unknown):Rejection{
  if(/Credential expired|Invalid credential|Member is inactive/.test(message))return new Rejection(401,'unauthorized')
  if(/Host requires recovery|Host closed/.test(message))return new Rejection(503,'host_unavailable')
  if(/Insufficient|Only Owner|Viewer cannot|Owner transfer|actor does not match/.test(message))return new Rejection(403,'forbidden')
- if(/revision conflict|different content|already exists|already used|fresh reserved|missing attachment|not referenced/.test(message))return new Rejection(409,'conflict')
+ if(/revision conflict|BackChat link must target|different content|already exists|already used|fresh reserved|missing attachment|not referenced/.test(message))return new Rejection(409,'conflict')
  if(/Invalid |Unsupported |Empty BackChat|Connector |Board link|Cyclic |Parent must|Image\/PDF|Drawing points|Endpoints on/.test(message))return new Rejection(400,'invalid_request')
  return new Rejection(500,'host_failure') // Never reflect arbitrary crypto/parser/path/secret error strings.
 }

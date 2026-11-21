@@ -50,6 +50,10 @@ try{
  await assert.rejects(editor.submit({...boardOp,id:'stale-editor-update',payload:{...boardOp.payload,expectedRevision:1,title:'Must not overwrite'}}))
  const finalBoard=await editor.read();assert.equal(sharedBoards(finalBoard.state.boards,finalBoard.state.sequence)[0].title,'Other member committed')
  for(const invalid of [[{...projection[0],revision:0}],[projection[0],projection[0]],[{...projection[0],items:[{...projection[0].items[0],width:0}]}],[{...projection[0],items:[{...projection[0].items[0],attachmentId:'invalid'}]}]])assert.throws(()=>sharedBoards(invalid,loadedBoard.state.sequence))
+ const linkedPost={id:'linked-post-operation',actor:editor.identity().member,kind:'team.backchat.post.v1' as const,payload:{id:'linked-post',threadId:'general',text:'Reviewed linked evidence',attachments:[],links:[{boardId:'shared-board',revision:2,itemId:'note-one'}]}}
+ await editor.submit(linkedPost)
+ const linked=await owner.read();assert.deepEqual(sharedPosts(linked.state.posts,linked.state.sequence).at(-1)!.links,linkedPost.payload.links)
+ await assert.rejects(editor.submit({...linkedPost,id:'stale-link-operation',payload:{...linkedPost.payload,id:'stale-linked-post',links:[{boardId:'shared-board',revision:1}]}}),(error:any)=>error.status===409&&error.outcome==='rejected')
  owner.disconnect();editor.disconnect();await Promise.all([running.close(),running.close()]);running=undefined
  const reopened=await openManagedTeam(data,data,password);await reopened.close()
  await writeFile(configFile,JSON.stringify(config),{mode:0o600})

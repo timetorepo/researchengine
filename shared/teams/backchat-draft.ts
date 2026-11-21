@@ -1,7 +1,8 @@
 /** Explicit encrypted-file custody using platform Web Crypto. No storage/network
  * side effects. This versioned browser format is NOT the Node scrypt artifact. */
+import {validateSharedLinks,type SharedLink} from './backchat'
 import type { TeamEndpoint } from './client'
-export type BackChatDraftFile={text:string;threadId:string;member:string;pending?:{operationId:string;postId:string}}
+export type BackChatDraftFile={text:string;threadId:string;member:string;links?:SharedLink[];pending?:{operationId:string;postId:string}}
 const format = 're-teams-encrypted-backchat-draft'
 const kdf = 'PBKDF2-SHA256-600000'
 const enc = new TextEncoder()
@@ -45,7 +46,8 @@ async function key(password: string, salt: Uint8Array) {
 function validate(value:unknown):BackChatDraftFile{
  const v=value as BackChatDraftFile
  const id=(value:unknown)=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(value)
- if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).sort().join(',')!==('pending'in v?'member,pending,text,threadId':'member,text,threadId')||!id(v.member)||!id(v.threadId)||typeof v.text!=='string'||enc.encode(v.text).length>16000)fail()
+ if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).sort().join(',')!==['member','text','threadId',...('pending'in v?['pending']:[]),...('links'in v?['links']:[])].sort().join(',')||!id(v.member)||!id(v.threadId)||typeof v.text!=='string'||enc.encode(v.text).length>16000)fail()
+ if('links'in v)validateSharedLinks(v.links)
  if('pending'in v&&(!v.pending||Object.keys(v.pending).sort().join(',')!=='operationId,postId'||!id(v.pending.operationId)||!id(v.pending.postId)||!v.text.trim()))fail()
  return structuredClone(v)
 }
