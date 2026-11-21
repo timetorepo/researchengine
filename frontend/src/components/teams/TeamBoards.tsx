@@ -67,7 +67,7 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
      if(!result.board){setConsent(false);setNotice(`Merge not applied; draft retained. Conflicts: ${result.conflicts.join(', ')}`);return}
      mergeBase.current=structuredClone(latest);setDraft(result.board);setConflict(false);setConsent(false);setNotice('Disjoint changes merged into a local preview at the latest loaded revision. Nothing published. Review every item before consenting to publish.')
     }}>Preview disjoint canvas merge</button><pre className="re-team-post-text">{JSON.stringify(latest??{notice:'No matching Board in the last loaded snapshot'},null,2)}</pre></aside>}
-   <SharedBoardCanvas key={`${draft.id}:${draft.revision}`} board={draft} disabled={busy||!!pending||role==='Viewer'} onChange={edit}/>
+   <SharedBoardCanvas key={`${draft.id}:${draft.revision}`} board={draft} client={client} isScoped={isScoped} onBusy={setBusy} disabled={busy||!!pending||role==='Viewer'} onChange={edit}/>
    <fieldset disabled={busy||!!pending||!editable||role==='Viewer'}><legend>Shared Board draft</legend>
     <label>Title<input className="bui-field" aria-label="Shared Board title" value={draft.title} onChange={e=>edit({...draft,title:e.target.value})}/></label>
     {draft.items.map((item,index)=><label key={item.id}>{item.kind} {index+1}<textarea className="bui-field" aria-label={`Shared ${item.kind} ${index+1}`} value={item.text} rows={4} onChange={e=>edit({...draft,items:draft.items.map((v,i)=>i===index?{...v,text:e.target.value}:v)})}/></label>)}

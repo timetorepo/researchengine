@@ -98,6 +98,9 @@ try{
  const viewer=await TeamJoin.prepare({origin:'https://team.test',team:'managed-team'},viewerInvite.invitation,clientConfig).confirm({reviewedOrigin:'https://team.test',reviewedTeam:'managed-team',acceptHostTrust:true,acceptSingleUse:true})
  await assert.rejects(viewer.uploadAttachment(attachmentBytes),(error:any)=>error.status===403)
  assert.deepEqual(await viewer.downloadAttachment(attachmentId),attachmentBytes);viewer.disconnect()
+ const pngBytes=new Uint8Array(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jO1sAAAAASUVORK5CYII=','base64')),pngId=await editor.uploadAttachment(pngBytes)
+ await editor.submit({id:'canvas-asset-create',actor:editor.identity().member,kind:'team.board.replace.v1',payload:{boardId:'canvas-asset-board',expectedRevision:0,title:'Shared original',items:[{id:'shared-image',kind:'image',text:'Reviewed image',x:40,y:40,width:300,height:240,attachmentId:pngId}]}})
+ assert.deepEqual(await owner.downloadAttachment(pngId),pngBytes)
  owner.disconnect();editor.disconnect();await Promise.all([running.close(),running.close()]);running=undefined
  const reopened=await openManagedTeam(data,data,password);await reopened.close()
  await writeFile(configFile,JSON.stringify(config),{mode:0o600})

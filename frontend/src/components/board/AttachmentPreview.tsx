@@ -28,7 +28,7 @@ export function AttachmentPreview({store,boardId,item,onPage}: {store:Store;boar
     </>}
   </section>
 }
-function PDFPreview({blob,page,onPage}:{blob:Blob;page:number;onPage:(page:number)=>void}) {
+export function PDFPreview({blob,page,onPage,disabled=false}:{blob:Blob;page:number;onPage:(page:number)=>void;disabled?:boolean}) {
   const [document,setDocument] = useState<PDFDocumentProxy>()
   const [error,setError] = useState('')
   const [text,setText] = useState('')
@@ -58,7 +58,7 @@ function PDFPreview({blob,page,onPage}:{blob:Blob;page:number;onPage:(page:numbe
     return ()=>{alive=false;task?.cancel()}
   },[document,page])
   return <div className="re-board-pdf">
-    {document && <label>Linked PDF page · {document.numPages} total<input className="bui-field" aria-label="Linked PDF page" type="number" min={1} max={document.numPages} value={page} onChange={event=>{const n=event.currentTarget.valueAsNumber;if(Number.isInteger(n)&&n>=1&&n<=document.numPages)onPage(n)}} /></label>}
+    {document && <label>Linked PDF page · {document.numPages} total<input className="bui-field" aria-label="Linked PDF page" disabled={disabled} type="number" min={1} max={document.numPages} value={page} onChange={event=>{const n=event.currentTarget.valueAsNumber;if(Number.isInteger(n)&&n>=1&&n<=document.numPages)onPage(n)}} /></label>}
     {error && <p role="alert">{error}</p>}
     {rendering && !error && <p role="status">Rendering PDF page {page}…</p>}
     <canvas ref={canvas} role="img" aria-label={`PDF page ${page} preview`} hidden={!!error || rendering} />

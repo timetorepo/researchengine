@@ -1,3 +1,5 @@
+import {SharedCanvasAssetUpload,SharedCanvasAssetPreview} from './SharedCanvasAssets'
+import type {TeamClient} from '@/lib/teams/client'
 import {useRef,useState} from 'react'
 import {BoardCard} from '../board/BoardCard'
 import {BoardConnectors} from '../board/BoardConnectors'
@@ -8,8 +10,9 @@ import {strokeItem,type DrawPoint} from '@/lib/board/drawing'
 import {validateSharedBoardItems,type TeamBoard,type TeamItem} from '../../../../shared/teams/board'
 import '../board/board.css'
 
-export function SharedBoardCanvas({board,disabled,onChange}:{board:TeamBoard;disabled:boolean;onChange:(board:TeamBoard)=>void}){
+export function SharedBoardCanvas({board,disabled,onChange,client,isScoped,onBusy}:{board:TeamBoard;disabled:boolean;onChange:(board:TeamBoard)=>void;client:TeamClient;isScoped:()=>boolean;onBusy:(busy:boolean)=>void}){
  const [selected,select]=useState(''),[zoom,setZoom]=useState(1),[drawing,setDrawing]=useState(false),[error,setError]=useState(''),[url,setURL]=useState(''),[version,tick]=useState(0)
+ const originals=useRef(new Map<string,Blob>())
  const history=useRef<TeamBoard[]>([]),redo=useRef<TeamBoard[]>([])
  const item=board.items.find(i=>i.id===selected)
  function commit(items:TeamItem[]){if(disabled)return;try{const clean=JSON.parse(JSON.stringify(items));validateSharedBoardItems(clean);history.current.push(structuredClone(board));if(history.current.length>50)history.current.shift();redo.current=[];onChange({...board,items:clean});tick(version+1);setError('')}catch{setError('Invalid canvas edit. Check geometry, source URL, frame membership and connector endpoints. Draft unchanged.')}}
@@ -20,12 +23,13 @@ export function SharedBoardCanvas({board,disabled,onChange}:{board:TeamBoard;dis
  function draw(points:DrawPoint[]){try{const next=strokeItem(points);commit([...board.items,next]);select(next.id);setDrawing(false)}catch{setError('Invalid stroke; draft unchanged.')}}
  const width=Math.max(1600,...board.items.map(i=>i.x+i.width+100)),height=Math.max(1000,...board.items.map(i=>i.y+i.height+100))
  return <section aria-label="Shared Board canvas editor">
-  <p>Canvas edits are local drafts until you publish the reviewed revision. Scroll to pan; zoom is local only. Image/PDF originals cannot be uploaded or previewed here yet; existing item references are preserved.</p>
+  <p>Canvas edits are local drafts until you publish the reviewed revision. Scroll to pan; zoom is local only. Image/PDF upload and preview are explicit. Original bytes are stored separately from reviewed Board revisions.</p>
   <div className="re-teams-actions">{(['note','reference','shape','frame'] as const).map(kind=><button key={kind} className="bui-button" disabled={disabled} onClick={()=>add(kind)}>Add canvas {kind}</button>)}
    <button className="bui-button" disabled={disabled||!history.current.length} onClick={()=>{const previous=history.current.pop();if(previous){redo.current.push(structuredClone(board));onChange(previous);tick(version+1)}}}>Undo canvas edit</button>
    <button className="bui-button" disabled={disabled||!redo.current.length} onClick={()=>{const next=redo.current.pop();if(next){history.current.push(structuredClone(board));onChange(next);tick(version+1)}}}>Redo canvas edit</button>
   </div>
   <label>Canvas zoom<select className="bui-field" aria-label="Shared canvas zoom" value={zoom} onChange={e=>{setZoom(Number(e.target.value));setDrawing(false)}}>{[0.25,0.5,1,1.5,2].map(v=><option key={v} value={v}>{v*100}%</option>)}</select></label>
+  <SharedCanvasAssetUpload client={client} disabled={disabled} isScoped={isScoped} onBusy={onBusy} onImported={(next,blob)=>{if(originals.current.size>=8)originals.current.delete(originals.current.keys().next().value!);originals.current.set(next.id,blob);commit([...board.items,next]);select(next.id)}}/>
   <DrawingTools active={drawing&&!disabled} disabled={disabled} onToggle={()=>setDrawing(!drawing)} onAdd={draw}/>
   <div className="re-board-canvas-scroll re-shared-canvas" tabIndex={0} role="region" aria-label="Shared canvas, scroll to pan"><div className="re-board-canvas-size" style={{width:width*zoom,height:height*zoom}}><div className="re-board-canvas" style={{width,height,transform:`scale(${zoom})`}}>
    {board.items.filter(i=>i.kind!=='connector').map((i,index)=><BoardCard key={i.id} item={i} index={index} selected={i.id===selected} disabled={disabled||drawing} zoom={zoom} onSelect={()=>select(i.id)} members={i.kind==='frame'?frameContents(board.items,i.id):undefined} onPreview={changes=>previewConnectors(board.items,changes)} onGeometry={geometry=>commit(editGeometry(board.items,i.id,geometry))}/>)}
@@ -33,6 +37,7 @@ export function SharedBoardCanvas({board,disabled,onChange}:{board:TeamBoard;dis
    {drawing&&!disabled&&<BoardDrawSurface width={width} height={height} zoom={zoom} disabled={disabled} onStroke={draw} onCancel={()=>setDrawing(false)}/>}
   </div></div></div>
   <label>Canvas item<select className="bui-field" aria-label="Shared canvas item" value={item?.id??''} onChange={e=>{select(e.target.value);setURL('')}}><option value="">Select an item</option>{board.items.map((i,index)=><option key={i.id} value={i.id}>{index+1} · {i.kind} · {i.text.slice(0,60)||i.id}</option>)}</select></label>
+  {item&&['image','pdf'].includes(item.kind)&&<SharedCanvasAssetPreview key={`${item.id}:${item.attachmentId}`} client={client} item={item} localBlob={originals.current.get(item.id)} isScoped={isScoped} disabled={disabled} onPage={page=>patch({source:{...item.source,page}})}/>}
   {item&&<fieldset disabled={disabled}><legend>Selected {item.kind}</legend>
    <label>Item text<textarea className="bui-field" aria-label="Shared canvas item text" value={item.text} onChange={e=>patch({text:e.target.value})}/></label>
    {(['x','y','width','height'] as const).map(field=><label key={field}>{field}<input className="bui-field" aria-label={`Shared item ${field}`} type="number" value={item[field]} onChange={e=>{if(e.target.value!=='')commit(editGeometry(board.items,item.id,{x:item.x,y:item.y,width:item.width,height:item.height,[field]:Number(e.target.value)}))}}/></label>)}
