@@ -1,3 +1,4 @@
+import {SourceLogo,logoDomainFromImage} from './SourceLogo'
 import React, { memo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { HoverImageLink } from '@/components/ui/hover-image-link/HoverImageLink'
@@ -107,6 +108,8 @@ export const Markdown = memo(function Markdown({ content: raw, streaming = false
           // Pictures in an answer open in the lightbox and sharpen in as they load.
           img({ src, alt }) {
             if (!src) return null
+            const logoDomain=logoDomainFromImage(String(src));if(logoDomain)return <SourceLogo key={logoDomain} domain={logoDomain}/>
+            try{const imageURL=new URL(String(src),location.origin);if(imageURL.hostname.replace(/\.$/,'')==='img.logo.dev'||(imageURL.origin===location.origin&&decodeURIComponent(imageURL.pathname).startsWith('/api/logos/')))return <span>Direct logo URL refused; use the source_logo tool without a token.</span>}catch{}
             return <ZoomableImage src={String(src)} alt={alt ?? ''} className="max-w-full rounded-[12px] my-2" style={{ maxHeight: 480 }} />
           },
           // Links in an answer are the way out of it, so they get the real

@@ -10,6 +10,7 @@ import { staticHandler } from './static'
 // Pure helpers — safe to import eagerly; the route itself is wired below.
 import { appRoot, installKind, sourceVersion, webBuild } from './build-info'
 import { updateRoutes } from './routes/update'
+import { logoRoutes } from './routes/logos'
 import { linkRoutes } from './routes/link'
 import { calendarRoutes } from './routes/calendar'
 import { botWebRoutes } from './routes/botweb'
@@ -113,6 +114,7 @@ async function main() {
   app.route('/api/feedback', feedbackRoutes)
   app.route('/api/calendar', calendarRoutes)
   app.route('/api/bots/web', botWebRoutes)
+  app.route('/api/logos',logoRoutes)
   app.route('/api/library', libraryRoutes)
   app.route('/api/proxy', proxyRoutes)
   app.route('/api/skills', skillsRoutes)

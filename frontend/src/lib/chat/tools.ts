@@ -635,6 +635,20 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name:'source_logo',
+    description:'Resolve an optional decorative source/company logo through configured Logo.dev. Use only a public source URL/domain already known from the user or research evidence, not guesses or bulk enumeration. Never request/handle API keys. Returns a token-free local image URL; if successful you may include it as Markdown image with domain-specific alt text and the returned attribution link. The UI requires explicit user loading. Logo availability is NOT evidence of credibility, authenticity, endorsement or factual correctness. Do not claim the logo was inspected or verified. On errors omit the logo; never fabricate a logo URL or retry automatically.',
+    parameters:{type:'object',properties:{source:{type:'string',description:'An already known public source HTTP(S) URL or domain. Only the domain is used.'}},required:['source'],additionalProperties:false},
+    run:async(args,ctx)=>{
+      const {sourceLogoDomain}=await import('../../../../shared/logos/source-logo')
+      let domain:string;try{domain=sourceLogoDomain(String(args?.source??''))}catch{return JSON.stringify({ok:false,error:'Invalid public source domain; no lookup made.'})}
+      const response=await fetch('/api/logos/resolve?source='+encodeURIComponent(domain),{signal:ctx.signal,credentials:'same-origin',cache:'no-store'})
+      const result=await response.json()
+      if(!response.ok||result?.ok!==true)return JSON.stringify({ok:false,error:'Logo provider unavailable or refused this domain. Omit the optional logo; do not invent or retry.'})
+      if(result.domain!==domain||result.imageUrl!=='/api/logos/image?domain='+encodeURIComponent(domain))return JSON.stringify({ok:false,error:'Unexpected logo descriptor refused.'})
+      return JSON.stringify({ok:true,domain,imageUrl:result.imageUrl,attributionUrl:'https://logo.dev',notice:'Optional brand mark, not source evidence or endorsement. Browser load requires user action; do not claim visual verification.'})
+    },
+  },
+  {
     name: 'library_read',
     description: 'Read a source as text. Wikipedia is read through its own API (clean article sections); any other page is reduced to headings, paragraphs, lists, quotes and code. Returns the sections and a word count, or explains that the page is rendered by its own JavaScript and cannot be reduced.',
     parameters: { type: 'object', properties: { url: { type: 'string', description: 'The full URL to read.' } }, required: ['url'] },
