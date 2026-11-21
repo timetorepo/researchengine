@@ -9,7 +9,7 @@ import {initializeOfflineHost,bootstrapOfflineOwner,issueOfflineInvite,exportPor
 import {parseManagedTeamConfig,startManagedTeam} from '../src/teams/managed-server'
 import {sharedBoards} from '../../shared/teams/board'
 import {sharedPosts} from '../../shared/teams/backchat'
-import {TeamJoin} from '../../shared/teams/client'
+import {TeamJoin,TeamClient} from '../../shared/teams/client'
 import {unlockPortableCredential} from '../../shared/teams/portable-credential'
 const root=await mkdtemp(join(tmpdir(),'re-managed-team-')),data=join(root,'host'),password=Buffer.from('test-only managed host passphrase')
 let running:Awaited<ReturnType<typeof startManagedTeam>>|undefined
@@ -54,6 +54,31 @@ try{
  await editor.submit(linkedPost)
  const linked=await owner.read();assert.deepEqual(sharedPosts(linked.state.posts,linked.state.sequence).at(-1)!.links,linkedPost.payload.links)
  await assert.rejects(editor.submit({...linkedPost,id:'stale-link-operation',payload:{...linkedPost.payload,id:'stale-linked-post',links:[{boardId:'shared-board',revision:1}]}}),(error:any)=>error.status===409&&error.outcome==='rejected')
+ // Two independent principals repeatedly race on the same loaded canvas revision.
+ const durations:number[]=[];let acknowledged=0,conflicts=0
+ for(let round=0;round<10;round++){
+  const snapshot=await owner.read(),base=sharedBoards(snapshot.state.boards,snapshot.state.sequence)[0],started=performance.now()
+  const contenders=[owner,editor].map((client,index)=>client.submit({id:`race-${round}-${index}`,actor:client.identity().member,kind:'team.board.replace.v1',payload:{boardId:base.id,expectedRevision:base.revision,title:`member-${index}-round-${round}`,items:base.items.map(i=>({...i,x:i.x+index+1,text:`round-${round}-member-${index}`}))}}))
+  const results=await Promise.allSettled(contenders);durations.push(performance.now()-started)
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.filter(r=>r.status==='rejected'&&r.reason.status===409).length,1);acknowledged++;conflicts++
+  const converged=await Promise.all([owner.read(),editor.read()]);assert.deepEqual(converged[0].state.boards,converged[1].state.boards)
+ }
+ let lostClient:TeamClient|undefined
+ await editor.persistCredential(async(destination,session)=>{lostClient=await TeamClient.fromSession(destination,session,{...clientConfig,fetch:async(url,init)=>{const response=await transport(url,init);if(String(url).endsWith('/operations'))throw new Error('Injected response loss after commit');return response}})})
+ const beforeLoss=await owner.read(),baseLoss=sharedBoards(beforeLoss.state.boards,beforeLoss.state.sequence)[0]
+ await assert.rejects(lostClient!.submit({id:'lost-canvas-response',actor:editor.identity().member,kind:'team.board.replace.v1',payload:{boardId:baseLoss.id,expectedRevision:baseLoss.revision,title:'Committed despite response loss',items:baseLoss.items}}))
+ const recovered=await editor.read();assert.equal(sharedBoards(recovered.state.boards,recovered.state.sequence)[0].revision,baseLoss.revision+1)
+ let delayedClient:TeamClient|undefined
+ const delayed:typeof fetch=async(url,init)=>{await new Promise<void>((resolve,reject)=>{const stop=()=>{clearTimeout(timer);reject(new Error('Injected delayed-link abort'))},timer=setTimeout(()=>{init?.signal?.removeEventListener('abort',stop);resolve()},120);init?.signal?.addEventListener('abort',stop,{once:true});if(init?.signal?.aborted)stop()});return transport(url,init)}
+ await editor.persistCredential(async(destination,session)=>{delayedClient=await TeamClient.fromSession(destination,session,{...clientConfig,fetch:delayed})})
+ const delayedStart=performance.now();await delayedClient!.read();assert.ok(performance.now()-delayedStart>=100);delayedClient!.disconnect()
+ await editor.persistCredential(async(destination,session)=>{delayedClient=await TeamClient.fromSession(destination,session,{...clientConfig,timeoutMs:30,fetch:delayed})})
+ await assert.rejects(delayedClient!.read(),(error:any)=>error.code==='stopped_or_timed_out');delayedClient!.disconnect()
+ let offlineClient:TeamClient|undefined
+ await editor.persistCredential(async(destination,session)=>{offlineClient=await TeamClient.fromSession(destination,session,{...clientConfig,fetch:async()=>{throw new Error('Injected disconnect')}})})
+ await assert.rejects(offlineClient!.read());offlineClient!.disconnect();lostClient!.disconnect()
+ assert.deepEqual((await owner.read()).state.boards,(await editor.read()).state.boards)
+ console.log(JSON.stringify({scenario:'local TLS concurrent canvas stress',principals:2,rounds:10,acknowledged,conflicts,converged:true,responseLossReconciled:true,disconnectRecovered:true,injectedDelayMs:120,timeoutMs:30,timeoutAborted:true,roundMs:durations.map(v=>Math.round(v)),scope:'loopback disposable CA; not WAN throughput/uptime certification'}))
  owner.disconnect();editor.disconnect();await Promise.all([running.close(),running.close()]);running=undefined
  const reopened=await openManagedTeam(data,data,password);await reopened.close()
  await writeFile(configFile,JSON.stringify(config),{mode:0o600})

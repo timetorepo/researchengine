@@ -1,16 +1,17 @@
+import {SharedBoardCanvas} from './SharedBoardCanvas'
 import {BoardDraftRecovery} from './BoardDraftRecovery'
 import {useEffect,useRef,useState} from 'react'
 import {TeamClient,TeamClientError,type ClientOperation} from '@/lib/teams/client'
 import {sharedBoards,type TeamBoard} from '../../../../shared/teams/board'
 
-/** First bounded shared editor: note-only documents, explicit snapshots and CAS.
- * Other item kinds remain readable and cannot be accidentally replaced here. */
+/** Shared draft canvas with explicit whole-document compare-and-swap publication.
+ * Local Board storage is never opened. Attachment transport is separate work. */
 export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boolean}){
  const [boards,setBoards]=useState<TeamBoard[]>([]),[draft,setDraft]=useState<TeamBoard>(),[loaded,setLoaded]=useState(false),[role,setRole]=useState('Viewer'),[busy,setBusy]=useState(false),[consent,setConsent]=useState(false),[pending,setPending]=useState<ClientOperation>(),[notice,setNotice]=useState('Load shared Boards explicitly. Local Boards are never read or imported.'),[conflict,setConflict]=useState(false)
  const active=useRef<AbortController|undefined>(undefined),alive=useRef(true),scope=useRef(isScoped),sequence=useRef(-1);scope.current=isScoped
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;active.current?.abort()}},[])
  const current=()=>alive.current&&scope.current()
- const editable=!!draft&&draft.items.every(item=>item.kind==='note')
+ const editable=!!draft
  const bytes=draft?new TextEncoder().encode(JSON.stringify(draft)).length:0
  const latest=draft?boards.find(b=>b.id===draft.id):undefined
  async function load(){
@@ -44,7 +45,7 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
  }
  function saveDraft(){if(!draft)return;const url=URL.createObjectURL(new Blob([JSON.stringify({format:'re-team-board-draft',team:client.identity().team,origin:client.identity().origin,operationId:pending?.id,board:draft},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='shared-board-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  return <section className="re-teams-card" aria-label="Shared Team Boards"><h2>Shared Team Boards</h2>
-  <p>Explicit snapshots, not live cursors or automatic sync. This editor supports note-only Boards; other item kinds are read-only. Private local Boards stay separate. Drafts and unresolved sends are memory-only: export before leaving.</p>
+  <p>Explicit snapshots, not live cursors or automatic sync. Shared canvas edits use reviewed whole-Board revisions, not live per-item merging. Private local Boards stay separate. Drafts and unresolved sends are memory-only: export before leaving.</p>
   <p role="status">{notice}</p><button className="bui-button" disabled={busy} onClick={()=>void load()}>Load / refresh shared Boards</button>
   <ul>{boards.map(board=><li key={board.id}><button className="bui-button" disabled={busy||!!pending||!!draft} onClick={()=>{edit(structuredClone(board));setConflict(false)}}>{board.title||'Untitled Board'} · revision {board.revision}</button></li>)}</ul>
   <button className="bui-button" disabled={busy||!!pending||!!draft||!loaded||role==='Viewer'} onClick={()=>edit({id:crypto.randomUUID(),revision:0,title:'New shared Board',items:[]})}>New shared note Board</button>
@@ -58,9 +59,10 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
    <div className="re-teams-actions"><button className="bui-button" onClick={saveDraft}>Export plaintext Board draft</button><button className="bui-button" disabled={busy||!!pending} onClick={()=>{if(window.confirm('Discard this in-memory draft? Export it first if needed.')){setDraft(undefined);setConsent(false);setConflict(false)}}}>Discard Board draft</button></div>
    <p>Board {draft.id} · expected revision {draft.revision} · {bytes} / 64000 UTF-8 draft bytes. No truncation.</p>
    {conflict&&<aside aria-label="Board conflict comparison"><h3>Latest host snapshot</h3><p>Your draft below has not changed. To adopt this snapshot, export your draft first, discard it, then select the Board again and manually reapply reviewed edits. No force overwrite.</p><pre className="re-team-post-text">{JSON.stringify(latest??{notice:'No matching Board in the last loaded snapshot'},null,2)}</pre></aside>}
+   <SharedBoardCanvas key={`${draft.id}:${draft.revision}`} board={draft} disabled={busy||!!pending||role==='Viewer'} onChange={edit}/>
    <fieldset disabled={busy||!!pending||!editable||role==='Viewer'}><legend>Shared Board draft</legend>
     <label>Title<input className="bui-field" aria-label="Shared Board title" value={draft.title} onChange={e=>edit({...draft,title:e.target.value})}/></label>
-    {draft.items.map((item,index)=><label key={item.id}>Note {index+1}<textarea className="bui-field" aria-label={`Shared note ${index+1}`} value={item.text} rows={4} onChange={e=>edit({...draft,items:draft.items.map((v,i)=>i===index?{...v,text:e.target.value}:v)})}/></label>)}
+    {draft.items.map((item,index)=><label key={item.id}>{item.kind} {index+1}<textarea className="bui-field" aria-label={`Shared ${item.kind} ${index+1}`} value={item.text} rows={4} onChange={e=>edit({...draft,items:draft.items.map((v,i)=>i===index?{...v,text:e.target.value}:v)})}/></label>)}
     <button className="bui-button" onClick={()=>edit({...draft,items:[...draft.items,{id:crypto.randomUUID(),kind:'note',text:'',x:24,y:24+draft.items.length*200,width:260,height:180}]})}>Add shared note</button>
     <label><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>I reviewed the entire shared Board draft and expected revision and consent to publish it to this Team.</label>
     <button className="bui-button" disabled={!loaded||!consent||conflict||bytes>64000} onClick={()=>void send()}>Publish shared Board revision</button>

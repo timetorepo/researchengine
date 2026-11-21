@@ -77,3 +77,7 @@ The spacing and summary passes are bounded implementations, not completion of ev
 ## Teams connection / operator continuation
 
 See `../teams-host-and-join.md` for the implemented portable-custody/join and explicit local host lifecycle checkpoint, commands, evidence and limitations. Real disposable-CA local TLS and built CLI stop/restart tests pass; browser join/custody tests use intercepted transport. This does not supersede the unfinished collaborative Board/BackChat, native custody, full accessibility/performance, website/demo and release rows above. No deployment or release.
+
+## Shared draft canvas / concurrent-client continuation
+
+The shared editor now exposes reused canvas controls for geometry, shapes, references, frames, strokes and connectors; non-note Boards are no longer globally read-only. Image/PDF original transfer/preview, live merge/presence and durable reconnect remain unfinished. See `../teams-canvas-validation.md` for exact implemented scope, the two-principal real-TLS 10-round concurrent-write test, injected faults, results and limits. Safe whole-revision conflict rejection is not certification of a finished live collaboration product or real-world connection stability. Local Rust scraper integration awaits the exact requested upstream binary; no binary installed. Website remains paused for proposal review.
