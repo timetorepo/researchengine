@@ -32,6 +32,7 @@ type Loader = () => Promise<unknown>
  * matches nothing (Home, the wildcard redirect) needs no chunk at all.
  */
 const ROUTES: { test: (path: string) => boolean; load: Loader }[] = [
+  { test: (p) => p === '/teams', load: () => import('@/components/teams/TeamsView') },
   { test: (p) => p === '/board' || p.startsWith('/board/'), load: () => import('@/components/board/BoardView') },
   { test: (p) => p === '/chat' || p.startsWith('/chat/'), load: () => import('@/components/chat/ChatView') },
   { test: (p) => p.startsWith('/settings'), load: () => import('@/components/settings/SettingsView') },

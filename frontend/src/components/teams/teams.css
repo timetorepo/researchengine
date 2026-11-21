@@ -1,0 +1,20 @@
+.re-teams-page { box-sizing:border-box; width:100%; max-width:920px; height:100%; min-width:0; margin:auto; overflow:auto; padding:20px 24px 32px; font-size:13px; overflow-wrap:anywhere; }
+.re-teams-page header { display:flex; align-items:center; gap:8px; }
+.re-teams-page h1 { font-size:22px; font-weight:600; }
+.re-teams-page h2 { font-size:15px; font-weight:600; }
+.re-teams-page h3 { font-weight:600; }
+.re-teams-page p { margin:10px 0; line-height:1.6; color:var(--text-2); }
+.re-teams-card { margin:14px 0; padding:16px; border:1px solid var(--surface-border); border-radius:12px; background:var(--surface); }
+.re-teams-page :is(fieldset,label,dd) { min-width:0; }
+.re-teams-page label { display:block; margin:12px 0; }
+.re-teams-page :is(input[type=password],input:not([type])) { display:block; width:100%; min-width:0; margin-top:6px; }
+.re-teams-page input[type=file] { display:block; max-width:100%; margin-top:6px; }
+.re-teams-page input[type=checkbox] { margin-right:8px; }
+.re-teams-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.re-teams-notice { display:flex; align-items:start; gap:8px; padding:8px 12px; background:var(--surface); border-left:2px solid var(--primary); }
+.re-teams-notice svg { flex:none; margin-top:12px; }
+.re-teams-review { padding-top:12px; border-top:1px solid var(--surface-border); }
+.re-teams-page [role=alert] { padding:10px; border-left:2px solid var(--primary); color:var(--text); }
+.re-teams-page dt { font-size:11px; color:var(--text-2); margin-top:8px; }
+.re-teams-page summary { cursor:pointer; }
+@media(max-width:600px) { .re-teams-page { padding:16px; } .re-teams-card { padding:12px; } }

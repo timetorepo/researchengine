@@ -7,13 +7,13 @@ export function matchesSection(path: string, section: string): boolean {
 
 export function floatingNavigationVisible(path: string, enabled: boolean, workbenchOpen = false): boolean {
   return enabled && !(matchesSection(path, '/code') && workbenchOpen) && !matchesSection(path, '/chat') && !matchesSection(path, '/code/codersa')
-    && !matchesSection(path, '/board') && !matchesSection(path, '/settings') && !(/^\/workflows\/.+/.test(path))
+    && !matchesSection(path, '/teams') && !matchesSection(path, '/board') && !matchesSection(path, '/settings') && !(/^\/workflows\/.+/.test(path))
 }
 
 export function shellSectionLabel(path: string): string {
   const sections = [
     ['/code/codersa', 'Codersa'], ['/code', 'Coding'], ['/chats', 'Chats'], ['/chat', 'Research'],
-    ['/board', 'Board'], ['/library', 'Library'], ['/workflows', 'Workflows'], ['/quiz', 'Learn'], ['/articles', 'Articles'],
+    ['/teams', 'Teams'], ['/board', 'Board'], ['/library', 'Library'], ['/workflows', 'Workflows'], ['/quiz', 'Learn'], ['/articles', 'Articles'],
     ['/compare', 'Compare'], ['/bots', 'Bots'], ['/crm', 'CRM'], ['/calendar', 'Calendar'],
     ['/flood', 'Agent Flood'], ['/alpha', 'removerAlpha'], ['/feedback', 'Feedback'],
     ['/marketplace', 'Marketplace'], ['/settings', 'Settings'], ['/secrets', 'Secrets'],

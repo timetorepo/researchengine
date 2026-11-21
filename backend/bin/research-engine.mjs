@@ -13,7 +13,17 @@ const dist = join(root, 'dist', 'index.js')
 const bundled = join(root, 'server', 'index.js')
 const frontendDist = join(root, 'frontend-dist')
 
-if (existsSync(dist)) {
+if (process.argv[2] === 'teams') {
+  process.argv.splice(2, 1)
+  const cli = [join(root, 'dist', 'teams-cli.js'), join(root, 'server', 'teams-cli.js')].find(existsSync)
+  if (cli) await import(cli)
+  else {
+    const tsx = [join(root, 'node_modules/tsx/dist/cli.mjs'), join(root, '../node_modules/tsx/dist/cli.mjs')].find(existsSync)
+    if (!tsx) { console.error('Teams: build the backend first.'); process.exit(1) }
+    const child = spawn(process.execPath, [tsx, join(root, 'scripts/teams-host.ts'), ...process.argv.slice(2)], { stdio: 'inherit' })
+    child.on('exit', code => process.exit(code ?? 1))
+  }
+} else if (existsSync(dist)) {
   await import(dist)
 } else if (existsSync(bundled)) {
   // Packaged tree: `bin/` sits beside the bundled `server/`, and the frontend is

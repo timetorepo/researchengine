@@ -37,6 +37,7 @@ const NAV = [
   { to: '/quiz', label: 'Learn', icon: GraduationCap },
   { to: '/articles', label: 'Articles', icon: BookOpen },
   { to: '/board', label: 'Board', icon: LayoutDashboard },
+  { to: '/teams', label: 'Teams', icon: Users },
   { to: '/library', label: 'Library', icon: Library },
   { to: '/compare', label: 'Compare', icon: Swords },
   { to: '/workflows', label: 'Workflows', icon: WorkflowIcon },

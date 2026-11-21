@@ -90,3 +90,58 @@ export async function recoverOfflineOwner(keyRoot:string,dataRoot:string,owner:s
     return{team:unlocked.team,checkpoint:result.session!.receipt,encryptedCredentialPublished:true}
   }finally{try{await host?.close()}finally{clearHostKeys(unlocked)}}
 }
+
+/** Trusted-local lifecycle adapter. Not a web route: never expose filesystem
+ * paths, passphrases, bootstrap or recovered credentials through the host API. */
+export async function openManagedTeam(keyRoot:string,dataRoot:string,password:Buffer,bootstrap?:{owner:string;durationMs:number}) {
+  const unlocked=await load(keyRoot,password)
+  let host:TeamHost|undefined
+  try {
+    await privatePath(dataRoot,true);await privatePath(join(dataRoot,'journal'),true);await privatePath(join(dataRoot,'journal','operations.log'),false);await privatePath(join(dataRoot,'objects'),true)
+    const objects=await TeamObjects.open(join(dataRoot,'objects'),unlocked.keys.objects,unlocked.team,{create:false})
+    const result=await TeamHost.open(join(dataRoot,'journal'),unlocked.keys.journal,objects,{restoreKey:unlocked.keys.backup,...(bootstrap?{bootstrap}:{})})
+    host=result.host;let closed:Promise<void>|undefined
+    return {team:unlocked.team,host,session:result.session,close:()=>closed??=(async()=>{try{await host!.close()}finally{clearHostKeys(unlocked)}})()}
+  } catch(error) {try{await host?.close()}finally{clearHostKeys(unlocked)};throw error}
+}
+async function newPrivateDestination(path:string){
+  await privatePath(dirname(path),true)
+  await lstat(path).then(()=>{throw new Error('Destination already exists')},error=>{if(error.code!=='ENOENT')throw error})
+}
+export async function bootstrapOfflineOwner(root:string,owner:string,durationMs:number,credentialFile:string,password:Buffer){
+  await newPrivateDestination(credentialFile)
+  const opened=await openManagedTeam(root,root,password,{owner,durationMs})
+  try{
+    if(!opened.session)throw new Error('Owner bootstrap did not produce a credential')
+    await publish(credentialFile,await sealOwnerCredential(opened.team,opened.session,password))
+    return{team:opened.team,checkpoint:opened.session.receipt,encryptedCredentialPublished:true}
+  }finally{await opened.close()}
+}
+/** Output is a new private capability-delivery file. Never print its token. */
+export async function issueOfflineInvite(root:string,ownerFile:string,origin:string,role:'Admin'|'Editor'|'Viewer',durationMs:number,sessionDurationMs:number,destination:string,password:Buffer){
+  const url=new URL(origin);if(url.protocol!=='https:'||url.origin!==origin)throw new Error('Canonical HTTPS origin required')
+  await newPrivateDestination(destination);await privatePath(ownerFile,false)
+  const opened=await openManagedTeam(root,root,password)
+  try{
+    const {unlockOwnerCredential}=await import('./credential')
+    const session=await unlockOwnerCredential(await readFile(ownerFile),password,opened.team)
+    const invite=await opened.host.issueInvite(session.credential,role,durationMs,sessionDurationMs)
+    await publish(destination,Buffer.from(JSON.stringify({format:'re-teams-invitation',origin,team:opened.team,...invite})))
+    return{team:opened.team,role,expiresAt:invite.expiresAt,checkpoint:invite.receipt,privateInvitationFilePublished:true}
+  }finally{await opened.close()}
+}
+/** Convert a Node scrypt Owner artifact to a distinct portable browser artifact.
+ * Identity is resolved locally against the authenticated host, never guessed. */
+export async function exportPortableOwner(root:string,ownerFile:string,origin:string,destination:string,password:Buffer){
+  await newPrivateDestination(destination);await privatePath(ownerFile,false)
+  const opened=await openManagedTeam(root,root,password)
+  try{
+    const {unlockOwnerCredential}=await import('./credential'),{sealPortableCredential}=await import('../../../shared/teams/portable-credential')
+    const session=await unlockOwnerCredential(await readFile(ownerFile),password,opened.team),principal=await opened.host.read(session.credential)
+    if(principal.role!=='Owner')throw new Error('Owner required')
+    const text=password.toString('utf8');if(!Buffer.from(text,'utf8').equals(password))throw new Error('Portable export requires UTF-8 passphrase')
+    const encrypted=await sealPortableCredential({origin,team:opened.team},{...session,member:principal.member,role:principal.role},text)
+    await publish(destination,Buffer.from(encrypted))
+    return{team:opened.team,origin,portableEncryptedCredentialPublished:true}
+  }finally{await opened.close()}
+}

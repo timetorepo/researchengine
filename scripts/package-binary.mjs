@@ -34,7 +34,7 @@ const sh = (cmd, cwd = root) => { console.log(`$ ${cmd}`); execSync(cmd, { cwd, 
 
 // 1. Build both halves
 if (rebuild || !existsSync(join(root, 'frontend/dist/index.html'))) sh('npm run build --workspace frontend')
-if (rebuild || !existsSync(join(root, 'backend/dist/index.js'))) sh('npm run build --workspace backend')
+if (rebuild || (!existsSync(join(root, 'backend/dist/index.js')) || !existsSync(join(root, 'backend/dist/teams-cli.js')))) sh('npm run build --workspace backend')
 
 if (useBun) {
   // Single-file executable: frontend dist is served from a path next to the binary.

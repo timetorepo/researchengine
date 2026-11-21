@@ -24,7 +24,7 @@ function receipt(value:unknown):asserts value is ClientReceipt{
  if(!record(value)||Object.keys(value).sort().join(',')!=='digest,sequence'||!Number.isSafeInteger(value.sequence)||value.sequence<1||!digest(value.digest))throw new TeamClientError('invalid_receipt',0)
 }
 async function validateSession(value:unknown,destination:TeamEndpoint,now:number):Promise<ClientSession>{
- if(!record(value)||!id(value.member)||!['Owner','Admin','Editor','Viewer'].includes(value.role)||typeof value.credential!=='string'||!/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(value.credential)||!digest(value.digest)||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=now)throw new TeamClientError('invalid_session',0)
+ if(!record(value)||!id(value.member)||!['Owner','Admin','Editor','Viewer'].includes(value.role)||typeof value.credential!=='string'||!/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(value.credential)||!digest(value.digest)||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=now||value.expiresAt>8640000000000000)throw new TeamClientError('invalid_session',0)
  receipt(value.receipt)
  const bytes=await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(destination.team+'\0'+value.credential))
  const expected=Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('')

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external && esbuild scripts/teams-host.ts --bundle --platform=node --format=esm --outfile=dist/teams-cli.js --packages=external",
     "api-json-test": "node scripts/api-json-test.mjs",
     "signin-flights-test": "tsx scripts/signin-flights-test.ts",
     "pipedream-test": "tsx scripts/pipedream-test.ts",
@@ -15,7 +15,10 @@
     "github-skill-test": "tsx scripts/github-skill-test.ts",
     "signin-error-test": "tsx scripts/signin-error-test.ts",
     "teams-test": "tsx scripts/teams-journal-test.ts && tsx scripts/teams-objects-test.ts && tsx scripts/teams-recovery-test.ts && tsx scripts/teams-replay-test.ts && tsx scripts/teams-pending-test.ts && tsx scripts/teams-operator-test.ts && tsx scripts/teams-host-test.ts && tsx scripts/teams-owner-recovery-test.ts && tsx scripts/teams-invites-test.ts && tsx scripts/teams-https-test.ts && tsx scripts/teams-client-test.ts",
-    "teams-offline": "tsx scripts/teams-offline.ts"
+    "teams-offline": "tsx scripts/teams-offline.ts",
+    "teams-host": "tsx scripts/teams-host.ts",
+    "teams-portable-test": "tsx scripts/teams-portable-test.ts",
+    "teams-managed-test": "npm run build && tsx scripts/teams-managed-test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
