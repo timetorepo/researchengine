@@ -3,7 +3,7 @@
 @font-face { font-family: 'Work Sans'; src: url('/fonts/native-studio/work-sans-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
 :root { --font-brand: 'Bricolage Grotesque', var(--font-ui); }
 html[data-typeface=allo] { font-optical-sizing: auto; }
-.re-native-switch { display:flex; width:100%; min-height:44px; align-items:center; justify-content:space-between; gap:20px; padding:8px 0; }
+.re-native-switch { display:flex; width:100%; min-height:44px; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; }
 .re-native-switch[data-disabled=true] { opacity:.5; }
 .re-native-switch [data-slot=switch-control] { flex:none; position:relative; width:36px; height:22px; padding:0; border-radius:12px; border:1px solid color-mix(in srgb,var(--text-2) 60%,transparent); background:var(--elevated); cursor:pointer; transition:background-color 120ms ease; }
 .re-native-switch [data-slot=switch-control][aria-checked=true] { background:var(--primary); border-color:var(--primary); }
@@ -23,7 +23,8 @@ html[data-typeface=allo] { font-optical-sizing: auto; }
 .bui-settings-rail { background:var(--surface); padding:8px; }
 .bui-settings-rail .bui-nav-button { min-height:34px; border-radius:7px; padding:7px 10px; }
 .bui-settings-rail .bui-nav-button[aria-current=page] { background:color-mix(in srgb,var(--primary) 14%,var(--surface)); box-shadow:inset 2px 0 var(--primary); }
-.bui-settings-content { padding:28px 32px; }
+.bui-settings-content { padding:20px 24px; overflow-wrap:anywhere; }
+.bui-settings-content > div { margin-inline:0; }
 .bui-settings-content h2 { font-size:20px; line-height:1.3; font-weight:600; letter-spacing:-.025em; }
 .bui-settings-content > div > div > p:first-of-type { color:var(--text-2); }
 .bui-field,.bui-button { border-radius:8px; }
@@ -63,7 +64,7 @@ html[data-typeface=allo] { font-optical-sizing: auto; }
    inside its measured bottom region instead of placing actions outside the hit surface. */
 .re-islandcn-detail { max-height:112px; overflow-y:auto; overscroll-behavior:contain; padding:4px 3px 8px; scrollbar-width:thin; }
 /* Opt-in Glisse adapters. Base UI keeps popup keyboard/focus contracts. */
-.re-glass-switch-row { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:44px; padding:8px 0; }
+.re-glass-switch-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; padding:8px 0; }
 .re-glass-switch-row[data-disabled=true] { opacity:.5; }
 html[data-liquid-redesign=on] { --lg-foreground:var(--text); --lg-muted:var(--text-2); --lg-glass:color-mix(in srgb,var(--surface) 78%,transparent); --lg-surface:color-mix(in srgb,var(--surface) 92%,transparent); --lg-edge:var(--surface-border); --lg-ring:var(--primary); --lg-on:#30b866; --lg-fill:var(--primary); --lg-segment-label:var(--text); --lg-segment-thumb:var(--elevated); --lg-blur:12px; }
 html[data-liquid-redesign=on] :is(.bui-button,.bui-field,.bui-select-popup,.bui-popover,.re-focused-topbar,.bui-dialog-header) { background:color-mix(in srgb,var(--surface) 88%,transparent); backdrop-filter:blur(12px) saturate(1.3); border-color:var(--surface-border); box-shadow:inset 0 1px 0 #ffffff12; border-radius:12px; }
@@ -97,3 +98,9 @@ html[data-liquid-redesign=on] {
 @media(forced-colors:active) { .re-static-navigation { border-color:ButtonText; } .re-static-navigation a[aria-current=page] { outline:2px solid Highlight; } }
 @font-face { font-family:'SN Pro'; src:url('/fonts/native-studio/SNProVariable.woff2') format('woff2'); font-weight:200 900; font-style:normal; font-display:swap; }
 @font-face { font-family:'SN Pro'; src:url('/fonts/native-studio/SNProVariableItalic.woff2') format('woff2'); font-weight:200 900; font-style:italic; font-display:swap; }
+
+/* Browsing pages share a compact gutter; editors/canvas keep their own sizing. */
+.re-page-content { box-sizing:border-box; width:100%; min-width:0; max-width:1000px; margin-inline:auto; padding:20px 24px 32px; }
+.re-page-content :is(header,fieldset) { min-width:0; }
+.re-page-content :is(h1,h2,h3,p,label) { overflow-wrap:anywhere; }
+@media(max-width:640px) { .re-page-content { padding:16px 16px 24px; } }

@@ -47,13 +47,13 @@ export function LibraryView() {
   const scroller = useScrollKeeper<HTMLDivElement>(`${tab}:${folder}`)
   return (
     <div ref={scroller} data-ui="library-scroller" className="h-full overflow-y-auto">
-      <div className="max-w-[880px] mx-auto px-5 py-8">
+      <div className="re-page-content">
         <h1 className="text-xl font-semibold mb-1" style={{ letterSpacing: '-0.02em' }}>Library</h1>
         <p className="text-[12.5px] mb-5" style={{ color: 'var(--text-2)' }}>Everything your research collects, organized.</p>
 
         <AppleMailTabs<Tab>
           aria-label="Library sections"
-          className="mb-6"
+          className="mb-4"
           value={tab}
           onValueChange={setTab}
           tabs={[

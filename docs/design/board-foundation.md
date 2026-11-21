@@ -1,5 +1,7 @@
 # Local Board — storage and first workspace checkpoint
 
+Current cross-product roll-up: [implementation-status.md](implementation-status.md). Sections below are historical checkpoints; use the roll-up and later checkpoints rather than an early “remaining work” paragraph in isolation.
+
 Implementation progress, not a release note. The first local workspace is now available at /board (sidebar More tools → Board). This is not the complete Board milestone.
 
 ## Implemented

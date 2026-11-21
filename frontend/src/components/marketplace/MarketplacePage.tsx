@@ -494,7 +494,7 @@ export function MarketplacePage() {
     const next = apps && index >= 0 && index < apps.length - 1 ? apps[index + 1] : null
     return (
       <div className="h-full overflow-y-auto" data-marketplace-app={slug}>
-        <div className="mx-auto w-full max-w-4xl px-5 py-6 md:px-8">
+        <div className="re-page-content">
           <AppDetail
             key={slug}
             app={app}
@@ -522,7 +522,7 @@ export function MarketplacePage() {
   // ------------------------------------------------------------------ list
   return (
     <div className="h-full overflow-y-auto" data-marketplace>
-      <div className="mx-auto w-full max-w-5xl px-5 py-6 md:px-8 space-y-5">
+      <div className="re-page-content space-y-4">
         <header className="flex flex-wrap items-end gap-3">
           <div className="min-w-0 flex-1">
             <h1 className="flex items-center gap-2 text-[22px] font-semibold" style={{ letterSpacing: '-0.02em' }}>
@@ -532,7 +532,7 @@ export function MarketplacePage() {
               Connect the apps the chat, the coding mode and the bots can use. {configured ? `${count} connected.` : 'Add your Composio key once to start.'}
             </p>
           </div>
-          <ButtonGroup size="sm" aria-label="Marketplace sections">
+          <ButtonGroup size="sm" className="flex-wrap gap-y-1 max-w-full" aria-label="Marketplace sections">
             {tabs.map(([id, label]) => (
               <Button key={id} variant={tab === id ? 'primary' : 'ghost'} onPress={() => useUI.setState({ connectorsTab: id })}>
                 {label}

@@ -17,4 +17,18 @@ await test('reported spend beyond reservation stops further calls',async()=>{let
 await test('provider failure retains partial output/usage and stops remaining work',async()=>{let last:AgentStage[]=[];await assert.rejects(executeMultiAgent(config,'Task',async()=>{throw new AgentStageError('refusal','partial evidence',usage)},s=>last=s));assert.equal(last[0].text,'partial evidence');assert.equal(last[0].usage!.total,30);assert.equal(last[0].status,'failed');assert.equal(last.slice(1).every(stage=>stage.status==='cancelled'),true)})
 await test('external cancellation reaches both active specialists; no reviewer/final',async()=>{const controller=new AbortController();let active=0,last:AgentStage[]=[];await assert.rejects(executeMultiAgent(config,'Task',async(stage,_max,signal)=>{if(stage.id==='plan')return {text:'plan',usage};return await new Promise((_resolve,reject)=>{signal.addEventListener('abort',()=>reject(new AgentStageError('stopped','partial',usage)),{once:true});active++;if(active===2)controller.abort()})},s=>last=s,controller.signal));assert.equal(active,2);assert.equal(last.filter(stage=>stage.role==='specialist').every(stage=>stage.status==='cancelled'),true);assert.equal(last.find(stage=>stage.id==='review')!.status,'cancelled')})
 await test('invalid config and non-finite usage fail closed',async()=>{assert.throws(()=>validateMultiAgent({...config,concurrency:3},'Task'));assert.throws(()=>validateMultiAgent({...config,maxCalls:6},'Task'));assert.throws(()=>validateMultiAgent({...config,specialistJobs:[]},'Task'));await assert.rejects(executeMultiAgent(config,'Task',async()=>({text:'public',usage:{...usage,total:NaN}}),()=>{}))})
+await test('Board evidence is scoped per specialist and not repeated to leader/reviewer/final',async()=>{
+ const inputs:Record<string,string>={}
+ const evidence={sources:[{id:'a',label:'Source A',content:'SOURCE_A_END'},{id:'b',label:'Source B',content:'SOURCE_B_END'}],specialistSourceIds:[['a'],['b']]}
+ await executeMultiAgent({...config,evidence},'Task only',async stage=>{inputs[stage.id]=stage.input;return {text:'Concise public work product citing [board:a]',usage}},()=>{})
+ assert.ok(inputs['specialist-0'].includes('SOURCE_A_END'));assert.ok(!inputs['specialist-0'].includes('SOURCE_B_END'))
+ assert.ok(inputs['specialist-1'].includes('SOURCE_B_END'));assert.ok(!inputs['specialist-1'].includes('SOURCE_A_END'))
+ for(const id of ['plan','review','final'])assert.ok(!inputs[id].includes('SOURCE_A_END')&&!inputs[id].includes('SOURCE_B_END'))
+ assert.ok(inputs.final.includes('Concise public work product'))
+ assert.throws(()=>validateMultiAgent({...config,evidence:{...evidence,specialistSourceIds:[['unknown'],[]]}},'Task'))
+ assert.throws(()=>validateMultiAgent({...config,evidence:{...evidence,specialistSourceIds:[['a','a'],[]]}},'Task'))
+ let calls=0
+ await assert.rejects(executeMultiAgent({...config,inputBudget:700,evidence:{...evidence,sources:[{...evidence.sources[0],content:'x'.repeat(5000)},evidence.sources[1]]}},'Task',async()=>{calls++;return {text:'Small plan',usage}},()=>{}))
+ assert.ok(calls<=2,'Oversized evidence must block its specialist before dispatch, with no silent clipping')
+})
 console.log(`PASS ${passed} bounded MultiAgent engine checks; fake request adapters only`)

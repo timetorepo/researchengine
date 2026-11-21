@@ -138,7 +138,7 @@ export function HomeScreen() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="re-home-content relative z-10 max-w-[860px] mx-auto px-5 pt-[9vh] pb-16">
+      <div className="re-home-content relative z-10 max-w-[860px] mx-auto px-4 sm:px-5 pt-[clamp(24px,4vh,48px)] pb-8">
         {/* A welcome for the AI-product themes; off in Settings → Appearance. */}
         {!welcomeCard && <AIThemeWelcome onFocusInput={() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus()} />}
 
@@ -159,7 +159,7 @@ export function HomeScreen() {
             />
             </PaintedBackdrop>
           ) : (
-            <div data-ui="home-hero" className="mb-7 flex min-h-[210px] items-center justify-center px-6 py-10 text-center">
+            <div data-ui="home-hero" className="mb-4 flex min-h-[120px] items-center justify-center px-4 py-6 text-center">
             <RevolvingText
               items={verbs.map((v) => ({ word: v.word, icon: v.icon, color: v.color }))}
               prefix="What do you want to"

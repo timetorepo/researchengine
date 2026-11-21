@@ -87,6 +87,15 @@ try {
     useStore.setState({ settings: { ...useStore.getState().settings, workspaceLayout: 'studio', experimentalTabBar: true, glassMode: 'blur', navigationGlassStrength: 80 } })
   })
   await page.getByRole('complementary', { name: 'Workspace panel' }).waitFor()
+  // Reduced motion intentionally replaces Glisse with standard links. Verify that
+  // first; enable motion explicitly only for the material-specific assertion.
+  await page.getByTestId('floating-navigation').locator('.re-static-navigation').waitFor()
+  assert.equal(await page.getByTestId('floating-navigation').getAttribute('data-material'), 'off')
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.evaluate(async () => {
+    const { useStore } = await import('/src/stores/useStore.ts')
+    useStore.setState(s => ({ settings: { ...s.settings, reduceMotion: false } }))
+  })
   const glass = page.getByTestId('floating-navigation').locator('.lg-tab-bar-glass')
   await glass.waitFor()
   assert.match(await glass.evaluate((el) => getComputedStyle(el).backdropFilter), /blur\(24px\)/)

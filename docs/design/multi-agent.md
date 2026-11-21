@@ -1,5 +1,7 @@
 # Bounded MultiAgent — first implementation checkpoint
 
+Current cross-product roll-up: [implementation-status.md](implementation-status.md). Sections below are historical checkpoints; use the roll-up and later checkpoints rather than an early “remaining work” paragraph in isolation.
+
 Implemented 2026-11-12. Unreleased; no live provider validation.
 
 ## Scope

@@ -1,5 +1,7 @@
 # Approved collaboration and product roadmap
 
+Current cross-product roll-up: [implementation-status.md](implementation-status.md). Sections below are historical checkpoints; use the roll-up and later checkpoints rather than an early “remaining work” paragraph in isolation.
+
 User approved the proposal and recommended host-trusted encryption approach.
 Implementation proceeds in testable milestones; this is not a release note.
 

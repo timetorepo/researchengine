@@ -241,11 +241,11 @@ export function ChatsView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-[1080px] mx-auto px-5 pt-7 pb-16">
+      <div className="re-page-content">
         {/* Header: the page's title and its one search. Counts sit with the title so the
             scale of the history is visible before any row is. */}
-        <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-          <div className="flex items-baseline gap-3">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <div className="flex flex-wrap items-baseline gap-2">
             <div className="flex items-center gap-2"><MessageSquare size={18} style={{ color: 'var(--primary)' }} /><h1 className="text-[20px] font-semibold tracking-tight">Chats</h1></div>
             <span className="text-[12px] tabular-nums" style={{ color: 'var(--text-3)' }}>{chats.length} total · on this device</span>
           </div>
@@ -257,7 +257,7 @@ export function ChatsView() {
         {/* GooeyNav (ReactBits): the kind switch. The pill slides and stretches
             between All, Research and Coding; keyboard and screen-reader
             selection stay on the same index. */}
-        <div className="flex items-center gap-2 mb-6 max-w-[420px]">
+        <div className="flex items-center gap-2 mb-4 max-w-[420px]">
           <div className="flex-1 min-w-0">
             {/* Settings → Appearance can turn the gooey pill off; plain HeroUI tabs
                 then do the same job with the same selection. */}
