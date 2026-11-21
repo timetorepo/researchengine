@@ -29,3 +29,8 @@ const linkedChat={...chat,links:[{boardId:'board-one',revision:2,itemId:'note-on
 assert.deepEqual(await unlockBackChatDraft(await sealBackChatDraft(scope,linkedChat,password),password,scope,'editor'),linkedChat)
 for(const links of [[{boardId:'board',revision:0}],[{boardId:'board',revision:1,itemId:'invalid id'}],[{boardId:'board',revision:1},{boardId:'board',revision:1}]])await assert.rejects(sealBackChatDraft(scope,{...chat,links},password))
 console.log('PASS encrypted BackChat references: exact pending link roundtrip, invalid revision/item and duplicate refusal; older link-free draft roundtrip retained')
+
+const attached={...linkedChat,attachments:['b'.repeat(64)]}
+assert.deepEqual(await unlockBackChatDraft(await sealBackChatDraft(scope,attached,password),password,scope,'editor'),attached)
+for(const attachments of [['invalid'],['b'.repeat(64),'b'.repeat(64)],Array.from({length:9},(_,i)=>String(i+1).repeat(64))])await assert.rejects(sealBackChatDraft(scope,{...chat,attachments},password))
+console.log('PASS encrypted attachment references roundtrip and invalid/duplicate/count refusal')

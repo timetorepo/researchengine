@@ -32,8 +32,8 @@ function domain(error:unknown):Rejection{
  if(/Invalid |Unsupported |Empty BackChat|Connector |Board link|Cyclic |Parent must|Image\/PDF|Drawing points|Endpoints on/.test(message))return new Rejection(400,'invalid_request')
  return new Rejection(500,'host_failure') // Never reflect arbitrary crypto/parser/path/secret error strings.
 }
-function body(req:IncomingMessage,limit:number,timeout:number):Promise<unknown>{
- if(req.headers['content-type']!=='application/json'||req.headers['content-encoding']!==undefined)reject(415,'json_required')
+function body(req:IncomingMessage,limit:number,timeout:number,binary=false):Promise<unknown>{
+ if(req.headers['content-type']!==(binary?'application/octet-stream':'application/json')||req.headers['content-encoding']!==undefined)reject(415,'json_required')
  const length=req.headers['content-length']
  if(length!==undefined&&(!/^\d+$/.test(length)||Number(length)>limit))reject(413,'control_body_too_large')
  return new Promise((resolve,rejectBody)=>{
@@ -41,7 +41,7 @@ function body(req:IncomingMessage,limit:number,timeout:number):Promise<unknown>{
   const clean=()=>{clearTimeout(timer);req.off('data',data);req.off('end',end);req.off('error',error);req.off('aborted',aborted)}
   const fail=(value:Error)=>{clean();req.pause();rejectBody(value)}
   const data=(chunk:Buffer)=>{size+=chunk.length;if(size>limit){fail(new Rejection(413,'control_body_too_large'));return}chunks.push(chunk)}
-  const end=()=>{clean();try{resolve(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))))}catch{rejectBody(new Rejection(400,'invalid_json'))}}
+  const end=()=>{clean();try{if(binary){resolve(Buffer.concat(chunks));return}resolve(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks))))}catch{rejectBody(new Rejection(400,'invalid_json'))}}
   const error=()=>fail(new Rejection(400,'request_incomplete')),aborted=()=>fail(new Rejection(400,'request_incomplete'))
   const timer=setTimeout(()=>fail(new Rejection(408,'request_timeout')),timeout)
   req.on('data',data);req.once('end',end);req.once('error',error);req.once('aborted',aborted)
@@ -105,6 +105,16 @@ export function createTeamHttpsServer(host:TeamHost,options:TeamHttpsOptions):Se
    const principal=await host.read(credential)
    if(req.method==='GET'&&route==='/state'){json(res,200,principal);return}
    if(req.method==='GET'&&route==='/access'){json(res,200,await host.access(credential));return}
+   if(req.method==='GET'&&/^\/attachments\/[a-f0-9]{64}$/.test(route)){
+    const bytes=await host.getAttachment(credential,route.split('/')[2]);if(bytes.length>Math.min(limits.controlBytes,1048576))reject(413,'attachment_budget_exceeded')
+    res.setHeader('Content-Type','application/octet-stream');res.setHeader('Content-Disposition','attachment; filename="team-attachment.bin"');res.setHeader('Content-Length',bytes.length);res.end(bytes);return
+   }
+   if(req.method==='POST'&&route==='/attachments'){
+    if(principal.role==='Viewer')reject(403,'forbidden')
+    const bytes=await body(req,Math.min(limits.controlBytes,1048576),limits.requestTimeoutMs,true) as Buffer
+    if(!bytes.length)reject(400,'empty_attachment')
+    json(res,200,{attachmentId:await host.putAttachment(credential,bytes)});return
+   }
    if(req.method!=='POST')reject(404,'not_found')
    const value=await body(req,limits.controlBytes,limits.requestTimeoutMs)
    if(route==='/operations'){

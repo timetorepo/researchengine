@@ -31,7 +31,7 @@ try{
  running=await startManagedTeam(config,password,true)
  await assert.rejects(openManagedTeam(data,data,password),'Exclusive writer must prevent offline edits while serving')
  const ca=await readFile(certPath);let requests=0
- const transport:typeof fetch=async(url,init)=>{requests++;const address=running!.server.address();if(!address||typeof address==='string')throw new Error('No listener');return new Promise((resolve,reject)=>{const req=request({hostname:'127.0.0.1',port:address.port,servername:'team.test',path:new URL(String(url)).pathname,method:init?.method,ca,agent:false,headers:{...init?.headers,Host:'team.test',Origin:'https://app.test'}},res=>{const chunks:Buffer[]=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>resolve(new Response(Buffer.concat(chunks),{status:res.statusCode,headers:{'Content-Type':'application/json'}})))});req.on('error',reject);init?.signal?.addEventListener('abort',()=>req.destroy(new Error('aborted')),{once:true});req.end(init?.body)})}
+ const transport:typeof fetch=async(url,init)=>{requests++;const address=running!.server.address();if(!address||typeof address==='string')throw new Error('No listener');return new Promise((resolve,reject)=>{const req=request({hostname:'127.0.0.1',port:address.port,servername:'team.test',path:new URL(String(url)).pathname,method:init?.method,ca,agent:false,headers:{...init?.headers,Host:'team.test',Origin:'https://app.test'}},res=>{const chunks:Buffer[]=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>resolve(new Response(Buffer.concat(chunks),{status:res.statusCode,headers:{'Content-Type':String(res.headers['content-type']??'')}})))});req.on('error',reject);init?.signal?.addEventListener('abort',()=>req.destroy(new Error('aborted')),{once:true});req.end(init?.body)})}
  const clientConfig={native:false,timeoutMs:2000,responseBytes:8192,fetch:transport}
  const owner=await unlockPortableCredential(new Uint8Array(await readFile(portableFile)),password.toString(),{origin:'https://team.test',team:'managed-team'},clientConfig)
  assert.equal(requests,0);assert.equal((await owner.read()).role,'Owner')
@@ -87,6 +87,17 @@ try{
  await assert.rejects(offlineClient!.read());offlineClient!.disconnect();lostClient!.disconnect()
  assert.deepEqual((await owner.read()).state.boards,(await editor.read()).state.boards)
  console.log(JSON.stringify({scenario:'local TLS concurrent canvas stress',principals:2,rounds:10,acknowledged,conflicts,converged:true,responseLossReconciled:true,disconnectRecovered:true,injectedDelayMs:120,timeoutMs:30,timeoutAborted:true,roundMs:durations.map(v=>Math.round(v)),scope:'loopback disposable CA; not WAN throughput/uptime certification'}))
+ const attachmentBytes=new TextEncoder().encode('Untrusted shared file contents\n<script>not executable</script>'),attachmentId=await editor.uploadAttachment(attachmentBytes)
+ await assert.rejects(owner.downloadAttachment(attachmentId),'Unreferenced uploads must not be downloadable')
+ await editor.submit({id:'attachment-post-op',actor:editor.identity().member,kind:'team.backchat.post.v1',payload:{id:'attachment-post',threadId:'general',text:'Reviewed attachment',attachments:[attachmentId],links:[]}})
+ assert.deepEqual(await owner.downloadAttachment(attachmentId),attachmentBytes)
+ await assert.rejects(editor.uploadAttachment(new Uint8Array(1048577)))
+ await assert.rejects(editor.uploadAttachment(new Uint8Array(9000)),'Host controlBytes=8192 must bound binary uploads')
+ let viewerInvite:any
+ await owner.persistCredential(async(destination,session)=>{const response=await transport(destination.origin+'/v1/teams/'+destination.team+'/invites',{method:'POST',headers:{Authorization:'Bearer '+session.credential,'Content-Type':'application/json'},body:JSON.stringify({role:'Viewer',durationMs:60000,sessionDurationMs:60000})});assert.equal(response.status,200);viewerInvite=await response.json()})
+ const viewer=await TeamJoin.prepare({origin:'https://team.test',team:'managed-team'},viewerInvite.invitation,clientConfig).confirm({reviewedOrigin:'https://team.test',reviewedTeam:'managed-team',acceptHostTrust:true,acceptSingleUse:true})
+ await assert.rejects(viewer.uploadAttachment(attachmentBytes),(error:any)=>error.status===403)
+ assert.deepEqual(await viewer.downloadAttachment(attachmentId),attachmentBytes);viewer.disconnect()
  owner.disconnect();editor.disconnect();await Promise.all([running.close(),running.close()]);running=undefined
  const reopened=await openManagedTeam(data,data,password);await reopened.close()
  await writeFile(configFile,JSON.stringify(config),{mode:0o600})

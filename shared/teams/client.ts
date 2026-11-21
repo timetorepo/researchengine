@@ -31,27 +31,28 @@ async function validateSession(value:unknown,destination:TeamEndpoint,now:number
  if(expected!==value.digest)throw new TeamClientError('session_scope_mismatch',0)
  return{credential:value.credential,digest:value.digest,expiresAt:value.expiresAt,receipt:{...value.receipt},member:value.member,role:value.role}
 }
-async function request(destination:TeamEndpoint,config:ClientOptions,path:string,value:unknown,credential:string|undefined,signal?:AbortSignal):Promise<unknown>{
+async function request(destination:TeamEndpoint,config:ClientOptions,path:string,value:unknown,credential:string|undefined,signal?:AbortSignal,binaryResponse=false):Promise<unknown>{
  const controller=new AbortController(),abort=()=>controller.abort(),timer=setTimeout(abort,config.timeoutMs)
  signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort()
  let reader:ReadableStreamDefaultReader<Uint8Array>|undefined
  try{
   if(controller.signal.aborted)throw new TeamClientError('stopped',0)
-  let serialized:string|undefined
-  try{serialized=value===undefined?undefined:JSON.stringify(value)}catch{fail('invalid_payload')}
+  let serialized:string|Uint8Array|undefined
+  try{serialized=value instanceof Uint8Array?value:value===undefined?undefined:JSON.stringify(value)}catch{fail('invalid_payload')}
   const url=destination.origin+`/v1/teams/${destination.team}`+path,headers:Record<string,string>={Accept:'application/json'}
   if(credential)headers.Authorization='Bearer '+credential
-  if(serialized!==undefined)headers['Content-Type']='application/json'
+  if(serialized!==undefined)headers['Content-Type']=value instanceof Uint8Array?'application/octet-stream':'application/json'
   if(config.native)headers['X-RE-Team-Client']='native-v1'
-  const response=await config.fetch!(url,{method:serialized===undefined?'GET':'POST',headers,body:serialized,signal:controller.signal,credentials:'omit',redirect:'error',cache:'no-store',referrerPolicy:'no-referrer',mode:'cors'})
+  const response=await config.fetch!(url,{method:serialized===undefined?'GET':'POST',headers,body:serialized as BodyInit,signal:controller.signal,credentials:'omit',redirect:'error',cache:'no-store',referrerPolicy:'no-referrer',mode:'cors'})
   if(response.redirected||response.type==='opaqueredirect'||(response.url&&response.url!==url))throw new TeamClientError('redirect_forbidden',0)
   const length=response.headers.get('content-length')
   if(length!==null&&(!/^\d+$/.test(length)||Number(length)>config.responseBytes))throw new TeamClientError('response_budget_exceeded',response.status)
-  if(!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type')??''))throw new TeamClientError('invalid_response',response.status)
+  if(!(binaryResponse&&response.ok?/^application\/octet-stream(?:\s*;|$)/i:/^application\/json(?:\s*;|$)/i).test(response.headers.get('content-type')??''))throw new TeamClientError('invalid_response',response.status)
   reader=response.body?.getReader();if(!reader)throw new TeamClientError('invalid_response',response.status)
   const chunks:Uint8Array[]=[];let total=0
   while(true){const chunk=await reader.read();if(chunk.done)break;total+=chunk.value.byteLength;if(total>config.responseBytes)throw new TeamClientError('response_budget_exceeded',response.status);chunks.push(chunk.value)}
   const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}
+  if(binaryResponse&&response.ok)return bytes
   let parsed:unknown;try{parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes))}catch{throw new TeamClientError('invalid_response',response.status)}
   if(!response.ok){const code=record(parsed)&&typeof parsed.error==='string'&&/^[a-z_]{1,60}$/.test(parsed.error)?parsed.error:'request_rejected';throw new TeamClientError(code,response.status,response.status>=500?'unknown':'rejected')}
   return parsed
@@ -67,10 +68,10 @@ export class TeamClient{
   return new TeamClient(destination,config,await validateSession(session,destination,config.now!()))
  }
  identity(){const session=this.session;if(!session)fail('client_disconnected');return{...this.destination,member:session.member,role:session.role,expiresAt:session.expiresAt}}
- private async call(path:string,value:unknown,signal?:AbortSignal){
+ private async call(path:string,value:unknown,signal?:AbortSignal,binaryResponse=false){
   const session=this.session;if(!session)fail('client_disconnected');if(session.expiresAt<=this.config.now!())fail('session_expired')
   const controller=new AbortController(),abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();this.active.add(controller)
-  try{return await request(this.destination,this.config,path,value,session.credential,controller.signal)}finally{this.active.delete(controller);signal?.removeEventListener('abort',abort)}
+  try{return await request(this.destination,this.config,path,value,session.credential,controller.signal,binaryResponse)}finally{this.active.delete(controller);signal?.removeEventListener('abort',abort)}
  }
  async read(signal?:AbortSignal){
   const value=await this.call('/state',undefined,signal)
@@ -84,6 +85,16 @@ export class TeamClient{
   const value=await this.call('/operations',{operation},signal)
   if(!record(value)||value.operationId!==operation.id)throw new TeamClientError('operation_identity_mismatch',0)
   receipt(value.receipt);return{operationId:operation.id,receipt:{...value.receipt}}
+ }
+ async uploadAttachment(bytes:Uint8Array,signal?:AbortSignal){
+  if(!bytes.length||bytes.length>1048576)fail('attachment_budget_exceeded')
+  const value=await this.call('/attachments',bytes.slice(),signal)
+  if(!record(value)||Object.keys(value).join(',')!=='attachmentId'||!digest(value.attachmentId))throw new TeamClientError('invalid_attachment_response',0)
+  return value.attachmentId as string
+ }
+ async downloadAttachment(attachmentId:string,signal?:AbortSignal){
+  if(!digest(attachmentId))fail('invalid_attachment_id')
+  return await this.call('/attachments/'+attachmentId,undefined,signal,true) as Uint8Array
  }
  queueTransport(){return async(operation:{id:string;actor:string;kind:string;payload:unknown},signal:AbortSignal)=>{
   try{const result=await this.submit(operation as ClientOperation,signal);return{type:'ack' as const,...result}}
