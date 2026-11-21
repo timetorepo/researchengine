@@ -1,3 +1,5 @@
+import {TeamAccess} from './TeamAccess'
+import {TeamLiveMonitor} from './TeamLiveMonitor'
 import { useEffect, useRef, useState } from 'react'
 import { Users, ShieldCheck, Unplug } from 'lucide-react'
 import { TeamClient, TeamJoin, TeamClientError, type TeamEndpoint } from '@/lib/teams/client'
@@ -11,6 +13,7 @@ import { TeamBackChat } from './TeamBackChat'
 const config = { native: false, timeoutMs: 15000, responseBytes: 2 * 1024 * 1024 }
 type Identity = ReturnType<TeamClient['identity']>
 export function TeamsView() {
+  const [observedSequence,setObservedSequence]=useState(-1)
   const [namespace] = useState(activeNamespace)
   const [origin, setOrigin] = useState(''), [team, setTeam] = useState(''), [invitation, setInvitation] = useState('')
   const [review, setReview] = useState<TeamEndpoint>(), [identity, setIdentity] = useState<Identity>()
@@ -69,7 +72,7 @@ export function TeamsView() {
     } finally { if (controller.current === abort) controller.current = undefined; if (alive.current && epoch === generation.current) setBusy(false) }
   }
   function disconnect() {
-    generation.current++; controller.current?.abort(); controller.current = undefined; client.current?.disconnect(); client.current = undefined; join.current = undefined
+    setObservedSequence(-1); generation.current++; controller.current?.abort(); controller.current = undefined; client.current?.disconnect(); client.current = undefined; join.current = undefined
     setBusy(false); setIdentity(undefined); setCounts(undefined); setReview(undefined); setConsent(false); setInvitation(''); setPassword(''); setConfirmPassword(''); setArtifact(undefined); setArtifactMeta(undefined); setError(''); setStatus('Disconnected locally. The host session was not revoked. No reconnect runs automatically.')
   }
   async function refresh() {
@@ -104,15 +107,17 @@ export function TeamsView() {
   return <section className="re-teams-page" aria-label="Teams connection">
     <header><Users size={20} aria-hidden /><h1>Teams</h1></header>
     <p>Connect only to a host you trust. TLS protects transit and the host encrypts its storage; an authorized host can read shared data. This is not host-blind end-to-end encryption.</p>
-    <div className="re-teams-notice"><ShieldCheck size={16} aria-hidden /><p>Private chats, memories, local Boards and provider keys are not imported or sent. BackChat shares only text you explicitly compose and consent to send here. Shared note Boards use explicit reviewed revisions; unsupported canvas items remain read-only.</p></div>
+    <div className="re-teams-notice"><ShieldCheck size={16} aria-hidden /><p>Private chats, memories, local Boards and provider keys are not imported or sent. BackChat shares only text you explicitly compose and consent to send here. Shared note Boards use explicit reviewed revisions; canvas changes require explicit reviewed publication.</p></div>
     <p role="status">{status}</p>{busy&&!identity&&!review&&<button className="bui-button" onClick={disconnect}>Cancel credential load</button>}{error && <p role="alert">{error}</p>}
     {identity ? <>
       <section className="re-teams-card"><h2>{identity.team}</h2><dl><dt>Host</dt><dd>{identity.origin}</dd><dt>Member / last known role</dt><dd>{identity.member} · {identity.role}</dd><dt>Session expiry</dt><dd>{new Date(identity.expiresAt).toISOString()}</dd></dl>
         {counts && <p>Last read: revision sequence {counts.sequence} · {counts.boards} shared Boards · {counts.posts} BackChat posts. Counts are a snapshot, not live sync.</p>}
         <div className="re-teams-actions"><button className="bui-button" disabled={busy} onClick={() => void refresh()}>Refresh shared state</button><button className="bui-button" onClick={disconnect}><Unplug size={14} aria-hidden />Disconnect</button></div>
       </section>
-      {client.current && <TeamBoards client={client.current} isScoped={scoped} />}
-      {client.current && <TeamBackChat client={client.current} isScoped={scoped} />}
+      {client.current && <TeamAccess client={client.current} isScoped={scoped}/>}
+      {client.current && <TeamLiveMonitor client={client.current} isScoped={scoped} onSequence={value=>setObservedSequence(previous=>Math.max(previous,value))}/>}
+      {client.current && <TeamBoards client={client.current} isScoped={scoped} observedSequence={observedSequence} />}
+      {client.current && <TeamBackChat client={client.current} isScoped={scoped} observedSequence={observedSequence} />}
       <section className="re-teams-card"><h2>Keep an encrypted credential file</h2><p>Credentials are memory-only until you explicitly export. Leaving this page, reloading or disconnecting drops them; a consumed invitation cannot restore them. Keep the file and a strong unique passphrase separately. Export does not extend expiry or prevent host revocation. No OS keychain or browser persistence is used.</p>
         <label>Export passphrase<input className="bui-field" aria-label="Export passphrase" type="password" autoComplete="new-password" disabled={busy} value={password} onChange={e => setPassword(e.target.value)} /></label><label>Confirm export passphrase<input className="bui-field" aria-label="Confirm export passphrase" type="password" autoComplete="new-password" disabled={busy} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} /></label>
         <p>Portable format: AES-256-GCM with PBKDF2-SHA256, 600,000 iterations; 12–1024 UTF-8 passphrase bytes. Length alone does not guarantee strength. This is distinct from the operator's scrypt artifacts.</p>

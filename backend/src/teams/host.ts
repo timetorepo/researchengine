@@ -19,6 +19,7 @@ function credentialDigest(team:string,credential:string,domain='session'){
 export class TeamHost {
  get teamId():string{return this.objects.teamId}
  private serial:Promise<unknown>=Promise.resolve()
+ private presenceLeases=new Map<string,{member:string;expiresAt:number}>()
  private closing=false
  private poisoned=false
  private closed?:Promise<void>
@@ -131,7 +132,16 @@ export class TeamHost {
   const receipt=await this.persist({id:randomUUID(),actor:selected.member,kind:'team.access.invite-redeem.v1',payload:{inviteDigest:digest,sessionDigest,issuedAt,expiresAt}},undefined,()=>{check();if(this.now()>=expiresAt)throw new Error('Onboarding session expired before commit')})
   return{credential,digest:sessionDigest,expiresAt,receipt,member:selected.member,role:selected.role}
  })}
- putAttachment(credential:string,bytes:Buffer){bytes=Buffer.from(bytes);return this.ordered(async()=>{const actor=this.actor(credential);requireEditor(this.state.access!,actor);return this.objects.putAttachment(bytes)})}
+ /** Ephemeral authenticated session leases; not journaled or a claim of active editing. */
+ presence(credential:string,announce:boolean){return this.ordered(async()=>{
+  if(typeof announce!=='boolean')throw new Error('Invalid presence request')
+  const actor=this.actor(credential),now=this.now(),key=credentialDigest(this.objects.teamId,credential)
+  for(const [digest,lease]of this.presenceLeases){const session=this.state.access!.sessions.find(s=>s.digest===digest),member=this.state.access!.members.find(m=>m.id===lease.member);if(lease.expiresAt<=now||lease.expiresAt>now+30000||!session||session.issuedAt>now||session.revoked||session.expiresAt<=now||!member?.active)this.presenceLeases.delete(digest)}
+  if(announce){const session=this.state.access!.sessions.find(s=>s.digest===key)!;this.presenceLeases.set(key,{member:actor,expiresAt:Math.min(session.expiresAt,now+30000)})}
+  const members=new Map<string,number>();for(const lease of this.presenceLeases.values())members.set(lease.member,Math.max(members.get(lease.member)??0,lease.expiresAt))
+  return{observedAt:now,members:[...members].sort(([a],[b])=>a.localeCompare(b)).map(([member,expiresAt])=>({member,expiresAt}))}
+ })}
+ putAttachment(credential:string,bytes:Buffer,maxStoreBytes?:number){bytes=Buffer.from(bytes);return this.ordered(async()=>{const actor=this.actor(credential);requireEditor(this.state.access!,actor);return this.objects.putAttachment(bytes,maxStoreBytes)})}
  getAttachment(credential:string,id:string){return this.ordered(async()=>{this.actor(credential);if(!this.state.requiredAttachments.includes(id))throw new Error('Attachment not referenced by team history');return this.objects.getAttachment(id)})}
  close():Promise<void>{if(this.closed)return this.closed;this.closing=true;this.closed=(async()=>{await this.serial;await this.journal.close()})();return this.closed}
 }

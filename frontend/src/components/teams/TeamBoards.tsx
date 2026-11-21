@@ -8,12 +8,14 @@ import {sharedBoards,type TeamBoard} from '../../../../shared/teams/board'
 
 /** Shared draft canvas with explicit whole-document compare-and-swap publication.
  * Local Board storage is never opened. Attachment transport is separate work. */
-export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boolean}){
+export function TeamBoards({client,isScoped,observedSequence=-1}:{client:TeamClient;isScoped:()=>boolean;observedSequence?:number}){
  const [boards,setBoards]=useState<TeamBoard[]>([]),[draft,setDraft]=useState<TeamBoard>(),[loaded,setLoaded]=useState(false),[role,setRole]=useState('Viewer'),[busy,setBusy]=useState(false),[consent,setConsent]=useState(false),[pending,setPending]=useState<ClientOperation>(),[notice,setNotice]=useState('Load shared Boards explicitly. Local Boards are never read or imported.'),[conflict,setConflict]=useState(false)
  const mergeBase=useRef<TeamBoard|undefined>(undefined)
  const active=useRef<AbortController|undefined>(undefined),alive=useRef(true),scope=useRef(isScoped),sequence=useRef(-1);scope.current=isScoped
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;active.current?.abort()}},[])
+ const observed=useRef(observedSequence);observed.current=observedSequence
  const current=()=>alive.current&&scope.current()
+ useEffect(()=>{if(observedSequence>sequence.current&&sequence.current>=0){setLoaded(false);setConsent(false);setNotice('Newer shared state observed. Drafts and pending operation identities are unchanged. Explicitly load / refresh shared Boards and review before sending.')}},[observedSequence])
  const editable=!!draft
  const bytes=draft?new TextEncoder().encode(JSON.stringify(draft)).length:0
  const latest=draft?boards.find(b=>b.id===draft.id):undefined
@@ -28,7 +30,7 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
    const result=await client.read(abort.signal),next=sharedBoards(result.state.boards,result.state.sequence)
    if(result.state.sequence<sequence.current)throw new Error('Regressing snapshot')
    if(!current())return
-   sequence.current=result.state.sequence;setBoards(next);setRole(result.role);setLoaded(true)
+   sequence.current=result.state.sequence;setBoards(next);setRole(result.role);setLoaded(result.state.sequence>=observed.current)
    if(pending){
     const p=pending.payload as {boardId:string;expectedRevision:number;title:string;items:TeamBoard['items']},found=next.find(b=>b.id===p.boardId)
     if(found&&found.revision===p.expectedRevision+1&&found.title===p.title&&JSON.stringify(found.items)===JSON.stringify(p.items)){await durable.settle(pending);if(!current())return;setPending(undefined);setDraft(found);setConflict(false);setNotice('Exact pending Board revision found in the host snapshot. Nothing was resent.')}
@@ -40,7 +42,7 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
  }
  function edit(value:TeamBoard){setDraft(value);setConsent(false)}
  async function send(){
-  if(active.current||!current()||!draft||!editable||!loaded||role==='Viewer'||!consent||pending||conflict||bytes>64000)return
+  if(observed.current>sequence.current||active.current||!current()||!draft||!editable||!loaded||role==='Viewer'||!consent||pending||conflict||bytes>64000)return
   const operation:ClientOperation={id:crypto.randomUUID(),actor:client.identity().member,kind:'team.board.replace.v1',payload:{boardId:draft.id,expectedRevision:draft.revision,title:draft.title,items:structuredClone(draft.items)}}
   const abort=new AbortController();active.current=abort;setBusy(true);setConsent(false);setPending(operation)
   let dispatched=false
@@ -54,7 +56,7 @@ export function TeamBoards({client,isScoped}:{client:TeamClient;isScoped:()=>boo
  }
  function saveDraft(){if(!draft)return;const url=URL.createObjectURL(new Blob([JSON.stringify({format:'re-team-board-draft',team:client.identity().team,origin:client.identity().origin,operationId:pending?.id,board:draft},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='shared-board-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  return <section className="re-teams-card" aria-label="Shared Team Boards"><h2>Shared Team Boards</h2>
-  <p>Explicit snapshots, not live cursors or automatic sync. Shared canvas edits use reviewed whole-Board revisions, not live per-item merging. Private local Boards stay separate. Drafts and unresolved sends are memory-only: export before leaving.</p>
+  <p>Explicit reviewed snapshots; optional live awareness detects new state without overwriting drafts. Shared canvas edits use reviewed whole-Board revisions, not live per-item merging. Private local Boards stay separate. Drafts and unresolved sends are memory-only unless explicitly encrypted through the recovery controls below; preserve recovery before leaving.</p>
   <p role="status">{notice}</p><button className="bui-button" disabled={busy} onClick={()=>void load()}>Load / refresh shared Boards</button>
   <ul>{boards.map(board=><li key={board.id}><button className="bui-button" disabled={busy||!!pending||!!draft} onClick={()=>{mergeBase.current=structuredClone(board);edit(structuredClone(board));setConflict(false)}}>{board.title||'Untitled Board'} · revision {board.revision}</button></li>)}</ul>
   <button className="bui-button" disabled={busy||!!pending||!!draft||!loaded||role==='Viewer'} onClick={()=>edit({id:crypto.randomUUID(),revision:0,title:'New shared Board',items:[]})}>New shared note Board</button>

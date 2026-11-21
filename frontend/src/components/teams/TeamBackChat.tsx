@@ -7,15 +7,17 @@ import {sharedPosts,type SharedPost,type SharedLink} from '../../../../shared/te
 
 import {sharedBoards,type TeamBoard} from '../../../../shared/teams/board'
 
-type Props={client:TeamClient;isScoped:()=>boolean}
-export function TeamBackChat({client,isScoped}:Props){
+type Props={client:TeamClient;isScoped:()=>boolean;observedSequence?:number}
+export function TeamBackChat({client,isScoped,observedSequence=-1}:Props){
  const [posts,setPosts]=useState<SharedPost[]>([]),[loaded,setLoaded]=useState(false),[role,setRole]=useState('Viewer'),[draft,setDraft]=useState(''),[thread,setThread]=useState('general'),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState('Load shared posts explicitly. Nothing is sent automatically.'),[pending,setPending]=useState<ClientOperation>(),[reviewed,setReviewed]=useState(false)
  const [boards,setBoards]=useState<TeamBoard[]>([]),[links,setLinks]=useState<SharedLink[]>([]),[selectedBoard,setSelectedBoard]=useState(''),[selectedItem,setSelectedItem]=useState('')
  const [attachments,setAttachments]=useState<string[]>([])
  const staleLinks=links.some(link=>!boards.some(b=>b.id===link.boardId&&b.revision===link.revision&&(!link.itemId||b.items.some(i=>i.id===link.itemId))))
  const alive=useRef(true),active=useRef<AbortController|undefined>(undefined),lastSequence=useRef(-1),scope=useRef(isScoped);scope.current=isScoped
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;active.current?.abort()}},[])
+ const observed=useRef(observedSequence);observed.current=observedSequence
  const current=()=>alive.current&&scope.current()
+ useEffect(()=>{if(observedSequence>lastSequence.current&&lastSequence.current>=0){setLoaded(false);setConsent(false);setNotice('Newer shared state observed. Drafts and pending operation identities are unchanged. Explicitly load / refresh shared posts and review before sending.')}},[observedSequence])
  const durable=useDurableTeamSend({client,kind:'team.backchat.post.v1',disabled:busy,isScoped,canRestore:!draft&&!pending&&!links.length&&!attachments.length,pendingId:pending?.id,onBusy:setBusy,onRestore:operation=>{
   const p=operation.payload as {text:string;threadId:string;links:SharedLink[];attachments:string[]}
   setDraft(p.text);setThread(p.threadId);setLinks(p.links);setAttachments(p.attachments);setPending(operation);setLoaded(false);setConsent(false);setReviewed(false);setNotice('Saved post restored as a frozen draft. Explicitly refresh/reconcile or retry its original identity.')
@@ -27,7 +29,7 @@ export function TeamBackChat({client,isScoped}:Props){
    const result=await client.read(abort.signal),next=sharedPosts(result.state.posts,result.state.sequence),nextBoards=sharedBoards(result.state.boards,result.state.sequence)
    if(result.state.sequence<lastSequence.current)throw new Error('Shared state moved backwards')
    if(!current())return
-   lastSequence.current=result.state.sequence;setPosts(next);setBoards(nextBoards);setSelectedBoard('');setSelectedItem('');setRole(result.role);setLoaded(true);setReviewed(true)
+   lastSequence.current=result.state.sequence;setPosts(next);setBoards(nextBoards);setSelectedBoard('');setSelectedItem('');setRole(result.role);setLoaded(result.state.sequence>=observed.current);setReviewed(true)
    if(pending){
     const payload=pending.payload as {id:string;threadId:string;text:string;links:SharedLink[];attachments:string[]},found=next.find(p=>p.id===payload.id)
     if(found&&found.actor===pending.actor&&found.text===payload.text&&found.threadId===payload.threadId&&JSON.stringify(found.attachments)===JSON.stringify(payload.attachments)&&JSON.stringify(found.links)===JSON.stringify(payload.links)){await durable.settle(pending);if(!current())return;setPending(undefined);setDraft('');setLinks([]);setAttachments([]);setNotice('The host snapshot contains the exact pending post. It was not resent.')}
@@ -37,7 +39,7 @@ export function TeamBackChat({client,isScoped}:Props){
   finally{active.current=undefined;if(current())setBusy(false)}
  }
  async function send(){
-  if(active.current||!current()||!loaded||role==='Viewer'||pending||!consent||!draft.trim()||staleLinks||new TextEncoder().encode(draft).length>16000||!/^[A-Za-z0-9_-]{1,128}$/.test(thread))return
+  if(observed.current>lastSequence.current||active.current||!current()||!loaded||role==='Viewer'||pending||!consent||!draft.trim()||staleLinks||new TextEncoder().encode(draft).length>16000||!/^[A-Za-z0-9_-]{1,128}$/.test(thread))return
   const operation:ClientOperation={id:crypto.randomUUID(),actor:client.identity().member,kind:'team.backchat.post.v1',payload:{id:crypto.randomUUID(),threadId:thread,text:draft,attachments:structuredClone(attachments),links:structuredClone(links)}}
   const abort=new AbortController();active.current=abort;setBusy(true);setConsent(false);setPending(operation);setReviewed(false)
   let dispatched=false
@@ -53,7 +55,7 @@ export function TeamBackChat({client,isScoped}:Props){
   }}finally{active.current=undefined;if(current())setBusy(false)}
  }
  return <section className="re-teams-card" aria-label="Teams BackChat"><h2>Teams BackChat</h2>
-  <p>Shared with this Team and its authorized host—not a private chat or an AI session. Plain text with explicitly selected shared Board revision references; attachment downloads are untrusted files, never automatically opened. Posts and unsent drafts are memory-only here and disappear when you leave.</p>
+  <p>Shared with this Team and its authorized host—not a private chat or an AI session. Plain text with explicitly selected shared Board revision references; attachment downloads are untrusted files, never automatically opened. Loaded posts and unsent drafts are memory-only unless you explicitly use encrypted recovery below.</p>
   <p role="status">{notice}</p>
   <button className="bui-button" disabled={busy} onClick={()=>void load()}>Load / refresh shared posts</button>
   {pending&&<p role="alert">Unresolved post: {(pending.payload as {id:string}).id}. Keep this identity when contacting the host. {reviewed?'A refreshed snapshot has not resolved it.':''}</p>}

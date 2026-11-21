@@ -25,7 +25,7 @@ try{
  await exportPortableOwner(data,ownerFile,'https://team.test',portableFile,password)
  await issueOfflineInvite(data,ownerFile,'https://team.test','Editor',60000,100000,inviteFile,password)
  const invite=JSON.parse(await readFile(inviteFile,'utf8'));assert.equal((await stat(inviteFile)).mode&0o077,0)
- const config={keyRoot:data,dataRoot:data,certFile:certPath,keyFile:keyPath,confirmNetworkExposure:true as const,bind:'127.0.0.1',port:0,publicOrigin:'https://team.test',allowedOrigins:['https://app.test'],allowNativeClients:false,limits:{controlBytes:8192,activeRequests:20,requestsPerMinute:1000,trackedClients:20,requestTimeoutMs:1000}}
+ const config={keyRoot:data,dataRoot:data,certFile:certPath,keyFile:keyPath,confirmNetworkExposure:true as const,bind:'127.0.0.1',port:0,publicOrigin:'https://team.test',allowedOrigins:['https://app.test'],allowNativeClients:false,limits:{attachmentStoreBytes:4096,controlBytes:8192,activeRequests:20,requestsPerMinute:1000,trackedClients:20,requestTimeoutMs:1000}}
  assert.throws(()=>parseManagedTeamConfig(Buffer.from(JSON.stringify({...config,extra:true}))))
  await assert.rejects(startManagedTeam(config,password,false))
  running=await startManagedTeam(config,password,true)
@@ -35,6 +35,7 @@ try{
  const clientConfig={native:false,timeoutMs:2000,responseBytes:8192,fetch:transport}
  const owner=await unlockPortableCredential(new Uint8Array(await readFile(portableFile)),password.toString(),{origin:'https://team.test',team:'managed-team'},clientConfig)
  assert.equal(requests,0);assert.equal((await owner.read()).role,'Owner')
+ assert.deepEqual((await owner.presence(false)).members,[]);assert.equal((await owner.presence(true)).members[0].member,owner.identity().member)
  const joiner=TeamJoin.prepare({origin:'https://team.test',team:'managed-team'},invite.invitation,clientConfig)
  const editor=await joiner.confirm({reviewedOrigin:'https://team.test',reviewedTeam:'managed-team',acceptHostTrust:true,acceptSingleUse:true})
  const state=await editor.read();assert.equal(state.role,'Editor');assert.equal(state.state.boards.length,0)
@@ -92,12 +93,25 @@ try{
  await editor.submit({id:'attachment-post-op',actor:editor.identity().member,kind:'team.backchat.post.v1',payload:{id:'attachment-post',threadId:'general',text:'Reviewed attachment',attachments:[attachmentId],links:[]}})
  assert.deepEqual(await owner.downloadAttachment(attachmentId),attachmentBytes)
  await assert.rejects(editor.uploadAttachment(new Uint8Array(1048577)))
+ await assert.rejects(editor.uploadAttachment(new Uint8Array(5000)),(error:any)=>error.status===507)
  await assert.rejects(editor.uploadAttachment(new Uint8Array(9000)),'Host controlBytes=8192 must bound binary uploads')
- let viewerInvite:any
- await owner.persistCredential(async(destination,session)=>{const response=await transport(destination.origin+'/v1/teams/'+destination.team+'/invites',{method:'POST',headers:{Authorization:'Bearer '+session.credential,'Content-Type':'application/json'},body:JSON.stringify({role:'Viewer',durationMs:60000,sessionDurationMs:60000})});assert.equal(response.status,200);viewerInvite=await response.json()})
+ const viewerInvite=await owner.createInvite('Viewer',60000,60000)
+ assert.equal((await owner.readAccess()).invites?.some(i=>i.digest===viewerInvite.digest),true)
+ await assert.rejects(editor.readAccess(),(error:any)=>error.status===403)
  const viewer=await TeamJoin.prepare({origin:'https://team.test',team:'managed-team'},viewerInvite.invitation,clientConfig).confirm({reviewedOrigin:'https://team.test',reviewedTeam:'managed-team',acceptHostTrust:true,acceptSingleUse:true})
  await assert.rejects(viewer.uploadAttachment(attachmentBytes),(error:any)=>error.status===403)
- assert.deepEqual(await viewer.downloadAttachment(attachmentId),attachmentBytes);viewer.disconnect()
+ assert.deepEqual(await viewer.downloadAttachment(attachmentId),attachmentBytes)
+ await owner.changeMember(viewer.identity().member,'Viewer',false)
+ await assert.rejects(viewer.read(),(error:any)=>error.status===401)
+ await owner.changeMember(viewer.identity().member,'Viewer',true)
+ await assert.rejects(viewer.read(),(error:any)=>error.status===401,'Reactivation must not resurrect revoked sessions')
+ const access=await owner.readAccess(),viewerSession=access.sessions.find(s=>s.member===viewer.identity().member)!
+ await owner.revokeAccess('session',viewerSession.digest)
+ await assert.rejects(viewer.read(),(error:any)=>error.status===401);viewer.disconnect()
+ const unused=await owner.createInvite('Viewer',60000,60000)
+ await owner.revokeAccess('invitation',unused.digest)
+ await assert.rejects(TeamJoin.prepare({origin:'https://team.test',team:'managed-team'},unused.invitation,clientConfig).confirm({reviewedOrigin:'https://team.test',reviewedTeam:'managed-team',acceptHostTrust:true,acceptSingleUse:true}),(error:any)=>error.status===401)
+
  const pngBytes=new Uint8Array(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jO1sAAAAASUVORK5CYII=','base64')),pngId=await editor.uploadAttachment(pngBytes)
  await editor.submit({id:'canvas-asset-create',actor:editor.identity().member,kind:'team.board.replace.v1',payload:{boardId:'canvas-asset-board',expectedRevision:0,title:'Shared original',items:[{id:'shared-image',kind:'image',text:'Reviewed image',x:40,y:40,width:300,height:240,attachmentId:pngId}]}})
  assert.deepEqual(await owner.downloadAttachment(pngId),pngBytes)

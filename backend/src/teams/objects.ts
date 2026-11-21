@@ -75,7 +75,18 @@ export class TeamObjects {
     await syncDirectory(this.directory)
     return id
   }
-  putAttachment(bytes: Buffer): Promise<string> { return this.put('attachment', Buffer.from(bytes)) }
+  async putAttachment(bytes: Buffer, maxStoreBytes?:number): Promise<string> {
+    if(maxStoreBytes!==undefined){
+      if(!Number.isSafeInteger(maxStoreBytes)||maxStoreBytes<1)throw new Error('Invalid attachment store budget')
+      const archive=await this.exportArchive(),id=this.id('attachment',bytes)
+      // Existing bytes are integrity-validated by exportArchive; dedup consumes no new space.
+      if(!archive.objects.some(object=>object.kind==='attachment'&&object.id===id)){
+        const used=archive.objects.reduce((sum,object)=>sum+Buffer.from(object.ciphertext,'base64').length,0)
+        if(used+bytes.length+28>maxStoreBytes)throw new Error('Attachment store quota exceeded')
+      }
+    }
+    return this.put('attachment', Buffer.from(bytes))
+  }
   getAttachment(id: string): Promise<Buffer> { return this.get('attachment', id) }
   async putSnapshot(snapshot: TeamSnapshot, journal: Pick<TeamJournal, 'checkpoint'>): Promise<string> {
     validateSnapshot(snapshot)

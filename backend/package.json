@@ -22,7 +22,9 @@
     "teams-draft-test": "tsx scripts/teams-draft-test.ts",
     "firecrawl-local-test": "tsx scripts/firecrawl-local-test.ts",
     "teams-merge-test": "tsx scripts/teams-merge-test.ts",
-    "teams-outbox-test": "tsx scripts/teams-outbox-test.ts"
+    "teams-outbox-test": "tsx scripts/teams-outbox-test.ts",
+    "teams-storage-test": "tsx scripts/teams-storage-test.ts",
+    "teams-watch-test": "tsx scripts/teams-watch-test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

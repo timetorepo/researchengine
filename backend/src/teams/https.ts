@@ -8,7 +8,7 @@ import { validateTeamOperation } from './replay'
 export type TeamHttpsOptions = {
  confirmNetworkExposure:true; bind:string; port:number; publicOrigin:string; allowedOrigins:string[]
  cert:Buffer; key:Buffer; allowNativeClients:boolean
- limits:{controlBytes:number;activeRequests:number;requestsPerMinute:number;trackedClients:number;requestTimeoutMs:number}
+ limits:{attachmentStoreBytes?:number;controlBytes:number;activeRequests:number;requestsPerMinute:number;trackedClients:number;requestTimeoutMs:number}
 }
 class Rejection extends Error { constructor(public status:number,public code:string){super(code)} }
 function reject(status:number,code:string):never{throw new Rejection(status,code)}
@@ -28,6 +28,7 @@ function domain(error:unknown):Rejection{
  if(/Credential expired|Invalid credential|Member is inactive/.test(message))return new Rejection(401,'unauthorized')
  if(/Host requires recovery|Host closed/.test(message))return new Rejection(503,'host_unavailable')
  if(/Insufficient|Only Owner|Viewer cannot|Owner transfer|actor does not match/.test(message))return new Rejection(403,'forbidden')
+ if(/Attachment store quota exceeded/.test(message))return new Rejection(507,'attachment_store_quota_exceeded')
  if(/revision conflict|BackChat link must target|different content|already exists|already used|fresh reserved|missing attachment|not referenced/.test(message))return new Rejection(409,'conflict')
  if(/Invalid |Unsupported |Empty BackChat|Connector |Board link|Cyclic |Parent must|Image\/PDF|Drawing points|Endpoints on/.test(message))return new Rejection(400,'invalid_request')
  return new Rejection(500,'host_failure') // Never reflect arbitrary crypto/parser/path/secret error strings.
@@ -53,7 +54,8 @@ export function createTeamHttpsServer(host:TeamHost,options:TeamHttpsOptions):Se
  const advertised=origin(options.publicOrigin)
  if(!Array.isArray(options.allowedOrigins)||!options.allowedOrigins.length)throw new Error('Explicit HTTPS UI origin allowlist required')
  const origins=new Set(options.allowedOrigins.map(value=>origin(value).origin)),limits={...options.limits}
- if(['controlBytes','activeRequests','requestsPerMinute','trackedClients','requestTimeoutMs'].some(key=>!Number.isSafeInteger(limits[key as keyof typeof limits])||limits[key as keyof typeof limits]<1)||limits.requestTimeoutMs>2147483647)throw new Error('Explicit positive whole-number transport budgets required')
+ if(['controlBytes','activeRequests','requestsPerMinute','trackedClients','requestTimeoutMs'].some(key=>!Number.isSafeInteger(limits[key as keyof typeof limits])||Number(limits[key as keyof typeof limits])<1)||limits.requestTimeoutMs>2147483647)throw new Error('Explicit positive whole-number transport budgets required')
+ if(limits.attachmentStoreBytes!==undefined&&(!Number.isSafeInteger(limits.attachmentStoreBytes)||limits.attachmentStoreBytes<1))throw new Error('Invalid attachment store budget')
  const certificate=new X509Certificate(options.cert),now=Date.now(),certificateHost=advertised.hostname.replace(/^\[|\]$/g,'')
  if((isIP(certificateHost)?!certificate.checkIP(certificateHost):!certificate.checkHost(certificateHost))||Date.parse(certificate.validFrom)>now||Date.parse(certificate.validTo)<=now)throw new Error('Certificate must be currently valid for the advertised HTTPS host')
  const native=options.allowNativeClients,scope=`/v1/teams/${host.teamId}`,clients=new Map<string,{start:number;count:number}>();let active=0
@@ -104,6 +106,7 @@ export function createTeamHttpsServer(host:TeamHost,options:TeamHttpsOptions):Se
    // Authenticate before parsing privileged payloads; core rechecks inside its serialized queue.
    const principal=await host.read(credential)
    if(req.method==='GET'&&route==='/state'){json(res,200,principal);return}
+   if(req.method==='GET'&&route==='/presence'){json(res,200,await host.presence(credential,false));return}
    if(req.method==='GET'&&route==='/access'){json(res,200,await host.access(credential));return}
    if(req.method==='GET'&&/^\/attachments\/[a-f0-9]{64}$/.test(route)){
     const bytes=await host.getAttachment(credential,route.split('/')[2]);if(bytes.length>Math.min(limits.controlBytes,1048576))reject(413,'attachment_budget_exceeded')
@@ -113,10 +116,11 @@ export function createTeamHttpsServer(host:TeamHost,options:TeamHttpsOptions):Se
     if(principal.role==='Viewer')reject(403,'forbidden')
     const bytes=await body(req,Math.min(limits.controlBytes,1048576),limits.requestTimeoutMs,true) as Buffer
     if(!bytes.length)reject(400,'empty_attachment')
-    json(res,200,{attachmentId:await host.putAttachment(credential,bytes)});return
+    json(res,200,{attachmentId:await host.putAttachment(credential,bytes,limits.attachmentStoreBytes)});return
    }
    if(req.method!=='POST')reject(404,'not_found')
    const value=await body(req,limits.controlBytes,limits.requestTimeoutMs)
+   if(route==='/presence'){fields(value,['announce']);if(value.announce!==true)reject(400,'invalid_request');json(res,200,await host.presence(credential,true));return}
    if(route==='/operations'){
     fields(value,['operation']);try{validateTeamOperation(value.operation)}catch{reject(400,'invalid_operation')}
     if(!['team.board.replace.v1','team.backchat.post.v1'].includes(value.operation.kind))reject(403,'privileged_operation_forbidden')

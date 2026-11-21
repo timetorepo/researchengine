@@ -159,3 +159,7 @@ Verification: shared-browser tests upload a PNG/PDF, refuse SVG before any uploa
 ## Optional browser write-ahead recovery
 
 See `teams-durable-outbox.md` for the optional encrypted single-head Board/BackChat lanes now integrated before dispatch, explicit reload/reconnect recovery and reviewed original-ID retry. This supersedes memory-only pending-operation limits when enabled; it is not automatic background delivery, native keychain or resumable attachment upload. Retry rejections retain uncertain originals rather than deleting their identity.
+
+## Live awareness, presence, access and storage continuation
+
+The snapshot-only/presence/access-UI/orphan-management limitations above are partially superseded by [Teams live/access/storage operations](teams-live-access-storage.md): optional serialized read monitoring with preserved drafts and invalidated send consent, separately consented ephemeral presence leases, Owner/Admin access/invitation controls, optional encrypted-byte attachment admission quota and exact-reviewed offline orphan pruning. Whole-Board publication is still explicit CAS; large-file resume, native host/recovery wizard, OS custody and deployment/device validation remain open. Consult the linked document before pruning: pending unpublished drafts can still depend on currently unreferenced objects.

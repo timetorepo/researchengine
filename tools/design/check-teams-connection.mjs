@@ -13,7 +13,7 @@ try{
  let mode='ok',posts=[],sequence=1,operationMode='ok',stateRole='Editor'
  const boards=[{id:'shared-evidence',revision:1,title:'Shared evidence Board',items:[{id:'note-one',kind:'note',text:'Shared note',x:0,y:0,width:200,height:120}]}]
  const operations=[]
- await p.route('https://team.test/**',async r=>{requests.push(r.request().url());if(r.request().url().endsWith('/attachments')){await r.fulfill({json:{attachmentId:'b'.repeat(64)}});return}if(r.request().url().includes('/attachments/')){await r.fulfill({contentType:'application/octet-stream',body:'test untrusted file bytes'});return}if(mode==='fail'){await r.abort();return}if(r.request().url().endsWith('/operations')){const op=r.request().postDataJSON().operation;operations.push(op);if(operationMode==='reject'){await r.fulfill({status:403,json:{error:'forbidden'}});return}posts.push({...op.payload,actor:op.actor,sequence:++sequence});if(operationMode==='uncertain'){await r.abort();return}await r.fulfill({json:{operationId:op.id,receipt:{sequence,digest:'a'.repeat(64)}}});return}await r.fulfill({json:r.request().url().endsWith('/redeem')?{credential:token,digest,expiresAt:Date.now()+600000,receipt:{sequence:1,digest:'a'.repeat(64)},member:'test-member',role:'Editor'}:{state:{schemaVersion:1,sequence,boards,posts,requiredAttachments:[]},member:'test-member',role:stateRole}})})
+ await p.route('https://team.test/**',async r=>{requests.push(r.request().url());if(r.request().url().endsWith('/attachments')){await r.fulfill({json:{attachmentId:'b'.repeat(64)}});return}if(r.request().url().includes('/attachments/')){await r.fulfill({contentType:'application/octet-stream',body:'test untrusted file bytes'});return}if(mode==='fail'){await r.abort();return}if(r.request().url().endsWith('/presence')){await r.fulfill({json:{observedAt:Date.now(),members:[{member:'test-member',expiresAt:Date.now()+30000}]}});return}if(r.request().url().endsWith('/operations')){const op=r.request().postDataJSON().operation;operations.push(op);if(operationMode==='reject'){await r.fulfill({status:403,json:{error:'forbidden'}});return}posts.push({...op.payload,actor:op.actor,sequence:++sequence});if(operationMode==='uncertain'){await r.abort();return}await r.fulfill({json:{operationId:op.id,receipt:{sequence,digest:'a'.repeat(64)}}});return}await r.fulfill({json:r.request().url().endsWith('/redeem')?{credential:token,digest,expiresAt:Date.now()+600000,receipt:{sequence:1,digest:'a'.repeat(64)},member:'test-member',role:'Editor'}:{state:{schemaVersion:1,sequence,boards,posts,requiredAttachments:[]},member:'test-member',role:stateRole}})})
  await p.goto('http://127.0.0.1:5173/#/teams')
  const page=p.getByRole('region',{name:'Teams connection'})
  await page.getByRole('heading',{name:'Teams',exact:true}).waitFor()
@@ -23,6 +23,26 @@ try{
  assert.equal(await redeem.isDisabled(),true)
  await p.getByRole('checkbox',{name:/I verified the exact host/}).check();await redeem.click()
  await p.getByText(/Last read: revision sequence 1/).waitFor();assert.equal(requests.length,2)
+ // Opt-in observer must never send a write or overwrite an unsent composer.
+ const monitor=p.getByRole('region',{name:'Live Team update awareness'}),watch=monitor.getByRole('checkbox',{name:'Watch shared state while this page is visible',exact:true})
+ assert.equal(await watch.isChecked(),false)
+ await p.getByRole('button',{name:'Load / refresh shared posts',exact:true}).click()
+ await p.getByRole('textbox',{name:'Shared BackChat post text'}).fill('Unsent monitoring draft')
+ await p.getByRole('checkbox',{name:/I reviewed this exact text/}).check()
+ const beforeObserve=operations.length
+ sequence=2
+ await watch.check();await monitor.getByText(/Observed host sequence 2/).waitFor()
+ await p.getByRole('region',{name:'Teams BackChat'}).getByText(/Newer shared state observed/).waitFor()
+ assert.equal(await p.getByRole('textbox',{name:'Shared BackChat post text'}).inputValue(),'Unsent monitoring draft')
+ assert.equal(await p.getByRole('checkbox',{name:/I reviewed this exact text/}).isChecked(),false)
+ assert.equal(await p.getByRole('button',{name:'Send shared post',exact:true}).isDisabled(),true)
+ assert.equal(operations.length,beforeObserve)
+ const presence=monitor.getByRole('checkbox',{name:'Also share my temporary member presence with this Team',exact:true});assert.equal(requests.filter(url=>url.endsWith('/presence')).length,0);await presence.check();await monitor.getByText(/Last observed members announcing presence: test-member/).waitFor();assert.equal(requests.filter(url=>url.endsWith('/presence')).length,1)
+ await watch.uncheck();assert.equal(await presence.isChecked(),false)
+ await p.getByRole('textbox',{name:'Shared BackChat post text'}).fill('')
+ // A failed watch is stopped, not retried/reconnected automatically.
+ mode='fail';await watch.check();await monitor.getByText(/Stopped after a failed/).waitFor();assert.equal(await watch.isChecked(),false)
+ mode='ok'
  const backchat=p.getByRole('region',{name:'Teams BackChat'}),send=backchat.getByRole('button',{name:'Send shared post',exact:true}),load=backchat.getByRole('button',{name:'Load / refresh shared posts',exact:true})
  assert.equal(await send.isDisabled(),true);await load.click();await backchat.getByText('No shared posts in this snapshot.').waitFor()
  const text=backchat.getByRole('textbox',{name:'Shared BackChat post text'}),share=backchat.getByRole('checkbox',{name:/I reviewed this exact text/})
@@ -57,5 +77,5 @@ try{
  await review();await p.getByRole('checkbox',{name:/I verified the exact host/}).check();mode='fail';const before=requests.length;await redeem.click();await p.getByRole('alert').waitFor();assert.equal(requests.length,before+1,'No automatic retry after uncertain redeem')
  await p.reload();await page.getByRole('heading',{name:'Teams',exact:true}).waitFor();assert.equal(await p.getByRole('textbox',{name:'Team invitation'}).inputValue(),'')
  assert.deepEqual(errors,[])
- console.log('PASS Teams browser: explicit binary attachment upload/post/download and encrypted pending-reference recovery; reviewed Board/item links, consent reset and stale reference refusal without silent upgrade; encrypted BackChat pending export/import/wrong-pass/no-network/restored reconciliation without resend; BackChat consent reset/ACK/rejected draft/uncertain commit reconciliation without resend/Viewer gating and connected 1440/390/320 containment; routed page, explicit review/trust gating, mock redeem/read, encrypted download/import/wrong-pass/no-network, unlock/read/refresh/disconnect, 1440/390/320 page containment, uncertain redemption no auto-retry, reload clears memory; screenshots .cache/teams. Browser emulation, no live host/provider.')
+ console.log('PASS Teams browser: opt-in serialized live awareness, separately consented ephemeral presence, preserved composer and consent invalidation, failed-watch stop/no retry; explicit binary attachment upload/post/download and encrypted pending-reference recovery; reviewed Board/item links, consent reset and stale reference refusal without silent upgrade; encrypted BackChat pending export/import/wrong-pass/no-network/restored reconciliation without resend; BackChat consent reset/ACK/rejected draft/uncertain commit reconciliation without resend/Viewer gating and connected 1440/390/320 containment; routed page, explicit review/trust gating, mock redeem/read, encrypted download/import/wrong-pass/no-network, unlock/read/refresh/disconnect, 1440/390/320 page containment, uncertain redemption no auto-retry, reload clears memory; screenshots .cache/teams. Browser emulation, no live host/provider.')
 }finally{await browser.close()}

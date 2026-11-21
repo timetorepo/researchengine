@@ -145,3 +145,32 @@ export async function exportPortableOwner(root:string,ownerFile:string,origin:st
     return{team:opened.team,origin,portableEncryptedCredentialPublished:true}
   }finally{await opened.close()}
 }
+
+/** Offline storage review/prune. Holds the journal writer lock; preserve every historical reference.
+ * Pruning is opt-in and bound to a digest of this exact checkpoint and full ciphertext inventory.
+ * No READY/INCOMPLETE restored stores: their authenticated manifests must remain intact.
+ */
+export async function maintainOfflineStorage(root:string,password:Buffer,reviewedPlan?:string){
+ const unlocked=await load(root,password);let journal:TeamJournal|undefined
+ try{
+  await privatePath(join(root,'journal'),true);await privatePath(join(root,'journal','operations.log'),false);await privatePath(join(root,'objects'),true)
+  for(const name of ['READY','INCOMPLETE'])if(await lstat(join(root,name)).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error}))throw new Error('Restored storage manifest forbids pruning')
+  journal=await TeamJournal.open(join(root,'journal'),unlocked.keys.journal,{create:false,recoverTail:false})
+  const objects=await TeamObjects.open(join(root,'objects'),unlocked.keys.objects,unlocked.team,{create:false}),archive=await objects.exportArchive()
+  const snapshots=TeamObjects.inspectArchive(archive,unlocked.keys.objects,unlocked.team)
+  const {validateTeamHistory}=await import('./replay'),{createHash}=await import('node:crypto')
+  const state=validateTeamHistory(journal.replay(),snapshots,new Set(archive.objects.filter(o=>o.kind==='attachment').map(o=>o.id)))
+  const retained=new Set(state.requiredAttachments);for(const snapshot of snapshots)for(const id of snapshot.attachments)retained.add(id)
+  const orphans=archive.objects.filter(o=>o.kind==='attachment'&&!retained.has(o.id)),checkpoint=journal.checkpoint()
+  // Validate all object paths as private regular files before permitting any removal.
+  for(const object of archive.objects)await privatePath(join(root,'objects',`${object.kind}-${object.id}`),false)
+  const plan=createHash('sha256').update(JSON.stringify({team:unlocked.team,checkpoint,archive})).digest('hex')
+  const report={team:unlocked.team,checkpoint,plan,objectBytes:archive.objects.reduce((n,o)=>n+Buffer.from(o.ciphertext,'base64').length,0),objects:archive.objects.length,orphanBytes:orphans.reduce((n,o)=>n+Buffer.from(o.ciphertext,'base64').length,0),orphanIds:orphans.map(o=>o.id),pruned:0}
+  if(reviewedPlan!==undefined){
+   if(!/^[a-f0-9]{64}$/.test(reviewedPlan)||reviewedPlan!==plan)throw new Error('Storage review plan changed; audit again')
+   for(const orphan of orphans){await unlink(join(root,'objects',`attachment-${orphan.id}`));report.pruned++}
+   await syncDirectory(join(root,'objects'))
+  }
+  return report
+ }finally{try{await journal?.close()}finally{clearHostKeys(unlocked)}}
+}

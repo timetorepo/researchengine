@@ -22,6 +22,17 @@ try{
  await host.setMember(owner.credential,'admin','Admin',true);await host.setMember(owner.credential,'editor','Editor',true);await host.setMember(owner.credential,'viewer','Viewer',true)
  const admin=await host.issueSession(owner.credential,'admin',100000),editor=await host.issueSession(owner.credential,'editor',100000),viewer=await host.issueSession(owner.credential,'viewer',100000)
  assert.equal((await host.read(viewer.credential)).role,'Viewer');checks++
+ const beforePresence=(await host.read(owner.credential)).state.sequence
+ assert.deepEqual((await host.presence(owner.credential,false)).members,[])
+ assert.deepEqual((await host.presence(viewer.credential,true)).members,[{member:'viewer',expiresAt:now+30000}])
+ assert.equal((await host.read(owner.credential)).state.sequence,beforePresence,'Presence must not enter history')
+ now+=30000;assert.deepEqual((await host.presence(owner.credential,false)).members,[]);now-=30000
+ await host.presence(viewer.credential,true);await host.revokeSession(owner.credential,viewer.digest)
+ assert.deepEqual((await host.presence(owner.credential,false)).members,[])
+ const renewedViewer=await host.issueSession(owner.credential,'viewer',100000)
+ // Continue existing role checks with a valid replacement after presence revocation test.
+ viewer.credential=renewedViewer.credential;viewer.digest=renewedViewer.digest
+ checks++
  const sequence=(await host.read(owner.credential)).state.sequence
  await assert.rejects(host.submit(viewer.credential,board('viewer-write','viewer')),/Viewer/)
  await assert.rejects(host.putAttachment(viewer.credential,Buffer.from('forbidden')),/Viewer/)
@@ -74,6 +85,7 @@ try{
  await queue.drain(async operation=>{requests++;return{type:'ack',operationId:operation.id,receipt:await host!.submit(currentEditor.credential,operation as any)}})
  assert.equal(requests,2);assert.equal((await host.read(owner.credential)).state.sequence,hostBefore+1)
  assert.equal(queue.view()[0].status,'acknowledged');await queue.close();checks++
+ await host.presence(owner.credential,true)
  await host.close();host=undefined
  const journal=await TeamJournal.open(directory,keys.journal),history=journal.replay()
  assert.ok(!JSON.stringify(history).includes(owner.credential));assert.ok(!JSON.stringify(history).includes(currentEditor.credential))
@@ -85,6 +97,7 @@ try{
  assert.equal(replayTeam(history,available).access!.owner,'owner')
  const backupCheckpoint=journal.checkpoint(),bundle=await exportRecovery(journal,objects,keys,'team-one','team-state-v1');await journal.close()
  host=(await TeamHost.open(directory,keys.journal,objects,{clock:()=>now})).host
+ assert.deepEqual((await host.presence(owner.credential,false)).members,[],'Presence must not survive host restart')
  assert.equal((await host.read(owner.credential)).role,'Owner');await assert.rejects(host.read(editor.credential),/revoked/)
  await host.close();host=undefined
  await assert.rejects(TeamHost.open(directory,keys.journal,objects,{bootstrap:{owner:'attacker',durationMs:10000}}),/bootstrap/)

@@ -1,7 +1,7 @@
 /** Explicit trusted-local operator entrypoint. Secrets only from non-TTY stdin. */
-import { initializeOfflineHost, bootstrapOfflineOwner, issueOfflineInvite, exportPortableOwner } from '../src/teams/operator'
+import { maintainOfflineStorage, initializeOfflineHost, bootstrapOfflineOwner, issueOfflineInvite, exportPortableOwner } from '../src/teams/operator'
 import { parseManagedTeamConfig, readPrivateFile, startManagedTeam } from '../src/teams/managed-server'
-const usage='Usage: teams <init ROOT TEAM | bootstrap ROOT OWNER DURATION_MS NEW_OWNER_FILE | invite ROOT OWNER_FILE HTTPS_ORIGIN ROLE INVITE_MS SESSION_MS NEW_PRIVATE_INVITE_FILE | export-owner ROOT OWNER_FILE HTTPS_ORIGIN NEW_PORTABLE_FILE | serve PRIVATE_CONFIG_JSON --confirm-network-exposure>. Passphrase via non-TTY stdin only; never arguments or environment.'
+const usage='Usage: teams <storage-audit ROOT | storage-prune ROOT REVIEWED_PLAN_SHA256 | init ROOT TEAM | bootstrap ROOT OWNER DURATION_MS NEW_OWNER_FILE | invite ROOT OWNER_FILE HTTPS_ORIGIN ROLE INVITE_MS SESSION_MS NEW_PRIVATE_INVITE_FILE | export-owner ROOT OWNER_FILE HTTPS_ORIGIN NEW_PORTABLE_FILE | serve PRIVATE_CONFIG_JSON --confirm-network-exposure>. Passphrase via non-TTY stdin only; never arguments or environment.'
 async function password(){
  if(process.stdin.isTTY)throw new Error('Non-TTY stdin required')
  const chunks:Buffer[]=[];let length=0,all:Buffer|undefined
@@ -13,10 +13,12 @@ async function password(){
 }
 let secret:Buffer|undefined
 try{
- const [command,...args]=process.argv.slice(2),counts:Record<string,number>={init:2,bootstrap:4,invite:7,'export-owner':4,serve:2}
+ const [command,...args]=process.argv.slice(2),counts:Record<string,number>={'storage-audit':1,'storage-prune':2,init:2,bootstrap:4,invite:7,'export-owner':4,serve:2}
  if(!Object.hasOwn(counts,command)||args.length!==counts[command]||(command==='serve'&&args[1]!=='--confirm-network-exposure'))throw new Error(usage)
  secret=await password();let result:unknown
- if(command==='init'){await initializeOfflineHost(args[0],args[1],secret);result={initialized:true,team:args[1]}}
+ if(command==='storage-audit')result=await maintainOfflineStorage(args[0],secret)
+ else if(command==='storage-prune')result=await maintainOfflineStorage(args[0],secret,args[1])
+ else if(command==='init'){await initializeOfflineHost(args[0],args[1],secret);result={initialized:true,team:args[1]}}
  else if(command==='bootstrap')result=await bootstrapOfflineOwner(args[0],args[1],Number(args[2]),args[3],secret)
  else if(command==='invite'){if(!['Admin','Editor','Viewer'].includes(args[3]))throw new Error('Invalid role');result=await issueOfflineInvite(args[0],args[1],args[2],args[3] as 'Editor',Number(args[4]),Number(args[5]),args[6],secret)}
  else if(command==='export-owner')result=await exportPortableOwner(args[0],args[1],args[2],args[3],secret)

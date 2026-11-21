@@ -1,6 +1,7 @@
 /** Portable control-plane client. Memory-only credentials, no automatic connections/retries/storage. */
 export type TeamEndpoint={origin:string;team:string}
 export type ClientOptions={timeoutMs:number;responseBytes:number;native:boolean;fetch?:typeof fetch;now?:()=>number}
+export type TeamAccessView={owner:string;members:{id:string;role:ClientSession['role'];active:boolean}[];sessions:{digest:string;member:string;issuedAt:number;expiresAt:number;revoked:boolean}[];invites?:{digest:string;member:string;role:'Admin'|'Editor'|'Viewer';issuer:string;issuedAt:number;expiresAt:number;sessionDurationMs:number;revoked:boolean;redeemedAt?:number}[]}
 export type ClientReceipt={sequence:number;digest:string}
 export type ClientOperation={id:string;actor:string;kind:'team.board.replace.v1'|'team.backchat.post.v1';payload:unknown}
 export type ClientSession={credential:string;digest:string;expiresAt:number;receipt:ClientReceipt;member:string;role:'Admin'|'Editor'|'Viewer'|'Owner'}
@@ -85,6 +86,38 @@ export class TeamClient{
   const value=await this.call('/operations',{operation},signal)
   if(!record(value)||value.operationId!==operation.id)throw new TeamClientError('operation_identity_mismatch',0)
   receipt(value.receipt);return{operationId:operation.id,receipt:{...value.receipt}}
+ }
+ async presence(announce:boolean,signal?:AbortSignal){
+  if(typeof announce!=='boolean')fail('invalid_presence_request')
+  const value=await this.call('/presence',announce?{announce:true}:undefined,signal)
+  if(!record(value)||!Number.isSafeInteger(value.observedAt)||value.observedAt<0||!Array.isArray(value.members)||value.members.some((m:any)=>!record(m)||!id(m.member)||!Number.isSafeInteger(m.expiresAt)||m.expiresAt<=value.observedAt||m.expiresAt>value.observedAt+30000))throw new TeamClientError('invalid_presence_response',0)
+  return{observedAt:Number(value.observedAt),members:value.members.map((m:any)=>({member:String(m.member),expiresAt:Number(m.expiresAt)}))}
+ }
+ async readAccess(signal?:AbortSignal):Promise<TeamAccessView>{
+  const value=await this.call('/access',undefined,signal)
+  const time=(n:unknown)=>Number.isSafeInteger(n)&&Number(n)>=0&&Number(n)<=8640000000000000
+  if(!record(value)||!id(value.owner)||!Array.isArray(value.members)||!Array.isArray(value.sessions)||(value.invites!==undefined&&!Array.isArray(value.invites))||value.members.some((m:any)=>!record(m)||!id(m.id)||!['Owner','Admin','Editor','Viewer'].includes(m.role)||typeof m.active!=='boolean')||value.sessions.some((s:any)=>!record(s)||!digest(s.digest)||!id(s.member)||!time(s.issuedAt)||!time(s.expiresAt)||s.expiresAt<=s.issuedAt||typeof s.revoked!=='boolean')||(value.invites??[]).some((i:any)=>!record(i)||!digest(i.digest)||!id(i.member)||!id(i.issuer)||!['Admin','Editor','Viewer'].includes(i.role)||!time(i.issuedAt)||!time(i.expiresAt)||i.expiresAt<=i.issuedAt||!Number.isSafeInteger(i.sessionDurationMs)||i.sessionDurationMs<1||i.sessionDurationMs>86400000||typeof i.revoked!=='boolean'||(i.redeemedAt!==undefined&&!time(i.redeemedAt))))throw new TeamClientError('invalid_access_response',0)
+  // Whitelist fields: no bearer values/raw provider payloads reach the UI.
+  return {owner:value.owner,members:value.members.map((m:any)=>({id:m.id,role:m.role,active:m.active})),sessions:value.sessions.map((s:any)=>({digest:s.digest,member:s.member,issuedAt:s.issuedAt,expiresAt:s.expiresAt,revoked:s.revoked})),invites:(value.invites??[]).map((i:any)=>({digest:i.digest,member:i.member,role:i.role,issuer:i.issuer,issuedAt:i.issuedAt,expiresAt:i.expiresAt,sessionDurationMs:i.sessionDurationMs,revoked:i.revoked,...(i.redeemedAt===undefined?{}:{redeemedAt:i.redeemedAt})}))}
+ }
+ async createInvite(role:'Admin'|'Editor'|'Viewer',durationMs:number,sessionDurationMs:number,signal?:AbortSignal){
+  if(!['Admin','Editor','Viewer'].includes(role)||[durationMs,sessionDurationMs].some(n=>!Number.isSafeInteger(n)||n<1||n>86400000))fail('invalid_invitation_scope')
+  const value=await this.call('/invites',{role,durationMs,sessionDurationMs},signal)
+  if(!record(value)||typeof value.invitation!=='string'||!/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(value.invitation)||!digest(value.digest)||!id(value.member)||value.role!==role||!Number.isSafeInteger(value.expiresAt)||(value.expiresAt<=this.config.now!()||value.expiresAt>8640000000000000))throw new TeamClientError('invalid_invitation_response',0)
+  receipt(value.receipt)
+  const bytes=await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(this.destination.team+'\0invite\0'+value.invitation)),expected=Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('')
+  if(expected!==value.digest)throw new TeamClientError('invitation_scope_mismatch',0)
+  return {invitation:value.invitation,digest:value.digest,member:value.member,role,expiresAt:value.expiresAt}
+ }
+ async revokeAccess(kind:'invitation'|'session',target:string,signal?:AbortSignal){
+  if(!['invitation','session'].includes(kind)||!digest(target))fail('invalid_access_target')
+  const value=await this.call(kind==='invitation'?'/invites/revoke':'/sessions/revoke',{digest:target},signal)
+  if(!record(value))throw new TeamClientError('invalid_access_receipt',0);receipt(value.receipt);return {receipt:{...value.receipt}}
+ }
+ async changeMember(member:string,role:'Admin'|'Editor'|'Viewer',active:boolean,signal?:AbortSignal){
+  if(!id(member)||!['Admin','Editor','Viewer'].includes(role)||typeof active!=='boolean')fail('invalid_member')
+  const value=await this.call('/members',{member,role,active},signal)
+  if(!record(value))throw new TeamClientError('invalid_access_receipt',0);receipt(value.receipt);return {receipt:{...value.receipt}}
  }
  async uploadAttachment(bytes:Uint8Array,signal?:AbortSignal){
   if(!bytes.length||bytes.length>1048576)fail('attachment_budget_exceeded')
