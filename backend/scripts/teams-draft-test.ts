@@ -13,3 +13,14 @@ for(const board of [{...draft.board,revision:-1},{...draft.board,items:[{...draf
 await assert.rejects(sealBoardDraft(scope,draft,'short'))
 assert.deepEqual(await unlockBoardDraft(await sealBoardDraft(scope,{board:draft.board,member:'editor'},password),password,scope,'editor'),{board:draft.board,member:'editor'})
 console.log('PASS encrypted Board draft: randomized/scope-authenticated envelope, exact roundtrip including unresolved identity and revision zero, wrong pass/member/scope/KDF/version/tamper/size/schema refusals; no storage/network APIs')
+
+const {sealBackChatDraft,unlockBackChatDraft}=await import('../../shared/teams/backchat-draft')
+const chat={member:'editor',threadId:'general',text:'Unsent chat evidence',pending:{operationId:'op-one',postId:'post-one'}}
+const chatFile=await sealBackChatDraft(scope,chat,password)
+assert.deepEqual(await unlockBackChatDraft(chatFile,password,scope,'editor'),chat)
+assert.notDeepEqual(await sealBackChatDraft(scope,chat,password),chatFile)
+for(const [bytes,pass,destination,member] of [[chatFile,'wrong passphrase value',scope,'editor'],[chatFile,password,scope,'other'],[chatFile,password,{...scope,team:'other'},'editor'],[file,password,scope,'editor']] as const)await assert.rejects(unlockBackChatDraft(bytes,pass,destination,member))
+for(const value of [{...chat,text:'x'.repeat(16001)},{...chat,pending:{operationId:'invalid id',postId:'post'}},{...chat,pending:{operationId:'op',postId:'post'},text:' '},{...chat,extra:true}])await assert.rejects(sealBackChatDraft(scope,value,password))
+const chatEnvelope=JSON.parse(new TextDecoder().decode(chatFile))
+for(const patch of [{version:2},{kdf:'PBKDF2-SHA256-1'},{sealed:chatEnvelope.sealed.slice(0,-4)+'AAAA'},{extra:true}])await assert.rejects(unlockBackChatDraft(encode({...chatEnvelope,...patch}),password,scope,'editor'))
+console.log('PASS BackChat draft: text/thread/pending identities roundtrip, random encryption, wrong-member/scope/pass/format refusal, malformed identities/empty pending/size/tamper/schema/KDF/version refusal')

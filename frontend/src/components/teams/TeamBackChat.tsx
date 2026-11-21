@@ -1,3 +1,4 @@
+import {BackChatDraftRecovery} from './BackChatDraftRecovery'
 import {useEffect,useRef,useState} from 'react'
 import {TeamClient,TeamClientError,type ClientOperation} from '@/lib/teams/client'
 import {sharedPosts,type SharedPost} from '../../../../shared/teams/backchat'
@@ -42,6 +43,11 @@ export function TeamBackChat({client,isScoped}:Props){
   <p role="status">{notice}</p>
   <button className="bui-button" disabled={busy} onClick={()=>void load()}>Load / refresh shared posts</button>
   {pending&&<p role="alert">Unresolved post: {(pending.payload as {id:string}).id}. Keep this identity when contacting the host. {reviewed?'A refreshed snapshot has not resolved it.':''}</p>}
+  <BackChatDraftRecovery destination={client.identity()} member={client.identity().member} draft={draft||pending?{text:draft,threadId:thread,member:client.identity().member,...(pending?{pending:{operationId:pending.id,postId:(pending.payload as {id:string}).id}}:{})}:undefined} blocked={busy} isScoped={isScoped} onBusy={setBusy} onRestore={value=>{
+   setDraft(value.text);setThread(value.threadId);setConsent(false);setLoaded(false);setReviewed(false)
+   setPending(value.pending?{id:value.pending.operationId,actor:value.member,kind:'team.backchat.post.v1',payload:{id:value.pending.postId,threadId:value.threadId,text:value.text,attachments:[],links:[]}}:undefined)
+   setNotice('BackChat draft restored locally. Nothing was posted. Explicitly load shared posts before reviewing a send or reconciling its original identity.')
+  }}/>
   <ol className="re-team-posts" aria-label="Shared BackChat posts">{posts.map(post=><li key={post.id}><article><h3>{post.actor} · {post.threadId} · sequence {post.sequence}</h3><p className="re-team-post-text">{post.text}</p>{post.attachments.length>0&&<p>{post.attachments.length} attachment references (download unavailable)</p>}{post.links.map((link,i)=><p key={i}>Board {link.boardId} · revision {link.revision}{link.itemId?` · item ${link.itemId}`:''} (snapshot reference)</p>)}</article></li>)}</ol>
   {loaded&&posts.length===0&&<p>No shared posts in this snapshot.</p>}
   <fieldset disabled={busy||!!pending}><legend>Compose shared post</legend>
