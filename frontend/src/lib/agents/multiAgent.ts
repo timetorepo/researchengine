@@ -1,7 +1,8 @@
+import type { BoardSummaryAudit } from '@/lib/board/summary'
 /** Fixed, bounded public-deliverable DAG. No tool execution, recursive delegation or retries. */
 import type { TokenUsage } from '@/lib/providers/stream'
 export type AgentModel={providerId:string;model:string;endpoint:string}
-export type AgentEvidence={sources:{id:string;label:string;content:string}[];specialistSourceIds:string[][]}
+export type AgentEvidence={summaryAudit?:BoardSummaryAudit;sources:{id:string;label:string;content:string}[];specialistSourceIds:string[][]}
 export type MultiAgentConfig={leader:AgentModel;specialist:AgentModel;reviewer:AgentModel;specialistJobs:string[];evidence?:AgentEvidence;maxCalls:number;concurrency:number;tokenBudget:number;inputBudget:number;outputBudget:number}
 export type AgentStage={id:string;role:'leader'|'specialist'|'reviewer';label:string;status:'queued'|'running'|'completed'|'failed'|'blocked'|'cancelled';model:AgentModel;system:string;input:string;text:string;startedAt?:number;endedAt?:number;usage?:TokenUsage;error?:string}
 export type MultiAgentRun={version:1;config:MultiAgentConfig;prompt:string;stages:AgentStage[];status:'ready'|'running'|'completed'|'failed'|'cancelled';error?:string}

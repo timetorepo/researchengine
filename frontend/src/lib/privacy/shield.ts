@@ -84,3 +84,29 @@ export function recordScan(where: string, findings: ScanFinding[], blocked = fal
 export const getScanLog = () => scanLog
 
 export function clearScanLog() { scanLog = [] }
+
+/** Reviewed structured requests must be blocked, not silently redacted. Scan
+ * decoded JSON string values too: serialized newlines/Unicode can otherwise
+ * conceal a token boundary from the plain-text scanner. This remains heuristic
+ * secret detection, not DLP certification. Excessive nesting fails closed. */
+export function reviewedOutboundWouldChange(text: string): boolean {
+  if (getPrivacyMode() === 'none') return false
+  const pending: { value: unknown; depth: number }[] = [{ value: text, depth: 0 }]
+  while (pending.length) {
+    const { value, depth } = pending.pop()!
+    if (depth > 64) return true
+    if (typeof value === 'string') {
+      if (shieldOutbound(value).text !== value) return true
+      try {
+        const decoded: unknown = JSON.parse(value)
+        if (typeof decoded === 'string' || (decoded !== null && typeof decoded === 'object')) pending.push({ value: decoded, depth: depth + 1 })
+      } catch { /* Plain source text, already scanned above. */ }
+    } else if (value && typeof value === 'object') {
+      for (const [key, child] of Object.entries(value)) {
+        if (shieldOutbound(key).text !== key) return true
+        pending.push({ value: child, depth: depth + 1 })
+      }
+    }
+  }
+  return false
+}

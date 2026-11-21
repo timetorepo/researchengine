@@ -10,7 +10,7 @@ Updated 2026-11-12. Working-branch implementation, **not a release or deployment
 | Shared controls / BoardUI | All 14 requested component types have app consumers; original adapters on existing dependencies | Cold first-settings-open performance remains below the requested target in recorded measurements; exhaustive page/control polish and physical hardware evidence not complete |
 | Glass / layouts / branding | Opt-in Glisse, material controls, layout/theme separation, saved sizing/pins, original identity and licensed fonts; Home and action Waves | Installer/native validation and exhaustive all-page accessibility/performance audit outstanding |
 | Local Board | Notes/Markdown, references, image/PDF originals and linked-page previews, move/resize, frames/shapes/connectors/strokes, revision/recovery/undo, full backup/import, deletion/cleanup | Large-board performance, physical touch/pen, screen readers and crash/eviction certification remain unverified. Local browser storage is not encrypted Teams storage |
-| Board → session / agents | Explicit models, reviewed immutable context, separate creation/execution consent; compact selected-only context and per-specialist evidence routing added in the current pass | Optional AI-assisted summary mode still outstanding; no live-provider/tokenizer/billing validation. Existing single-session follow-ups still include their full retained history; nothing silently discarded |
+| Board → session / agents | Explicit models, reviewed immutable context, separate creation/execution consent; compact selected-only context, per-specialist evidence routing and consented/reviewed AI brief mode | Summary implementation delivered; no live-provider/tokenizer/billing validation. Existing single-session follow-ups still include their full retained history; nothing silently discarded |
 | Bounded MultiAgent | Explicit leader/specialist/reviewer models, limits, cancellation, public deliverables, disagreements, Council preservation; explicit Board source assignments now supported | No live provider/native certification. Controlled patches/tools/writes are deliberately unavailable, not implicitly enabled by approval to finish integration |
 | Teams core | Encrypted journal/objects, recovery tooling, roles, credentials/invitations, persisted client outbox and conflicts, HTTPS server transport, client/onboarding boundary | End-user host/join and certificate-trust UX, packaged credential file/OS custody, lifecycle ownership, attachment streaming and application integration remain unfinished |
 | Collaborative Board / Teams BackChat | Durable typed operations/replay and transport primitives underpinning future integration | No finished collaborative Board or Teams-only BackChat UI/sync. Reconnect/conflict/attachment end-to-end application and recovery verification required |
@@ -30,7 +30,7 @@ Teams' last recorded infrastructure checkpoint is **113 grouped checks** at `826
 - Reviewed evidence can open **Configure agents with this evidence** in a proper modal, not a full agent form crammed into the Board inspector. Explicit role models and a second execution consent remain required.
 - Users assign sources separately per specialist. Initially specialist 1 has the selected evidence; specialist 2 has none until explicitly assigned. Planning gets the task only. Reviewer/final stages receive public work products, not another automatic copy of the original Board. A stage without originals is instructed not to claim direct verification.
 - Per-specialist task/evidence estimates are shown, explicitly excluding system instructions and the future leader plan. Actual stage reservations still use the complete serialized request. Over-budget input blocks; no clipping/fallback.
-- No provider-generated summary has been implemented or invoked. That approved mode remains a follow-up, with explicit cost/consent and fidelity review required.
+- The follow-up [consented summary-mode checkpoint](board-summary-mode.md) is now implemented: optional additional provider call, source-level validation/editable fidelity review, restored originals, explicit acceptance and local audit. Only intercepted-provider tests were run; no live summary or paid test was invoked.
 
 ### Spacing and containment
 
@@ -56,12 +56,20 @@ Teams' last recorded infrastructure checkpoint is **113 grouped checks** at `826
 
 No supplied Gemini key, paid/live provider calls, external account integration, new runtime dependency, release or deployment.
 
+## Summary-mode follow-up checkpoint
+
+See [board-summary-mode.md](board-summary-mode.md) for the full behaviour/limits.
+
+- Implemented separate generation cost consent, pinned request review/budgets, one brief per source, editable fidelity review, exact derived context and acceptance consent, restored originals, and local generation/original-evidence audit.
+- Accepted briefs can seed sessions or per-specialist agent assignments. Only derived context/provenance is serialized to downstream requests; the local audit is retained separately. Generation usage is shown/counts separately; not a guarantee of lower total cost.
+- Added decoded-JSON privacy checking to reviewed Board/agent payloads after a serialized-newline test exposed a plain-string boundary gap. Explicit Privacy None still applies; this is heuristic scanning, not DLP certification.
+- New pure summary contract tests and mocked browser summary tests passed, including actual intercepted generation/analysis payload separation, validation/errors/cancellation/consent/focus/reload/original restore and 320px rendering. Existing Board-session, Board-agent, MultiAgent and page-spacing regressions passed. Frontend TypeScript and root production build passed (frontend 45.60s in this sandbox; backend bundle passed); existing dynamic-import/chunk-size warnings remain. `git diff --check` passed. No live provider call or physical-device certification.
+
 ## Active remaining work — no new approval requested
 
-1. Finish optional consented summary-mode implementation and fidelity/cost review; broader Board/agent validation.
-2. Finish Teams host/join, secure credential custody and explicit connection lifecycle before claiming end-user availability.
-3. Integrate collaborative Board, attachment transfer and Teams-only BackChat with reconnect/conflict/recovery verification.
-4. Complete remaining MultiAgent integration/validation and measured cold-start/performance follow-through; flag chargeable live tests before running them.
-5. Rebuild website/isolated labelled demo from implemented features, then final cross-product regression, release notes and authorized release preparation.
+1. Finish Teams host/join, secure credential custody and explicit connection lifecycle before claiming end-user availability.
+2. Integrate collaborative Board, attachment transfer and Teams-only BackChat with reconnect/conflict/recovery verification.
+3. Complete remaining MultiAgent integration/validation and measured cold-start/performance follow-through; flag chargeable live tests before running them. Live summary quality/token/billing validation remains unperformed, not a reason to silently call a real provider.
+4. Rebuild website/isolated labelled demo from implemented features, then final cross-product regression, release notes and authorized release preparation.
 
-The spacing pass is a bounded correction, not completion of every screen/state or of the unfinished collaboration/website milestones. These remain active work rather than dropped scope.
+The spacing and summary passes are bounded implementations, not completion of every screen/state or of the unfinished collaboration/website milestones. These remain active work rather than dropped scope.

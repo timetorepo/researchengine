@@ -7,7 +7,7 @@ import { assertSessionBudget } from '@/lib/board/session'
 import { providerById } from '@/lib/providers/registry'
 import { usableKey } from '@/lib/providers/keys'
 import { streamToCallback, usageOfError } from '@/lib/providers/stream'
-import { shieldOutbound } from '@/lib/privacy/shield'
+import { reviewedOutboundWouldChange } from '@/lib/privacy/shield'
 import { assertBudget, recordTokens } from '@/lib/usage/guard'
 import { BoardMarkdown } from './BoardMarkdown'
 import './board.css'
@@ -35,7 +35,7 @@ export function BoardSessionView({chatId}:{chatId:string}) {
       const settings=useStore.getState().settings,meta=providerById(snapshot.providerId),configuration=settings.providers[snapshot.providerId]
       if(!meta||meta.kind==='decision'||!(settings.addedProviders??[]).includes(snapshot.providerId)||!settings.providerModels[snapshot.providerId]?.includes(snapshot.model))throw new Error('The explicitly selected model is no longer configured. No substitute was used. Create a new snapshot after configuring it.')
       if((configuration?.baseUrl||meta.baseUrl).replace(/\/$/,'')!==snapshot.endpoint)throw new Error('The configured provider endpoint changed after review. Create a new snapshot; no request was sent.')
-      for(const text of [snapshot.system,...requestMessages.map(message=>message.content)])if(shieldOutbound(text).text!==text)throw new Error('Privacy Shield would redact this request. Sending is blocked rather than silently changing the reviewed context. Remove sensitive content and prepare a new snapshot.')
+      for(const text of [snapshot.system,...requestMessages.map(message=>message.content),...(snapshot.agentSources??[]).map(item=>item.content)])if(reviewedOutboundWouldChange(text))throw new Error('Privacy Shield would redact this request. Sending is blocked rather than silently changing the reviewed context. Remove sensitive content and prepare a new snapshot.')
       assertBudget();const apiKey=await usableKey(configuration?.apiKey)
       if(meta.needsKey&&!apiKey)throw new Error('The selected provider has no usable key. No fallback was used.')
       if(abort.signal.aborted||!scoped())throw new Error('Request cancelled before sending.')
@@ -49,6 +49,7 @@ export function BoardSessionView({chatId}:{chatId:string}) {
     }finally{if(controller.current===abort)controller.current=undefined;setBusy(false)}
   }
   return <section className="re-board-session-view" aria-label="Board snapshot session"><header><h1>{chat.title}</h1><p>Pinned model: {providerById(snapshot.providerId)?.name??snapshot.providerId} · {snapshot.model}</p><p>Endpoint: {snapshot.endpoint}</p><p>Independent {snapshot.draft?'draft':'saved'} Board snapshot · revision {snapshot.revision}. Later Board edits/deletion do not update or erase this copied text.</p><p>Snapshot created {snapshot.createdAt}. Stored with this browser profile’s chats; browser data clearing can remove it. Board backups do not include these separate sessions.</p><Link to={`/board/${snapshot.boardId}`}>Open source Board</Link></header>
+    {snapshot.summary&&<div className="re-board-summary-warning"><p>Context uses lossy AI briefs reviewed by the user, not original evidence. Summary generation {snapshot.summary.usage.reported?'reported':'estimated'} usage: {snapshot.summary.usage.total.toLocaleString()} tokens (additional to session usage).</p><details><summary>Local summary provenance and original evidence audit</summary><pre>{JSON.stringify(snapshot.summary,null,2)}</pre></details></div>}
     <p>No automatic routing, demo, web search, tools, memory injection, image vision or history compression. Failed/stopped assistant responses are retained locally but excluded from future requests. Provider fees and data policies apply.</p>
     <div className="re-board-session-transcript">{chat.messages.map(message=><article key={message.id} aria-label={`${message.role} message`}><strong>{message.role==='user'?'You':'Assistant'}</strong>{message.role==='user'?<details><summary>Request text</summary><pre>{message.content}</pre></details>:<BoardMarkdown text={message.content}/>} {message.error&&<p role="alert">{message.error}</p>}{message.usage&&<p>{message.usage.reported?'Provider-reported':'Estimated'} usage: {message.usage.total.toLocaleString()} tokens.</p>}</article>)}</div>
     {!first&&<label>Follow-up<textarea className="bui-field" aria-label="Snapshot session follow-up" disabled={busy} rows={3} value={followup} onChange={event=>{setFollowup(event.target.value);setError('')}}/></label>}

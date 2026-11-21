@@ -199,3 +199,17 @@
 .re-board-editor > .re-action-receipt { flex:none; margin:8px 16px; }
 .re-board-position { flex-wrap:wrap; }
 .re-board-position label { flex-basis:88px; }
+/* Summary generation is explicit and separate from the live Board/editor. */
+.re-board-summary { flex:1; min-height:0; min-width:0; overflow:auto; padding:20px 24px; font-size:13px; overflow-wrap:anywhere; }
+.re-board-summary h2 { font-size:20px; font-weight:600; }
+.re-board-summary p { color:var(--text-2); line-height:1.6; margin:10px 0; }
+.re-board-summary label { display:block; margin:12px 0; min-width:0; }
+.re-board-summary :is(input[type=number],textarea) { display:block; width:100%; min-width:0; margin-top:6px; }
+.re-board-summary input[type=checkbox] { margin-right:8px; }
+.re-board-summary pre { white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.6 monospace; max-height:300px; overflow:auto; padding:10px; margin:8px 0; background:var(--surface); border:1px solid var(--surface-border); border-radius:6px; }
+.re-board-summary summary { cursor:pointer; }
+.re-board-summary-budgets { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:12px; }
+.re-board-summary-source { min-width:0; border:1px solid var(--surface-border); border-radius:8px; padding:12px; margin:12px 0; }
+.re-board-summary [role=alert] { border-left:2px solid var(--primary); padding-left:10px; color:var(--text); }
+.re-board-summary-warning { border-left:2px solid var(--primary); padding-left:12px; }
+@media(max-width:600px) { .re-board-summary { padding:16px; } }
